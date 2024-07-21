@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "633115721273",
+    "project_id": "alluwalacademy-e32c1",
+    "storage_bucket": "alluwalacademy-e32c1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633115721273:android:5d1d3ccc3df8f4776e17e8",
+        "android_client_info": {
+          "package_name": "com.alluwal_academy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTpl2IwUOVJsNJOt_H9af4Xt5-GhqYy5Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633115721273:android:3ac3ebbd929224636e17e8",
+        "android_client_info": {
+          "package_name": "com.alluwalacademy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTpl2IwUOVJsNJOt_H9af4Xt5-GhqYy5Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
