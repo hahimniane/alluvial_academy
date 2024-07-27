@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'const.dart';
+
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
 
@@ -25,7 +27,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -36,42 +38,151 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey,
-      appBar: AppBar(
-        elevation: 4,
-        backgroundColor: Colors.white,
-        title: const Text('Users'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'USERS (2)'),
-            Tab(text: 'ADMINS (1)'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: TabBarView(
-        controller: _tabController,
+    return Container(
+      color: Color(0xffF1F1F1),
+      child: Column(
         children: [
-          UsersTab(),
-          Center(child: Text('Admins tab content')),
-          Center(child: Text('Archived tab content')),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                // color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 15,
+                vertical: 5,
+              ),
+              child: Card(
+                elevation: 3,
+                color: Colors.white,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.person,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    Text(
+                      "User",
+                      style: openSansHebrewTextStyle.copyWith(fontSize: 24),
+                    ),
+                    Expanded(
+                        child: Align(
+                            alignment: Alignment.centerRight,
+                            child: UserCard())),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 11,
+            child: Container(
+              margin: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                // border: Border.all(color: Colors.brown),
+              ),
+              // color: Colors.purple,
+              child: Card(
+                elevation: 4,
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                        // border: Border.all(color: Colors.brown),
+                      ),
+                      child: TabBar(
+                        labelStyle: const TextStyle(color: Colors.orange),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        controller: _tabController,
+                        labelColor: Colors.blue,
+                        unselectedLabelColor: Colors.black54,
+                        indicator: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4.0),
+                        ),
+                        tabs: const [
+                          Tab(text: 'USERS (2)'),
+                          Tab(text: 'ADMINS (1)'),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: const [
+                          // UsersTab(),
+                          DataTableExample(),
+                          Center(
+                            child: Text('Admins tab content'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
-        label: Text('Add users'),
-        icon: Icon(Icons.add),
+    );
+  }
+}
+
+class UserCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [],
+          ),
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: const Color(0xff04ABC1),
+                child: Text(
+                  'HN',
+                  style: openSansHebrewTextStyle.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Handle button press
+                },
+                icon: Icon(Icons.manage_accounts, size: 16),
+                label: Text(
+                  'Manage user details',
+                  style: openSansHebrewTextStyle.copyWith(
+                      color: Color(0xff2998ff)),
+                ),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                  backgroundColor: Colors.white,
+                  side: BorderSide(color: Colors.blue),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -89,10 +200,10 @@ class UsersTab extends StatelessWidget {
             children: [
               ElevatedButton.icon(
                 onPressed: () {},
-                icon: Icon(Icons.filter_list),
-                label: Text('Filter'),
+                icon: const Icon(Icons.filter_list),
+                label: const Text('Filter'),
               ),
-              Text('Users didn\'t log in yet',
+              const Text('Users didn\'t log in yet',
                   style: TextStyle(color: Colors.red)),
             ],
           ),
@@ -100,7 +211,7 @@ class UsersTab extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             child: DataTable(
-              columns: [
+              columns: const [
                 DataColumn(label: Text('First name')),
                 DataColumn(label: Text('Last name')),
                 DataColumn(label: Text('Title')),
@@ -112,7 +223,7 @@ class UsersTab extends StatelessWidget {
                 DataColumn(label: Text('Last login')),
               ],
               rows: [
-                DataRow(cells: [
+                const DataRow(cells: [
                   DataCell(Row(
                     children: [
                       CircleAvatar(child: Text('HN')),
@@ -129,7 +240,7 @@ class UsersTab extends StatelessWidget {
                   DataCell(Text('07/19/2024')),
                   DataCell(Text('07/25/2024')),
                 ]),
-                DataRow(cells: [
+                const DataRow(cells: [
                   DataCell(Row(
                     children: [
                       CircleAvatar(child: Text('SB')),
@@ -154,19 +265,78 @@ class UsersTab extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              Text('Get your team on board!',
+              const Text('Get your team on board!',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8),
-              Text(
+              const SizedBox(height: 8),
+              const Text(
                   'Take the first step of having everyone on the same page by inviting your first team members to join you.'),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () {},
-                icon: Icon(Icons.add),
-                label: Text('Add users'),
+                icon: const Icon(Icons.add),
+                label: const Text('Add users'),
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class DataTableExample extends StatelessWidget {
+  const DataTableExample({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DataTable(
+      columns: const <DataColumn>[
+        DataColumn(
+          label: Expanded(
+            child: Text(
+              'First Name',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: Expanded(
+            child: Text(
+              'Last Name',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: Expanded(
+            child: Text(
+              'Role',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ),
+        ),
+      ],
+      rows: const <DataRow>[
+        DataRow(
+          cells: <DataCell>[
+            DataCell(Text('Sarah')),
+            DataCell(Text('Oslow')),
+            DataCell(Text('Student')),
+          ],
+        ),
+        DataRow(
+          cells: <DataCell>[
+            DataCell(Text('Janine')),
+            DataCell(Text('Yamal')),
+            DataCell(Text('Professor')),
+          ],
+        ),
+        DataRow(
+          cells: <DataCell>[
+            DataCell(Text('William')),
+            DataCell(Text('Jenkins')),
+            DataCell(Text('Associate Professor')),
+          ],
         ),
       ],
     );
