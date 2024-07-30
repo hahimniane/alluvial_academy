@@ -20,7 +20,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   final List<Widget> _screens = [
     UserManagementScreen(),
-    const FeedScreen(),
+    UserManagementScreen(),
+    // const FeedScreen(),
 
     const ChatScreen(),
     const TimeClockScreen(),
