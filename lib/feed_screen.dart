@@ -1,16 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:syncfusion_flutter_core/theme.dart';
 
 import 'const.dart';
+import 'header_widget.dart';
 
-class FeedScreen extends StatelessWidget {
-  const FeedScreen({super.key});
+class Employee {
+  Employee(
+      this.firstName,
+      this.lastName,
+      this.email,
+      this.countryCode,
+      this.mobilePhone,
+      this.userType,
+      this.title,
+      this.employmentStartDate,
+      this.kioskCode,
+      this.dateAdded,
+      this.lastLogin);
+
+  final String firstName;
+  final String lastName;
+  final String email;
+  final String countryCode;
+  final String mobilePhone;
+  final String userType;
+  final String title;
+  final String employmentStartDate;
+  final String kioskCode;
+  final String dateAdded;
+  final String lastLogin;
+}
+
+class EmployeeDataSource extends DataGridSource {
+  EmployeeDataSource({required List<Employee> employees}) {
+    _employees = employees.map<DataGridRow>((e) {
+      return DataGridRow(cells: [
+        DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
+        DataGridCell<String>(columnName: 'LastName', value: e.lastName),
+        DataGridCell<String>(columnName: 'Email', value: e.email),
+        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
+        DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
+        DataGridCell<String>(columnName: 'UserType', value: e.userType),
+        DataGridCell<String>(columnName: 'Title', value: e.title),
+        DataGridCell<String>(
+            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
+        DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
+        DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
+        DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
+      ]);
+    }).toList();
+  }
+
+  List<DataGridRow> _employees = [];
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text("this is the feed screen"),
-      ),
+  List<DataGridRow> get rows => _employees;
+
+  @override
+  DataGridRowAdapter buildRow(DataGridRow row) {
+    return DataGridRowAdapter(
+      cells: row.getCells().map<Widget>((dataGridCell) {
+        return Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(8.0),
+          child: Text(dataGridCell.value.toString()),
+        );
+      }).toList(),
     );
   }
 }
@@ -23,11 +79,34 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late EmployeeDataSource _employeeDataSource;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // Initialize the employee data source
+    _employeeDataSource = EmployeeDataSource(
+      employees: [
+        Employee('John', 'Doe', 'john@gmail.com', '+1', '1234567890', 'Admin',
+            'Manager', '2021-01-01', '1001', '2021-01-10', '2021-06-01'),
+        Employee('Jane', 'Smith', 'smith@gmail.com', '+1', '0987654321', 'User',
+            'Engineer', '2021-02-01', '1002', '2021-02-10', '2021-06-02'),
+        Employee(
+            'Samuel',
+            'Johnson',
+            'samuel@gmail.com',
+            '+1',
+            '1122334455',
+            'User',
+            'Designer',
+            '2021-03-01',
+            '1003',
+            '2021-03-10',
+            '2021-06-03'),
+      ],
+    );
   }
 
   @override
@@ -39,13 +118,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Color(0xffF1F1F1),
+      color: const Color(0xffF1F1F1),
       child: Column(
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                // color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
               padding: const EdgeInsets.symmetric(
@@ -70,23 +148,24 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       style: openSansHebrewTextStyle.copyWith(fontSize: 24),
                     ),
                     Expanded(
-                        child: Align(
-                            alignment: Alignment.centerRight,
-                            child: UserCard())),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: UserCard(),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
+          HeaderWidget(),
           Expanded(
             flex: 11,
             child: Container(
-              margin: EdgeInsets.all(12),
+              margin: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                // border: Border.all(color: Colors.brown),
               ),
-              // color: Colors.purple,
               child: Card(
                 elevation: 4,
                 color: Colors.white,
@@ -96,7 +175,6 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(12),
-                        // border: Border.all(color: Colors.brown),
                       ),
                       child: TabBar(
                         labelStyle: const TextStyle(color: Colors.orange),
@@ -117,10 +195,162 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     Expanded(
                       child: TabBarView(
                         controller: _tabController,
-                        children: const [
-                          // UsersTab(),
-                          DataTableExample(),
-                          Center(
+                        children: [
+                          SfDataGridTheme(
+                            data: const SfDataGridThemeData(
+                                headerColor: Color(0xffF8F8F8)),
+                            child: SingleChildScrollView(
+                              physics: const ScrollPhysics(),
+                              scrollDirection: Axis.horizontal,
+                              child: Container(
+                                width:
+                                    1500, // Set a fixed width to enable horizontal scrolling
+                                child: SfDataGrid(
+                                  source: _employeeDataSource,
+                                  columnWidthMode: ColumnWidthMode.fill,
+                                  columns: <GridColumn>[
+                                    GridColumn(
+                                      columnName: 'FirstName',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          'First Name',
+                                          style:
+                                              openSansHebrewTextStyle.copyWith(
+                                                  color: Color(
+                                                    0xff3f4648,
+                                                  ),
+                                                  fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'LastName',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Last Name',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'Email',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Email',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'CountryCode',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Country Code',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'MobilePhone',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Mobile Phone',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'UserType',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'User Type',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'Title',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Title',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'EmploymentStartDate',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Employment Start Date',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'KioskCode',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Kiosk Code',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'DateAdded',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Date Added',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    GridColumn(
+                                      columnName: 'LastLogin',
+                                      label: Container(
+                                        padding: const EdgeInsets.all(8.0),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Last Login',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Center(
                             child: Text('Admins tab content'),
                           ),
                         ],
@@ -141,11 +371,11 @@ class UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(10.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
+          const Row(
             children: [],
           ),
           Row(
@@ -165,16 +395,16 @@ class UserCard extends StatelessWidget {
                 onPressed: () {
                   // Handle button press
                 },
-                icon: Icon(Icons.manage_accounts, size: 16),
+                icon: const Icon(Icons.manage_accounts, size: 16),
                 label: Text(
                   'Manage user details',
                   style: openSansHebrewTextStyle.copyWith(
-                      color: Color(0xff2998ff)),
+                      color: const Color(0xff2998ff)),
                 ),
                 style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.blue,
                   backgroundColor: Colors.white,
-                  side: BorderSide(color: Colors.blue),
+                  side: const BorderSide(color: Colors.blue),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -188,161 +418,6 @@ class UserCard extends StatelessWidget {
   }
 }
 
-class UsersTab extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.filter_list),
-                label: const Text('Filter'),
-              ),
-              const Text('Users didn\'t log in yet',
-                  style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('First name')),
-                DataColumn(label: Text('Last name')),
-                DataColumn(label: Text('Title')),
-                DataColumn(label: Text('Employment Start Date')),
-                DataColumn(label: Text('Team')),
-                DataColumn(label: Text('Department')),
-                DataColumn(label: Text('Kiosk code')),
-                DataColumn(label: Text('Date added')),
-                DataColumn(label: Text('Last login')),
-              ],
-              rows: [
-                const DataRow(cells: [
-                  DataCell(Row(
-                    children: [
-                      CircleAvatar(child: Text('HN')),
-                      SizedBox(width: 8),
-                      Text('Hassimiou'),
-                    ],
-                  )),
-                  DataCell(Text('Niane')),
-                  DataCell(Text('Founder')),
-                  DataCell(Text('07/19/2024')),
-                  DataCell(Text('')),
-                  DataCell(Text('')),
-                  DataCell(Text('6677')),
-                  DataCell(Text('07/19/2024')),
-                  DataCell(Text('07/25/2024')),
-                ]),
-                const DataRow(cells: [
-                  DataCell(Row(
-                    children: [
-                      CircleAvatar(child: Text('SB')),
-                      SizedBox(width: 8),
-                      Text('Sulaiman'),
-                    ],
-                  )),
-                  DataCell(Text('Barry')),
-                  DataCell(Text('')),
-                  DataCell(Text('')),
-                  DataCell(Text('')),
-                  DataCell(Text('')),
-                  DataCell(Text('8368')),
-                  DataCell(Text('07/19/2024')),
-                  DataCell(Text('Never logged in')),
-                ]),
-              ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              const Text('Get your team on board!',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              const Text(
-                  'Take the first step of having everyone on the same page by inviting your first team members to join you.'),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add),
-                label: const Text('Add users'),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class DataTableExample extends StatelessWidget {
-  const DataTableExample({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return DataTable(
-      columns: const <DataColumn>[
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'First Name',
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-        ),
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'Last Name',
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-        ),
-        DataColumn(
-          label: Expanded(
-            child: Text(
-              'Role',
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-          ),
-        ),
-      ],
-      rows: const <DataRow>[
-        DataRow(
-          cells: <DataCell>[
-            DataCell(Text('Sarah')),
-            DataCell(Text('Oslow')),
-            DataCell(Text('Student')),
-          ],
-        ),
-        DataRow(
-          cells: <DataCell>[
-            DataCell(Text('Janine')),
-            DataCell(Text('Yamal')),
-            DataCell(Text('Professor')),
-          ],
-        ),
-        DataRow(
-          cells: <DataCell>[
-            DataCell(Text('William')),
-            DataCell(Text('Jenkins')),
-            DataCell(Text('Associate Professor')),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class FormScreen extends StatelessWidget {
   const FormScreen({super.key});
 
@@ -350,7 +425,7 @@ class FormScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text("this is the FomScreen screen"),
+        child: Text("this is the FormScreen screen"),
       ),
     );
   }
