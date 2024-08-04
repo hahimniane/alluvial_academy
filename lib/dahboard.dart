@@ -1,3 +1,4 @@
+import 'package:alluwalacademyadmin/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,12 +20,13 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
+    const ChatScreen(),
     UserManagementScreen(),
     UserManagementScreen(),
+
     // const FeedScreen(),
 
-    const ChatScreen(),
-    const TimeClockScreen(),
+    TimeClockScreen(),
     const FormScreen(),
     const JobSchedulingScreen(),
     const TasksScreen(),
@@ -144,52 +146,25 @@ class _DashboardPageState extends State<DashboardPage> {
   Row _buildActions() {
     return Row(
       children: [
-        const SizedBox(width: 20),
-        const Text('Help'),
-        const SizedBox(width: 10),
-        const Icon(Icons.arrow_drop_down),
-        const SizedBox(width: 20),
-        const Icon(Icons.accessibility),
-        const SizedBox(width: 10),
-        _buildMessageIcon(),
-        const SizedBox(width: 10),
         _buildNotificationIcon(),
         const SizedBox(width: 20),
-        const CircleAvatar(
+        CircleAvatar(
           backgroundColor: Colors.teal,
-          child: Text('HN'),
-        ),
-        const Text('Ha'),
-        const Icon(Icons.arrow_drop_down),
-      ],
-    );
-  }
-
-  Stack _buildMessageIcon() {
-    return Stack(
-      children: <Widget>[
-        const Icon(Icons.message),
-        Positioned(
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.all(1),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            constraints: const BoxConstraints(
-              minWidth: 12,
-              minHeight: 12,
-            ),
-            child: const Text(
-              '5',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8,
-              ),
-              textAlign: TextAlign.center,
-            ),
+          child: Text(
+            'HN',
+            style: openSansHebrewTextStyle.copyWith(color: Colors.white),
           ),
+        ),
+        const SizedBox(
+          width: 10,
+        ),
+        Text(
+          'Hassimiou Niane',
+          style: openSansHebrewTextStyle.copyWith(color: Colors.blueAccent),
+        ),
+        const Icon(
+          Icons.arrow_drop_down,
+          color: Colors.blueAccent,
         ),
       ],
     );
@@ -198,7 +173,10 @@ class _DashboardPageState extends State<DashboardPage> {
   Stack _buildNotificationIcon() {
     return Stack(
       children: <Widget>[
-        const Icon(Icons.notifications),
+        const Icon(
+          Icons.notifications,
+          color: Colors.grey,
+        ),
         Positioned(
           right: 0,
           child: Container(
@@ -211,12 +189,10 @@ class _DashboardPageState extends State<DashboardPage> {
               minWidth: 12,
               minHeight: 12,
             ),
-            child: const Text(
+            child: Text(
               '1',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8,
-              ),
+              style: openSansHebrewTextStyle.copyWith(
+                  fontSize: 10, color: Colors.white),
               textAlign: TextAlign.center,
             ),
           ),
