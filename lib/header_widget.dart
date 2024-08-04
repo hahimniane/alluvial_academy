@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-
 import 'add_new_user_screen.dart';
 import 'const.dart';
 
 class HeaderWidget extends StatelessWidget {
+  final Function(String) onSearchChanged;
+  final VoidCallback onExport;
+
+  HeaderWidget({required this.onSearchChanged, required this.onExport});
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -45,13 +49,14 @@ class HeaderWidget extends StatelessWidget {
                   fillColor: Colors.white,
                   contentPadding: EdgeInsets.symmetric(vertical: 8.0),
                 ),
+                onChanged: (value) {
+                  onSearchChanged(value); // Call the search callback
+                },
               ),
             ),
             // Export Button
             ElevatedButton(
-              onPressed: () {
-                // Handle export button press
-              },
+              onPressed: onExport, // Handle export button press
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 side: const BorderSide(color: Colors.blue),

@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'dahboard.dart';
 import 'firebase_options.dart';
-import 'home_page.dart';
+import 'home_page_to_be_deleted.dart';
 
 Future<void> main() async {
   await Firebase.initializeApp(
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
         useMaterial3: true,
       ),
-      home: DashboardPage(),
+      home: const DashboardPage(),
     );
   }
 }
