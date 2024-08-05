@@ -20,12 +20,11 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
+    const FeedScreen(),
+    // UserManagementScreen(),
+    UserManagementScreen(),
+
     const ChatScreen(),
-    UserManagementScreen(),
-    UserManagementScreen(),
-
-    // const FeedScreen(),
-
     TimeClockScreen(),
     const FormScreen(),
     const JobSchedulingScreen(),
@@ -339,5 +338,19 @@ class _DashboardPageState extends State<DashboardPage> {
         width: 40,
       );
     }
+  }
+}
+
+class FeedScreen extends StatelessWidget {
+  const FeedScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        "this is the Feed screen",
+        style: openSansHebrewTextStyle,
+      ),
+    );
   }
 }
