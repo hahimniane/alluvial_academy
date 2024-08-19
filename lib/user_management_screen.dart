@@ -9,94 +9,7 @@ import 'package:universal_html/html.dart' as html;
 
 import 'const.dart';
 import 'header_widget.dart';
-
-class Employee {
-  Employee(
-    this.firstName,
-    this.lastName,
-    this.email,
-    this.countryCode,
-    this.mobilePhone,
-    this.userType,
-    this.title,
-    this.employmentStartDate,
-    this.kioskCode,
-    this.dateAdded,
-    this.lastLogin,
-  );
-
-  final String firstName;
-  final String lastName;
-  final String email;
-  final String countryCode;
-  final String mobilePhone;
-  final String userType;
-  final String title;
-  final String employmentStartDate;
-  final String kioskCode;
-  final String dateAdded;
-  final String lastLogin;
-}
-
-class EmployeeDataSource extends DataGridSource {
-  EmployeeDataSource({required List<Employee> employees}) {
-    _employees = employees.map<DataGridRow>((e) {
-      return DataGridRow(cells: [
-        DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
-        DataGridCell<String>(columnName: 'LastName', value: e.lastName),
-        DataGridCell<String>(columnName: 'Email', value: e.email),
-        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
-        DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
-        DataGridCell<String>(columnName: 'UserType', value: e.userType),
-        DataGridCell<String>(columnName: 'Title', value: e.title),
-        DataGridCell<String>(
-            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
-        DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
-        DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
-        DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
-      ]);
-    }).toList();
-  }
-
-  List<DataGridRow> _employees = [];
-
-  @override
-  List<DataGridRow> get rows => _employees;
-
-  void updateDataSource(List<Employee> employees) {
-    _employees = employees.map<DataGridRow>((e) {
-      return DataGridRow(cells: [
-        DataGridCell<String>(columnName: 'FirstName', value: e.firstName),
-        DataGridCell<String>(columnName: 'LastName', value: e.lastName),
-        DataGridCell<String>(columnName: 'Email', value: e.email),
-        DataGridCell<String>(columnName: 'CountryCode', value: e.countryCode),
-        DataGridCell<String>(columnName: 'MobilePhone', value: e.mobilePhone),
-        DataGridCell<String>(columnName: 'UserType', value: e.userType),
-        DataGridCell<String>(columnName: 'Title', value: e.title),
-        DataGridCell<String>(
-            columnName: 'EmploymentStartDate', value: e.employmentStartDate),
-        DataGridCell<String>(columnName: 'KioskCode', value: e.kioskCode),
-        DataGridCell<String>(columnName: 'DateAdded', value: e.dateAdded),
-        DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
-      ]);
-    }).toList();
-    print('the update method was called ');
-    notifyListeners();
-  }
-
-  @override
-  DataGridRowAdapter buildRow(DataGridRow row) {
-    return DataGridRowAdapter(
-      cells: row.getCells().map<Widget>((dataGridCell) {
-        return Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(8.0),
-          child: Text(dataGridCell.value.toString()),
-        );
-      }).toList(),
-    );
-  }
-}
+import 'model/employee_model_class.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -113,10 +26,28 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   List<Employee> _filteredEmployees = [];
 
   int? numberOfUsers = 0;
+  void getFirebaseData() async {
+    FirebaseFirestore firestore = FirebaseFirestore.instance;
+    // Fetch the collection 'users'
+    Future<QuerySnapshot<Map<String, dynamic>>> data =
+        firestore.collection('users').get();
+
+    // Use 'await' to get the data and then iterate over it
+    data.then((querySnapshot) {
+      for (var docSnapshot in querySnapshot.docs) {
+        // Accessing the 'country_code' field in each document
+        String? countryCode = docSnapshot.data()['country_code'];
+        print('Country Code: $countryCode');
+      }
+    }).catchError((error) {
+      print("Error fetching data: $error");
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    getFirebaseData();
     _tabController = TabController(length: 2, vsync: this);
     _employeeDataSource = EmployeeDataSource(employees: []);
   }
@@ -147,26 +78,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     });
   }
 
-  List<Employee> _mapSnapshotToEmployeeList(QuerySnapshot snapshot) {
-    return snapshot.docs.map((doc) {
-      return Employee(
-        doc['first_name'],
-        doc['last_name'],
-        doc['email'],
-        doc['country_code'],
-        doc['phone_number'],
-        doc['user_type'],
-        doc['title'],
-        doc['employment_start_date'],
-        doc['kiosk_code'],
-        doc['date_added'],
-        doc['last_login'],
-      );
-    }).toList();
-  }
-
   void _exportData() {
-    List<List<String>> csvData = [
+    List<List<String>> userData = [
       [
         "First Name",
         "Last Name",
@@ -195,7 +108,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           ])
     ];
 
-    String csv = const ListToCsvConverter().convert(csvData);
+    String csv = const ListToCsvConverter().convert(userData);
 
     // Create a Blob
     final bytes = utf8.encode(csv);
@@ -269,8 +182,18 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       .collection('users')
                       .snapshots(),
                   builder: (context, snapshot) {
+                    print(
+                        "Stream connection state: ${snapshot.connectionState}");
+                    numberOfUsers = 3;
+                    print(snapshot.data?.docs[0].id);
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      print('waiting');
+                      // _allEmployees =
+                      //     EmployeeDataSource.mapSnapshotToEmployeeList(
+                      //         snapshot.data!);
+                      // _filteredEmployees = _allEmployees;
+                      // _employeeDataSource!.updateDataSource(_filteredEmployees);
+                      return const Center(child: Text("Waiting"));
                     }
                     if (snapshot.hasError) {
                       return Center(child: Text('Error: ${snapshot.error}'));
@@ -279,7 +202,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     if (snapshot.hasData) {
                       numberOfUsers = snapshot.data?.docs.length;
                       _allEmployees =
-                          _mapSnapshotToEmployeeList(snapshot.data!);
+                          EmployeeDataSource.mapSnapshotToEmployeeList(
+                              snapshot.data!);
                       _filteredEmployees = _allEmployees;
                       _employeeDataSource!.updateDataSource(_filteredEmployees);
 
@@ -319,7 +243,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                   child: SingleChildScrollView(
                                     physics: const ScrollPhysics(),
                                     scrollDirection: Axis.horizontal,
-                                    child: Container(
+                                    child: SizedBox(
                                       width:
                                           1500, // Set a fixed width to enable horizontal scrolling
                                       child: SfDataGrid(
@@ -604,9 +528,20 @@ class JobSchedulingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
-        child: Text("this is the JobScheduling screen"),
+        child: FutureBuilder<QuerySnapshot>(
+            future: FirebaseFirestore.instance.collection('users').get(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Text("waiting");
+              } else if (snapshot.connectionState == ConnectionState.done) {
+                return Text("Done");
+              } else if (snapshot.connectionState == ConnectionState.active) {
+                return Text("active");
+              }
+              return Text("don't know what happened in the else ");
+            }),
       ),
     );
   }

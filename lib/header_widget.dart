@@ -1,3 +1,4 @@
+import 'package:alluwalacademyadmin/widgets/export_widget.dart';
 import 'package:flutter/material.dart';
 import 'add_new_user_screen.dart';
 import 'const.dart';
@@ -6,7 +7,8 @@ class HeaderWidget extends StatelessWidget {
   final Function(String) onSearchChanged;
   final VoidCallback onExport;
 
-  HeaderWidget({required this.onSearchChanged, required this.onExport});
+  const HeaderWidget(
+      {super.key, required this.onSearchChanged, required this.onExport});
 
   @override
   Widget build(BuildContext context) {
@@ -55,18 +57,7 @@ class HeaderWidget extends StatelessWidget {
               ),
             ),
             // Export Button
-            ElevatedButton(
-              onPressed: onExport, // Handle export button press
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Colors.blue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text('Export',
-                  style: openSansHebrewTextStyle.copyWith(color: Colors.blue)),
-            ),
+            ExportWidget(onExport: onExport),
             // Notification Button
             ElevatedButton(
               onPressed: () {

@@ -4,7 +4,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'const.dart';
-import 'feed_screen.dart'; // Import the screen widgets
+import 'user_management_screen.dart'; // Import the screen widgets
 
 // Import other screen widgets...
 
@@ -20,12 +20,13 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const FeedScreen(),
+    TimeClockScreen(),
+
     // UserManagementScreen(),
     UserManagementScreen(),
-
+    const FeedScreen(),
     const ChatScreen(),
-    TimeClockScreen(),
+
     const FormScreen(),
     const JobSchedulingScreen(),
     const TasksScreen(),
