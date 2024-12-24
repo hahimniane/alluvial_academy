@@ -68,6 +68,11 @@ class ChatUser {
     this.isOnline = false,
     this.messages = const [],
   });
+
+  @override
+  String toString() {
+    return 'ChatUser(id: $id, name: $name, subtitle: $subtitle, isOnline: $isOnline)';
+  }
 }
 
 class FeedScreen extends StatefulWidget {
@@ -91,67 +96,119 @@ class _ChatScreenState extends State<FeedScreen> {
   ChatUser? _selectedChat;
   List<ChatMessage> _currentMessages = [];
 
-  // Mock data
-  final List<ChatUser> _allChats = [
-    ChatUser(
-      id: 'team',
-      name: "All users' team chat",
-      subtitle: '2 Members',
-      icon: Icons.group,
-      messages: [
-        ChatMessage(
-          id: '1',
-          senderId: 'user1',
-          text: 'Hello team!',
-          timestamp: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-        ChatMessage(
-          id: '2',
-          senderId: 'currentUser',
-          text: 'Hi everyone, how are you?',
-          timestamp: DateTime.now().subtract(const Duration(hours: 23)),
-        ),
-      ],
-    ),
-    ChatUser(
-      id: 'sulaiman',
-      name: 'Sulaiman Barry',
-      subtitle: 'Designer',
-      icon: Icons.person,
-      isOnline: true,
-      messages: [
-        ChatMessage(
-          id: '3',
-          senderId: 'sulaiman',
-          text: 'Can you review the latest design?',
-          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        ),
-        ChatMessage(
-          id: '4',
-          senderId: 'currentUser',
-          text: 'Sure, I\'ll take a look now',
-          timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-        ),
-      ],
-    ),
-    ChatUser(
-      id: 'tips',
-      name: 'Connecteam Tips',
-      subtitle: 'Videos',
-      icon: Icons.play_circle_outlined,
-      messages: [],
-    ),
-  ];
+  // Replace the mock _allChats list with a real-time users stream
+  List<ChatUser> _allChats = [];
 
   List<ChatUser> _filteredChats = [];
+
+  bool _showAllUsers = false;
 
   @override
   void initState() {
     super.initState();
     _searchFocus.addListener(_onSearchFocusChange);
-    _filteredChats = _allChats;
-    _selectedChat = _allChats[0];
-    _currentMessages = _selectedChat!.messages;
+    _filteredChats = [];
+    _loadUsers(); // Add this line to load users when screen initializes
+  }
+
+  // Add this method to load users from Firestore
+  void _loadUsers() {
+    print('Starting _loadUsers method...');
+    try {
+      if (_showAllUsers) {
+        // Load all users when adding new chat
+        FirebaseFirestore.instance
+            .collection('users')
+            .orderBy('first_name')
+            .snapshots()
+            .listen(_handleUserSnapshot);
+      } else {
+        // Load only users with chat history
+        FirebaseFirestore.instance
+            .collection('chats')
+            .where('participants', arrayContains: _currentUserId)
+            .snapshots()
+            .listen((chatSnapshot) {
+          Set<String> chatUserIds = {};
+
+          for (var doc in chatSnapshot.docs) {
+            List<String> participants =
+                List<String>.from(doc['participants'] ?? []);
+            chatUserIds
+                .addAll(participants.where((id) => id != _currentUserId));
+          }
+
+          if (chatUserIds.isEmpty) {
+            setState(() {
+              _allChats = [];
+              _filteredChats = [];
+            });
+            return;
+          }
+
+          // Fetch user details for chat participants
+          FirebaseFirestore.instance
+              .collection('users')
+              .where(FieldPath.documentId, whereIn: chatUserIds.toList())
+              .snapshots()
+              .listen(_handleUserSnapshot);
+        });
+      }
+    } catch (e) {
+      print('Error setting up snapshot listener: $e');
+    }
+  }
+
+  // Extract user snapshot handling to separate method
+  void _handleUserSnapshot(QuerySnapshot snapshot) {
+    setState(() {
+      _allChats = snapshot.docs
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+
+            // Skip the current user
+            if (doc.id == _currentUserId) return null;
+
+            // Handle last_login conversion
+            bool isOnline = false;
+            if (data['last_login'] != null) {
+              try {
+                DateTime lastLogin;
+                if (data['last_login'] is Timestamp) {
+                  lastLogin = (data['last_login'] as Timestamp).toDate();
+                } else if (data['last_login'] is String) {
+                  lastLogin = DateTime.parse(data['last_login']);
+                } else {
+                  lastLogin = DateTime.now();
+                }
+                isOnline = DateTime.now().difference(lastLogin).inMinutes < 5;
+              } catch (e) {
+                print('Error parsing last_login: $e');
+              }
+            }
+
+            return ChatUser(
+              id: doc.id,
+              name: '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
+                  .trim(),
+              subtitle: data['email']?.toString() ?? '',
+              icon: Icons.person,
+              isOnline: isOnline,
+            );
+          })
+          .whereType<ChatUser>()
+          .toList();
+
+      _filteredChats = List.from(_allChats);
+    });
+  }
+
+  // Update _selectChat method to load messages
+  void _selectChat(ChatUser chat) {
+    setState(() {
+      _selectedChat = chat;
+      // Messages will be loaded through StreamBuilder
+    });
   }
 
   @override
@@ -198,13 +255,6 @@ class _ChatScreenState extends State<FeedScreen> {
         default:
           _filteredChats = _allChats;
       }
-    });
-  }
-
-  void _selectChat(ChatUser chat) {
-    setState(() {
-      _selectedChat = chat;
-      _currentMessages = chat.messages;
     });
   }
 
@@ -282,8 +332,90 @@ class _ChatScreenState extends State<FeedScreen> {
     }
   }
 
+  // Add this method to show the user selection dialog
+  void _showUserSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Select User'),
+          content: SizedBox(
+            width: 300,
+            height: 400,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .orderBy('first_name')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Error loading users'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final users = snapshot.data?.docs
+                        .map((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          if (doc.id == _currentUserId) return null;
+
+                          return ChatUser(
+                            id: doc.id,
+                            name:
+                                '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
+                                    .trim(),
+                            subtitle: data['email']?.toString() ?? '',
+                            icon: Icons.person,
+                          );
+                        })
+                        .whereType<ChatUser>()
+                        .toList() ??
+                    [];
+
+                return ListView.builder(
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.grey,
+                        child: Text(
+                          user.name.isNotEmpty
+                              ? user.name[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      title: Text(user.name),
+                      subtitle: Text(user.subtitle),
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close dialog
+                        _selectChat(user); // Select the user to chat with
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('Building FeedScreen');
+    print('_filteredChats length: ${_filteredChats.length}');
+
     return Scaffold(
       body: Row(
         children: [
@@ -304,7 +436,7 @@ class _ChatScreenState extends State<FeedScreen> {
                   child: MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: _showUserSelectionDialog,
                       icon: const Icon(Icons.add, size: 20),
                       label: const Text('Add chat'),
                       style: ElevatedButton.styleFrom(
@@ -368,7 +500,11 @@ class _ChatScreenState extends State<FeedScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       itemCount: _filteredChats.length,
                       itemBuilder: (context, index) {
+                        print('Building chat item at index $index');
                         final chat = _filteredChats[index];
+                        print('Chat data: ${chat.name}, ${chat.subtitle}');
+                        print("debugging chat: ${chat.toString()}");
+
                         return _buildChatItem(
                           chat.id,
                           chat.name,
@@ -385,6 +521,21 @@ class _ChatScreenState extends State<FeedScreen> {
                     ),
                   ),
                 ),
+                // Add a back button when showing all users
+                if (_showAllUsers)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showAllUsers = false;
+                          _loadUsers();
+                        });
+                      },
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Back to chats'),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -626,7 +777,10 @@ class _ChatScreenState extends State<FeedScreen> {
                   backgroundColor:
                       isSelected ? const Color(0xff4A5BF6) : Colors.grey,
                   radius: 16,
-                  child: Icon(icon, color: Colors.white, size: 18),
+                  child: Text(
+                    title.isNotEmpty ? title[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
                 if (isOnline)
                   Positioned(
@@ -654,21 +808,7 @@ class _ChatScreenState extends State<FeedScreen> {
             subtitle: Text(
               subtitle,
               style: const TextStyle(fontSize: 12),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (lastMessageTime != null)
-                  Text(
-                    lastMessageTime,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                if (isSelected || isHovered)
-                  const Icon(Icons.more_vert, size: 18),
-              ],
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ),
