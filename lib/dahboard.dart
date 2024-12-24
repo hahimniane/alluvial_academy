@@ -1,13 +1,32 @@
+// ignore_for_file: library_private_types_in_public_api
+import 'package:alluwalacademyadmin/chat_page.dart';
 import 'package:alluwalacademyadmin/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'const.dart';
-import 'user_management_screen.dart'; // Import the screen widgets
+import 'user_management_screen.dart';
 
-// Import other screen widgets...
+/// Constants for the Dashboard
+class DashboardConstants {
+  // Dimensions
+  static const double sideMenuWidth = 250.0;
+  static const double logoHoverHeight = 35.0;
+  static const double logoNormalHeight = 30.0;
+  static const double searchBarWidth = 200.0;
+  static const double searchBarHeight = 40.0;
 
+  // Durations
+  static const Duration hoverAnimationDuration = Duration(milliseconds: 200);
+
+  // Colors
+  static const chatIconColor = Color(0xff2ED9B9);
+  static const timeClockIconColor = Color(0xff3786F9);
+  static const formsIconColor = Color(0xffBA39A9);
+  static const jobSchedulingIconColor = Color(0xffFF9A6C);
+}
+
+/// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -16,24 +35,23 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  // State variables
   bool _isHovered = false;
   int _selectedIndex = 0;
 
+  // List of screens available in the dashboard
   final List<Widget> _screens = [
     TimeClockScreen(),
-
-    // UserManagementScreen(),
-    UserManagementScreen(),
+    const UserManagementScreen(),
     const FeedScreen(),
     const ChatScreen(),
-
     const FormScreen(),
     const JobSchedulingScreen(),
     const TasksScreen(),
     const TimeOffScreen()
-    // Add other screen widgets here...
   ];
 
+  /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -45,20 +63,26 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: _buildAppBar(),
-      body: Row(
-        children: [
-          _buildSideMenu(),
-          Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: _screens,
-            ),
-          ),
-        ],
-      ),
+      body: _buildBody(),
     );
   }
 
+  /// Builds the main body of the dashboard
+  Widget _buildBody() {
+    return Row(
+      children: [
+        _buildSideMenu(),
+        Expanded(
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: _screens,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Builds the app bar with logo, search, and user profile
   AppBar _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
@@ -75,79 +99,86 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the logo and search section of the app bar
   Row _buildLogoAndSearch() {
     return Row(
       children: [
-        GestureDetector(
-          onTap: () {
-            print('click');
-          },
-          child: MouseRegion(
-            onEnter: (_) {
-              setState(() {
-                _isHovered = true;
-              });
-            },
-            onExit: (_) {
-              setState(() {
-                _isHovered = false;
-              });
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              child: Image.asset(
-                'assets/LOGO.png', // Replace with your logo asset
-                height: _isHovered ? 35 : 30,
-              ),
-            ),
-          ),
-        ),
+        _buildAnimatedLogo(),
         const SizedBox(width: 10),
-        Container(
-          padding: EdgeInsets.only(
-            bottom: 10,
-          ),
-          margin: EdgeInsets.only(bottom: 10, top: 20),
-          width: 200,
-          height: 40,
-          child: TextField(
-            decoration: InputDecoration(
-              hintStyle: GoogleFonts.openSans(
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontSize: 14,
-                  color: Color.fromARGB(255, 63, 70, 72),
-                ),
-              ),
-              hintText: 'Search anything',
-              suffixIcon: Icon(
-                Icons.search,
-                color: Colors.grey.shade300,
-              ),
-              border: OutlineInputBorder(
-                borderSide: const BorderSide(width: 0.1, color: Colors.grey),
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(width: 0.4, color: Colors.green),
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(width: 0.1, color: Colors.green),
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-            ),
-          ),
-        ),
+        _buildSearchBar(),
       ],
     );
   }
 
+  /// Builds the animated logo with hover effect
+  Widget _buildAnimatedLogo() {
+    return GestureDetector(
+      onTap: () => print('Logo clicked'),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: DashboardConstants.hoverAnimationDuration,
+          child: Image.asset(
+            'assets/LOGO.png',
+            height: _isHovered
+                ? DashboardConstants.logoHoverHeight
+                : DashboardConstants.logoNormalHeight,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Builds the search bar with custom styling
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 10, top: 20),
+      width: DashboardConstants.searchBarWidth,
+      height: DashboardConstants.searchBarHeight,
+      child: TextField(
+        decoration: InputDecoration(
+          hintStyle: GoogleFonts.openSans(
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w400,
+              fontSize: 14,
+              color: Color.fromARGB(255, 63, 70, 72),
+            ),
+          ),
+          hintText: 'Search anything',
+          suffixIcon: Icon(Icons.search, color: Colors.grey.shade300),
+          border: _buildSearchBarBorder(),
+          enabledBorder: _buildSearchBarBorder(color: Colors.green),
+          focusedBorder: _buildSearchBarBorder(color: Colors.green),
+        ),
+      ),
+    );
+  }
+
+  /// Helper method to build consistent search bar borders
+  OutlineInputBorder _buildSearchBarBorder({Color color = Colors.grey}) {
+    return OutlineInputBorder(
+      borderSide: BorderSide(width: 0.4, color: color),
+      borderRadius: BorderRadius.circular(10.0),
+    );
+  }
+
+  /// Builds the actions section of the app bar (notifications and profile)
   Row _buildActions() {
     return Row(
       children: [
         _buildNotificationIcon(),
         const SizedBox(width: 20),
+        _buildUserProfile(),
+      ],
+    );
+  }
+
+  /// Builds the user profile section
+  Widget _buildUserProfile() {
+    return Row(
+      children: [
         CircleAvatar(
           backgroundColor: Colors.teal,
           child: Text(
@@ -155,52 +186,51 @@ class _DashboardPageState extends State<DashboardPage> {
             style: openSansHebrewTextStyle.copyWith(color: Colors.white),
           ),
         ),
-        const SizedBox(
-          width: 10,
-        ),
+        const SizedBox(width: 10),
         Text(
           'Hassimiou Niane',
           style: openSansHebrewTextStyle.copyWith(color: Colors.blueAccent),
         ),
-        const Icon(
-          Icons.arrow_drop_down,
-          color: Colors.blueAccent,
-        ),
+        const Icon(Icons.arrow_drop_down, color: Colors.blueAccent),
       ],
     );
   }
 
+  /// Builds the notification icon with badge
   Stack _buildNotificationIcon() {
     return Stack(
       children: <Widget>[
-        const Icon(
-          Icons.notifications,
-          color: Colors.grey,
-        ),
+        const Icon(Icons.notifications, color: Colors.grey),
         Positioned(
           right: 0,
-          child: Container(
-            padding: const EdgeInsets.all(1),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            constraints: const BoxConstraints(
-              minWidth: 12,
-              minHeight: 12,
-            ),
-            child: Text(
-              '1',
-              style: openSansHebrewTextStyle.copyWith(
-                  fontSize: 10, color: Colors.white),
-              textAlign: TextAlign.center,
-            ),
-          ),
+          child: _buildNotificationBadge(),
         ),
       ],
     );
   }
 
+  /// Builds the notification badge with count
+  Widget _buildNotificationBadge() {
+    return Container(
+      padding: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      constraints: const BoxConstraints(
+        minWidth: 12,
+        minHeight: 12,
+      ),
+      child: Text(
+        '1',
+        style:
+            openSansHebrewTextStyle.copyWith(fontSize: 10, color: Colors.white),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  /// Builds the side navigation menu
   Container _buildSideMenu() {
     return Container(
       decoration: BoxDecoration(
@@ -212,83 +242,67 @@ class _DashboardPageState extends State<DashboardPage> {
             color: Colors.grey.withOpacity(0.5),
             spreadRadius: 5,
             blurRadius: 7,
-            offset: const Offset(0, 1), // changes position of shadow
+            offset: const Offset(0, 1),
           ),
         ],
       ),
-      width: 250, // Adjust the width as needed
+      width: DashboardConstants.sideMenuWidth,
       child: ListView(
-        children: <Widget>[
-          _buildCustomListTile(
-            "assets/dashboard.svg",
-            "DashBoard",
-            0,
-            Colors.white,
-          ),
-
-          _buildCustomListTile(
-            'assets/users-sidebar.svg',
-            'Users',
-            1,
-            Colors.white,
-          ),
-          // assets/users-sidebar.svg
-          const Divider(),
-          _buildCustomListTile(
-            'assets/Icon_chat.png',
-            'Chat',
-            2,
-            const Color(0xff2ED9B9),
-          ),
-          _buildCustomListTile(
-            'assets/Icon_punch_clock.png',
-            'Time Clock',
-            3,
-            const Color(0xff3786F9),
-          ),
-          _buildCustomListTile(
-            'assets/Icon_forms.png',
-            'Forms',
-            4,
-            const Color(0xffBA39A9),
-          ),
-          _buildCustomListTile(
-            'assets/Icon_Scheduler.png',
-            'Job Scheduling',
-            5,
-            const Color(0xffFF9A6C),
-          ),
-          _buildCustomListTile(
-            'assets/Icon_task_manage.png',
-            'Quick Tasks',
-            6,
-            const Color(0xffFF9A6C),
-          ),
-          // _buildListTile(Icons.task, 'Quick Tasks', 6),
-          // _buildListTile(Icons.timer_off, 'Time Off', 7),
-        ],
+        children: _buildNavigationItems(),
       ),
     );
   }
 
-  ListTile _buildListTile(IconData icon, String title, int index) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight:
-              _selectedIndex == index ? FontWeight.bold : FontWeight.normal,
-        ),
+  /// Builds the list of navigation items
+  List<Widget> _buildNavigationItems() {
+    return <Widget>[
+      _buildCustomListTile(
+        "assets/dashboard.svg",
+        "DashBoard",
+        0,
+        Colors.white,
       ),
-      onTap: () => _onItemTapped(index),
-      selected: _selectedIndex == index,
-      trailing: _selectedIndex == index
-          ? const Icon(Icons.arrow_right, color: Colors.blue)
-          : null,
-    );
+      _buildCustomListTile(
+        'assets/users-sidebar.svg',
+        'Users',
+        1,
+        Colors.white,
+      ),
+      const Divider(),
+      _buildCustomListTile(
+        'assets/Icon_chat.png',
+        'Chat',
+        2,
+        DashboardConstants.chatIconColor,
+      ),
+      _buildCustomListTile(
+        'assets/Icon_punch_clock.png',
+        'Time Clock',
+        3,
+        DashboardConstants.timeClockIconColor,
+      ),
+      _buildCustomListTile(
+        'assets/Icon_forms.png',
+        'Forms',
+        4,
+        DashboardConstants.formsIconColor,
+      ),
+      _buildCustomListTile(
+        'assets/Icon_Scheduler.png',
+        'Job Scheduling',
+        5,
+        DashboardConstants.jobSchedulingIconColor,
+      ),
+      _buildCustomListTile(
+        'assets/Icon_task_manage.png',
+        'Quick Tasks',
+        6,
+        DashboardConstants.jobSchedulingIconColor,
+      ),
+    ];
   }
 
+  /// Builds a custom list tile for navigation items
   ListTile _buildCustomListTile(
     String assetPath,
     String title,
@@ -323,10 +337,10 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Helper method to load different types of images (SVG or regular)
   Widget _loadImage(String assetPath) {
     if (assetPath.endsWith('.svg')) {
       return SvgPicture.asset(
-        // color: Colors.grey,
         assetPath,
         height: 40,
         width: 40,
@@ -339,19 +353,5 @@ class _DashboardPageState extends State<DashboardPage> {
         width: 40,
       );
     }
-  }
-}
-
-class FeedScreen extends StatelessWidget {
-  const FeedScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        "this is the Feed screen",
-        style: openSansHebrewTextStyle,
-      ),
-    );
   }
 }

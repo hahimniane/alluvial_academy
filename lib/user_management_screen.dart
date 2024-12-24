@@ -49,7 +49,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     super.initState();
     getFirebaseData();
     _tabController = TabController(length: 2, vsync: this);
-    _employeeDataSource = EmployeeDataSource(employees: []);
+    // _employeeDataSource = EmployeeDataSource(employees: []);
+    _employeeDataSource = EmployeeDataSource(employees: _filteredEmployees);
   }
 
   @override
@@ -58,8 +59,33 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     super.dispose();
   }
 
+  // void _filterEmployees(String searchTerm) {
+  //   setState(() {
+  //     if (searchTerm.isEmpty) {
+  //       _filteredEmployees = _allEmployees;
+  //     } else {
+  //       _filteredEmployees = _allEmployees.where((employee) {
+  //         return employee.firstName
+  //             .toLowerCase()
+  //             .contains(searchTerm.toLowerCase());
+  //       }).toList();
+  //     }
+  //     print('sorted employes');
+  //     for (var employee in _filteredEmployees) {
+  //       print("Employee is ${employee.firstName}");
+  //     }
+
+  //     _employeeDataSource!.updateDataSource(_filteredEmployees);
+  //   });
+  // }
+
   void _filterEmployees(String searchTerm) {
     setState(() {
+      if (_allEmployees.isEmpty) {
+        // If this is first load, don't filter yet
+        return;
+      }
+
       if (searchTerm.isEmpty) {
         _filteredEmployees = _allEmployees;
       } else {
@@ -69,11 +95,6 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               .contains(searchTerm.toLowerCase());
         }).toList();
       }
-      print('sorted employes');
-      for (var employee in _filteredEmployees) {
-        print("Employee is ${employee.firstName}");
-      }
-
       _employeeDataSource!.updateDataSource(_filteredEmployees);
     });
   }
@@ -183,6 +204,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       .snapshots(),
                   builder: (context, snapshot) {
                     print(
+                        "Current connection state: ${snapshot.connectionState}");
+                    print("Has data: ${snapshot.hasData}");
+                    print("Has error: ${snapshot.hasError}");
+
+                    print(
                         "Stream connection state: ${snapshot.connectionState}");
                     numberOfUsers = 3;
                     print(snapshot.data?.docs[0].id);
@@ -193,13 +219,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       //         snapshot.data!);
                       // _filteredEmployees = _allEmployees;
                       // _employeeDataSource!.updateDataSource(_filteredEmployees);
-                      return const Center(child: Text("Waiting"));
-                    }
-                    if (snapshot.hasError) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    } else if (snapshot.hasError) {
                       return Center(child: Text('Error: ${snapshot.error}'));
-                    }
-
-                    if (snapshot.hasData) {
+                    } else if (snapshot.hasData) {
                       numberOfUsers = snapshot.data?.docs.length;
                       _allEmployees =
                           EmployeeDataSource.mapSnapshotToEmployeeList(
@@ -420,7 +445,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                           ),
                         ],
                       );
+                    } else if (_filteredEmployees.isEmpty) {
+                      _filteredEmployees = _allEmployees;
+                      _employeeDataSource!.updateDataSource(_filteredEmployees);
                     }
+
                     return const Center(child: Text('No data available'));
                   },
                 ),
@@ -517,7 +546,7 @@ class ChatScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text("this is the ChatScreen screen"),
+        child: Text("this is the chat  screen"),
       ),
     );
   }
