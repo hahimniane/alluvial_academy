@@ -6,10 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'dahboard.dart';
 import 'firebase_options.dart';
-import 'home_page_to_be_deleted.dart';
+
 import 'login.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -31,7 +32,26 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
         useMaterial3: true,
       ),
-      home: DashboardPage(),
+      home: AuthenticationWrapper(),
+    );
+  }
+}
+
+class AuthenticationWrapper extends StatelessWidget {
+  const AuthenticationWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // If the snapshot has user data, then they're already signed in
+        if (snapshot.hasData) {
+          return const DashboardPage();
+        }
+        // Otherwise, they're not signed in
+        return LoginScreen();
+      },
     );
   }
 }
