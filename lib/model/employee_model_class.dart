@@ -3,19 +3,19 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
 
 class Employee {
-  Employee(
-    this.firstName,
-    this.lastName,
-    this.email,
-    this.countryCode,
-    this.mobilePhone,
-    this.userType,
-    this.title,
-    this.employmentStartDate,
-    this.kioskCode,
-    this.dateAdded,
-    this.lastLogin,
-  );
+  Employee({
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    required this.countryCode,
+    required this.mobilePhone,
+    required this.userType,
+    required this.title,
+    required this.employmentStartDate,
+    required this.kioskCode,
+    required this.dateAdded,
+    required this.lastLogin,
+  });
 
   final String firstName;
   final String lastName;
@@ -91,18 +91,28 @@ class EmployeeDataSource extends DataGridSource {
 
   static List<Employee> mapSnapshotToEmployeeList(QuerySnapshot snapshot) {
     return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+
+      // Convert Timestamp to String for dates
+      String formatTimestamp(dynamic timestamp) {
+        if (timestamp is Timestamp) {
+          return timestamp.toDate().toString();
+        }
+        return timestamp?.toString() ?? '';
+      }
+
       return Employee(
-        doc['first_name'],
-        doc['last_name'],
-        doc['email'],
-        doc['country_code'],
-        doc['phone_number'],
-        doc['user_type'],
-        doc['title'],
-        doc['employment_start_date'],
-        doc['kiosk_code'],
-        doc['date_added'],
-        doc['last_login'],
+        firstName: data['first_name'] ?? '',
+        lastName: data['last_name'] ?? '',
+        email: data['e-mail'] ?? '',
+        countryCode: data['country_code'] ?? '',
+        mobilePhone: data['phone_number'] ?? '',
+        userType: data['user_type'] ?? '',
+        title: data['title'] ?? '',
+        employmentStartDate: formatTimestamp(data['employment_start_date']),
+        kioskCode: data['kiosk_code'] ?? '',
+        dateAdded: formatTimestamp(data['date_added']),
+        lastLogin: formatTimestamp(data['last_login']),
       );
     }).toList();
   }

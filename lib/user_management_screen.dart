@@ -99,6 +99,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     });
   }
 
+  void _filterByUserType(String? userType) {
+    // This method can be implemented later for filtering by user type
+    // For now, it's just a placeholder to prevent linter errors
+  }
+
   void _exportData() {
     List<List<String>> userData = [
       [
@@ -187,11 +192,13 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             ),
           ),
           HeaderWidget(
-              onSearchChanged: _filterEmployees, onExport: _exportData),
+              onSearchChanged: _filterEmployees,
+              onExport: _exportData,
+              onFilterChanged: _filterByUserType),
           Expanded(
             flex: 11,
             child: Container(
-              margin: const EdgeInsets.all(12),
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -513,19 +520,6 @@ class UserCard extends StatelessWidget {
   }
 }
 
-class FormScreen extends StatelessWidget {
-  const FormScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text("this is the FormScreen screen"),
-      ),
-    );
-  }
-}
-
 class TasksScreen extends StatelessWidget {
   const TasksScreen({super.key});
 
@@ -534,43 +528,6 @@ class TasksScreen extends StatelessWidget {
     return const Scaffold(
       body: Center(
         child: Text("this is the TaskScreen screen"),
-      ),
-    );
-  }
-}
-
-class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text("this is the chat  screen"),
-      ),
-    );
-  }
-}
-
-class JobSchedulingScreen extends StatelessWidget {
-  const JobSchedulingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: FutureBuilder<QuerySnapshot>(
-            future: FirebaseFirestore.instance.collection('users').get(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Text("waiting");
-              } else if (snapshot.connectionState == ConnectionState.done) {
-                return Text("Done");
-              } else if (snapshot.connectionState == ConnectionState.active) {
-                return Text("active");
-              }
-              return Text("don't know what happened in the else ");
-            }),
       ),
     );
   }

@@ -42,7 +42,7 @@ class ChatService {
       return chatRef.id;
     } catch (e) {
       print('Error creating chat: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -74,7 +74,7 @@ class ChatService {
       });
     } catch (e) {
       print('Error sending message: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -115,7 +115,7 @@ class ChatService {
       });
     } catch (e) {
       print('Error marking message as read: $e');
-      throw e;
+      rethrow;
     }
   }
 }
