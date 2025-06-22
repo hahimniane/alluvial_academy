@@ -1,18 +1,23 @@
 // ignore_for_file: library_private_types_in_public_api
+import 'package:alluwalacademyadmin/admin_dashboard_page.dart';
 import 'package:alluwalacademyadmin/chat_page.dart';
+import 'package:alluwalacademyadmin/form_scree.dart';
+import 'package:alluwalacademyadmin/job_scheduling.dart';
 import 'package:alluwalacademyadmin/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'const.dart';
 import 'user_management_screen.dart';
+import 'user_management_screen.dart' as user_management;
+import 'admin/form_builder.dart';
 
 /// Constants for the Dashboard
 class DashboardConstants {
   // Dimensions
   static const double sideMenuWidth = 250.0;
-  static const double logoHoverHeight = 35.0;
-  static const double logoNormalHeight = 30.0;
+  static const double logoHoverHeight = 180.0;
+  static const double logoNormalHeight = 160.0;
   static const double searchBarWidth = 200.0;
   static const double searchBarHeight = 40.0;
 
@@ -41,12 +46,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // List of screens available in the dashboard
   final List<Widget> _screens = [
-    TimeClockScreen(),
+    const AdminDashboard(),
     const UserManagementScreen(),
-    const FeedScreen(),
+
+    // const FeedScreen(),
     const ChatScreen(),
+    TimeClockScreen(),
     const FormScreen(),
-    const JobSchedulingScreen(),
+    const FormBuilder(),
     const TasksScreen(),
     const TimeOffScreen()
   ];
@@ -120,7 +127,7 @@ class _DashboardPageState extends State<DashboardPage> {
         child: AnimatedContainer(
           duration: DashboardConstants.hoverAnimationDuration,
           child: Image.asset(
-            'assets/LOGO.png',
+            'assets/logo_navigation_bar.PNG',
             height: _isHovered
                 ? DashboardConstants.logoHoverHeight
                 : DashboardConstants.logoNormalHeight,
@@ -233,6 +240,7 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Builds the side navigation menu
   Container _buildSideMenu() {
     return Container(
+      margin: const EdgeInsets.only(top: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(width: 0.5, color: Colors.grey),
@@ -258,13 +266,13 @@ class _DashboardPageState extends State<DashboardPage> {
     return <Widget>[
       _buildCustomListTile(
         "assets/dashboard.svg",
-        "DashBoard",
+        "admin/DashBoard",
         0,
         Colors.white,
       ),
       _buildCustomListTile(
         'assets/users-sidebar.svg',
-        'Users',
+        'admin/Users',
         1,
         Colors.white,
       ),
@@ -289,7 +297,8 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       _buildCustomListTile(
         'assets/Icon_Scheduler.png',
-        'Job Scheduling',
+        'admin/Create Forms',
+        // 'Job Scheduling',
         5,
         DashboardConstants.jobSchedulingIconColor,
       ),

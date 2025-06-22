@@ -1,0 +1,1749 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+
+class FormScreen extends StatefulWidget {
+  const FormScreen({super.key});
+
+  @override
+  State<FormScreen> createState() => _FormScreenState();
+}
+
+class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  String? selectedFormId;
+  Map<String, dynamic>? selectedFormData;
+  Map<String, TextEditingController> fieldControllers = {};
+  Map<String, dynamic> fieldValues =
+      {}; // For non-text values like images, booleans
+  String searchQuery = '';
+  bool _isSubmitting = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF8FAFC),
+      body: Row(
+        children: [
+          // Left sidebar with form list
+          Container(
+            width: 320,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x0F000000),
+                  offset: Offset(2, 0),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xff0386FF),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.description,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Available Forms',
+                              style: GoogleFonts.inter(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Search bar
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search forms...',
+                            hintStyle: GoogleFonts.inter(
+                              color: const Color(0xff6B7280),
+                              fontSize: 14,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Color(0xff6B7280),
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                          ),
+                          style: GoogleFonts.inter(fontSize: 14),
+                          onChanged: (value) {
+                            setState(() {
+                              searchQuery = value.toLowerCase();
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Forms list
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('form')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return _buildErrorState('Error loading forms');
+                      }
+
+                      if (!snapshot.hasData) {
+                        return _buildLoadingState();
+                      }
+
+                      final forms = snapshot.data!.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return data['title']
+                            .toString()
+                            .toLowerCase()
+                            .contains(searchQuery);
+                      }).toList();
+
+                      if (forms.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('form_responses')
+                            .where('userId',
+                                isEqualTo:
+                                    FirebaseAuth.instance.currentUser?.uid)
+                            .snapshots(),
+                        builder: (context, responsesSnapshot) {
+                          final userResponses = responsesSnapshot.hasData
+                              ? responsesSnapshot.data!.docs
+                              : <QueryDocumentSnapshot>[];
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: forms.length,
+                            itemBuilder: (context, index) {
+                              final form =
+                                  forms[index].data() as Map<String, dynamic>;
+                              final isSelected =
+                                  forms[index].id == selectedFormId;
+                              final formId = forms[index].id;
+
+                              // Check if user has submitted this form
+                              final hasSubmitted = userResponses.any(
+                                  (response) =>
+                                      (response.data()
+                                          as Map<String, dynamic>)['formId'] ==
+                                      formId);
+
+                              return _buildFormCard(
+                                  form, formId, isSelected, hasSubmitted);
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Main content area
+          Expanded(
+            child: selectedFormData == null
+                ? _buildWelcomeScreen()
+                : _buildFormView(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormCard(
+      Map<String, dynamic> form, String formId, bool isSelected,
+      [bool hasSubmitted = false]) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _handleFormSelection(formId, form),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xff0386FF).withOpacity(0.08)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xff0386FF)
+                    : const Color(0xffE5E7EB),
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xff0386FF).withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xff0386FF)
+                            : hasSubmitted
+                                ? const Color(0xff10B981)
+                                : const Color(0xffF3F4F6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        hasSubmitted ? Icons.check : Icons.description,
+                        size: 16,
+                        color: isSelected || hasSubmitted
+                            ? Colors.white
+                            : const Color(0xff6B7280),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            form['title'] ?? 'Untitled Form',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? const Color(0xff0386FF)
+                                  : const Color(0xff111827),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (hasSubmitted) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Submitted',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xff10B981),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (hasSubmitted) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xff10B981).withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          'Completed',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff10B981),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (form['description'] != null &&
+                    form['description'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    form['description'],
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _getFormFieldCount(form),
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeScreen() {
+    return Container(
+      padding: const EdgeInsets.all(48),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xff0386FF).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.description_outlined,
+                size: 64,
+                color: Color(0xff0386FF),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Select a Form to Get Started',
+              style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Choose a form from the sidebar to fill out and submit.\nYour responses will be saved automatically.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                color: const Color(0xff6B7280),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormView() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Form header card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0386FF).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.description,
+                              color: Color(0xff0386FF),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedFormData!['title'] ?? 'Untitled Form',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xff111827),
+                                  ),
+                                ),
+                                if (selectedFormData!['description'] != null &&
+                                    selectedFormData!['description']
+                                        .toString()
+                                        .isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    selectedFormData!['description'],
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      color: const Color(0xff6B7280),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Form fields card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Form Fields',
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff111827),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ...(selectedFormData!['fields'] as Map<String, dynamic>)
+                            .entries
+                            .map((field) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 24),
+                                  child: _buildModernFormField(
+                                    field.value['label'],
+                                    field.value['placeholder'] ?? 'Enter value',
+                                    fieldControllers[field.key]!,
+                                    field.value['required'] ?? false,
+                                    field.value['type'] ?? 'text',
+                                    options: field.value['type'] == 'select'
+                                        ? List<String>.from(
+                                            field.value['options'] ?? [])
+                                        : null,
+                                  ),
+                                )),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Action buttons
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isSubmitting ? null : _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xff0386FF),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isSubmitting
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Submitting...',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.send, size: 20),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Submit Form',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      OutlinedButton(
+                        onPressed: _isSubmitting ? null : _resetForm,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xff6B7280),
+                          side: const BorderSide(color: Color(0xffE5E7EB)),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.refresh, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Reset',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernFormField(
+    String label,
+    String hintText,
+    TextEditingController controller,
+    bool required,
+    String type, {
+    List<String>? options,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label with required indicator
+        Row(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            if (required) ...[
+              const SizedBox(width: 4),
+              const Text(
+                '*',
+                style: TextStyle(
+                  color: Color(0xffEF4444),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Field input based on type
+        if (type == 'select' || type == 'dropdown') ...[
+          _buildDropdownField(controller, hintText, options, required, label),
+        ] else if (type == 'multiline' || type == 'long_text') ...[
+          _buildTextAreaField(controller, hintText, required, label),
+        ] else if (type == 'date') ...[
+          _buildDateField(controller, hintText, required, label),
+        ] else if (type == 'boolean' || type == 'yes_no') ...[
+          _buildBooleanField(controller, label),
+        ] else if (type == 'number') ...[
+          _buildNumberField(controller, hintText, required, label),
+        ] else if (type == 'image_upload') ...[
+          _buildImageField(controller, hintText, required, label),
+        ] else if (type == 'signature') ...[
+          _buildSignatureField(controller, hintText, required, label),
+        ] else ...[
+          _buildTextInputField(controller, hintText, required, label, type),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTextInputField(
+    TextEditingController controller,
+    String hintText,
+    bool required,
+    String label,
+    String type,
+  ) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.inter(
+          color: const Color(0xff9CA3AF),
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: const Color(0xffF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+        prefixIcon: _getFieldIcon(type),
+      ),
+      style: GoogleFonts.inter(
+        fontSize: 14,
+        color: const Color(0xff111827),
+      ),
+      keyboardType: _getKeyboardType(type),
+      validator: (value) {
+        if (required && (value == null || value.isEmpty)) {
+          return 'Please enter $label';
+        }
+        if (type == 'email' && value != null && value.isNotEmpty) {
+          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) {
+            return 'Please enter a valid email address';
+          }
+        }
+        if (type == 'phone' && value != null && value.isNotEmpty) {
+          if (!RegExp(r'^\+?[\d\s-]+$').hasMatch(value)) {
+            return 'Please enter a valid phone number';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildDropdownField(
+    TextEditingController controller,
+    String hintText,
+    List<String>? options,
+    bool required,
+    String label,
+  ) {
+    return DropdownButtonFormField<String>(
+      value: controller.text.isEmpty ? null : controller.text,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.inter(
+          color: const Color(0xff9CA3AF),
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: const Color(0xffF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+        prefixIcon: const Icon(
+          Icons.arrow_drop_down_circle_outlined,
+          color: Color(0xff6B7280),
+        ),
+      ),
+      style: GoogleFonts.inter(
+        fontSize: 14,
+        color: const Color(0xff111827),
+      ),
+      dropdownColor: Colors.white,
+      items: options
+              ?.map((option) => DropdownMenuItem(
+                    value: option,
+                    child: Text(
+                      option,
+                      style: GoogleFonts.inter(fontSize: 14),
+                    ),
+                  ))
+              .toList() ??
+          [],
+      onChanged: (value) {
+        if (value != null) {
+          controller.text = value;
+        }
+      },
+      validator: required
+          ? (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select a $label';
+              }
+              return null;
+            }
+          : null,
+    );
+  }
+
+  Widget _buildTextAreaField(
+    TextEditingController controller,
+    String hintText,
+    bool required,
+    String label,
+  ) {
+    return TextFormField(
+      controller: controller,
+      maxLines: 4,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.inter(
+          color: const Color(0xff9CA3AF),
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: const Color(0xffF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+        alignLabelWithHint: true,
+      ),
+      style: GoogleFonts.inter(
+        fontSize: 14,
+        color: const Color(0xff111827),
+      ),
+      validator: required
+          ? (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter $label';
+              }
+              return null;
+            }
+          : null,
+    );
+  }
+
+  Widget _buildDateField(
+    TextEditingController controller,
+    String hintText,
+    bool required,
+    String label,
+  ) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.inter(
+          color: const Color(0xff9CA3AF),
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: const Color(0xffF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+        prefixIcon: const Icon(
+          Icons.calendar_today,
+          color: Color(0xff6B7280),
+        ),
+        suffixIcon: const Icon(
+          Icons.arrow_drop_down,
+          color: Color(0xff6B7280),
+        ),
+      ),
+      style: GoogleFonts.inter(
+        fontSize: 14,
+        color: const Color(0xff111827),
+      ),
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(1900),
+          lastDate: DateTime(2100),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xff0386FF),
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (date != null) {
+          controller.text = "${date.day}/${date.month}/${date.year}";
+        }
+      },
+      validator: required
+          ? (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select a date';
+              }
+              return null;
+            }
+          : null,
+    );
+  }
+
+  Widget _buildBooleanField(TextEditingController controller, String label) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Radio<String>(
+            value: 'Yes',
+            groupValue: controller.text,
+            onChanged: (value) {
+              setState(() {
+                controller.text = value ?? '';
+              });
+            },
+            activeColor: const Color(0xff0386FF),
+          ),
+          Text(
+            'Yes',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(width: 24),
+          Radio<String>(
+            value: 'No',
+            groupValue: controller.text,
+            onChanged: (value) {
+              setState(() {
+                controller.text = value ?? '';
+              });
+            },
+            activeColor: const Color(0xff0386FF),
+          ),
+          Text(
+            'No',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff111827),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNumberField(
+    TextEditingController controller,
+    String hintText,
+    bool required,
+    String label,
+  ) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+      ],
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.inter(
+          color: const Color(0xff9CA3AF),
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: const Color(0xffF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+        prefixIcon: const Icon(
+          Icons.numbers_outlined,
+          color: Color(0xff6B7280),
+        ),
+      ),
+      style: GoogleFonts.inter(
+        fontSize: 14,
+        color: const Color(0xff111827),
+      ),
+      validator: (value) {
+        if (required && (value == null || value.isEmpty)) {
+          return 'Please enter $label';
+        }
+        if (value != null && value.isNotEmpty) {
+          if (double.tryParse(value) == null) {
+            return 'Please enter a valid number';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildImageField(
+    TextEditingController controller,
+    String hintText,
+    bool required,
+    String label,
+  ) {
+    final fieldKey = selectedFormData!['fields'].keys.firstWhere(
+          (key) => selectedFormData!['fields'][key]['label'] == label,
+          orElse: () => '',
+        );
+
+    final hasImage = fieldValues[fieldKey] != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasImage) ...[
+          // Image preview
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xff0386FF), width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Stack(
+                children: [
+                  Image.memory(
+                    Uint8List.fromList(fieldValues[fieldKey]['bytes']),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  ),
+                  // Delete button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          fieldValues.remove(fieldKey);
+                          controller.text = '';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffEF4444),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // File info
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xff10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border:
+                  Border.all(color: const Color(0xff10B981).withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xff10B981),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fieldValues[fieldKey]['fileName'],
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                      Text(
+                        _formatFileSize(fieldValues[fieldKey]['size']),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _pickImage(fieldKey, controller),
+                  child: Text(
+                    'Change',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff0386FF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          // Upload button
+          GestureDetector(
+            onTap: () => _pickImage(fieldKey, controller),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xffF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xffE5E7EB),
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff0386FF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: const Icon(
+                      Icons.cloud_upload_outlined,
+                      size: 32,
+                      color: Color(0xff0386FF),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Click to upload image',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'JPG, PNG, GIF up to 10MB',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (required && !hasImage) ...[
+          const SizedBox(height: 8),
+          Text(
+            'This field is required',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xffEF4444),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSignatureField(
+    TextEditingController controller,
+    String hintText,
+    bool required,
+    String label,
+  ) {
+    final fieldKey = selectedFormData!['fields'].keys.firstWhere(
+          (key) => selectedFormData!['fields'][key]['label'] == label,
+          orElse: () => '',
+        );
+
+    final hasSignature = fieldValues[fieldKey] != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasSignature) ...[
+          // Signature preview
+          Container(
+            width: double.infinity,
+            height: 120,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xff0386FF), width: 2),
+              color: Colors.white,
+            ),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.memory(
+                    Uint8List.fromList(fieldValues[fieldKey]['bytes']),
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  ),
+                ),
+                // Delete button
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        fieldValues.remove(fieldKey);
+                        controller.text = '';
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffEF4444),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: const Color(0xff10B981).withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: Color(0xff10B981),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Signature captured',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              TextButton(
+                onPressed: () => _pickSignature(fieldKey, controller),
+                child: Text(
+                  'Change',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff0386FF),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          // Signature upload button
+          GestureDetector(
+            onTap: () => _pickSignature(fieldKey, controller),
+            child: Container(
+              width: double.infinity,
+              height: 120,
+              decoration: BoxDecoration(
+                color: const Color(0xffF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xffE5E7EB),
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff9b51e0).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: const Icon(
+                      Icons.draw_outlined,
+                      size: 24,
+                      color: Color(0xff9b51e0),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Click to add signature',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  Text(
+                    'Upload image or use signature pad',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (required && !hasSignature) ...[
+          const SizedBox(height: 8),
+          Text(
+            'This field is required',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xffEF4444),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading forms...',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Color(0xffEF4444),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.description_outlined,
+            size: 48,
+            color: Color(0xff6B7280),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No forms found',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Try adjusting your search',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Icon? _getFieldIcon(String type) {
+    switch (type) {
+      case 'email':
+        return const Icon(Icons.email_outlined, color: Color(0xff6B7280));
+      case 'phone':
+        return const Icon(Icons.phone_outlined, color: Color(0xff6B7280));
+      case 'number':
+        return const Icon(Icons.numbers_outlined, color: Color(0xff6B7280));
+      default:
+        return const Icon(Icons.text_fields_outlined, color: Color(0xff6B7280));
+    }
+  }
+
+  String _getFormFieldCount(Map<String, dynamic> form) {
+    final fields = form['fields'] as Map<String, dynamic>? ?? {};
+    final count = fields.length;
+    return '$count field${count != 1 ? 's' : ''}';
+  }
+
+  void _handleFormSelection(String formId, Map<String, dynamic> formData) {
+    setState(() {
+      selectedFormId = formId;
+      selectedFormData = formData;
+
+      // Clear existing controllers and values
+      for (var controller in fieldControllers.values) {
+        controller.dispose();
+      }
+      fieldControllers.clear();
+      fieldValues.clear();
+
+      // Create new controllers for form fields
+      final fields = formData['fields'] as Map<String, dynamic>;
+      fields.forEach((fieldId, fieldData) {
+        fieldControllers[fieldId] = TextEditingController();
+      });
+    });
+
+    _animationController.forward();
+  }
+
+  Future<void> _pickImage(
+      String fieldKey, TextEditingController controller) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null && file.size <= 10 * 1024 * 1024) {
+          // 10MB limit
+          setState(() {
+            fieldValues[fieldKey] = {
+              'fileName': file.name,
+              'bytes': file.bytes!,
+              'size': file.size,
+            };
+            controller.text = file.name;
+          });
+        } else {
+          _showSnackBar('File size must be less than 10MB', isError: true);
+        }
+      }
+    } catch (e) {
+      _showSnackBar('Error picking image: $e', isError: true);
+    }
+  }
+
+  Future<void> _pickSignature(
+      String fieldKey, TextEditingController controller) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null && file.size <= 5 * 1024 * 1024) {
+          // 5MB limit for signatures
+          setState(() {
+            fieldValues[fieldKey] = {
+              'fileName': file.name,
+              'bytes': file.bytes!,
+              'size': file.size,
+            };
+            controller.text = file.name;
+          });
+        } else {
+          _showSnackBar('Signature file size must be less than 5MB',
+              isError: true);
+        }
+      }
+    } catch (e) {
+      _showSnackBar('Error picking signature: $e', isError: true);
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  TextInputType _getKeyboardType(String type) {
+    switch (type) {
+      case 'email':
+        return TextInputType.emailAddress;
+      case 'phone':
+        return TextInputType.phone;
+      case 'number':
+        return TextInputType.number;
+      case 'multiline':
+        return TextInputType.multiline;
+      default:
+        return TextInputType.text;
+    }
+  }
+
+  void _resetForm() {
+    _formKey.currentState?.reset();
+    for (var controller in fieldControllers.values) {
+      controller.clear();
+    }
+    setState(() {
+      fieldValues.clear();
+    });
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        _showSnackBar('You must be logged in to submit forms', isError: true);
+        return;
+      }
+
+      final responses = <String, dynamic>{};
+      fieldControllers.forEach((fieldId, controller) {
+        if (fieldValues.containsKey(fieldId)) {
+          // For image and signature fields, store the file data
+          responses[fieldId] = fieldValues[fieldId];
+        } else {
+          // For text fields, store the text value
+          responses[fieldId] = controller.text;
+        }
+      });
+
+      await FirebaseFirestore.instance.collection('form_responses').add({
+        'formId': selectedFormId,
+        'userId': currentUser.uid,
+        'userEmail': currentUser.email,
+        'responses': responses,
+        'submittedAt': FieldValue.serverTimestamp(),
+        'status': 'completed',
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      _showSnackBar('Form submitted successfully!', isError: false);
+
+      // Clear form
+      _resetForm();
+    } catch (e) {
+      _showSnackBar('Error submitting form: ${e.toString()}', isError: true);
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        backgroundColor:
+            isError ? const Color(0xffEF4444) : const Color(0xff10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    for (var controller in fieldControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+}

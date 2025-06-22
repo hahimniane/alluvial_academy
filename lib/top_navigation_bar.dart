@@ -13,7 +13,7 @@ class TopNavigationBar extends StatelessWidget {
           Row(
             children: [
               Image.asset(
-                'assets/logo.png', // Replace with your logo asset
+                'assets/logo_navigation_bar.PNG',
                 height: 30,
               ),
               const SizedBox(width: 10),
@@ -31,7 +31,7 @@ class TopNavigationBar extends StatelessWidget {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search anything',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20.0),
                     ),
@@ -114,9 +114,9 @@ class TopNavigationBar extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 20),
-              CircleAvatar(
+              const CircleAvatar(
                 backgroundColor: Colors.teal,
-                child: const Text('HN'),
+                child: Text('HN'),
               ),
               const SizedBox(width: 10),
               const Text('Hassimiou Niane'),

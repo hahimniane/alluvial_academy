@@ -4,8 +4,10 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   cloud_firestore
+  emoji_picker_flutter
   firebase_auth
   firebase_core
+  firebase_storage
   url_launcher_windows
 )
 

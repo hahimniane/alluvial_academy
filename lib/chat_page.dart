@@ -1,6 +1,10 @@
-import 'package:alluwalacademyadmin/const.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:html' show window;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 
 // /// Feed Screen widget
 // class FeedScreen extends StatelessWidget {
@@ -34,7 +38,6 @@ import 'package:flutter/material.dart';
 //   }
 // }
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // Models
@@ -75,15 +78,16 @@ class ChatUser {
   }
 }
 
-class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key});
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
 
   @override
-  State<FeedScreen> createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<FeedScreen> {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ScrollController _chatScrollController = ScrollController();
@@ -94,7 +98,7 @@ class _ChatScreenState extends State<FeedScreen> {
   final String _currentUserId =
       'ySm53rwQszPGceGjBQaYLOMAEet1'; // Simulating current user
   ChatUser? _selectedChat;
-  List<ChatMessage> _currentMessages = [];
+  final List<ChatMessage> _currentMessages = [];
 
   // Replace the mock _allChats list with a real-time users stream
   List<ChatUser> _allChats = [];
@@ -103,59 +107,101 @@ class _ChatScreenState extends State<FeedScreen> {
 
   bool _showAllUsers = false;
 
+  bool _isComposing = false;
+
   @override
   void initState() {
     super.initState();
     _searchFocus.addListener(_onSearchFocusChange);
     _filteredChats = [];
-    _loadUsers(); // Add this line to load users when screen initializes
+    _loadUsers();
+    _messageController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    setState(() {
+      _isComposing = _messageController.text.isNotEmpty;
+    });
   }
 
   // Add this method to load users from Firestore
   void _loadUsers() {
     print('Starting _loadUsers method...');
     try {
-      if (_showAllUsers) {
-        // Load all users when adding new chat
+      // Always load users with chat history first
+      FirebaseFirestore.instance
+          .collection('chats')
+          .where('participants', arrayContains: _currentUserId)
+          .snapshots()
+          .listen((chatSnapshot) {
+        Set<String> chatUserIds = {};
+
+        for (var doc in chatSnapshot.docs) {
+          List<String> participants =
+              List<String>.from(doc['participants'] ?? []);
+          chatUserIds.addAll(participants.where((id) => id != _currentUserId));
+        }
+
+        if (chatUserIds.isEmpty) {
+          setState(() {
+            _allChats = [];
+            _filteredChats = [];
+          });
+          return;
+        }
+
+        // Fetch user details for chat participants
         FirebaseFirestore.instance
             .collection('users')
-            .orderBy('first_name')
+            .where(FieldPath.documentId, whereIn: chatUserIds.toList())
             .snapshots()
-            .listen(_handleUserSnapshot);
-      } else {
-        // Load only users with chat history
-        FirebaseFirestore.instance
-            .collection('chats')
-            .where('participants', arrayContains: _currentUserId)
-            .snapshots()
-            .listen((chatSnapshot) {
-          Set<String> chatUserIds = {};
+            .listen((userSnapshot) {
+          setState(() {
+            _allChats = userSnapshot.docs.map((doc) {
+              final data = doc.data();
+              return ChatUser(
+                id: doc.id,
+                name: '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
+                    .trim(),
+                subtitle: data['email']?.toString() ?? '',
+                icon: Icons.person,
+                isOnline: _isUserOnline(data['last_login']),
+              );
+            }).toList();
 
-          for (var doc in chatSnapshot.docs) {
-            List<String> participants =
-                List<String>.from(doc['participants'] ?? []);
-            chatUserIds
-                .addAll(participants.where((id) => id != _currentUserId));
-          }
+            _filteredChats = List.from(_allChats);
 
-          if (chatUserIds.isEmpty) {
-            setState(() {
-              _allChats = [];
-              _filteredChats = [];
-            });
-            return;
-          }
-
-          // Fetch user details for chat participants
-          FirebaseFirestore.instance
-              .collection('users')
-              .where(FieldPath.documentId, whereIn: chatUserIds.toList())
-              .snapshots()
-              .listen(_handleUserSnapshot);
+            // If a chat is selected, make sure it stays selected
+            if (_selectedChat != null) {
+              final updatedSelectedChat = _allChats.firstWhere(
+                (chat) => chat.id == _selectedChat!.id,
+                orElse: () => _selectedChat!,
+              );
+              _selectedChat = updatedSelectedChat;
+            }
+          });
         });
-      }
+      });
     } catch (e) {
       print('Error setting up snapshot listener: $e');
+    }
+  }
+
+  // Add this helper method to check online status
+  bool _isUserOnline(dynamic lastLogin) {
+    if (lastLogin == null) return false;
+    try {
+      DateTime lastLoginTime;
+      if (lastLogin is Timestamp) {
+        lastLoginTime = lastLogin.toDate();
+      } else if (lastLogin is String) {
+        lastLoginTime = DateTime.parse(lastLogin);
+      } else {
+        return false;
+      }
+      return DateTime.now().difference(lastLoginTime).inMinutes < 5;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -218,6 +264,7 @@ class _ChatScreenState extends State<FeedScreen> {
     _searchFocus.dispose();
     _scrollController.dispose();
     _chatScrollController.dispose();
+    _messageController.removeListener(_onTextChanged);
     super.dispose();
   }
 
@@ -258,55 +305,30 @@ class _ChatScreenState extends State<FeedScreen> {
     });
   }
 
-  void _sendMessage(String text) async {
-    // Remove any trailing newlines and whitespace
+  void _sendMessage(String text) {
     final trimmedText = text.trim();
+    if (trimmedText.isEmpty || _selectedChat == null) return;
 
-    // Don't send if empty
-    if (trimmedText.isEmpty) return;
-
-    // Don't send if no chat is selected
-    if (_selectedChat == null) return;
-
-    // Clear the input field first
+    // Send message
     _messageController.clear();
 
+    // Send text message directly
+    FirebaseFirestore.instance.collection('chats').add({
+      'content': trimmedText,
+      'timestamp': FieldValue.serverTimestamp(),
+      'sender_id': _currentUserId,
+    });
+  }
+
+  // Helper method to send message to Firestore
+  Future<void> _sendMessageToFirestore(Map<String, dynamic> messageData) async {
     try {
-      // First check if chat document exists
-      final chatDoc = await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(_selectedChat!.id)
-          .get();
-
-      // If chat doesn't exist, create it first
-      if (!chatDoc.exists) {
-        await FirebaseFirestore.instance
-            .collection('chats')
-            .doc(_selectedChat!.id)
-            .set({
-          'chat_type': 'individual', // or 'group' based on your needs
-          'created_at': FieldValue.serverTimestamp(),
-          'updated_at': FieldValue.serverTimestamp(),
-          'participants': [_currentUserId, _selectedChat!.id], // Add both users
-        });
-      }
-
-      // Create message data
-      final messageData = {
-        'content': trimmedText,
-        'sender_id': _currentUserId,
-        'timestamp': FieldValue.serverTimestamp(),
-        'read_by': [_currentUserId],
-      };
-
-      // Add message to Firestore
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(_selectedChat!.id)
           .collection('messages')
           .add(messageData);
 
-      // Update the chat's last_message and timestamp
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(_selectedChat!.id)
@@ -314,100 +336,224 @@ class _ChatScreenState extends State<FeedScreen> {
         'last_message': messageData,
         'updated_at': FieldValue.serverTimestamp(),
       });
-
-      // Scroll to bottom
-      // Future.delayed(const Duration(milliseconds: 100), () {
-      //   if (_chatScrollController.hasClients) {
-      //     _chatScrollController.animateTo(
-      //       _chatScrollController.position.maxScrollExtent,
-      //       duration: const Duration(milliseconds: 300),
-      //       curve: Curves.easeOut,
-      //     );
-      //   }
-      // }
-      // );
     } catch (e) {
-      print('Error sending message: $e');
-      // You might want to show an error message to the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sending message: $e')),
+      );
     }
   }
 
   // Add this method to show the user selection dialog
   void _showUserSelectionDialog() {
+    String searchTerm = ''; // Move searchTerm outside StatefulBuilder
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Select User'),
-          content: SizedBox(
-            width: 300,
-            height: 400,
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .orderBy('first_name')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Error loading users'));
-                }
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              child: Container(
+                width: 400,
+                height: 500,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'New chat',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final users = snapshot.data?.docs
-                        .map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          if (doc.id == _currentUserId) return null;
-
-                          return ChatUser(
-                            id: doc.id,
-                            name:
-                                '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
-                                    .trim(),
-                            subtitle: data['email']?.toString() ?? '',
-                            icon: Icons.person,
-                          );
-                        })
-                        .whereType<ChatUser>()
-                        .toList() ??
-                    [];
-
-                return ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.grey,
-                        child: Text(
-                          user.name.isNotEmpty
-                              ? user.name[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(color: Colors.white),
+                    TextField(
+                      autofocus: true, // Add this to focus the search field
+                      onChanged: (value) {
+                        setDialogState(() {
+                          searchTerm = value.trim().toLowerCase();
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search users...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      title: Text(user.name),
-                      subtitle: Text(user.subtitle),
-                      onTap: () {
-                        Navigator.of(context).pop(); // Close dialog
-                        _selectChat(user); // Select the user to chat with
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Contacts label
+                    const Text(
+                      'Contacts',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .orderBy('first_name')
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+
+                          // First get all chat participants
+                          return StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('chats')
+                                .where('participants',
+                                    arrayContains: _currentUserId)
+                                .snapshots(),
+                            builder: (context, chatSnapshot) {
+                              if (!chatSnapshot.hasData) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+
+                              // Get all users that current user has chatted with
+                              Set<String> existingChatUserIds = {};
+                              for (var doc in chatSnapshot.data!.docs) {
+                                List<String> participants = List<String>.from(
+                                    doc['participants'] ?? []);
+                                existingChatUserIds.addAll(participants
+                                    .where((id) => id != _currentUserId));
+                              }
+
+                              // Filter users to show only those without existing chats
+                              final allUsers = snapshot.data!.docs
+                                  .map((doc) {
+                                    final data =
+                                        doc.data() as Map<String, dynamic>;
+
+                                    // Skip current user and users with existing chats
+                                    if (doc.id == _currentUserId ||
+                                        existingChatUserIds.contains(doc.id)) {
+                                      return null;
+                                    }
+
+                                    final name =
+                                        '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
+                                            .trim();
+                                    final email =
+                                        data['email']?.toString() ?? '';
+
+                                    // Apply search filter
+                                    if (searchTerm.isNotEmpty &&
+                                        !name
+                                            .toLowerCase()
+                                            .contains(searchTerm) &&
+                                        !email
+                                            .toLowerCase()
+                                            .contains(searchTerm)) {
+                                      return null;
+                                    }
+
+                                    return ChatUser(
+                                      id: doc.id,
+                                      name: name,
+                                      subtitle: email,
+                                      icon: Icons.person,
+                                    );
+                                  })
+                                  .whereType<ChatUser>()
+                                  .toList();
+
+                              if (allUsers.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    searchTerm.isEmpty
+                                        ? 'No new users to chat with'
+                                        : 'No matches found for "$searchTerm"',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                );
+                              }
+
+                              return ListView.builder(
+                                itemCount: allUsers.length,
+                                itemBuilder: (context, index) {
+                                  final user = allUsers[index];
+                                  return ListTile(
+                                    leading: CircleAvatar(
+                                      child: Text(user.name[0].toUpperCase()),
+                                    ),
+                                    title: Text(user.name),
+                                    subtitle: Text(user.subtitle),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      _selectChat(user);
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  void _insertEmoji(String emoji) {
+    final text = _messageController.text;
+    final selection = _messageController.selection;
+    final newText = text.replaceRange(
+      selection.start,
+      selection.end,
+      emoji,
+    );
+    _messageController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: selection.baseOffset + emoji.length,
+      ),
+    );
+  }
+
+  void _onEmojiSelected(Category? category, Emoji emoji) {
+    final text = _messageController.text;
+    final selection = _messageController.selection;
+    final newText = text.replaceRange(
+      selection.start,
+      selection.end,
+      emoji.emoji,
+    );
+    _messageController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: selection.baseOffset + emoji.emoji.length,
+      ),
     );
   }
 
@@ -590,28 +736,14 @@ class _ChatScreenState extends State<FeedScreen> {
                                           messageData['sender_id'] ==
                                               _currentUserId;
 
-                                      DateTime messageTime;
                                       try {
-                                        messageTime =
-                                            messageData['timestamp'] != null
-                                                ? (messageData['timestamp']
-                                                        as Timestamp)
-                                                    .toDate()
-                                                : DateTime.now();
+                                        return messageData['timestamp'] != null
+                                            ? _buildMessageBubble(
+                                                messageData, isCurrentUser)
+                                            : null;
                                       } catch (e) {
-                                        messageTime = DateTime.now();
+                                        return null;
                                       }
-
-                                      return _buildMessageBubble(
-                                        ChatMessage(
-                                          id: messages[index].id,
-                                          senderId:
-                                              messageData['sender_id'] ?? '',
-                                          text: messageData['content'] ?? '',
-                                          timestamp: messageTime,
-                                        ),
-                                        isCurrentUser,
-                                      );
                                     },
                                   ),
                                 );
@@ -620,85 +752,43 @@ class _ChatScreenState extends State<FeedScreen> {
                 ),
 
                 // Message Input Area
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Colors.grey.shade200),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: KeyboardListener(
-                          focusNode: FocusNode(),
-                          onKeyEvent: (KeyEvent event) {
-                            if (event is KeyDownEvent &&
-                                event.logicalKey == LogicalKeyboardKey.enter &&
-                                !HardwareKeyboard.instance.isControlPressed &&
-                                !HardwareKeyboard.instance.isShiftPressed) {
-                              _sendMessage(_messageController.text);
-                            }
-                          },
-                          child: TextField(
-                            controller: _messageController,
-                            maxLines: 4,
-                            minLines: 1,
-                            keyboardType: TextInputType.multiline,
-                            decoration: InputDecoration(
-                              hintText: 'Write something...',
-                              hintStyle: const TextStyle(fontSize: 14),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide:
-                                    BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide:
-                                    const BorderSide(color: Color(0xff4A5BF6)),
-                              ),
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                        Icons.emoji_emotions_outlined),
-                                    onPressed: () {},
-                                    splashRadius: 20,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.attach_file),
-                                    onPressed: () {},
-                                    splashRadius: 20,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.gif_box_outlined),
-                                    onPressed: () {},
-                                    splashRadius: 20,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.send),
-                                    onPressed: () {
-                                      if (_messageController.text
-                                          .trim()
-                                          .isNotEmpty) {
-                                        _sendMessage(_messageController.text);
-                                      }
-                                    },
-                                    splashRadius: 20,
-                                    color: const Color(0xff4A5BF6),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade200),
                         ),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _messageController,
+                              focusNode: _messageFocusNode,
+                              decoration: const InputDecoration(
+                                hintText: 'Type a message...',
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (text) => _sendMessage(text),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.send,
+                              color: Color(0xff4A5BF6),
+                            ),
+                            onPressed: _isComposing
+                                ? () => _sendMessage(_messageController.text)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -750,23 +840,28 @@ class _ChatScreenState extends State<FeedScreen> {
     String? lastMessageTime,
     required Function() onTap,
   }) {
-    bool isHovered = _hoveredChatId == id;
-
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hoveredChatId = id),
-      onExit: (_) => setState(() => _hoveredChatId = ''),
+      onEnter: (event) {
+        if (mounted) {
+          setState(() => _hoveredChatId = id);
+        }
+      },
+      onExit: (event) {
+        if (mounted) {
+          setState(() => _hoveredChatId = '');
+        }
+      },
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xff4A5BF6).withOpacity(0.1)
-                : isHovered
-                    ? Colors.grey.withOpacity(0.1)
+                ? const Color(0xffEEF2FF)
+                : _hoveredChatId == id
+                    ? Colors.grey.shade50
                     : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
           ),
           child: ListTile(
             contentPadding:
@@ -870,7 +965,16 @@ class _ChatScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message, bool isCurrentUser) {
+  Widget _buildMessageBubble(dynamic messageData, bool isCurrentUser) {
+    final data = messageData as Map<String, dynamic>;
+    final isAttachment = data['type'] == 'attachment';
+
+    DateTime getDateTime(dynamic timestamp) {
+      if (timestamp == null) return DateTime.now();
+      if (timestamp is Timestamp) return timestamp.toDate();
+      return DateTime.now();
+    }
+
     return Align(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -893,16 +997,68 @@ class _ChatScreenState extends State<FeedScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message.text,
-              style: TextStyle(
-                color: isCurrentUser ? Colors.white : Colors.black87,
-                fontSize: 14,
+            if (isAttachment) ...[
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    // For web, we can directly open the URL in a new tab
+                    final url = data['file_url'];
+                    window.open(url, '_blank');
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getFileIcon(data['file_type']),
+                            color: isCurrentUser ? Colors.white : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              data['file_name'],
+                              style: TextStyle(
+                                color: isCurrentUser
+                                    ? Colors.white
+                                    : Colors.black87,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (data['file_size'] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatFileSize(data['file_size']),
+                          style: TextStyle(
+                            color: isCurrentUser
+                                ? Colors.white.withOpacity(0.7)
+                                : Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ] else ...[
+              Text(
+                data['content'],
+                style: TextStyle(
+                  color: isCurrentUser ? Colors.white : Colors.black87,
+                  fontSize: 14,
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
-              _formatTime(message.timestamp),
+              _formatTime(getDateTime(data['timestamp'])),
               style: TextStyle(
                 color: isCurrentUser
                     ? Colors.white.withOpacity(0.7)
@@ -933,5 +1089,37 @@ class _ChatScreenState extends State<FeedScreen> {
     } else {
       return '${dateTime.month}/${dateTime.day}/${dateTime.year}';
     }
+  }
+
+  IconData _getFileIcon(String? fileType) {
+    if (fileType == null) return Icons.attachment;
+
+    switch (fileType.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return Icons.image;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Icons.video_file;
+      default:
+        return Icons.attachment;
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

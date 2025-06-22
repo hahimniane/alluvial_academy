@@ -5,10 +5,14 @@ import 'const.dart';
 
 class HeaderWidget extends StatelessWidget {
   final Function(String) onSearchChanged;
+  final Function(String?) onFilterChanged;
   final VoidCallback onExport;
 
   const HeaderWidget(
-      {super.key, required this.onSearchChanged, required this.onExport});
+      {super.key,
+      required this.onSearchChanged,
+      required this.onFilterChanged,
+      required this.onExport});
 
   @override
   Widget build(BuildContext context) {
@@ -20,22 +24,87 @@ class HeaderWidget extends StatelessWidget {
           spacing: 18,
           children: [
             // Filter Button
-            ElevatedButton.icon(
-              onPressed: () {
-                // Handle filter button press
-              },
-              icon: const Icon(Icons.filter_list, color: Colors.blue),
-              label: const Text('Filter', style: TextStyle(color: Colors.blue)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Colors.blue),
+            PopupMenuTheme(
+              data: const PopupMenuThemeData(
+                color: Colors.white,
+                elevation: 8,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  side: BorderSide(color: Color(0xffE2E8F0), width: 1),
+                ),
+              ),
+              child: PopupMenuButton<String>(
+                onSelected: (String? value) {
+                  onFilterChanged(value);
+                },
+                itemBuilder: (BuildContext context) => [
+                  const PopupMenuItem<String>(
+                    value: null,
+                    child: Row(
+                      children: [
+                        Icon(Icons.people, color: Colors.grey, size: 20),
+                        SizedBox(width: 8),
+                        Text('All Users',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'teacher',
+                    child: Row(
+                      children: [
+                        Icon(Icons.school, color: Color(0xff0386FF), size: 20),
+                        SizedBox(width: 8),
+                        Text('Teachers',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'student',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person, color: Color(0xff00d084), size: 20),
+                        SizedBox(width: 8),
+                        Text('Students',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'admin',
+                    child: Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings,
+                            color: Color(0xffFF9A6C), size: 20),
+                        SizedBox(width: 8),
+                        Text('Admins',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.filter_list, color: Colors.blue, size: 18),
+                      SizedBox(width: 8),
+                      Text('Filter', style: TextStyle(color: Colors.blue)),
+                    ],
+                  ),
                 ),
               ),
             ),
             // Search Field
-            Container(
+            SizedBox(
               width: 200,
               height: 35,
               child: TextField(
@@ -49,7 +118,7 @@ class HeaderWidget extends StatelessWidget {
                   ),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8.0),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8.0),
                 ),
                 onChanged: (value) {
                   onSearchChanged(value); // Call the search callback
@@ -101,7 +170,7 @@ class HeaderWidget extends StatelessWidget {
 
   void _showAddUsersBottomSheet(BuildContext context) {
     showModalBottomSheet(
-      constraints: BoxConstraints(),
+      constraints: const BoxConstraints(),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20.0),
