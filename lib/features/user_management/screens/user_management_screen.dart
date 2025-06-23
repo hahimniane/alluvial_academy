@@ -8,9 +8,9 @@ import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:csv/csv.dart';
 import 'package:universal_html/html.dart' as html;
 
-import 'core/constants/app_constants.dart';
-import 'shared/widgets/header_widget.dart';
-import 'core/models/employee_model.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../shared/widgets/header_widget.dart';
+import '../../../core/models/employee_model.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});

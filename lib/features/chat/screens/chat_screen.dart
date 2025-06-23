@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../widgets/message_bubble.dart';
@@ -21,8 +22,9 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<ChatMessage>>(
-              stream: _chatService.getChatMessages(),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _chatService
+                  .getChatMessages('defaultChatId'), // Use actual chatId
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(child: Text('Something went wrong'));
@@ -31,7 +33,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final messages = snapshot.data!;
+                final messages = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return ChatMessage(
+                    id: doc.id,
+                    senderId: data['sender_id'] ?? '',
+                    senderName: data['sender_name'] ?? '',
+                    content: data['content'] ?? '',
+                    timestamp: (data['timestamp'] as Timestamp?)?.toDate() ??
+                        DateTime.now(),
+                  );
+                }).toList();
+
                 return ListView.builder(
                   reverse: true,
                   itemCount: messages.length,
@@ -80,17 +93,11 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
 
-    // Create and send message
-    // You'll need to implement this with actual user data
-    final message = ChatMessage(
-      id: DateTime.now().toString(), // Replace with proper ID generation
-      senderId: 'currentUserId', // Replace with actual user ID
-      senderName: 'Current User', // Replace with actual user name
+    _chatService.sendMessage(
+      chatId: 'defaultChatId', // Replace with actual chat ID
       content: _messageController.text.trim(),
-      timestamp: DateTime.now(),
+      senderId: 'currentUserId', // Replace with actual user ID
     );
-
-    _chatService.sendMessage(message);
     _messageController.clear();
   }
 }

@@ -1,5 +1,5 @@
-import 'package:alluwalacademyadmin/features/user_management/screens/user_list_screen.dart';
-import 'package:alluwalacademyadmin/time_clock_screen.dart';
+import '../../user_management/screens/user_list_screen.dart';
+import '../../time_clock/screens/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../widgets/navigation_menu.dart';

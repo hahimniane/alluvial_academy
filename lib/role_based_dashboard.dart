@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Services/user_role_service.dart';
-import 'dahboard.dart';
+import 'core/services/user_role_service.dart';
+import 'dashboard.dart';
 
 class RoleBasedDashboard extends StatefulWidget {
   const RoleBasedDashboard({super.key});

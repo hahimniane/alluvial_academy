@@ -164,6 +164,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                       'phone',
                       'multiline',
                       'select',
+                      'multi_select',
                       'date',
                     ]
                         .map((type) => DropdownMenuItem(
@@ -209,12 +210,14 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                     },
                   ),
                 ),
-                if (field.type == 'select')
+                if (field.type == 'select' || field.type == 'multi_select')
                   Expanded(
                     child: TextFormField(
                       initialValue: field.options.join(', '),
-                      decoration: const InputDecoration(
-                        labelText: 'Options (comma separated)',
+                      decoration: InputDecoration(
+                        labelText: field.type == 'multi_select'
+                            ? 'Multi-Select Options (comma separated)'
+                            : 'Options (comma separated)',
                         hintText: 'Option 1, Option 2, Option 3',
                       ),
                       onChanged: (value) {
