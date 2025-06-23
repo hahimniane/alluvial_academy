@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
+import 'core/services/user_role_service.dart';
 
 class FormScreen extends StatefulWidget {
   const FormScreen({super.key});
@@ -26,6 +27,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   Map<String, bool> _userFormSubmissions = {}; // Track user form submissions
+  String? _currentUserRole;
+  String? _currentUserId;
+  Map<String, dynamic>? _currentUserData;
 
   @override
   void initState() {
@@ -38,6 +42,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _loadUserFormSubmissions();
+    _loadCurrentUserData();
   }
 
   Future<void> _loadUserFormSubmissions() async {
@@ -62,6 +67,155 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     } catch (e) {
       print('Error loading user form submissions: $e');
     }
+  }
+
+  Future<void> _loadCurrentUserData() async {
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      // Get user role and data
+      final userData = await UserRoleService.getCurrentUserData();
+      final userRole = await UserRoleService.getCurrentUserRole();
+
+      setState(() {
+        _currentUserId = currentUser.uid;
+        _currentUserRole = userRole;
+        _currentUserData = userData;
+      });
+
+      print('Current user loaded:');
+      print('- User ID: $_currentUserId');
+      print('- User Role: $_currentUserRole');
+      print('- User Data: $_currentUserData');
+    } catch (e) {
+      print('Error loading current user data: $e');
+    }
+  }
+
+  /// Helper method to check if roles match (handles both singular and plural forms)
+  bool _roleMatches(String allowedRole, String? userRole) {
+    if (userRole == null) return false;
+
+    // Direct match
+    if (allowedRole == userRole) return true;
+
+    // Handle plural to singular conversion
+    Map<String, String> pluralToSingular = {
+      'admins': 'admin',
+      'teachers': 'teacher',
+      'students': 'student',
+      'parents': 'parent',
+    };
+
+    String singularAllowedRole = pluralToSingular[allowedRole] ?? allowedRole;
+    return singularAllowedRole == userRole;
+  }
+
+  /// Check if the current user can access a specific form
+  bool _canAccessForm(Map<String, dynamic> formData) {
+    // If user data is not loaded yet, don't show any forms
+    if (_currentUserId == null || _currentUserRole == null) {
+      return false;
+    }
+
+    final formTitle = formData['title'] ?? 'Untitled Form';
+
+    // Get form permissions
+    final permissions = formData['permissions'] as Map<String, dynamic>?;
+
+    // If no permissions are set or permissions is null, it's a public form
+    if (permissions == null || permissions.isEmpty) {
+      print('Form "$formTitle": Public access (no permissions set)');
+      return true;
+    }
+
+    final permissionType = permissions['type'] as String?;
+
+    // Public forms are accessible to everyone
+    if (permissionType == null || permissionType == 'public') {
+      print('Form "$formTitle": Public access');
+      return true;
+    }
+
+    // For restricted forms, check access
+    if (permissionType == 'restricted') {
+      final allowedRole = permissions['role'] as String?;
+      final allowedUsers = permissions['users'] as List<dynamic>?;
+
+      print('Form "$formTitle": Restricted access - checking permissions');
+      print('- User role: $_currentUserRole, Required role: $allowedRole');
+      print('- User ID: $_currentUserId, Allowed users: $allowedUsers');
+
+      // Check if user's role matches the allowed role
+      if (allowedRole != null && _roleMatches(allowedRole, _currentUserRole)) {
+        print('Form "$formTitle": Access granted by role match');
+        return true;
+      }
+
+      // Check if user is specifically allowed
+      if (allowedUsers != null && allowedUsers.contains(_currentUserId)) {
+        print('Form "$formTitle": Access granted by user ID match');
+        return true;
+      }
+
+      // If neither role nor specific user access matches, deny access
+      print('Form "$formTitle": Access denied - no role or user match');
+      return false;
+    }
+
+    // Unknown permission type, deny access by default
+    print(
+        'Form "$formTitle": Access denied - unknown permission type: $permissionType');
+    return false;
+  }
+
+  /// Build a small permission indicator widget for admin users
+  Widget _buildPermissionIndicator(Map<String, dynamic> formData) {
+    final permissions = formData['permissions'] as Map<String, dynamic>?;
+
+    if (permissions == null ||
+        permissions.isEmpty ||
+        permissions['type'] == 'public') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xff10B981).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'Public',
+          style: GoogleFonts.inter(
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xff10B981),
+          ),
+        ),
+      );
+    }
+
+    if (permissions['type'] == 'restricted') {
+      final role = permissions['role'] as String?;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xffF59E0B).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          role != null
+              ? '${role[0].toUpperCase()}${role.substring(1)}'
+              : 'Restricted',
+          style: GoogleFonts.inter(
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xffF59E0B),
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   @override
@@ -189,8 +343,20 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         return _buildLoadingState();
                       }
 
+                      // Show loading state if user data is not loaded yet
+                      if (_currentUserId == null || _currentUserRole == null) {
+                        return _buildLoadingState();
+                      }
+
                       final forms = snapshot.data!.docs.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
+
+                        // First check if user can access this form
+                        if (!_canAccessForm(data)) {
+                          return false;
+                        }
+
+                        // Then check if it matches the search query
                         return data['title']
                             .toString()
                             .toLowerCase()
@@ -392,6 +558,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         color: const Color(0xff6B7280),
                       ),
                     ),
+                    const Spacer(),
+                    // Show permission indicator for admin users
+                    if (_currentUserRole == 'admin')
+                      _buildPermissionIndicator(form),
                   ],
                 ),
               ],
@@ -622,7 +792,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     field.value['required'] ?? false,
                                     field.value['type'] ?? 'text',
                                     options: (field.value['type'] == 'select' ||
-                                            field.value['type'] == 'dropdown')
+                                            field.value['type'] == 'dropdown' ||
+                                            field.value['type'] ==
+                                                'multi_select')
                                         ? List<String>.from(
                                             field.value['options'] ?? [])
                                         : null,
@@ -766,12 +938,23 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             ),
             if (required) ...[
               const SizedBox(width: 4),
-              const Text(
-                '*',
-                style: TextStyle(
-                  color: Color(0xffEF4444),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              Tooltip(
+                message: 'This field is required',
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffEF4444).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Required',
+                    style: TextStyle(
+                      color: Color(0xffEF4444),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -782,6 +965,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Field input based on type
         if (type == 'select' || type == 'dropdown') ...[
           _buildDropdownField(controller, hintText, options, required, label),
+        ] else if (type == 'multi_select') ...[
+          _buildMultiSelectField(
+              controller, hintText, options, required, label),
         ] else if (type == 'multiline' ||
             type == 'long_text' ||
             type == 'description') ...[
@@ -933,6 +1119,194 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               return null;
             }
           : null,
+    );
+  }
+
+  Widget _buildMultiSelectField(
+    TextEditingController controller,
+    String hintText,
+    List<String>? options,
+    bool required,
+    String label,
+  ) {
+    // Parse selected values from controller text (stored as comma-separated string)
+    List<String> selectedValues = controller.text.isEmpty
+        ? []
+        : controller.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Hidden TextFormField for validation
+        SizedBox(
+          height: 0,
+          child: TextFormField(
+            controller: controller,
+            validator: required
+                ? (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select at least one option for $label';
+                    }
+                    return null;
+                  }
+                : null,
+            style: const TextStyle(height: 0),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xffE5E7EB)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xffF9FAFB),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.checklist,
+                      color: Color(0xff6B7280),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        selectedValues.isEmpty
+                            ? hintText.isEmpty
+                                ? 'Select multiple options...'
+                                : hintText
+                            : '${selectedValues.length} option(s) selected: ${selectedValues.join(', ')}',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: selectedValues.isEmpty
+                              ? const Color(0xff9CA3AF)
+                              : const Color(0xff111827),
+                          fontWeight: selectedValues.isEmpty
+                              ? FontWeight.w400
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (options != null && options.isNotEmpty)
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: options.map((option) {
+                        final isSelected = selectedValues.contains(option);
+                        return CheckboxListTile(
+                          title: Text(
+                            option,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: const Color(0xff111827),
+                            ),
+                          ),
+                          value: isSelected,
+                          onChanged: (value) {
+                            setState(() {
+                              if (value == true) {
+                                if (!selectedValues.contains(option)) {
+                                  selectedValues.add(option);
+                                }
+                              } else {
+                                selectedValues.remove(option);
+                              }
+                              // Update controller with comma-separated values
+                              controller.text = selectedValues.join(', ');
+                            });
+                          },
+                          activeColor: const Color(0xff0386FF),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: const Color(0xff6B7280),
+                          size: 24,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No options available',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff6B7280),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'The form creator has not added any options for this field.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff9CA3AF),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (required && selectedValues.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Color(0xffEF4444),
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Please select at least one option for $label',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xffEF4444),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -1593,28 +1967,63 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.description_outlined,
-            size: 48,
-            color: Color(0xff6B7280),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xff6B7280).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: const Icon(
+              Icons.description_outlined,
+              size: 48,
+              color: Color(0xff6B7280),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
-            'No forms found',
+            'No accessible forms found',
             style: GoogleFonts.inter(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.w600,
               color: const Color(0xff111827),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Try adjusting your search',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: const Color(0xff6B7280),
+          const SizedBox(height: 8),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: Text(
+              searchQuery.isNotEmpty
+                  ? 'No forms matching your search criteria that you have access to'
+                  : 'There are currently no forms available for your role (${UserRoleService.getRoleDisplayName(_currentUserRole)})',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff6B7280),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
+          if (searchQuery.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  searchQuery = '';
+                });
+              },
+              icon: const Icon(Icons.clear, size: 16),
+              label: Text(
+                'Clear search',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xff0386FF),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2155,8 +2564,26 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           }
         } else {
           // For text fields, store the text value
-          print('Field $fieldId: storing text value: ${controller.text}');
-          responses[fieldId] = controller.text;
+          // Check if this is a multi-select field and convert to array
+          final fieldData = selectedFormData!['fields'] as Map<String, dynamic>;
+          final fieldInfo = fieldData[fieldId];
+
+          if (fieldInfo != null &&
+              fieldInfo['type'] == 'multi_select' &&
+              controller.text.isNotEmpty) {
+            // Convert comma-separated values to array for multi-select fields
+            final selectedValues = controller.text
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+            print(
+                'Field $fieldId: storing multi-select values: $selectedValues');
+            responses[fieldId] = selectedValues;
+          } else {
+            print('Field $fieldId: storing text value: ${controller.text}');
+            responses[fieldId] = controller.text;
+          }
         }
       }
 

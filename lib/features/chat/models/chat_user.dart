@@ -1,4 +1,4 @@
-import 'package:alluwalacademyadmin/chat_page.dart';
+import '../screens/chat_page.dart';
 import 'package:flutter/material.dart';
 
 class ChatUser {

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'Services/user_role_service.dart';
-import 'system_settings_screen.dart';
+import '../../../core/services/user_role_service.dart';
+import '../../../system_settings_screen.dart';
+import 'package:csv/csv.dart';
+import 'dart:convert';
+import 'dart:html' as html;
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -527,6 +530,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               'View Reports', Icons.analytics, Colors.orange),
           const SizedBox(height: 8),
           _buildQuickActionButton(
+              'Export Form Responses', Icons.file_download, Colors.teal),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
               'System Settings', Icons.settings, Colors.purple),
         ],
       ),
@@ -600,6 +606,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Navigating to Reports...')),
         );
+        break;
+      case 'Export Form Responses':
+        _showFormResponsesExportDialog();
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1454,5 +1463,901 @@ class _AdminDashboardState extends State<AdminDashboard> {
       default:
         return 'Welcome to Alluvial Education Hub.';
     }
+  }
+
+  /// Show the form responses export dialog with date range selection
+  void _showFormResponsesExportDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return FormResponsesExportDialog();
+      },
+    );
+  }
+}
+
+/// Dialog for exporting form responses with date range selection
+class FormResponsesExportDialog extends StatefulWidget {
+  @override
+  State<FormResponsesExportDialog> createState() =>
+      _FormResponsesExportDialogState();
+}
+
+class _FormResponsesExportDialogState extends State<FormResponsesExportDialog> {
+  DateTime? startDate;
+  DateTime? endDate;
+  String? selectedFormId;
+  String selectedFormat = 'csv';
+  bool isLoading = false;
+  List<Map<String, dynamic>> availableForms = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadForms();
+    // Set default date range to last 30 days
+    endDate = DateTime.now();
+    startDate = endDate!.subtract(const Duration(days: 30));
+  }
+
+  Future<void> _loadForms() async {
+    try {
+      final formsSnapshot =
+          await FirebaseFirestore.instance.collection('form').get();
+
+      setState(() {
+        availableForms = formsSnapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'title': data['title'] ?? 'Untitled Form',
+            'createdAt': data['createdAt'],
+          };
+        }).toList();
+
+        // Sort by creation date, newest first
+        availableForms.sort((a, b) {
+          final aTime = a['createdAt'] as Timestamp?;
+          final bTime = b['createdAt'] as Timestamp?;
+          if (aTime == null || bTime == null) return 0;
+          return bTime.compareTo(aTime);
+        });
+      });
+    } catch (e) {
+      print('Error loading forms: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildContent()),
+            _buildActions(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xff0d9488), Color(0xff14b8a6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.file_download,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Export Form Responses',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Download responses as CSV with date filtering',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFormSelection(),
+          const SizedBox(height: 24),
+          _buildDateRangeSelection(),
+          const SizedBox(height: 24),
+          _buildFormatSelection(),
+          const SizedBox(height: 24),
+          _buildExportPreview(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.assignment, color: Colors.teal.shade600, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Select Form',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xffE2E8F0)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: selectedFormId,
+              isExpanded: true,
+              hint: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'All Forms (default)',
+                  style: GoogleFonts.inter(
+                    color: const Color(0xff6B7280),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              items: [
+                DropdownMenuItem<String>(
+                  value: null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.select_all,
+                            color: Colors.teal.shade600, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'All Forms',
+                          style: GoogleFonts.inter(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ...availableForms.map((form) {
+                  return DropdownMenuItem<String>(
+                    value: form['id'],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.assignment,
+                              color: Colors.blue.shade600, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              form['title'],
+                              style: GoogleFonts.inter(fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  selectedFormId = value;
+                });
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateRangeSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.date_range, color: Colors.teal.shade600, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Date Range',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildDateButton('Start Date', startDate, true)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildDateButton('End Date', endDate, false)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          children: [
+            _buildQuickDateButton('Last 7 days', 7),
+            _buildQuickDateButton('Last 30 days', 30),
+            _buildQuickDateButton('Last 90 days', 90),
+            _buildQuickDateButton('This year', 365),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateButton(String label, DateTime? date, bool isStart) {
+    return InkWell(
+      onTap: () => _selectDate(isStart),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xffE2E8F0)),
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xffF8FAFC),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff6B7280),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              date != null
+                  ? '${date.day}/${date.month}/${date.year}'
+                  : 'Select date',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff111827),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickDateButton(String label, int days) {
+    return InkWell(
+      onTap: () => _setQuickDateRange(days),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: Colors.teal.shade700,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormatSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.description, color: Colors.teal.shade600, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Export Format',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xffF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildFormatOption('CSV', 'csv', Icons.table_chart),
+              ),
+              Expanded(
+                child: _buildFormatOption('JSON', 'json', Icons.code),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormatOption(String label, String value, IconData icon) {
+    final isSelected = selectedFormat == value;
+    return InkWell(
+      onTap: () => setState(() => selectedFormat = value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color:
+                  isSelected ? Colors.teal.shade600 : const Color(0xff6B7280),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color:
+                    isSelected ? Colors.teal.shade600 : const Color(0xff6B7280),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportPreview() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Export Summary',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryRow(
+              'Form:',
+              selectedFormId == null
+                  ? 'All forms'
+                  : (availableForms.firstWhere((f) => f['id'] == selectedFormId,
+                              orElse: () => {'title': 'Unknown'})['title']
+                          as String? ??
+                      'Unknown')),
+          _buildSummaryRow('Date Range:',
+              '${startDate != null ? "${startDate!.day}/${startDate!.month}/${startDate!.year}" : "N/A"} - ${endDate != null ? "${endDate!.day}/${endDate!.month}/${endDate!.year}" : "N/A"}'),
+          _buildSummaryRow('Format:', selectedFormat.toUpperCase()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff6B7280),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff111827),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xffE2E8F0))),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: isLoading ? null : () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: Color(0xffE2E8F0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: isLoading || startDate == null || endDate == null
+                  ? null
+                  : _exportResponses,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: isLoading
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Exporting...',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.download, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Export Responses',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectDate(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate:
+          isStart ? (startDate ?? DateTime.now()) : (endDate ?? DateTime.now()),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Colors.teal.shade600,
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          startDate = picked;
+          // Ensure end date is not before start date
+          if (endDate != null && endDate!.isBefore(startDate!)) {
+            endDate = startDate;
+          }
+        } else {
+          endDate = picked;
+          // Ensure start date is not after end date
+          if (startDate != null && startDate!.isAfter(endDate!)) {
+            startDate = endDate;
+          }
+        }
+      });
+    }
+  }
+
+  void _setQuickDateRange(int days) {
+    setState(() {
+      endDate = DateTime.now();
+      startDate = endDate!.subtract(Duration(days: days));
+    });
+  }
+
+  Future<void> _exportResponses() async {
+    if (startDate == null || endDate == null) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      // Use simpler query to avoid composite index requirement
+      Query query = FirebaseFirestore.instance
+          .collection('form_responses')
+          .where('submittedAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startDate!))
+          .where('submittedAt',
+              isLessThanOrEqualTo:
+                  Timestamp.fromDate(endDate!.add(const Duration(days: 1))))
+          .orderBy('submittedAt', descending: true);
+
+      final responsesSnapshot = await query.get();
+
+      // Filter by form ID in memory if specified
+      List<QueryDocumentSnapshot> filteredDocs = responsesSnapshot.docs;
+      if (selectedFormId != null) {
+        filteredDocs = responsesSnapshot.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['formId'] == selectedFormId;
+        }).toList();
+      }
+
+      if (filteredDocs.isEmpty) {
+        _showSnackBar('No responses found for the selected criteria',
+            isError: true);
+        return;
+      }
+
+      // Get all form details for proper column headers
+      final formIds = filteredDocs
+          .map(
+              (doc) => (doc.data() as Map<String, dynamic>)['formId'] as String)
+          .toSet();
+      final formsData = <String, Map<String, dynamic>>{};
+
+      for (String formId in formIds) {
+        final formDoc = await FirebaseFirestore.instance
+            .collection('form')
+            .doc(formId)
+            .get();
+        if (formDoc.exists) {
+          formsData[formId] = formDoc.data()!;
+        }
+      }
+
+      if (selectedFormat == 'csv') {
+        await _exportAsCSV(filteredDocs, formsData);
+      } else {
+        await _exportAsJSON(filteredDocs, formsData);
+      }
+
+      _showSnackBar(
+          'Export completed successfully! ${filteredDocs.length} responses exported.',
+          isError: false);
+      Navigator.of(context).pop();
+    } catch (e) {
+      print('Export error: $e');
+      _showSnackBar('Export failed: ${e.toString()}', isError: true);
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _exportAsCSV(List<QueryDocumentSnapshot> responses,
+      Map<String, Map<String, dynamic>> formsData) async {
+    // Build dynamic headers based on all possible fields across all forms
+    Set<String> allFieldIds = {};
+    for (var response in responses) {
+      final data = response.data() as Map<String, dynamic>;
+      final responseData = data['responses'] as Map<String, dynamic>? ?? {};
+      allFieldIds.addAll(responseData.keys);
+    }
+
+    // Create CSV headers
+    List<String> headers = [
+      'Response ID',
+      'Form Title',
+      'User Email',
+      'Submitted At',
+      'Status',
+    ];
+
+    // Add field headers with proper labels
+    Map<String, String> fieldLabels = {};
+    for (String formId in formsData.keys) {
+      final fields =
+          formsData[formId]!['fields'] as Map<String, dynamic>? ?? {};
+      for (String fieldId in fields.keys) {
+        final field = fields[fieldId] as Map<String, dynamic>;
+        fieldLabels[fieldId] = field['label'] ?? fieldId;
+      }
+    }
+
+    for (String fieldId in allFieldIds) {
+      headers.add(fieldLabels[fieldId] ?? fieldId);
+    }
+
+    // Build CSV rows
+    List<List<String>> csvData = [headers];
+
+    for (var response in responses) {
+      final data = response.data() as Map<String, dynamic>;
+      final formId = data['formId'] as String;
+      final formTitle = formsData[formId]?['title'] ?? 'Unknown Form';
+      final userEmail = data['userEmail'] ?? 'Unknown User';
+      final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+      final status = data['status'] ?? 'completed';
+      final responseData = data['responses'] as Map<String, dynamic>? ?? {};
+
+      List<String> row = [
+        response.id,
+        formTitle,
+        userEmail,
+        submittedAt?.toString() ?? 'Unknown',
+        status,
+      ];
+
+      // Add field values
+      for (String fieldId in allFieldIds) {
+        final value = responseData[fieldId];
+        String cellValue = '';
+
+        if (value != null) {
+          if (value is List) {
+            cellValue = value.join('; ');
+          } else if (value is Map) {
+            // Handle complex objects like image uploads
+            if (value['downloadURL'] != null) {
+              cellValue =
+                  'File: ${value['fileName'] ?? 'Unknown'} (${value['downloadURL']})';
+            } else {
+              cellValue = value.toString();
+            }
+          } else {
+            cellValue = value.toString();
+          }
+        }
+
+        row.add(cellValue);
+      }
+
+      csvData.add(row);
+    }
+
+    // Convert to CSV and download
+    String csvString = const ListToCsvConverter().convert(csvData);
+    final bytes = utf8.encode(csvString);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final fileName =
+        'form_responses_${startDate!.day}-${startDate!.month}-${startDate!.year}_to_${endDate!.day}-${endDate!.month}-${endDate!.year}.csv';
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", fileName)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
+
+  Future<void> _exportAsJSON(List<QueryDocumentSnapshot> responses,
+      Map<String, Map<String, dynamic>> formsData) async {
+    List<Map<String, dynamic>> jsonData = [];
+
+    for (var response in responses) {
+      final data = response.data() as Map<String, dynamic>;
+      final formId = data['formId'] as String;
+      final formTitle = formsData[formId]?['title'] ?? 'Unknown Form';
+
+      jsonData.add({
+        'responseId': response.id,
+        'formId': formId,
+        'formTitle': formTitle,
+        'userEmail': data['userEmail'],
+        'submittedAt':
+            (data['submittedAt'] as Timestamp?)?.toDate()?.toIso8601String(),
+        'status': data['status'],
+        'responses': data['responses'],
+      });
+    }
+
+    final jsonString = jsonEncode({
+      'exportInfo': {
+        'exportedAt': DateTime.now().toIso8601String(),
+        'dateRange': {
+          'startDate': startDate!.toIso8601String(),
+          'endDate': endDate!.toIso8601String(),
+        },
+        'totalResponses': jsonData.length,
+        'selectedForm': selectedFormId == null
+            ? 'All Forms'
+            : formsData[selectedFormId]?['title'],
+      },
+      'responses': jsonData,
+    });
+
+    final bytes = utf8.encode(jsonString);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final fileName =
+        'form_responses_${startDate!.day}-${startDate!.month}-${startDate!.year}_to_${endDate!.day}-${endDate!.month}-${endDate!.year}.json';
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", fileName)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        backgroundColor:
+            isError ? const Color(0xffEF4444) : const Color(0xff10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 }

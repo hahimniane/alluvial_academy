@@ -1,4 +1,4 @@
-import 'package:alluwalacademyadmin/dahboard.dart';
+import 'dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_login/flutter_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';

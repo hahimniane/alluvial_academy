@@ -1,17 +1,16 @@
 // ignore_for_file: library_private_types_in_public_api
-import 'package:alluwalacademyadmin/admin_dashboard_page.dart';
-import 'package:alluwalacademyadmin/chat_page.dart';
-import 'package:alluwalacademyadmin/form_scree.dart';
-import 'package:alluwalacademyadmin/job_scheduling.dart';
-import 'package:alluwalacademyadmin/time_clock_screen.dart';
+import 'features/dashboard/screens/admin_dashboard_screen.dart';
+import 'features/chat/screens/chat_page.dart';
+import 'form_screen.dart';
+import 'job_scheduling.dart';
+import 'features/time_clock/screens/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'Services/user_role_service.dart';
-import 'const.dart';
-import 'user_management_screen.dart';
-import 'user_management_screen.dart' as user_management;
+import 'core/services/user_role_service.dart';
+import 'core/constants/app_constants.dart';
+import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
 import 'test_role_system.dart';
 
@@ -74,10 +73,8 @@ class _DashboardPageState extends State<DashboardPage> {
   final List<Widget> _screens = [
     const AdminDashboard(),
     const UserManagementScreen(),
-
-    // const FeedScreen(),
     const ChatScreen(),
-    TimeClockScreen(),
+    const TimeClockScreen(),
     const FormScreen(),
     const FormBuilder(),
     const TasksScreen(),
@@ -464,7 +461,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (availableFeatures.contains('form_builder')) {
       items.add(_buildCustomListTile(
         'assets/Icon_Scheduler.png',
-        'admin/Create Forms',
+        'admin/Manage Forms',
         5,
         DashboardConstants.jobSchedulingIconColor,
       ));
