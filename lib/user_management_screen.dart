@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:csv/csv.dart';
@@ -183,7 +184,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: UserCard(),
+                        child: UserCard(
+                          userRole: null, // Will be updated from parent
+                          userData: null, // Will be updated from parent
+                        ),
                       ),
                     ),
                   ],
@@ -469,7 +473,39 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   }
 }
 
-class UserCard extends StatelessWidget {
+class UserCard extends StatefulWidget {
+  final String? userRole;
+  final Map<String, dynamic>? userData;
+
+  const UserCard({super.key, this.userRole, this.userData});
+
+  @override
+  State<UserCard> createState() => _UserCardState();
+}
+
+class _UserCardState extends State<UserCard> {
+  String _getInitials() {
+    if (widget.userData != null) {
+      final firstName = widget.userData!['first_name'] ?? '';
+      final lastName = widget.userData!['last_name'] ?? '';
+      if (firstName.isNotEmpty && lastName.isNotEmpty) {
+        return '${firstName[0]}${lastName[0]}'.toUpperCase();
+      }
+    }
+    return 'U'; // Default fallback
+  }
+
+  String _getUserName() {
+    if (widget.userData != null) {
+      final firstName = widget.userData!['first_name'] ?? '';
+      final lastName = widget.userData!['last_name'] ?? '';
+      if (firstName.isNotEmpty || lastName.isNotEmpty) {
+        return '$firstName $lastName'.trim();
+      }
+    }
+    return 'User';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -482,10 +518,42 @@ class UserCard extends StatelessWidget {
           ),
           Row(
             children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _getUserName(),
+                    style: openSansHebrewTextStyle.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff2D3748),
+                    ),
+                  ),
+                  if (widget.userRole != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getRoleColor(),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        widget.userRole!.toUpperCase(),
+                        style: openSansHebrewTextStyle.copyWith(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 8),
               CircleAvatar(
                 backgroundColor: const Color(0xff04ABC1),
                 child: Text(
-                  'HN',
+                  _getInitials(),
                   style: openSansHebrewTextStyle.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -493,22 +561,55 @@ class UserCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // Handle button press
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'sign_out') {
+                    await FirebaseAuth.instance.signOut();
+                  }
                 },
-                icon: const Icon(Icons.manage_accounts, size: 16),
-                label: Text(
-                  'Manage user details',
-                  style: openSansHebrewTextStyle.copyWith(
-                      color: const Color(0xff2998ff)),
-                ),
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.blue),
-                  shape: RoundedRectangleBorder(
+                itemBuilder: (BuildContext context) => [
+                  PopupMenuItem<String>(
+                    value: 'sign_out',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.logout, size: 16, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Sign Out',
+                          style: openSansHebrewTextStyle.copyWith(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xff2998ff)),
                     borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.manage_accounts,
+                          size: 16, color: Color(0xff2998ff)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Account',
+                        style: openSansHebrewTextStyle.copyWith(
+                          color: const Color(0xff2998ff),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down,
+                          size: 16, color: Color(0xff2998ff)),
+                    ],
                   ),
                 ),
               ),
@@ -517,6 +618,21 @@ class UserCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _getRoleColor() {
+    switch (widget.userRole?.toLowerCase()) {
+      case 'admin':
+        return Colors.red;
+      case 'teacher':
+        return Colors.blue;
+      case 'student':
+        return Colors.green;
+      case 'parent':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 }
 

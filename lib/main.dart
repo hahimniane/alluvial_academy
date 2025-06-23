@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'dahboard.dart';
+import 'role_based_dashboard.dart';
 import 'firebase_options.dart';
 import 'const.dart';
 
@@ -347,7 +348,7 @@ class AuthenticationWrapper extends StatelessWidget {
 
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
-          return const DashboardPage();
+          return const RoleBasedDashboard();
         }
 
         // Otherwise, they're not signed in
@@ -371,12 +372,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill credentials for development only
-    // TODO: Remove this before production deployment
-    if (kDebugMode) {
-      emailAddressController.text = 'hassimiou.niane@maine.edu';
-      passwordController.text = '123456';
-    }
+    // Removed pre-filled credentials to ensure proper Firebase authentication
   }
 
   void _showErrorDialog(String message) {
@@ -422,25 +418,26 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
           color: Color(0xffF8FAFC),
         ),
         child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 450),
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(48),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 450),
+              margin: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(48),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 // Logo and Title
                 Column(
                   children: [
@@ -735,7 +732,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
               ],
             ),
           ),
-        ),
+        )),
       ),
     );
   }
