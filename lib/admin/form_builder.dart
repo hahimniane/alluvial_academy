@@ -1565,19 +1565,83 @@ class _FormBuilderState extends State<FormBuilder>
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
+  String _getFieldTypeForFirestore(String internalType) {
+    switch (internalType) {
+      case 'openEnded':
+        return 'text';
+      case 'description':
+        return 'long_text';
+      case 'dropdown':
+        return 'dropdown';
+      case 'yesNo':
+        return 'radio';
+      case 'number':
+        return 'number';
+      case 'date':
+        return 'date';
+      case 'imageUpload':
+        return 'image_upload';
+      case 'signature':
+        return 'signature';
+      default:
+        return internalType;
+    }
+  }
+
   Future<void> _saveForm() async {
-    if (_titleController.text.isEmpty) {
+    if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Form title is required')),
+        SnackBar(
+          content: const Text('Form title is required'),
+          backgroundColor: const Color(0xffEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       );
       return;
     }
 
     if (fields.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one field')),
+        SnackBar(
+          content: const Text('Add at least one field to the form'),
+          backgroundColor: const Color(0xffEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       );
       return;
+    }
+
+    // Validate that all fields have labels
+    for (var field in fields) {
+      if (field.label.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Field #${field.order + 1} is missing a label'),
+            backgroundColor: const Color(0xffEF4444),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+        return;
+      }
+
+      // Validate dropdown fields have options
+      if (field.type == 'dropdown' && field.options.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Dropdown field "${field.label}" needs at least one option'),
+            backgroundColor: const Color(0xffEF4444),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -1586,11 +1650,14 @@ class _FormBuilderState extends State<FormBuilder>
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Must be logged in');
 
-      // Convert fields to map
+      // Convert fields to map with correct field type names
       final fieldsMap = <String, dynamic>{};
       for (var field in fields) {
+        // Map internal field types to the expected types in forms page
+        String fieldType = _getFieldTypeForFirestore(field.type);
+
         fieldsMap[field.id] = {
-          'type': field.type,
+          'type': fieldType,
           'label': field.label,
           'placeholder': field.placeholder,
           'required': field.required,
@@ -1602,25 +1669,57 @@ class _FormBuilderState extends State<FormBuilder>
         };
       }
 
-      // Create form document
+      // Get user info for creator details
+      final userDoc = await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.uid)
+          .get();
+
+      final userData = userDoc.data();
+      final creatorName = userData != null
+          ? '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+              .trim()
+          : 'Unknown User';
+
+      // Create form document with proper structure
       await FirebaseFirestore.instance.collection('form').add({
-        'title': _titleController.text,
-        'description': _descriptionController.text,
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'createdBy': user.uid,
+        'createdByName': creatorName,
         'status': 'active',
+        'isPublished': true,
+        'fieldCount': fields.length,
         'fields': fieldsMap,
+        'responses': {}, // Initialize empty responses object
+        'responseCount': 0,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Form saved successfully!'),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                  'Form "${_titleController.text.trim()}" saved successfully!'),
+            ],
+          ),
           backgroundColor: const Color(0xff10B981),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          duration: const Duration(seconds: 3),
         ),
       );
+
+      // Clear form after successful save
+      _titleController.clear();
+      _descriptionController.clear();
+      setState(() {
+        fields.clear();
+      });
 
       Navigator.pop(context);
     } catch (e) {

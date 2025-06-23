@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 
 class FormScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   bool _isSubmitting = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  Map<String, bool> _userFormSubmissions = {}; // Track user form submissions
 
   @override
   void initState() {
@@ -35,6 +37,31 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    _loadUserFormSubmissions();
+  }
+
+  Future<void> _loadUserFormSubmissions() async {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      final submissions = await FirebaseFirestore.instance
+          .collection('form_responses')
+          .where('userId', isEqualTo: currentUser.uid)
+          .get();
+
+      setState(() {
+        _userFormSubmissions.clear();
+        for (var doc in submissions.docs) {
+          final formId = doc.data()['formId'] as String?;
+          if (formId != null) {
+            _userFormSubmissions[formId] = true;
+          }
+        }
+      });
+    } catch (e) {
+      print('Error loading user form submissions: $e');
+    }
   }
 
   @override
@@ -182,10 +209,6 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     FirebaseAuth.instance.currentUser?.uid)
                             .snapshots(),
                         builder: (context, responsesSnapshot) {
-                          final userResponses = responsesSnapshot.hasData
-                              ? responsesSnapshot.data!.docs
-                              : <QueryDocumentSnapshot>[];
-
                           return ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: forms.length,
@@ -197,11 +220,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                               final formId = forms[index].id;
 
                               // Check if user has submitted this form
-                              final hasSubmitted = userResponses.any(
-                                  (response) =>
-                                      (response.data()
-                                          as Map<String, dynamic>)['formId'] ==
-                                      formId);
+                              final hasSubmitted =
+                                  _userFormSubmissions[formId] ?? false;
 
                               return _buildFormCard(
                                   form, formId, isSelected, hasSubmitted);
@@ -507,6 +527,61 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
                 const SizedBox(height: 24),
 
+                // Submission status banner (if already submitted)
+                if (_userFormSubmissions[selectedFormId] ?? false) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff10B981).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xff10B981).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Form Already Submitted',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff047857),
+                                ),
+                              ),
+                              Text(
+                                'You have already submitted this form. You can submit it again if needed.',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xff059669),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // Form fields card
                 Container(
                   width: double.infinity,
@@ -546,7 +621,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     fieldControllers[field.key]!,
                                     field.value['required'] ?? false,
                                     field.value['type'] ?? 'text',
-                                    options: field.value['type'] == 'select'
+                                    options: (field.value['type'] == 'select' ||
+                                            field.value['type'] == 'dropdown')
                                         ? List<String>.from(
                                             field.value['options'] ?? [])
                                         : null,
@@ -706,15 +782,20 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Field input based on type
         if (type == 'select' || type == 'dropdown') ...[
           _buildDropdownField(controller, hintText, options, required, label),
-        ] else if (type == 'multiline' || type == 'long_text') ...[
+        ] else if (type == 'multiline' ||
+            type == 'long_text' ||
+            type == 'description') ...[
           _buildTextAreaField(controller, hintText, required, label),
         ] else if (type == 'date') ...[
           _buildDateField(controller, hintText, required, label),
-        ] else if (type == 'boolean' || type == 'yes_no') ...[
+        ] else if (type == 'boolean' ||
+            type == 'yes_no' ||
+            type == 'radio' ||
+            type == 'yesNo') ...[
           _buildBooleanField(controller, label),
         ] else if (type == 'number') ...[
           _buildNumberField(controller, hintText, required, label),
-        ] else if (type == 'image_upload') ...[
+        ] else if (type == 'image_upload' || type == 'imageUpload') ...[
           _buildImageField(controller, hintText, required, label),
         ] else if (type == 'signature') ...[
           _buildSignatureField(controller, hintText, required, label),
@@ -1580,6 +1661,219 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     _animationController.forward();
   }
 
+  Future<String?> _uploadImageToStorage(
+      Uint8List imageBytes, String fileName) async {
+    const maxRetries = 3;
+
+    // Test basic Firebase Storage connectivity
+    try {
+      print('=== Testing Firebase Storage Connectivity ===');
+      final storage = FirebaseStorage.instance;
+      print('Storage bucket: ${storage.bucket}');
+
+      // Test with a tiny file first
+      final testData = Uint8List.fromList([1, 2, 3, 4, 5]); // 5 bytes
+      final testRef = storage
+          .ref()
+          .child('test_${DateTime.now().millisecondsSinceEpoch}.txt');
+
+      print('Attempting small test upload...');
+      final uploadTask = testRef.putData(testData);
+
+      // Monitor the upload task state
+      uploadTask.snapshotEvents.listen((snapshot) {
+        print('Test upload state: ${snapshot.state}');
+        print(
+            'Test upload progress: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
+      });
+
+      final testUpload = await uploadTask.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('Test upload task final state: ${uploadTask.snapshot.state}');
+          print(
+              'Test upload bytes transferred: ${uploadTask.snapshot.bytesTransferred}');
+          throw Exception('Test upload timeout');
+        },
+      );
+
+      print('Test upload successful! Cleaning up...');
+      await testRef.delete().catchError((e) => print('Cleanup error: $e'));
+      print('=== Storage connectivity test PASSED ===');
+    } catch (e) {
+      print('=== Storage connectivity test FAILED ===');
+      print('Error: $e');
+      print('Error type: ${e.runtimeType}');
+      if (e.toString().contains('XMLHttpRequest')) {
+        print(
+            'CORS/Network issue detected - this is common in web development');
+      } else if (e.toString().contains('permission')) {
+        print('Permission issue detected');
+      } else if (e.toString().contains('network')) {
+        print('Network connectivity issue detected');
+      }
+      print('This indicates a fundamental connectivity issue');
+      print('Possible solutions:');
+      print('1. Check Firebase Storage is enabled in Firebase Console');
+      print('2. Check network/firewall settings');
+      print('3. Try from a different network');
+      print('4. Check CORS configuration');
+      return null;
+    }
+
+    // Verify authentication status
+    final currentUser = FirebaseAuth.instance.currentUser;
+    print('=== Authentication Status ===');
+    print('User logged in: ${currentUser != null}');
+    print('User ID: ${currentUser?.uid}');
+    print('User email: ${currentUser?.email}');
+    print(
+        'Auth token: ${currentUser?.refreshToken != null ? "Available" : "Missing"}');
+    print('=============================');
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        print(
+            'Starting image upload for: $fileName (attempt $attempt/$maxRetries)');
+
+        final User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) {
+          print('Error: User not logged in');
+          throw Exception('User not logged in');
+        }
+
+        print('User ID: ${currentUser.uid}');
+        print(
+            'Original image size: ${imageBytes.length} bytes (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB)');
+
+        // Compress image if it's larger than 500KB
+        Uint8List finalImageBytes = imageBytes;
+        if (imageBytes.length > 500 * 1024) {
+          print('Compressing image...');
+          finalImageBytes = await _compressImage(imageBytes, fileName);
+          print(
+              'Compressed image size: ${finalImageBytes.length} bytes (${(finalImageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB)');
+        }
+
+        // Create a unique filename with timestamp
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('form_images')
+            .child(currentUser.uid)
+            .child('${timestamp}_$fileName');
+
+        print('Storage path: ${storageRef.fullPath}');
+
+        // Set metadata to improve upload reliability
+        final metadata = SettableMetadata(
+          contentType: _getContentType(fileName),
+          customMetadata: {
+            'uploadedBy': currentUser.uid,
+            'originalFileName': fileName,
+            'attempt': attempt.toString(),
+          },
+        );
+
+        // Upload the file with reduced timeout and metadata
+        final uploadTask = storageRef.putData(finalImageBytes, metadata);
+
+        // Dynamic timeout based on final file size (minimum 60 seconds, +30 seconds per MB)
+        final timeoutSeconds =
+            60 + (finalImageBytes.length / (1024 * 1024) * 30).ceil();
+        print(
+            'Setting timeout to $timeoutSeconds seconds for ${(finalImageBytes.length / (1024 * 1024)).toStringAsFixed(1)}MB file');
+
+        final snapshot = await uploadTask.timeout(
+          Duration(seconds: timeoutSeconds),
+          onTimeout: () {
+            print(
+                'Upload timeout after $timeoutSeconds seconds (attempt $attempt)');
+            throw Exception('Upload timeout on attempt $attempt');
+          },
+        );
+
+        print('Upload completed, getting download URL...');
+
+        // Get the download URL
+        final downloadURL = await snapshot.ref.getDownloadURL();
+        print('Download URL obtained: $downloadURL');
+
+        return downloadURL;
+      } catch (e) {
+        print('Error uploading image (attempt $attempt): $e');
+
+        if (attempt == maxRetries) {
+          print('All upload attempts failed');
+          return null;
+        }
+
+        // Wait before retrying
+        await Future.delayed(Duration(seconds: attempt * 2));
+        print('Retrying upload...');
+      }
+    }
+
+    return null;
+  }
+
+  String _getContentType(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  Future<Uint8List> _compressImage(
+      Uint8List imageBytes, String fileName) async {
+    try {
+      // For web, we'll use a simple quality reduction approach
+      // This is a basic implementation - in production you might want to use image package
+
+      // If the image is very large, we'll reduce quality significantly
+      if (imageBytes.length > 2 * 1024 * 1024) {
+        // > 2MB
+        print(
+            'Image is very large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), applying maximum compression');
+        // For very large images, we'll return a significantly reduced version
+        // This is a simplified approach - you might want to integrate image compression library
+        return _reduceImageSize(imageBytes, 0.3); // 30% quality
+      } else if (imageBytes.length > 1024 * 1024) {
+        // > 1MB
+        print(
+            'Image is large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), applying medium compression');
+        return _reduceImageSize(imageBytes, 0.6); // 60% quality
+      } else {
+        print('Image size is acceptable, applying light compression');
+        return _reduceImageSize(imageBytes, 0.8); // 80% quality
+      }
+    } catch (e) {
+      print('Error compressing image: $e');
+      print('Returning original image');
+      return imageBytes;
+    }
+  }
+
+  Uint8List _reduceImageSize(Uint8List imageBytes, double quality) {
+    // This is a simplified size reduction
+    // In a real implementation, you would use image processing libraries
+    // For now, we'll just return the original bytes with a warning
+    print(
+        'Note: Image compression not fully implemented. Consider using image processing library.');
+    print('Returning original image bytes for now.');
+    return imageBytes;
+  }
+
   Future<void> _pickImage(
       String fieldKey, TextEditingController controller) async {
     try {
@@ -1597,6 +1891,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               'fileName': file.name,
               'bytes': file.bytes!,
               'size': file.size,
+              'isUploaded': false, // Track upload status
             };
             controller.text = file.name;
           });
@@ -1626,6 +1921,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               'fileName': file.name,
               'bytes': file.bytes!,
               'size': file.size,
+              'isUploaded': false, // Track upload status
             };
             controller.text = file.name;
           });
@@ -1673,8 +1969,65 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      print('Form validation failed');
+      return;
+    }
 
+    // Check if user has already submitted this form
+    final hasAlreadySubmitted = _userFormSubmissions[selectedFormId] ?? false;
+    if (hasAlreadySubmitted) {
+      final shouldResubmit = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Form Already Submitted',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
+            ),
+          ),
+          content: Text(
+            'You have already submitted this form. Do you want to submit it again? This will create a new response.',
+            style: GoogleFonts.inter(
+              color: const Color(0xff6B7280),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: const Color(0xff6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Submit Again',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldResubmit != true) {
+        print('User cancelled resubmission');
+        return;
+      }
+    }
+
+    print('Starting form submission...');
     setState(() => _isSubmitting = true);
 
     try {
@@ -1682,21 +2035,141 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       if (currentUser == null) {
         _showSnackBar('You must be logged in to submit forms', isError: true);
+        setState(() => _isSubmitting = false);
         return;
       }
 
       final responses = <String, dynamic>{};
-      fieldControllers.forEach((fieldId, controller) {
+
+      print('Processing form fields...');
+      print('Field controllers: ${fieldControllers.keys.toList()}');
+      print('Field values: ${fieldValues.keys.toList()}');
+
+      // Process each field and upload images to Firebase Storage
+      for (var entry in fieldControllers.entries) {
+        final fieldId = entry.key;
+        final controller = entry.value;
+
+        print('Processing field: $fieldId');
+
         if (fieldValues.containsKey(fieldId)) {
-          // For image and signature fields, store the file data
-          responses[fieldId] = fieldValues[fieldId];
+          final fieldData = fieldValues[fieldId] as Map<String, dynamic>;
+          print('Field $fieldId has data: ${fieldData.keys.toList()}');
+
+          // Check if this is an image/signature field with bytes
+          if (fieldData.containsKey('bytes') && fieldData['bytes'] != null) {
+            print('Uploading image for field: $fieldId');
+            _showSnackBar(
+                'Uploading ${fieldData['fileName']} (${(fieldData['size'] / (1024 * 1024)).toStringAsFixed(1)}MB)...',
+                isError: false);
+
+            // Upload image to Firebase Storage
+            final downloadURL = await _uploadImageToStorage(
+              Uint8List.fromList(fieldData['bytes']),
+              fieldData['fileName'],
+            );
+
+            if (downloadURL != null) {
+              print('Image uploaded successfully for field: $fieldId');
+              responses[fieldId] = {
+                'fileName': fieldData['fileName'],
+                'downloadURL': downloadURL,
+                'size': fieldData['size'],
+                'type': 'image',
+                'uploadedAt': FieldValue.serverTimestamp(),
+              };
+            } else {
+              print('Failed to upload image for field: $fieldId');
+
+              // Show dialog asking user what to do
+              if (mounted) {
+                final shouldContinue = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(
+                      'Image Upload Failed',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff111827),
+                      ),
+                    ),
+                    content: Text(
+                      'Failed to upload "${fieldData['fileName']}". Would you like to submit the form without this image or try again?',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(
+                          'Try Again',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xff6B7280),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff0386FF),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(
+                          'Submit Without Image',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldContinue == true) {
+                  // Submit without the image
+                  print(
+                      'User chose to submit without image for field: $fieldId');
+                  responses[fieldId] = {
+                    'fileName': fieldData['fileName'],
+                    'uploadFailed': true,
+                    'size': fieldData['size'],
+                    'type': 'image',
+                    'failureReason': 'Upload timeout/retry limit exceeded',
+                  };
+                } else {
+                  // User wants to try again, cancel submission
+                  setState(() => _isSubmitting = false);
+                  return;
+                }
+              } else {
+                setState(() => _isSubmitting = false);
+                return;
+              }
+            }
+          } else {
+            // For other field values
+            print('Field $fieldId: storing non-image data');
+            responses[fieldId] = fieldData;
+          }
         } else {
           // For text fields, store the text value
+          print('Field $fieldId: storing text value: ${controller.text}');
           responses[fieldId] = controller.text;
         }
-      });
+      }
 
-      await FirebaseFirestore.instance.collection('form_responses').add({
+      print('All fields processed, submitting to Firestore...');
+      print('Form data to submit:');
+      print('- FormId: $selectedFormId');
+      print('- UserId: ${currentUser.uid}');
+      print('- UserEmail: ${currentUser.email}');
+      print('- Responses: ${responses.keys.toList()}');
+      print('- Response data: $responses');
+
+      final docRef =
+          await FirebaseFirestore.instance.collection('form_responses').add({
         'formId': selectedFormId,
         'userId': currentUser.uid,
         'userEmail': currentUser.email,
@@ -1704,38 +2177,68 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         'submittedAt': FieldValue.serverTimestamp(),
         'status': 'completed',
         'lastUpdated': FieldValue.serverTimestamp(),
-      });
+      }).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('Firestore submission timeout after 30 seconds');
+          throw Exception('Firestore submission timeout');
+        },
+      );
 
+      print(
+          'Form submitted to Firestore successfully! Document ID: ${docRef.id}');
       _showSnackBar('Form submitted successfully!', isError: false);
 
+      // Update the submissions tracker
+      setState(() {
+        _userFormSubmissions[selectedFormId!] = true;
+      });
+
+      print('Clearing form...');
       // Clear form
       _resetForm();
+      print('Form cleared successfully!');
     } catch (e) {
+      print('Error in form submission: $e');
+      print('Stack trace: ${StackTrace.current}');
       _showSnackBar('Error submitting form: ${e.toString()}', isError: true);
     } finally {
+      print('Resetting submission state...');
       setState(() => _isSubmitting = false);
+      print('Submission state reset complete');
     }
   }
 
   void _showSnackBar(String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
+    // Check if widget is still mounted before showing snackbar
+    if (!mounted) {
+      print('Widget not mounted, skipping snackbar: $message');
+      return;
+    }
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
           ),
+          backgroundColor:
+              isError ? const Color(0xffEF4444) : const Color(0xff10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          margin: const EdgeInsets.all(16),
         ),
-        backgroundColor:
-            isError ? const Color(0xffEF4444) : const Color(0xff10B981),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+      );
+    } catch (e) {
+      print('Error showing snackbar: $e');
+      print('Message was: $message');
+    }
   }
 
   @override

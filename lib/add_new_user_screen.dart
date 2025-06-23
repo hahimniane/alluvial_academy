@@ -6,8 +6,6 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'const.dart';
-
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
 
@@ -104,17 +102,20 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         final fullPhoneNumber =
             "${rowState.countryCode}${rowState.phoneController.text.trim()}";
 
-        // Map user type to title
-        String title = '';
+        // Map user type to title (user type and title should be the same)
+        String title = rowState.selectedUserType;
         switch (rowState.selectedUserType) {
+          case 'Admin':
+            title = 'Admin';
+            break;
           case 'Teacher':
             title = 'Teacher';
             break;
           case 'Student':
             title = 'Student';
             break;
-          case 'Admin':
-            title = 'Administrator';
+          case 'Parent':
+            title = 'Parent';
             break;
           default:
             title = 'Teacher';
@@ -622,9 +623,9 @@ class _UserInputRowState extends State<UserInputRow> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   String countryCode = "1";
-  String selectedUserType = "Teacher"; // Default to Teacher
+  String selectedUserType = "Admin"; // Default to Admin
 
-  final List<String> userTypes = ["Teacher", "Student", "Admin"];
+  final List<String> userTypes = ["Admin", "Teacher", "Student", "Parent"];
 
   bool isAnyFieldPopulated() {
     return firstNameController.text.isNotEmpty ||
@@ -647,7 +648,7 @@ class _UserInputRowState extends State<UserInputRow> {
     phoneController.clear();
     emailController.clear();
     countryCode = "1";
-    selectedUserType = "Teacher";
+    selectedUserType = "Admin";
   }
 
   @override

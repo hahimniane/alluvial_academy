@@ -7,10 +7,13 @@ import 'package:alluwalacademyadmin/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'Services/user_role_service.dart';
 import 'const.dart';
 import 'user_management_screen.dart';
 import 'user_management_screen.dart' as user_management;
 import 'admin/form_builder.dart';
+import 'test_role_system.dart';
 
 /// Constants for the Dashboard
 class DashboardConstants {
@@ -43,6 +46,29 @@ class _DashboardPageState extends State<DashboardPage> {
   // State variables
   bool _isHovered = false;
   int _selectedIndex = 0;
+  String? _userRole;
+  Map<String, dynamic>? _userData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final role = await UserRoleService.getCurrentUserRole();
+      final data = await UserRoleService.getCurrentUserData();
+      if (mounted) {
+        setState(() {
+          _userRole = role;
+          _userData = data;
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+  }
 
   // List of screens available in the dashboard
   final List<Widget> _screens = [
@@ -55,7 +81,8 @@ class _DashboardPageState extends State<DashboardPage> {
     const FormScreen(),
     const FormBuilder(),
     const TasksScreen(),
-    const TimeOffScreen()
+    const TimeOffScreen(),
+    const TestRoleSystemScreen(), // Test screen for role system
   ];
 
   /// Updates the selected index when a navigation item is tapped
@@ -63,6 +90,32 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  /// Handles user sign out
+  Future<void> _handleSignOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      // Navigation will be handled automatically by the AuthenticationWrapper
+      // in main.dart which listens to auth state changes
+    } catch (e) {
+      // Show error dialog if sign out fails
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text('Failed to sign out: ${e.toString()}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -184,23 +237,114 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the user profile section
   Widget _buildUserProfile() {
-    return Row(
-      children: [
-        CircleAvatar(
-          backgroundColor: Colors.teal,
-          child: Text(
-            'HN',
-            style: openSansHebrewTextStyle.copyWith(color: Colors.white),
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (value == 'logout') {
+          _handleSignOut();
+        }
+      },
+      itemBuilder: (BuildContext context) {
+        return [
+          PopupMenuItem<String>(
+            value: 'logout',
+            child: Row(
+              children: [
+                const Icon(Icons.logout, color: Colors.red),
+                const SizedBox(width: 8),
+                Text(
+                  'Sign Out',
+                  style: openSansHebrewTextStyle.copyWith(color: Colors.red),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          'Hassimiou Niane',
-          style: openSansHebrewTextStyle.copyWith(color: Colors.blueAccent),
-        ),
-        const Icon(Icons.arrow_drop_down, color: Colors.blueAccent),
-      ],
+        ];
+      },
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _getUserName(),
+                style: openSansHebrewTextStyle.copyWith(
+                  color: Colors.blueAccent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (_userRole != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _getRoleColor(),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _userRole!.toUpperCase(),
+                    style: openSansHebrewTextStyle.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 10),
+          CircleAvatar(
+            backgroundColor: Colors.teal,
+            child: Text(
+              _getInitials(),
+              style: openSansHebrewTextStyle.copyWith(color: Colors.white),
+            ),
+          ),
+          const Icon(Icons.arrow_drop_down, color: Colors.blueAccent),
+        ],
+      ),
     );
+  }
+
+  /// Get user initials for avatar
+  String _getInitials() {
+    if (_userData != null) {
+      final firstName = _userData!['first_name'] ?? '';
+      final lastName = _userData!['last_name'] ?? '';
+      if (firstName.isNotEmpty && lastName.isNotEmpty) {
+        return '${firstName[0]}${lastName[0]}'.toUpperCase();
+      }
+    }
+    return 'U'; // Default fallback
+  }
+
+  /// Get user's full name
+  String _getUserName() {
+    if (_userData != null) {
+      final firstName = _userData!['first_name'] ?? '';
+      final lastName = _userData!['last_name'] ?? '';
+      if (firstName.isNotEmpty || lastName.isNotEmpty) {
+        return '$firstName $lastName'.trim();
+      }
+    }
+    return 'User';
+  }
+
+  /// Get role-specific color
+  Color _getRoleColor() {
+    switch (_userRole?.toLowerCase()) {
+      case 'admin':
+        return Colors.red;
+      case 'teacher':
+        return Colors.blue;
+      case 'student':
+        return Colors.green;
+      case 'parent':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 
   /// Builds the notification icon with badge
@@ -261,54 +405,92 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  /// Builds the list of navigation items
+  /// Builds the list of navigation items based on user role
   List<Widget> _buildNavigationItems() {
-    return <Widget>[
-      _buildCustomListTile(
-        "assets/dashboard.svg",
-        "admin/DashBoard",
-        0,
-        Colors.white,
-      ),
-      _buildCustomListTile(
+    final availableFeatures = UserRoleService.getAvailableFeatures(_userRole);
+    List<Widget> items = [];
+
+    // Dashboard is available to all users
+    items.add(_buildCustomListTile(
+      "assets/dashboard.svg",
+      "Dashboard",
+      0,
+      Colors.white,
+    ));
+
+    // Admin-only features
+    if (availableFeatures.contains('user_management')) {
+      items.add(_buildCustomListTile(
         'assets/users-sidebar.svg',
         'admin/Users',
         1,
         Colors.white,
-      ),
-      const Divider(),
-      _buildCustomListTile(
+      ));
+    }
+
+    items.add(const Divider());
+
+    // Chat (available to most roles)
+    if (availableFeatures.contains('chat')) {
+      items.add(_buildCustomListTile(
         'assets/Icon_chat.png',
         'Chat',
         2,
         DashboardConstants.chatIconColor,
-      ),
-      _buildCustomListTile(
+      ));
+    }
+
+    // Time Clock (teachers and admins)
+    if (availableFeatures.contains('time_clock')) {
+      items.add(_buildCustomListTile(
         'assets/Icon_punch_clock.png',
         'Time Clock',
         3,
         DashboardConstants.timeClockIconColor,
-      ),
-      _buildCustomListTile(
+      ));
+    }
+
+    // Forms (available to most roles)
+    if (availableFeatures.contains('forms')) {
+      items.add(_buildCustomListTile(
         'assets/Icon_forms.png',
         'Forms',
         4,
         DashboardConstants.formsIconColor,
-      ),
-      _buildCustomListTile(
+      ));
+    }
+
+    // Form Builder (admin only)
+    if (availableFeatures.contains('form_builder')) {
+      items.add(_buildCustomListTile(
         'assets/Icon_Scheduler.png',
         'admin/Create Forms',
-        // 'Job Scheduling',
         5,
         DashboardConstants.jobSchedulingIconColor,
-      ),
-      _buildCustomListTile(
+      ));
+    }
+
+    // Tasks (not available to parents)
+    if (availableFeatures.contains('tasks')) {
+      items.add(_buildCustomListTile(
         'assets/Icon_task_manage.png',
         'Quick Tasks',
         6,
         DashboardConstants.jobSchedulingIconColor,
-      ),
-    ];
+      ));
+    }
+
+    // Test Role System (temporary - admin only)
+    if (_userRole?.toLowerCase() == 'admin') {
+      items.add(_buildCustomListTile(
+        'assets/Icon_task_manage.png',
+        'Test Role System',
+        8, // Using index 8 for test screen
+        Colors.purple,
+      ));
+    }
+
+    return items;
   }
 
   /// Builds a custom list tile for navigation items
