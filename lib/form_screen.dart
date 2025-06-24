@@ -269,7 +269,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Available Forms',
+                              'Active Forms',
                               style: GoogleFonts.inter(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -295,7 +295,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         ),
                         child: TextField(
                           decoration: InputDecoration(
-                            hintText: 'Search forms...',
+                            hintText: 'Search active forms...',
                             hintStyle: GoogleFonts.inter(
                               color: const Color(0xff6B7280),
                               fontSize: 14,
@@ -351,12 +351,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       final forms = snapshot.data!.docs.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
 
-                        // First check if user can access this form
+                        // First check if the form is active
+                        final status = data['status'] ?? 'active';
+                        if (status != 'active') {
+                          return false;
+                        }
+
+                        // Then check if user can access this form
                         if (!_canAccessForm(data)) {
                           return false;
                         }
 
-                        // Then check if it matches the search query
+                        // Finally check if it matches the search query
                         return data['title']
                             .toString()
                             .toLowerCase()
@@ -1981,7 +1987,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 24),
           Text(
-            'No accessible forms found',
+            'No active forms found',
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -1993,8 +1999,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             constraints: const BoxConstraints(maxWidth: 300),
             child: Text(
               searchQuery.isNotEmpty
-                  ? 'No forms matching your search criteria that you have access to'
-                  : 'There are currently no forms available for your role (${UserRoleService.getRoleDisplayName(_currentUserRole)})',
+                  ? 'No active forms matching your search criteria that you have access to'
+                  : 'There are currently no active forms available for your role (${UserRoleService.getRoleDisplayName(_currentUserRole)})',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),
