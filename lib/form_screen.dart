@@ -55,15 +55,17 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           .where('userId', isEqualTo: currentUser.uid)
           .get();
 
-      setState(() {
-        _userFormSubmissions.clear();
-        for (var doc in submissions.docs) {
-          final formId = doc.data()['formId'] as String?;
-          if (formId != null) {
-            _userFormSubmissions[formId] = true;
+      if (mounted) {
+        setState(() {
+          _userFormSubmissions.clear();
+          for (var doc in submissions.docs) {
+            final formId = doc.data()['formId'] as String?;
+            if (formId != null) {
+              _userFormSubmissions[formId] = true;
+            }
           }
-        }
-      });
+        });
+      }
     } catch (e) {
       print('Error loading user form submissions: $e');
     }
@@ -78,11 +80,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final userData = await UserRoleService.getCurrentUserData();
       final userRole = await UserRoleService.getCurrentUserRole();
 
-      setState(() {
-        _currentUserId = currentUser.uid;
-        _currentUserRole = userRole;
-        _currentUserData = userData;
-      });
+      if (mounted) {
+        setState(() {
+          _currentUserId = currentUser.uid;
+          _currentUserRole = userRole;
+          _currentUserData = userData;
+        });
+      }
 
       print('Current user loaded:');
       print('- User ID: $_currentUserId');
@@ -318,9 +322,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           ),
                           style: GoogleFonts.inter(fontSize: 14),
                           onChanged: (value) {
-                            setState(() {
-                              searchQuery = value.toLowerCase();
-                            });
+                            if (mounted) {
+                              setState(() {
+                                searchQuery = value.toLowerCase();
+                              });
+                            }
                           },
                         ),
                       ),
@@ -2055,23 +2061,25 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   }
 
   void _handleFormSelection(String formId, Map<String, dynamic> formData) {
-    setState(() {
-      selectedFormId = formId;
-      selectedFormData = formData;
+    if (mounted) {
+      setState(() {
+        selectedFormId = formId;
+        selectedFormData = formData;
 
-      // Clear existing controllers and values
-      for (var controller in fieldControllers.values) {
-        controller.dispose();
-      }
-      fieldControllers.clear();
-      fieldValues.clear();
+        // Clear existing controllers and values
+        for (var controller in fieldControllers.values) {
+          controller.dispose();
+        }
+        fieldControllers.clear();
+        fieldValues.clear();
 
-      // Create new controllers for form fields
-      final fields = formData['fields'] as Map<String, dynamic>;
-      fields.forEach((fieldId, fieldData) {
-        fieldControllers[fieldId] = TextEditingController();
+        // Create new controllers for form fields
+        final fields = formData['fields'] as Map<String, dynamic>;
+        fields.forEach((fieldId, fieldData) {
+          fieldControllers[fieldId] = TextEditingController();
+        });
       });
-    });
+    }
 
     _animationController.forward();
   }
@@ -2443,14 +2451,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     }
 
     print('Starting form submission...');
-    setState(() => _isSubmitting = true);
+    if (mounted) {
+      setState(() => _isSubmitting = true);
+    }
 
     try {
       final User? currentUser = FirebaseAuth.instance.currentUser;
 
       if (currentUser == null) {
         _showSnackBar('You must be logged in to submit forms', isError: true);
-        setState(() => _isSubmitting = false);
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+        }
         return;
       }
 
@@ -2555,11 +2567,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   };
                 } else {
                   // User wants to try again, cancel submission
-                  setState(() => _isSubmitting = false);
+                  if (mounted) {
+                    setState(() => _isSubmitting = false);
+                  }
                   return;
                 }
               } else {
-                setState(() => _isSubmitting = false);
+                if (mounted) {
+                  setState(() => _isSubmitting = false);
+                }
                 return;
               }
             }
@@ -2623,9 +2639,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       _showSnackBar('Form submitted successfully!', isError: false);
 
       // Update the submissions tracker
-      setState(() {
-        _userFormSubmissions[selectedFormId!] = true;
-      });
+      if (mounted) {
+        setState(() {
+          _userFormSubmissions[selectedFormId!] = true;
+        });
+      }
 
       print('Clearing form...');
       // Clear form
@@ -2637,7 +2655,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       _showSnackBar('Error submitting form: ${e.toString()}', isError: true);
     } finally {
       print('Resetting submission state...');
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
       print('Submission state reset complete');
     }
   }

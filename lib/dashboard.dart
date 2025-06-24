@@ -84,9 +84,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   /// Handles user sign out
@@ -172,8 +174,12 @@ class _DashboardPageState extends State<DashboardPage> {
     return GestureDetector(
       onTap: () => print('Logo clicked'),
       child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) {
+          if (mounted) setState(() => _isHovered = true);
+        },
+        onExit: (_) {
+          if (mounted) setState(() => _isHovered = false);
+        },
         child: AnimatedContainer(
           duration: DashboardConstants.hoverAnimationDuration,
           child: Image.asset(

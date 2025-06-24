@@ -29,19 +29,23 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
 
-      setState(() {
-        userRole = role;
-        userData = data;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          userRole = role;
+          userData = data;
+          isLoading = false;
+        });
+      }
 
       print('User role loaded: $role');
     } catch (e) {
       print('Error loading user role: $e');
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
     }
   }
 
