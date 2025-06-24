@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:math';
 
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
@@ -17,6 +18,76 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   List<int> userRows = [0]; // Start with one row
   final Map<int, UserInputRow> userRowsWidgets = {};
   final Map<int, GlobalKey<_UserInputRowState>> rowKeys = {};
+
+  // Generate unique kiosk code
+  String _generateKioskCode(
+      String firstName, String lastName, String userType) {
+    // Strategy 1: Use initials + user type + random number + timestamp
+    final initials =
+        '${firstName.isNotEmpty ? firstName[0].toUpperCase() : 'X'}${lastName.isNotEmpty ? lastName[0].toUpperCase() : 'X'}';
+    final typeCode = _getUserTypeCode(userType);
+    final random = Random().nextInt(999).toString().padLeft(3, '0');
+    final timestamp = DateTime.now()
+        .millisecondsSinceEpoch
+        .toString()
+        .substring(8); // Last 5 digits
+
+    return '$initials$typeCode$random$timestamp';
+  }
+
+  String _getUserTypeCode(String userType) {
+    switch (userType.toLowerCase()) {
+      case 'admin':
+        return 'AD';
+      case 'teacher':
+        return 'TC';
+      case 'student':
+        return 'ST';
+      case 'parent':
+        return 'PR';
+      default:
+        return 'US';
+    }
+  }
+
+  // Check if kiosk code already exists in Firestore
+  Future<bool> _isKioskCodeUnique(String kioskCode) async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('kiosk_code', isEqualTo: kioskCode)
+          .limit(1)
+          .get();
+
+      return querySnapshot.docs.isEmpty;
+    } catch (e) {
+      print('Error checking kiosk code uniqueness: $e');
+      return false;
+    }
+  }
+
+  // Generate a guaranteed unique kiosk code
+  Future<String> _generateUniqueKioskCode(
+      String firstName, String lastName, String userType) async {
+    String kioskCode;
+    bool isUnique = false;
+    int attempts = 0;
+
+    do {
+      kioskCode = _generateKioskCode(firstName, lastName, userType);
+      isUnique = await _isKioskCodeUnique(kioskCode);
+      attempts++;
+
+      // If we've tried 10 times, use a more unique approach
+      if (attempts >= 10) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        kioskCode = '${_getUserTypeCode(userType)}$timestamp';
+        isUnique = await _isKioskCodeUnique(kioskCode);
+      }
+    } while (!isUnique && attempts < 20);
+
+    return kioskCode;
+  }
 
   void _addUserRow() {
     setState(() {
@@ -34,14 +105,18 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     });
   }
 
-  void _handleContinue() async {
-    print('Starting _handleContinue');
-    print('Number of rows: ${userRows.length}');
-    print('Number of widgets: ${userRowsWidgets.length}');
-    print('Number of keys: ${rowKeys.length}');
+  bool _isLoading = false;
 
-    bool allValid = true;
+  Future<void> _handleContinue() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    print('Handle continue called');
     List<Map<String, dynamic>> usersData = [];
+    bool allValid = true;
 
     for (var index in userRows) {
       print('\nChecking row $index');
@@ -76,7 +151,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         if (rowState.firstNameController.text.isEmpty ||
             rowState.lastNameController.text.isEmpty ||
             rowState.phoneController.text.isEmpty ||
-            rowState.emailController.text.isEmpty) {
+            rowState.emailController.text.isEmpty ||
+            rowState.kioskCodeController.text.isEmpty) {
           print('Row $index is incomplete');
           allValid = false;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -130,7 +206,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'user_type': rowState.selectedUserType.toLowerCase(),
           'title': title,
           'employment_start_date': Timestamp.fromDate(DateTime.now()),
-          'kiosk_code': "123",
+          'kiosk_code': rowState.kioskCodeController.text.trim(),
           'date_added': FieldValue.serverTimestamp(),
           'last_login': FieldValue.serverTimestamp(),
           'is_active': true,
@@ -160,6 +236,50 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         ),
       );
       return;
+    }
+
+    // Check for duplicate kiosk codes within the current batch
+    Set<String> kioskCodes = {};
+    for (var userData in usersData) {
+      String kioskCode = userData['kiosk_code'];
+      if (kioskCodes.contains(kioskCode)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Duplicate kiosk code found: $kioskCode. Please ensure all kiosk codes are unique.',
+              style: GoogleFonts.openSans(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: const Color(0xffF56565),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
+      kioskCodes.add(kioskCode);
+    }
+
+    // Check for existing kiosk codes in Firestore
+    for (String kioskCode in kioskCodes) {
+      bool isUnique = await _isKioskCodeUnique(kioskCode);
+      if (!isUnique) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Kiosk code $kioskCode already exists. Please use a different code.',
+              style: GoogleFonts.openSans(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: const Color(0xffF56565),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
     }
 
     // Save users to Firestore
@@ -218,6 +338,10 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           ),
         ),
       );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -419,6 +543,18 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Kiosk Code*',
+                              style: GoogleFonts.openSans(
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xff0B3858),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
                             flex: 3,
                             child: Text(
                               'Mobile Phone*',
@@ -571,9 +707,11 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  onPressed: _handleContinue,
+                  onPressed: _isLoading ? null : _handleContinue,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff0386FF),
+                    backgroundColor: _isLoading
+                        ? const Color(0xffA0AEC0)
+                        : const Color(0xff0386FF),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 32, vertical: 12),
@@ -582,13 +720,36 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(
-                    'Create Users',
-                    style: GoogleFonts.openSans(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Creating...',
+                              style: GoogleFonts.openSans(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          'Create Users',
+                          style: GoogleFonts.openSans(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -622,16 +783,48 @@ class _UserInputRowState extends State<UserInputRow> {
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController kioskCodeController = TextEditingController();
   String countryCode = "1";
   String selectedUserType = "Admin"; // Default to Admin
 
   final List<String> userTypes = ["Admin", "Teacher", "Student", "Parent"];
 
+  // Auto-generate kiosk code when name or user type changes
+  void _generateKioskCode() {
+    if (firstNameController.text.isNotEmpty &&
+        lastNameController.text.isNotEmpty) {
+      final initials =
+          '${firstNameController.text[0].toUpperCase()}${lastNameController.text[0].toUpperCase()}';
+      final typeCode = _getUserTypeCode(selectedUserType);
+      final random = Random().nextInt(999).toString().padLeft(3, '0');
+      final timestamp =
+          DateTime.now().millisecondsSinceEpoch.toString().substring(8, 13);
+
+      kioskCodeController.text = '$initials$typeCode$random$timestamp';
+    }
+  }
+
+  String _getUserTypeCode(String userType) {
+    switch (userType.toLowerCase()) {
+      case 'admin':
+        return 'AD';
+      case 'teacher':
+        return 'TC';
+      case 'student':
+        return 'ST';
+      case 'parent':
+        return 'PR';
+      default:
+        return 'US';
+    }
+  }
+
   bool isAnyFieldPopulated() {
     return firstNameController.text.isNotEmpty ||
         lastNameController.text.isNotEmpty ||
         phoneController.text.isNotEmpty ||
-        emailController.text.isNotEmpty;
+        emailController.text.isNotEmpty ||
+        kioskCodeController.text.isNotEmpty;
   }
 
   bool areAllFieldsPopulated() {
@@ -639,6 +832,7 @@ class _UserInputRowState extends State<UserInputRow> {
         lastNameController.text.isNotEmpty &&
         phoneController.text.isNotEmpty &&
         emailController.text.isNotEmpty &&
+        kioskCodeController.text.isNotEmpty &&
         countryCode.isNotEmpty;
   }
 
@@ -647,6 +841,7 @@ class _UserInputRowState extends State<UserInputRow> {
     lastNameController.clear();
     phoneController.clear();
     emailController.clear();
+    kioskCodeController.clear();
     countryCode = "1";
     selectedUserType = "Admin";
   }
@@ -662,7 +857,10 @@ class _UserInputRowState extends State<UserInputRow> {
             flex: 2,
             child: TextFormField(
               controller: firstNameController,
-              onChanged: (value) => setState(() {}),
+              onChanged: (value) {
+                setState(() {});
+                _generateKioskCode();
+              },
               decoration: InputDecoration(
                 hintText: 'First name',
                 hintStyle: GoogleFonts.openSans(
@@ -707,7 +905,10 @@ class _UserInputRowState extends State<UserInputRow> {
             flex: 2,
             child: TextFormField(
               controller: lastNameController,
-              onChanged: (value) => setState(() {}),
+              onChanged: (value) {
+                setState(() {});
+                _generateKioskCode();
+              },
               decoration: InputDecoration(
                 hintText: 'Last name',
                 hintStyle: GoogleFonts.openSans(
@@ -750,97 +951,135 @@ class _UserInputRowState extends State<UserInputRow> {
           // User Type Dropdown
           Expanded(
             flex: 2,
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                popupMenuTheme: PopupMenuThemeData(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(
-                      color: Color(0xffE2E8F0),
-                      width: 1,
-                    ),
-                  ),
-                  elevation: 8,
-                  shadowColor: Colors.black.withOpacity(0.1),
-                ),
-                canvasColor: Colors.white,
-              ),
-              child: DropdownButtonFormField<String>(
-                value: selectedUserType,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    selectedUserType = newValue!;
-                  });
-                },
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xffE2E8F0),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xffE2E8F0),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xff0386FF),
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xffF7FAFC),
-                  hoverColor: Colors.transparent,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                items: userTypes.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            value == 'Teacher'
-                                ? Icons.school
-                                : value == 'Student'
-                                    ? Icons.person
-                                    : Icons.admin_panel_settings,
-                            size: 16,
-                            color: const Color(0xff0386FF),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            value,
-                            style: GoogleFonts.openSans(
-                              fontSize: 14,
-                              color: const Color(0xff2D3748),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-                style: GoogleFonts.openSans(
+            child: DropdownButtonFormField<String>(
+              value: selectedUserType,
+              decoration: InputDecoration(
+                hintText: 'User Type',
+                hintStyle: GoogleFonts.openSans(
+                  color: const Color(0xffA0AEC0),
                   fontSize: 14,
-                  color: const Color(0xff2D3748),
                 ),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Color(0xff718096),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xffE2E8F0),
+                  ),
                 ),
-                dropdownColor: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                menuMaxHeight: 200,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xffE2E8F0),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xff0386FF),
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: const Color(0xffF7FAFC),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
+              style: GoogleFonts.openSans(
+                fontSize: 14,
+                color: const Color(0xff2D3748),
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down,
+                color: Color(0xff718096),
+              ),
+              dropdownColor: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              items: userTypes.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Row(
+                    children: [
+                      Icon(
+                        _getIconForUserType(value),
+                        size: 16,
+                        color: const Color(0xff0386FF),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        value,
+                        style: GoogleFonts.openSans(
+                          fontSize: 14,
+                          color: const Color(0xff2D3748),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    selectedUserType = newValue;
+                    _generateKioskCode();
+                  });
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // Kiosk Code
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              controller: kioskCodeController,
+              onChanged: (value) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Auto-generated',
+                hintStyle: GoogleFonts.openSans(
+                  color: const Color(0xffA0AEC0),
+                  fontSize: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xffE2E8F0),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xffE2E8F0),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xff0386FF),
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: const Color(0xffF7FAFC),
+                hoverColor: Colors.transparent,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                suffixIcon: IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: Color(0xff0386FF),
+                    size: 18,
+                  ),
+                  onPressed: _generateKioskCode,
+                  tooltip: 'Regenerate Code',
+                ),
+              ),
+              style: GoogleFonts.openSans(
+                fontSize: 14,
+                color: const Color(0xff2D3748),
+                fontWeight: FontWeight.w600,
+              ),
+              readOnly: true, // Make kiosk code non-editable
             ),
           ),
           const SizedBox(width: 16),
@@ -949,12 +1188,28 @@ class _UserInputRowState extends State<UserInputRow> {
     );
   }
 
+  IconData _getIconForUserType(String userType) {
+    switch (userType) {
+      case 'Admin':
+        return Icons.admin_panel_settings;
+      case 'Teacher':
+        return Icons.school;
+      case 'Student':
+        return Icons.person;
+      case 'Parent':
+        return Icons.family_restroom;
+      default:
+        return Icons.person_outline;
+    }
+  }
+
   @override
   void dispose() {
     firstNameController.dispose();
     lastNameController.dispose();
     phoneController.dispose();
     emailController.dispose();
+    kioskCodeController.dispose();
     super.dispose();
   }
 }

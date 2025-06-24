@@ -39,7 +39,7 @@ class HeaderWidget extends StatelessWidget {
                 },
                 itemBuilder: (BuildContext context) => [
                   const PopupMenuItem<String>(
-                    value: null,
+                    value: 'all',
                     child: Row(
                       children: [
                         Icon(Icons.people, color: Colors.grey, size: 20),

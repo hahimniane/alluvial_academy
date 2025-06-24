@@ -25,18 +25,18 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   EmployeeDataSource? _employeeDataSource;
   List<Employee> _allEmployees = [];
   List<Employee> _filteredEmployees = [];
+  String _currentSearchTerm = '';
+  String? _currentFilterType;
 
   int? numberOfUsers = 0;
+
   void getFirebaseData() async {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
-    // Fetch the collection 'users'
     Future<QuerySnapshot<Map<String, dynamic>>> data =
         firestore.collection('users').get();
 
-    // Use 'await' to get the data and then iterate over it
     data.then((querySnapshot) {
       for (var docSnapshot in querySnapshot.docs) {
-        // Accessing the 'country_code' field in each document
         String? countryCode = docSnapshot.data()['country_code'];
         print('Country Code: $countryCode');
       }
@@ -50,8 +50,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     super.initState();
     getFirebaseData();
     _tabController = TabController(length: 2, vsync: this);
-    // _employeeDataSource = EmployeeDataSource(employees: []);
-    _employeeDataSource = EmployeeDataSource(employees: _filteredEmployees);
+    _employeeDataSource = EmployeeDataSource(employees: []);
   }
 
   @override
@@ -60,49 +59,58 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     super.dispose();
   }
 
-  // void _filterEmployees(String searchTerm) {
-  //   setState(() {
-  //     if (searchTerm.isEmpty) {
-  //       _filteredEmployees = _allEmployees;
-  //     } else {
-  //       _filteredEmployees = _allEmployees.where((employee) {
-  //         return employee.firstName
-  //             .toLowerCase()
-  //             .contains(searchTerm.toLowerCase());
-  //       }).toList();
-  //     }
-  //     print('sorted employes');
-  //     for (var employee in _filteredEmployees) {
-  //       print("Employee is ${employee.firstName}");
-  //     }
-
-  //     _employeeDataSource!.updateDataSource(_filteredEmployees);
-  //   });
-  // }
-
   void _filterEmployees(String searchTerm) {
     setState(() {
-      if (_allEmployees.isEmpty) {
-        // If this is first load, don't filter yet
-        return;
-      }
-
-      if (searchTerm.isEmpty) {
-        _filteredEmployees = _allEmployees;
-      } else {
-        _filteredEmployees = _allEmployees.where((employee) {
-          return employee.firstName
-              .toLowerCase()
-              .contains(searchTerm.toLowerCase());
-        }).toList();
-      }
-      _employeeDataSource!.updateDataSource(_filteredEmployees);
+      _currentSearchTerm = searchTerm.toLowerCase();
+      _applyFilters();
     });
   }
 
   void _filterByUserType(String? userType) {
-    // This method can be implemented later for filtering by user type
-    // For now, it's just a placeholder to prevent linter errors
+    setState(() {
+      _currentFilterType = userType;
+      _applyFilters();
+    });
+  }
+
+  void _applyFilters() {
+    List<Employee> filtered = _allEmployees;
+
+    // Apply user type filter
+    if (_currentFilterType != null && _currentFilterType != 'all') {
+      filtered = filtered.where((employee) {
+        return employee.userType.toLowerCase() ==
+            _currentFilterType!.toLowerCase();
+      }).toList();
+    }
+
+    // Apply search filter
+    if (_currentSearchTerm.isNotEmpty) {
+      filtered = filtered.where((employee) {
+        return employee.firstName.toLowerCase().contains(_currentSearchTerm) ||
+            employee.lastName.toLowerCase().contains(_currentSearchTerm) ||
+            employee.email.toLowerCase().contains(_currentSearchTerm) ||
+            employee.userType.toLowerCase().contains(_currentSearchTerm);
+      }).toList();
+    }
+
+    // Update the filtered list
+    _filteredEmployees = filtered;
+
+    // Update the data source
+    if (_employeeDataSource != null) {
+      _employeeDataSource!.updateDataSource(_filteredEmployees);
+    } else {
+      print('ERROR: Data source is null!'); // Debug log
+    }
+  }
+
+  void _updateEmployeeData(List<Employee> employees) {
+    setState(() {
+      _allEmployees = employees;
+      numberOfUsers = employees.length;
+      _applyFilters(); // Apply current filters to new data
+    });
   }
 
   void _exportData() {
@@ -120,7 +128,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         "Date Added",
         "Last Login"
       ],
-      ..._allEmployees.map((e) => [
+      ..._filteredEmployees.map((e) => [
             e.firstName,
             e.lastName,
             e.email,
@@ -137,11 +145,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
     String csv = const ListToCsvConverter().convert(userData);
 
-    // Create a Blob
     final bytes = utf8.encode(csv);
     final blob = html.Blob([bytes]);
 
-    // Create a link element
     final url = html.Url.createObjectUrlFromBlob(blob);
     final anchor = html.AnchorElement(href: url)
       ..setAttribute("download", "employees.csv")
@@ -178,15 +184,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       ),
                     ),
                     Text(
-                      "User",
+                      "User Management",
                       style: openSansHebrewTextStyle.copyWith(fontSize: 24),
                     ),
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: UserCard(
-                          userRole: null, // Will be updated from parent
-                          userData: null, // Will be updated from parent
+                          userRole: null,
+                          userData: null,
                         ),
                       ),
                     ),
@@ -196,9 +202,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             ),
           ),
           HeaderWidget(
-              onSearchChanged: _filterEmployees,
-              onExport: _exportData,
-              onFilterChanged: _filterByUserType),
+            onSearchChanged: _filterEmployees,
+            onExport: _exportData,
+            onFilterChanged: _filterByUserType,
+          ),
           Expanded(
             flex: 11,
             child: Container(
@@ -219,70 +226,80 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     print("Has data: ${snapshot.hasData}");
                     print("Has error: ${snapshot.hasError}");
 
-                    print(
-                        "Stream connection state: ${snapshot.connectionState}");
-                    numberOfUsers = 3;
-                    print(snapshot.data?.docs[0].id);
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       print('waiting');
-                      // _allEmployees =
-                      //     EmployeeDataSource.mapSnapshotToEmployeeList(
-                      //         snapshot.data!);
-                      // _filteredEmployees = _allEmployees;
-                      // _employeeDataSource!.updateDataSource(_filteredEmployees);
                       return const Center(
                         child: CircularProgressIndicator(),
                       );
-                    } else if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
-                    } else if (snapshot.hasData) {
-                      numberOfUsers = snapshot.data?.docs.length;
-                      _allEmployees =
-                          EmployeeDataSource.mapSnapshotToEmployeeList(
-                              snapshot.data!);
-                      _filteredEmployees = _allEmployees;
-                      _employeeDataSource!.updateDataSource(_filteredEmployees);
+                    }
 
-                      return Column(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: TabBar(
-                              labelStyle: const TextStyle(color: Colors.orange),
-                              indicatorSize: TabBarIndicatorSize.tab,
-                              controller: _tabController,
-                              labelColor: Colors.blue,
-                              unselectedLabelColor: Colors.black54,
-                              indicator: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4.0),
-                              ),
-                              tabs: [
-                                Tab(
-                                  text: 'USERS (${numberOfUsers.toString()})',
-                                ),
-                                const Tab(text: 'ADMINS (1)'),
-                              ],
-                            ),
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('No users found'));
+                    }
+
+                    // Process the data
+                    final employees =
+                        EmployeeDataSource.mapSnapshotToEmployeeList(
+                            snapshot.data!);
+
+                    // Update the employee data (this will trigger filtering)
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      // Check if we need to update the data
+                      bool dataChanged =
+                          _allEmployees.length != employees.length ||
+                              _allEmployees.isEmpty ||
+                              _employeeDataSource == null;
+
+                      if (dataChanged) {
+                        _updateEmployeeData(employees);
+                      } else if (_allEmployees.isNotEmpty) {
+                        // If data hasn't changed but we have employees, ensure current filters are applied
+                        _applyFilters();
+                      }
+                    });
+
+                    return Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          Expanded(
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                SfDataGridTheme(
-                                  data: const SfDataGridThemeData(
-                                    headerColor: Color(0xffF8F8F8),
-                                  ),
-                                  child: SingleChildScrollView(
-                                    physics: const ScrollPhysics(),
-                                    scrollDirection: Axis.horizontal,
-                                    child: SizedBox(
-                                      width:
-                                          1500, // Set a fixed width to enable horizontal scrolling
-                                      child: SfDataGrid(
+                          child: TabBar(
+                            labelStyle: const TextStyle(color: Colors.orange),
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            controller: _tabController,
+                            labelColor: Colors.blue,
+                            unselectedLabelColor: Colors.black54,
+                            indicator: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4.0),
+                            ),
+                            tabs: [
+                              Tab(
+                                text: 'USERS (${_filteredEmployees.length})',
+                              ),
+                              const Tab(
+                                  text:
+                                      'ADMINS (${0})'), // Will be updated dynamically
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              // Users Tab
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                child: _employeeDataSource == null
+                                    ? const Center(
+                                        child: CircularProgressIndicator())
+                                    : SfDataGrid(
                                         source: _employeeDataSource!,
                                         columnWidthMode: ColumnWidthMode.fill,
                                         columns: <GridColumn>[
@@ -296,10 +313,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 'First Name',
                                                 style: openSansHebrewTextStyle
                                                     .copyWith(
-                                                        color: const Color(
-                                                            0xff3f4648),
-                                                        fontWeight:
-                                                            FontWeight.w500),
+                                                  color:
+                                                      const Color(0xff3f4648),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -309,11 +326,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
+                                              child: Text(
                                                 'Last Name',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
+                                                style: openSansHebrewTextStyle
+                                                    .copyWith(
+                                                  color:
+                                                      const Color(0xff3f4648),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -323,11 +343,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
+                                              child: Text(
                                                 'Email',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
+                                                style: openSansHebrewTextStyle
+                                                    .copyWith(
+                                                  color:
+                                                      const Color(0xff3f4648),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -394,7 +417,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
                                               child: const Text(
-                                                'Employment Start Date',
+                                                'Start Date',
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -445,23 +468,17 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ),
-                                ),
-                                const Center(
-                                  child: Text('Admins tab content'),
-                                ),
-                              ],
-                            ),
+                              ),
+                              // Admins Tab (placeholder)
+                              const Center(
+                                child:
+                                    Text('Admin users will be displayed here'),
+                              ),
+                            ],
                           ),
-                        ],
-                      );
-                    } else if (_filteredEmployees.isEmpty) {
-                      _filteredEmployees = _allEmployees;
-                      _employeeDataSource!.updateDataSource(_filteredEmployees);
-                    }
-
-                    return const Center(child: Text('No data available'));
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
