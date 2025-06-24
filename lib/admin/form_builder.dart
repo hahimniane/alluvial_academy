@@ -757,11 +757,13 @@ class _FormsListViewState extends State<FormsListView> {
   }
 
   void _editForm(String formId, Map<String, dynamic> data) {
-    // For now, show a snackbar - form editing will be implemented later
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Form editing feature coming soon!'),
-        backgroundColor: Colors.blue,
+    // Navigate to form builder in edit mode
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FormBuilderView(
+          editFormId: formId,
+          editFormData: data,
+        ),
       ),
     );
   }
@@ -900,6 +902,15 @@ class _FormsListViewState extends State<FormsListView> {
 
 // Form Builder View - the complete form creation interface
 class FormBuilderView extends StatefulWidget {
+  final String? editFormId;
+  final Map<String, dynamic>? editFormData;
+
+  const FormBuilderView({
+    super.key,
+    this.editFormId,
+    this.editFormData,
+  });
+
   @override
   State<FormBuilderView> createState() => _FormBuilderViewState();
 }
@@ -911,6 +922,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   List<FormFieldData> fields = [];
   bool _isSaving = false;
   bool _showPreview = false;
+  bool _isEditMode = false;
 
   // Map to store preview field values
   Map<String, dynamic> _previewValues = {};
@@ -985,8 +997,97 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   @override
   void initState() {
     super.initState();
-    _titleController.text = 'Untitled Form';
-    _descriptionController.text = 'Enter a description for your form...';
+    _isEditMode = widget.editFormId != null;
+
+    if (_isEditMode && widget.editFormData != null) {
+      _populateFormForEditing();
+    } else {
+      _titleController.text = 'Untitled Form';
+      _descriptionController.text = 'Enter a description for your form...';
+    }
+  }
+
+  void _populateFormForEditing() {
+    final data = widget.editFormData!;
+
+    // Populate basic form info
+    _titleController.text = data['title'] ?? 'Untitled Form';
+    _descriptionController.text = data['description'] ?? '';
+
+    // Populate fields if they exist
+    final fieldsData = data['fields'] as Map<String, dynamic>?;
+    if (fieldsData != null) {
+      List<FormFieldData> loadedFields = [];
+
+      // Sort fields by order
+      final sortedEntries = fieldsData.entries.toList()
+        ..sort((a, b) {
+          final aOrder =
+              (a.value as Map<String, dynamic>)['order'] as int? ?? 0;
+          final bOrder =
+              (b.value as Map<String, dynamic>)['order'] as int? ?? 0;
+          return aOrder.compareTo(bOrder);
+        });
+
+      for (var entry in sortedEntries) {
+        final fieldId = entry.key;
+        final fieldData = entry.value as Map<String, dynamic>;
+
+        // Map Firestore field types back to internal types
+        String internalType =
+            _getInternalFieldType(fieldData['type'] ?? 'text');
+
+        loadedFields.add(FormFieldData(
+          id: fieldId,
+          type: internalType,
+          label: fieldData['label'] ?? 'Field Label',
+          placeholder: fieldData['placeholder'] ?? '',
+          required: fieldData['required'] ?? false,
+          order: fieldData['order'] ?? loadedFields.length,
+          options: fieldData['options'] != null
+              ? List<String>.from(fieldData['options'])
+              : [],
+          additionalConfig: fieldData.containsKey('minValue') ||
+                  fieldData.containsKey('maxValue')
+              ? {
+                  if (fieldData['minValue'] != null)
+                    'minValue': fieldData['minValue'],
+                  if (fieldData['maxValue'] != null)
+                    'maxValue': fieldData['maxValue'],
+                }
+              : null,
+        ));
+      }
+
+      setState(() {
+        fields = loadedFields;
+      });
+    }
+  }
+
+  String _getInternalFieldType(String firestoreType) {
+    switch (firestoreType) {
+      case 'text':
+        return 'openEnded';
+      case 'long_text':
+        return 'description';
+      case 'dropdown':
+        return 'dropdown';
+      case 'multi_select':
+        return 'multiSelect';
+      case 'radio':
+        return 'yesNo';
+      case 'number':
+        return 'number';
+      case 'date':
+        return 'date';
+      case 'image_upload':
+        return 'imageUpload';
+      case 'signature':
+        return 'signature';
+      default:
+        return firestoreType;
+    }
   }
 
   @override
@@ -1065,7 +1166,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Form Builder',
+                _isEditMode ? 'Edit Form' : 'Form Builder',
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -1073,7 +1174,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                 ),
               ),
               Text(
-                'Create dynamic forms with drag & drop',
+                _isEditMode
+                    ? 'Modify your existing form'
+                    : 'Create dynamic forms with drag & drop',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -1084,6 +1187,20 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           const Spacer(),
           Row(
             children: [
+              if (_isEditMode) ...[
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to Forms'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xff6B7280),
+                    side: const BorderSide(color: Color(0xffE2E8F0)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               OutlinedButton.icon(
                 onPressed: () {
                   setState(() {
@@ -1116,7 +1233,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                         ),
                       )
                     : const Icon(Icons.save, size: 18),
-                label: Text(_isSaving ? 'Saving...' : 'Save Form'),
+                label: Text(_isSaving
+                    ? (_isEditMode ? 'Updating...' : 'Saving...')
+                    : (_isEditMode ? 'Update Form' : 'Save Form')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff3B82F6),
                   foregroundColor: Colors.white,
@@ -1943,9 +2062,24 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     // First validate the form
     if (!_validateForm()) return;
 
-    // Show user selection dialog
-    final formPermissions = await _showUserSelectionDialog();
-    if (formPermissions == null) return; // User cancelled
+    // Show user selection dialog (or use existing permissions for edit mode)
+    Map<String, dynamic> formPermissions;
+    if (_isEditMode && widget.editFormData != null) {
+      // For edit mode, get existing permissions or default to public
+      formPermissions =
+          widget.editFormData!['permissions'] as Map<String, dynamic>? ??
+              {'type': 'public'};
+
+      // Still show the dialog to allow changing permissions
+      final updatedPermissions = await _showUserSelectionDialog();
+      if (updatedPermissions == null) return; // User cancelled
+      formPermissions = updatedPermissions;
+    } else {
+      // For new forms, always show the dialog
+      final selectedPermissions = await _showUserSelectionDialog();
+      if (selectedPermissions == null) return; // User cancelled
+      formPermissions = selectedPermissions;
+    }
 
     // Proceed with saving
     await _saveFormToFirestore(formPermissions);
@@ -1986,69 +2120,107 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         };
       }
 
-      // Get user info for creator details
-      final userDoc = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.uid)
-          .get();
+      if (_isEditMode && widget.editFormId != null) {
+        // Update existing form
+        await FirebaseFirestore.instance
+            .collection('form')
+            .doc(widget.editFormId!)
+            .update({
+          'title': _titleController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'fieldCount': fields.length,
+          'fields': fieldsMap,
+          'permissions': formPermissions,
+        });
 
-      final userData = userDoc.data();
-      final creatorName = userData != null
-          ? '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
-              .trim()
-          : 'Unknown User';
-
-      // Create form document with proper structure
-      await FirebaseFirestore.instance.collection('form').add({
-        'title': _titleController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'createdBy': user.uid,
-        'createdByName': creatorName,
-        'status': 'active',
-        'isPublished': true,
-        'fieldCount': fields.length,
-        'fields': fieldsMap,
-        'responses': {}, // Initialize empty responses object
-        'responseCount': 0,
-        'permissions': formPermissions, // Add user permissions
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                      'Form "${_titleController.text.trim()}" saved successfully!'),
-                ),
-              ],
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'Form "${_titleController.text.trim()}" updated successfully!'),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xff10B981),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              duration: const Duration(seconds: 3),
             ),
-            backgroundColor: const Color(0xff10B981),
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+          );
+        }
+      } else {
+        // Create new form
+        // Get user info for creator details
+        final userDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
 
-      // Clear form after successful save
-      _titleController.clear();
-      _descriptionController.clear();
-      setState(() {
-        fields.clear();
-        _previewValues.clear();
-      });
+        final userData = userDoc.data();
+        final creatorName = userData != null
+            ? '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+                .trim()
+            : 'Unknown User';
+
+        await FirebaseFirestore.instance.collection('form').add({
+          'title': _titleController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdBy': user.uid,
+          'createdByName': creatorName,
+          'status': 'active',
+          'isPublished': true,
+          'fieldCount': fields.length,
+          'fields': fieldsMap,
+          'responses': {}, // Initialize empty responses object
+          'responseCount': 0,
+          'permissions': formPermissions, // Add user permissions
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'Form "${_titleController.text.trim()}" created successfully!'),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xff10B981),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
+        // Clear form after successful save (only for new forms)
+        _titleController.clear();
+        _descriptionController.clear();
+        setState(() {
+          fields.clear();
+          _previewValues.clear();
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving form: $e'),
+            content:
+                Text('Error ${_isEditMode ? 'updating' : 'saving'} form: $e'),
             backgroundColor: const Color(0xffEF4444),
             behavior: SnackBarBehavior.floating,
             shape:
