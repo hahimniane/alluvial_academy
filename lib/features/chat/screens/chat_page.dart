@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -92,6 +93,10 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final ScrollController _chatScrollController = ScrollController();
 
+  // Add stream subscriptions for proper disposal
+  StreamSubscription<QuerySnapshot>? _chatsSubscription;
+  StreamSubscription<QuerySnapshot>? _usersSubscription;
+
   String _hoveredChatId = '';
   bool _isSearchFocused = false;
   String _selectedTab = 'All';
@@ -129,11 +134,13 @@ class _ChatScreenState extends State<ChatScreen> {
     print('Starting _loadUsers method...');
     try {
       // Always load users with chat history first
-      FirebaseFirestore.instance
+      _chatsSubscription = FirebaseFirestore.instance
           .collection('chats')
           .where('participants', arrayContains: _currentUserId)
           .snapshots()
           .listen((chatSnapshot) {
+        if (!mounted) return; // Check if widget is still mounted
+
         Set<String> chatUserIds = {};
 
         for (var doc in chatSnapshot.docs) {
@@ -143,19 +150,26 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         if (chatUserIds.isEmpty) {
-          setState(() {
-            _allChats = [];
-            _filteredChats = [];
-          });
+          if (mounted) {
+            setState(() {
+              _allChats = [];
+              _filteredChats = [];
+            });
+          }
           return;
         }
 
+        // Cancel previous users subscription if it exists
+        _usersSubscription?.cancel();
+
         // Fetch user details for chat participants
-        FirebaseFirestore.instance
+        _usersSubscription = FirebaseFirestore.instance
             .collection('users')
             .where(FieldPath.documentId, whereIn: chatUserIds.toList())
             .snapshots()
             .listen((userSnapshot) {
+          if (!mounted) return; // Check if widget is still mounted
+
           setState(() {
             _allChats = userSnapshot.docs.map((doc) {
               final data = doc.data();
@@ -259,6 +273,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // Cancel stream subscriptions to prevent setState after dispose
+    _chatsSubscription?.cancel();
+    _usersSubscription?.cancel();
+
     _messageController.dispose();
     _searchFocus.removeListener(_onSearchFocusChange);
     _searchFocus.dispose();
