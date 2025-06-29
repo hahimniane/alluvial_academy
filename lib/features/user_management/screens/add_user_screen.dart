@@ -282,23 +282,71 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
       }
     }
 
-    // Save users to Firestore
+    // Create users using Firebase Functions
     try {
-      final batch = FirebaseFirestore.instance.batch();
+      print('Calling Firebase Function to create users...');
+      print('Users data to create: ${usersData.length}');
 
-      for (var userData in usersData) {
-        // Create a new document reference with auto-generated ID
-        final userRef = FirebaseFirestore.instance.collection('users').doc();
-        batch.set(userRef, userData);
+      // Transform data to match Firebase Functions expected format
+      List<Map<String, dynamic>> transformedUsers = usersData.map((userData) {
+        return {
+          'email': userData['e-mail'],
+          'firstName': userData['first_name'],
+          'lastName': userData['last_name'],
+          'phoneNumber': userData['phone_number'],
+          'countryCode': userData['country_code'],
+          'userType': userData['user_type'],
+          'title': userData['title'],
+          'kioskCode': userData['kiosk_code'],
+        };
+      }).toList();
+
+      print('Transformed user data: ${transformedUsers.length} users');
+      for (int i = 0; i < transformedUsers.length; i++) {
+        print('User ${i + 1}: ${transformedUsers[i]}');
       }
 
-      // Commit the batch
-      await batch.commit();
+      // Call Firebase Function based on number of users
+      if (transformedUsers.length == 1) {
+        // Use createUserWithEmail function for single user
+        final functions = FirebaseFunctions.instance;
+        final callable = functions.httpsCallable('createUserWithEmail');
+
+        // Send the user data directly, not nested under 'data'
+        final result = await callable.call(transformedUsers.first);
+
+        print('Single user creation result: ${result.data}');
+      } else {
+        // Use createMultipleUsers function for multiple users
+        final functions = FirebaseFunctions.instance;
+        final callable = functions.httpsCallable('createMultipleUsers');
+
+        final result = await callable.call({
+          'users': transformedUsers,
+        });
+
+        print('Multiple users creation result: ${result.data}');
+      }
+
+      // Show detailed success message
+      String successMessage;
+      if (transformedUsers.length == 1) {
+        successMessage = '✅ User created successfully!\n'
+            '• Firebase Auth account created\n'
+            '• User profile saved to database\n'
+            '• Welcome email sent with login credentials';
+      } else {
+        successMessage =
+            '✅ ${transformedUsers.length} users created successfully!\n'
+            '• Firebase Auth accounts created\n'
+            '• User profiles saved to database\n'
+            '• Welcome emails sent with login credentials';
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Users saved successfully!',
+            successMessage,
             style: GoogleFonts.openSans(
               color: Colors.white,
               fontWeight: FontWeight.w600,
@@ -309,6 +357,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          duration: const Duration(seconds: 5),
         ),
       );
 
@@ -321,11 +370,22 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
       Navigator.pop(context);
     } catch (e) {
-      print("Error saving users: $e");
+      print("Error creating users: $e");
+
+      String errorMessage = 'Error creating users: ';
+      if (e is FirebaseFunctionsException) {
+        errorMessage += e.message ?? e.code;
+        print('Firebase Functions Error Code: ${e.code}');
+        print('Firebase Functions Error Message: ${e.message}');
+        print('Firebase Functions Error Details: ${e.details}');
+      } else {
+        errorMessage += e.toString();
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Error saving users: $e',
+            errorMessage,
             style: GoogleFonts.openSans(
               color: Colors.white,
               fontWeight: FontWeight.w600,
