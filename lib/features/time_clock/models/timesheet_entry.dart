@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum TimesheetStatus { draft, pending, approved, rejected }
 
 class TimesheetEntry {
@@ -11,6 +13,17 @@ class TimesheetEntry {
   final String description;
   final TimesheetStatus status;
 
+  // Additional fields for admin review
+  final String teacherId;
+  final String teacherName;
+  final double hourlyRate;
+  final Timestamp? createdAt;
+  final Timestamp? submittedAt;
+  final Timestamp? approvedAt;
+  final Timestamp? rejectedAt;
+  final String? rejectionReason;
+  final double? paymentAmount;
+
   const TimesheetEntry({
     this.documentId,
     required this.date,
@@ -21,5 +34,14 @@ class TimesheetEntry {
     required this.totalHours,
     required this.description,
     required this.status,
+    this.teacherId = '',
+    this.teacherName = '',
+    this.hourlyRate = 15.0,
+    this.createdAt,
+    this.submittedAt,
+    this.approvedAt,
+    this.rejectedAt,
+    this.rejectionReason,
+    this.paymentAmount,
   });
 }

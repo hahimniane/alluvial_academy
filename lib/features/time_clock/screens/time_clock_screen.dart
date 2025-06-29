@@ -16,7 +16,8 @@ class TimeClockScreen extends StatefulWidget {
   _TimeClockScreenState createState() => _TimeClockScreenState();
 }
 
-class _TimeClockScreenState extends State<TimeClockScreen> {
+class _TimeClockScreenState extends State<TimeClockScreen>
+    with WidgetsBindingObserver {
   List<Map<String, dynamic>> _students = [];
   bool _isLoadingStudents = false;
 
@@ -28,17 +29,46 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   String _totalHoursWorked = "00:00:00";
 
   final List<dynamic> _timesheetEntries = [];
+  final GlobalKey<State<TimesheetTable>> _timesheetTableKey =
+      GlobalKey<State<TimesheetTable>>();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadStudents();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh timesheet data when app comes back to foreground
+    if (state == AppLifecycleState.resumed && mounted) {
+      _refreshTimesheetData();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh timesheet data when the widget becomes active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _refreshTimesheetData();
+      }
+    });
+  }
+
+  void _refreshTimesheetData() {
+    // Call refresh on the TimesheetTable widget
+    TimesheetTable.refreshData(_timesheetTableKey);
   }
 
   Future<void> _loadStudents() async {
@@ -732,7 +762,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
               padding: const EdgeInsets.all(16),
               child: TimesheetTable(
                 clockInEntries: _timesheetEntries,
-                key: ValueKey(_timesheetEntries.length),
+                key: _timesheetTableKey,
               ),
             ),
           ),
