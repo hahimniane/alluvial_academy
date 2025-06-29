@@ -33,6 +33,10 @@ class NavigationMenu extends StatelessWidget {
           icon: Icon(Icons.people),
           label: Text('Users'),
         ),
+        NavigationRailDestination(
+          icon: Icon(Icons.task_alt),
+          label: Text('Quick Tasks'),
+        ),
       ],
     );
   }
