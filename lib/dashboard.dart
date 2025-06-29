@@ -4,6 +4,7 @@ import 'features/chat/screens/chat_page.dart';
 import 'form_screen.dart';
 import 'job_scheduling.dart';
 import 'features/time_clock/screens/time_clock_screen.dart';
+import 'features/time_clock/screens/admin_timesheet_review.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -76,6 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
     const UserManagementScreen(),
     const ChatScreen(),
     const TimeClockScreen(),
+    const AdminTimesheetReview(),
     const FormScreen(),
     const FormBuilder(),
     const TasksScreen(),
@@ -455,12 +457,22 @@ class _DashboardPageState extends State<DashboardPage> {
       ));
     }
 
+    // Admin Timesheet Review (admin only)
+    if (_userRole?.toLowerCase() == 'admin') {
+      items.add(_buildCustomListTile(
+        'assets/Icon_Scheduler.png',
+        'admin/Timesheet Review',
+        4,
+        Colors.teal,
+      ));
+    }
+
     // Forms (available to most roles)
     if (availableFeatures.contains('forms')) {
       items.add(_buildCustomListTile(
         'assets/Icon_forms.png',
         'Forms',
-        4,
+        5,
         DashboardConstants.formsIconColor,
       ));
     }
@@ -470,7 +482,7 @@ class _DashboardPageState extends State<DashboardPage> {
       items.add(_buildCustomListTile(
         'assets/Icon_Scheduler.png',
         'admin/Manage Forms',
-        5,
+        6,
         DashboardConstants.jobSchedulingIconColor,
       ));
     }
@@ -480,7 +492,7 @@ class _DashboardPageState extends State<DashboardPage> {
       items.add(_buildCustomListTile(
         'assets/Icon_task_manage.png',
         'Quick Tasks',
-        6,
+        7,
         DashboardConstants.jobSchedulingIconColor,
       ));
     }
@@ -490,7 +502,7 @@ class _DashboardPageState extends State<DashboardPage> {
       items.add(_buildCustomListTile(
         'assets/Icon_task_manage.png',
         'Test Role System',
-        8, // Using index 8 for test screen
+        9, // Using index 9 for test screen
         Colors.purple,
       ));
 
@@ -498,7 +510,7 @@ class _DashboardPageState extends State<DashboardPage> {
       items.add(_buildCustomListTile(
         'assets/Icon_task_manage.png',
         'Debug Firestore',
-        9, // Using index 9 for debug screen
+        10, // Using index 10 for debug screen
         Colors.orange,
       ));
     }

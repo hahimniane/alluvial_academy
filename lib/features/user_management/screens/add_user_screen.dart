@@ -197,6 +197,14 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
             title = 'Teacher';
         }
 
+        // Parse hourly rate, default to 15.0 if invalid
+        double hourlyRate = 15.0;
+        try {
+          hourlyRate = double.parse(rowState.hourlyRateController.text.trim());
+        } catch (e) {
+          hourlyRate = 15.0; // Default rate
+        }
+
         usersData.add({
           'first_name': rowState.firstNameController.text.trim(),
           'last_name': rowState.lastNameController.text.trim(),
@@ -207,6 +215,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'title': title,
           'employment_start_date': Timestamp.fromDate(DateTime.now()),
           'kiosk_code': rowState.kioskCodeController.text.trim(),
+          'hourly_rate': hourlyRate,
           'date_added': FieldValue.serverTimestamp(),
           'last_login': FieldValue.serverTimestamp(),
           'is_active': true,
@@ -844,6 +853,8 @@ class _UserInputRowState extends State<UserInputRow> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController kioskCodeController = TextEditingController();
+  final TextEditingController hourlyRateController =
+      TextEditingController(text: '15.00');
   String countryCode = "1";
   String selectedUserType = "Admin"; // Default to Admin
 
@@ -884,7 +895,8 @@ class _UserInputRowState extends State<UserInputRow> {
         lastNameController.text.isNotEmpty ||
         phoneController.text.isNotEmpty ||
         emailController.text.isNotEmpty ||
-        kioskCodeController.text.isNotEmpty;
+        kioskCodeController.text.isNotEmpty ||
+        hourlyRateController.text.isNotEmpty;
   }
 
   bool areAllFieldsPopulated() {
@@ -893,7 +905,8 @@ class _UserInputRowState extends State<UserInputRow> {
         phoneController.text.isNotEmpty &&
         emailController.text.isNotEmpty &&
         kioskCodeController.text.isNotEmpty &&
-        countryCode.isNotEmpty;
+        countryCode.isNotEmpty &&
+        hourlyRateController.text.isNotEmpty;
   }
 
   void clearFields() {
@@ -902,6 +915,7 @@ class _UserInputRowState extends State<UserInputRow> {
     phoneController.clear();
     emailController.clear();
     kioskCodeController.clear();
+    hourlyRateController.text = '15.00';
     countryCode = "1";
     selectedUserType = "Admin";
   }
@@ -1243,6 +1257,58 @@ class _UserInputRowState extends State<UserInputRow> {
               keyboardType: TextInputType.emailAddress,
             ),
           ),
+          const SizedBox(width: 16),
+
+          // Hourly Rate (only for Teachers and Admins)
+          if (selectedUserType == 'Teacher' || selectedUserType == 'Admin')
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                controller: hourlyRateController,
+                onChanged: (value) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Hourly Rate',
+                  hintStyle: GoogleFonts.openSans(
+                    color: const Color(0xffA0AEC0),
+                    fontSize: 14,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xffE2E8F0),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xffE2E8F0),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xff0386FF),
+                      width: 2,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xffF7FAFC),
+                  hoverColor: Colors.transparent,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  prefixIcon: const Icon(
+                    Icons.attach_money,
+                    color: Color(0xffA0AEC0),
+                    size: 20,
+                  ),
+                ),
+                style: GoogleFonts.openSans(
+                  fontSize: 14,
+                  color: const Color(0xff2D3748),
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+              ),
+            ),
         ],
       ),
     );
@@ -1270,6 +1336,7 @@ class _UserInputRowState extends State<UserInputRow> {
     phoneController.dispose();
     emailController.dispose();
     kioskCodeController.dispose();
+    hourlyRateController.dispose();
     super.dispose();
   }
 }

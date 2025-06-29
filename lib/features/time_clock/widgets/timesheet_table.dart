@@ -17,9 +17,18 @@ class TimesheetTable extends StatefulWidget {
 
   @override
   State<TimesheetTable> createState() => _TimesheetTableState();
+
+  // Static method to refresh data from outside
+  static void refreshData(GlobalKey<State<TimesheetTable>> key) {
+    final state = key.currentState;
+    if (state != null && state is _TimesheetTableState) {
+      state.refreshData();
+    }
+  }
 }
 
-class _TimesheetTableState extends State<TimesheetTable> {
+class _TimesheetTableState extends State<TimesheetTable>
+    with WidgetsBindingObserver {
   DateTimeRange? _selectedDateRange;
   List<TimesheetEntry> timesheetData = [];
   TimesheetDataSource? _timesheetDataSource;
@@ -35,7 +44,30 @@ class _TimesheetTableState extends State<TimesheetTable> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTimesheetData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh timesheet data when app comes back to foreground
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadTimesheetData();
+    }
+  }
+
+  // Public method to manually refresh data
+  void refreshData() {
+    if (mounted) {
+      _loadTimesheetData();
+    }
   }
 
   @override
@@ -95,6 +127,7 @@ class _TimesheetTableState extends State<TimesheetTable> {
           timesheetData: timesheetData,
           onEdit: _editEntry,
           onView: _viewEntry,
+          onSubmit: _submitEntry,
         );
       });
     });
@@ -249,6 +282,160 @@ class _TimesheetTableState extends State<TimesheetTable> {
     );
   }
 
+  void _submitEntry(TimesheetEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.send, color: Colors.blue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Submit for Review',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to submit this timesheet entry for admin review?',
+              style: constants.openSansHebrewTextStyle.copyWith(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  _buildDetailRow('Date:', entry.date),
+                  _buildDetailRow('Student:', entry.subject),
+                  _buildDetailRow('Hours:', entry.totalHours),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Colors.amber.shade600, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Once submitted, you cannot edit this entry until it\'s reviewed.',
+                      style: constants.openSansHebrewTextStyle.copyWith(
+                        fontSize: 12,
+                        color: Colors.amber.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Submit for Review'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Update the entry status to pending
+      final updatedEntry = TimesheetEntry(
+        documentId: entry.documentId,
+        date: entry.date,
+        subject: entry.subject,
+        start: entry.start,
+        end: entry.end,
+        breakDuration: entry.breakDuration,
+        totalHours: entry.totalHours,
+        description: entry.description,
+        status: TimesheetStatus.pending,
+      );
+
+      await _saveTimesheetEntry(updatedEntry);
+
+      // Reload timesheet data
+      _loadTimesheetData();
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                const Text('Timesheet submitted for review successfully!'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Error submitting timesheet: $e'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   void _viewEntry(TimesheetEntry entry) {
     showDialog(
       context: context,
@@ -341,6 +528,7 @@ class _TimesheetTableState extends State<TimesheetTable> {
                         timesheetData: [],
                         onEdit: _editEntry,
                         onView: _viewEntry,
+                        onSubmit: _submitEntry,
                       ),
                   columnWidthMode: ColumnWidthMode.fill,
                   columns: [
@@ -750,6 +938,37 @@ class _TimesheetTableState extends State<TimesheetTable> {
     );
   }
 
+  DateTime? _parseEntryDate(String dateString) {
+    // Try multiple date formats to handle different sources
+    final formats = [
+      'yyyy-MM-dd', // Standard format: 2025-01-26
+      'EEE MM/dd/yyyy', // Clock-in format with year: Mon 01/26/2025
+      'EEE MM/dd', // Clock-in format without year: Mon 01/26
+      'MM/dd/yyyy', // Simple format with year: 01/26/2025
+      'MM/dd', // Simple format without year: 01/26
+    ];
+
+    for (String format in formats) {
+      try {
+        DateTime parsed = DateFormat(format).parse(dateString);
+
+        // If the parsed date doesn't have a year (for formats without year),
+        // assume it's the current year
+        if (format == 'EEE MM/dd' || format == 'MM/dd') {
+          parsed = DateTime(DateTime.now().year, parsed.month, parsed.day);
+        }
+
+        return parsed;
+      } catch (e) {
+        // Try next format
+        continue;
+      }
+    }
+
+    print('Could not parse date: $dateString');
+    return null;
+  }
+
   void _filterTimesheetData(String filter) {
     print('Filtering by: $filter');
 
@@ -765,14 +984,12 @@ class _TimesheetTableState extends State<TimesheetTable> {
           case 'Today':
             startDate = DateTime(now.year, now.month, now.day);
             filteredData = filteredData.where((entry) {
-              try {
-                DateTime entryDate = DateFormat('yyyy-MM-dd').parse(entry.date);
-                return entryDate
-                        .isAfter(startDate.subtract(const Duration(days: 1))) &&
-                    entryDate.isBefore(startDate.add(const Duration(days: 1)));
-              } catch (e) {
-                return false;
-              }
+              DateTime? entryDate = _parseEntryDate(entry.date);
+              if (entryDate == null) return false;
+
+              return entryDate.year == now.year &&
+                  entryDate.month == now.month &&
+                  entryDate.day == now.day;
             }).toList();
             break;
 
@@ -780,29 +997,28 @@ class _TimesheetTableState extends State<TimesheetTable> {
             startDate = now.subtract(Duration(days: now.weekday - 1));
             startDate =
                 DateTime(startDate.year, startDate.month, startDate.day);
+            DateTime endDate = startDate.add(const Duration(days: 6));
+
             filteredData = filteredData.where((entry) {
-              try {
-                DateTime entryDate = DateFormat('yyyy-MM-dd').parse(entry.date);
-                return entryDate
-                        .isAfter(startDate.subtract(const Duration(days: 1))) &&
-                    entryDate.isBefore(now.add(const Duration(days: 1)));
-              } catch (e) {
-                return false;
-              }
+              DateTime? entryDate = _parseEntryDate(entry.date);
+              if (entryDate == null) return false;
+
+              return entryDate
+                      .isAfter(startDate.subtract(const Duration(days: 1))) &&
+                  entryDate.isBefore(endDate.add(const Duration(days: 1)));
             }).toList();
             break;
 
           case 'This Month':
             startDate = DateTime(now.year, now.month, 1);
+            DateTime endDate = DateTime(now.year, now.month + 1, 1)
+                .subtract(const Duration(days: 1));
+
             filteredData = filteredData.where((entry) {
-              try {
-                DateTime entryDate = DateFormat('yyyy-MM-dd').parse(entry.date);
-                return entryDate
-                        .isAfter(startDate.subtract(const Duration(days: 1))) &&
-                    entryDate.isBefore(DateTime(now.year, now.month + 1, 1));
-              } catch (e) {
-                return false;
-              }
+              DateTime? entryDate = _parseEntryDate(entry.date);
+              if (entryDate == null) return false;
+
+              return entryDate.year == now.year && entryDate.month == now.month;
             }).toList();
             break;
         }
@@ -811,27 +1027,38 @@ class _TimesheetTableState extends State<TimesheetTable> {
       // Apply custom date range filter if selected
       if (_selectedDateRange != null) {
         filteredData = filteredData.where((entry) {
-          try {
-            DateTime entryDate = DateFormat('yyyy-MM-dd').parse(entry.date);
-            return entryDate.isAfter(_selectedDateRange!.start
-                    .subtract(const Duration(days: 1))) &&
-                entryDate.isBefore(
-                    _selectedDateRange!.end.add(const Duration(days: 1)));
-          } catch (e) {
-            return false;
-          }
+          DateTime? entryDate = _parseEntryDate(entry.date);
+          if (entryDate == null) return false;
+
+          return entryDate.isAfter(_selectedDateRange!.start
+                  .subtract(const Duration(days: 1))) &&
+              entryDate.isBefore(
+                  _selectedDateRange!.end.add(const Duration(days: 1)));
         }).toList();
       }
 
-      // Sort by date (newest first)
-      filteredData.sort((a, b) => b.date.compareTo(a.date));
+      // Sort by date (newest first) - use parsed dates for proper sorting
+      filteredData.sort((a, b) {
+        DateTime? dateA = _parseEntryDate(a.date);
+        DateTime? dateB = _parseEntryDate(b.date);
+
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+
+        return dateB.compareTo(dateA);
+      });
 
       // Update the data source
       _timesheetDataSource = TimesheetDataSource(
         timesheetData: filteredData,
         onEdit: _editEntry,
         onView: _viewEntry,
+        onSubmit: _submitEntry,
       );
+
+      print(
+          'Filter applied. Total entries: ${timesheetData.length}, Filtered: ${filteredData.length}');
     });
   }
 
@@ -851,6 +1078,7 @@ class _TimesheetTableState extends State<TimesheetTable> {
                 timesheetData: timesheetData,
                 onEdit: _editEntry,
                 onView: _viewEntry,
+                onSubmit: _submitEntry,
               );
             });
 
@@ -943,6 +1171,7 @@ class _TimesheetTableState extends State<TimesheetTable> {
           timesheetData: timesheetData,
           onEdit: _editEntry,
           onView: _viewEntry,
+          onSubmit: _submitEntry,
         );
       });
 
@@ -1069,11 +1298,13 @@ class TimesheetDataSource extends DataGridSource {
   List<DataGridRow> _timesheetData = [];
   final Function(TimesheetEntry)? onEdit;
   final Function(TimesheetEntry)? onView;
+  final Function(TimesheetEntry)? onSubmit;
 
   TimesheetDataSource({
     required List<TimesheetEntry> timesheetData,
     this.onEdit,
     this.onView,
+    this.onSubmit,
   }) {
     _timesheetData = timesheetData
         .map<DataGridRow>((entry) => DataGridRow(
@@ -1183,6 +1414,16 @@ class TimesheetDataSource extends DataGridSource {
                   onPressed: () => onEdit?.call(entry),
                   icon: const Icon(Icons.edit, size: 16),
                   tooltip: 'Edit',
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                ),
+              if (entry.status == TimesheetStatus.draft)
+                IconButton(
+                  onPressed: () => onSubmit?.call(entry),
+                  icon: const Icon(Icons.send, size: 16, color: Colors.blue),
+                  tooltip: 'Submit for Review',
                   constraints: const BoxConstraints(
                     minWidth: 32,
                     minHeight: 32,
