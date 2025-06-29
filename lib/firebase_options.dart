@@ -21,11 +21,20 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return android;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for android - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.iOS:
-        return ios;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for ios - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -44,38 +53,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDZY9R0tkIPpfpQqgh6mlb6h1xcmngbWYc',
-    appId: '1:633115721273:web:0a9a1aef6591aebe6e17e8',
-    messagingSenderId: '633115721273',
-    projectId: 'alluwalacademy-e32c1',
-    authDomain: 'alluwalacademy-e32c1.firebaseapp.com',
-    storageBucket: 'alluwalacademy-e32c1.appspot.com',
-    measurementId: 'G-LCN05KJ48P',
-  );
-
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDTpl2IwUOVJsNJOt_H9af4Xt5-GhqYy5Q',
-    appId: '1:633115721273:android:5cb261e370d4ea896e17e8',
-    messagingSenderId: '633115721273',
-    projectId: 'alluwalacademy-e32c1',
-    storageBucket: 'alluwalacademy-e32c1.appspot.com',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCBkQZ-jRxLF6fWMAHocM8vxgosGOoXVpc',
-    appId: '1:633115721273:ios:af997482b084ef606e17e8',
-    messagingSenderId: '633115721273',
-    projectId: 'alluwalacademy-e32c1',
-    storageBucket: 'alluwalacademy-e32c1.appspot.com',
-    iosBundleId: 'com.example.alluwalacademyadmin',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCBkQZ-jRxLF6fWMAHocM8vxgosGOoXVpc',
-    appId: '1:633115721273:ios:02985af84438314c6e17e8',
-    messagingSenderId: '633115721273',
-    projectId: 'alluwalacademy-e32c1',
-    storageBucket: 'alluwalacademy-e32c1.appspot.com',
-    iosBundleId: 'com.example.alluwalacademyadmin.RunnerTests',
+    apiKey: 'AIzaSyAi_iLhoVPezrUJTTu2az67Y1Pv31IsuP4',
+    appId: '1:554077757249:web:07c7609546547fd6cc8bc0',
+    messagingSenderId: '554077757249',
+    projectId: 'alluwal-academy',
+    authDomain: 'alluwal-academy.firebaseapp.com',
+    storageBucket: 'alluwal-academy.firebasestorage.app',
+    measurementId: 'G-F6605YZC8B',
   );
 }

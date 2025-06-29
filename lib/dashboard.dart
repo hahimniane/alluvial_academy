@@ -13,6 +13,7 @@ import 'core/constants/app_constants.dart';
 import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
 import 'test_role_system.dart';
+import 'firestore_debug_screen.dart';
 
 /// Constants for the Dashboard
 class DashboardConstants {
@@ -80,6 +81,7 @@ class _DashboardPageState extends State<DashboardPage> {
     const TasksScreen(),
     const TimeOffScreen(),
     const TestRoleSystemScreen(), // Test screen for role system
+    const FirestoreDebugScreen(), // Debug screen for Firestore data
   ];
 
   /// Updates the selected index when a navigation item is tapped
@@ -490,6 +492,14 @@ class _DashboardPageState extends State<DashboardPage> {
         'Test Role System',
         8, // Using index 8 for test screen
         Colors.purple,
+      ));
+
+      // Debug Screen (admin only)
+      items.add(_buildCustomListTile(
+        'assets/Icon_task_manage.png',
+        'Debug Firestore',
+        9, // Using index 9 for debug screen
+        Colors.orange,
       ));
     }
 

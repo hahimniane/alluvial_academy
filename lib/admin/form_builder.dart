@@ -2159,7 +2159,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         // Create new form
         // Get user info for creator details
         final userDoc = await FirebaseFirestore.instance
-            .collection('Users')
+            .collection('users')
             .doc(user.uid)
             .get();
 
