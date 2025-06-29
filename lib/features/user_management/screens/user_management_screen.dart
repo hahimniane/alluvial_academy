@@ -226,6 +226,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     print("Has data: ${snapshot.hasData}");
                     print("Has error: ${snapshot.hasError}");
 
+                    // Debug: Print the actual number of documents and their IDs
+                    if (snapshot.hasData) {
+                      print("Documents count: ${snapshot.data!.docs.length}");
+                      print(
+                          "Document IDs: ${snapshot.data!.docs.map((doc) => doc.id).toList()}");
+                      print(
+                          "First 3 documents data: ${snapshot.data!.docs.take(3).map((doc) => doc.data()).toList()}");
+                    }
+
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       print('waiting');
                       return const Center(

@@ -9,6 +9,7 @@ import 'dashboard.dart';
 import 'role_based_dashboard.dart';
 import 'firebase_options.dart';
 import 'core/constants/app_constants.dart';
+import 'screens/landing_page.dart';
 
 void main() {
   // Disable zone error assertions for web in debug mode
@@ -87,7 +88,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const FirebaseInitializer(),
+      home: const LandingPage(),
     );
   }
 }
