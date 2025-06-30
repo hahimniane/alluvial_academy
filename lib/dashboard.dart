@@ -15,6 +15,7 @@ import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
 import 'test_role_system.dart';
 import 'firestore_debug_screen.dart';
+import 'features/tasks/screens/quick_tasks_screen.dart';
 
 /// Constants for the Dashboard
 class DashboardConstants {
@@ -80,10 +81,9 @@ class _DashboardPageState extends State<DashboardPage> {
     const AdminTimesheetReview(),
     const FormScreen(),
     const FormBuilder(),
-    const TasksScreen(),
-    const TimeOffScreen(),
-    const TestRoleSystemScreen(), // Test screen for role system
-    const FirestoreDebugScreen(), // Debug screen for Firestore data
+    const QuickTasksScreen(),
+    const TestRoleSystemScreen(),
+    const FirestoreDebugScreen(),
   ];
 
   /// Updates the selected index when a navigation item is tapped
@@ -406,116 +406,103 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
       width: DashboardConstants.sideMenuWidth,
-      child: ListView(
-        children: _buildNavigationItems(),
+      child: Column(
+        children: [
+          // Admins can see both admin and user-specific menu items
+          if (_userRole == 'admin') ...[
+            _buildSideMenuItem(
+              icon: SvgPicture.asset('assets/dashboard.svg'),
+              text: 'Dashboard',
+              index: 0,
+            ),
+            _buildSideMenuItem(
+              icon: SvgPicture.asset('assets/users-sidebar.svg'),
+              text: 'User Management',
+              index: 1,
+            ),
+            _buildSideMenuItem(
+              icon: Image.asset('assets/Icon_chat.png'),
+              text: 'Chat',
+              index: 2,
+              color: const Color(0xffA646F2),
+            ),
+            _buildSideMenuItem(
+              icon: Image.asset('assets/Icon_punch_clock.png'),
+              text: 'Time Clock',
+              index: 3,
+              color: const Color(0xff466AF2),
+            ),
+            _buildSideMenuItem(
+              icon: Image.asset('assets/Icon_Scheduler.png'),
+              text: 'Timesheet Review',
+              index: 4,
+              color: const Color(0xffF28B46),
+            ),
+            _buildSideMenuItem(
+              icon: Image.asset('assets/Icon_forms.png'),
+              text: 'Forms',
+              index: 5,
+              color: const Color(0xffBA39A9),
+            ),
+            _buildSideMenuItem(
+              icon: Image.asset('assets/Icon_task_manage.png'),
+              text: 'Quick Tasks',
+              index: 7,
+              color: const Color(0xff4CAF50),
+            ),
+            const Divider(),
+            _buildSideMenuItem(
+              icon: const Icon(Icons.build),
+              text: 'Form Builder',
+              index: 6,
+            ),
+            _buildSideMenuItem(
+              icon: const Icon(Icons.bug_report),
+              text: 'Test Role System',
+              index: 8,
+            ),
+            _buildSideMenuItem(
+              icon: const Icon(Icons.storage),
+              text: 'Firestore Debug',
+              index: 9,
+            ),
+          ] else ...[
+            // Non-admins see a limited menu
+            _buildSideMenuItem(
+              icon: const Icon(Icons.chat),
+              text: 'Chat',
+              index: 2,
+              color: DashboardConstants.chatIconColor,
+            ),
+            _buildSideMenuItem(
+              icon: const Icon(Icons.timer),
+              text: 'Time Clock',
+              index: 3,
+              color: DashboardConstants.timeClockIconColor,
+            ),
+            _buildSideMenuItem(
+              icon: const Icon(Icons.assignment),
+              text: 'Forms',
+              index: 5,
+              color: DashboardConstants.formsIconColor,
+            ),
+            _buildSideMenuItem(
+              icon: const Icon(Icons.schedule),
+              text: 'Job Scheduling',
+              index: 7,
+              color: DashboardConstants.jobSchedulingIconColor,
+            ),
+          ],
+          const Spacer(),
+          _buildSideMenuItem(
+            icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+            text: 'Sign Out',
+            index: -1, // Special index for sign out
+            color: Colors.grey,
+          ),
+        ],
       ),
     );
-  }
-
-  /// Builds the list of navigation items based on user role
-  List<Widget> _buildNavigationItems() {
-    final availableFeatures = UserRoleService.getAvailableFeatures(_userRole);
-    List<Widget> items = [];
-
-    // Dashboard is available to all users
-    items.add(_buildCustomListTile(
-      "assets/dashboard.svg",
-      "Dashboard",
-      0,
-      Colors.white,
-    ));
-
-    // Admin-only features
-    if (availableFeatures.contains('user_management')) {
-      items.add(_buildCustomListTile(
-        'assets/users-sidebar.svg',
-        'admin/Users',
-        1,
-        Colors.white,
-      ));
-    }
-
-    items.add(const Divider());
-
-    // Chat (available to most roles)
-    if (availableFeatures.contains('chat')) {
-      items.add(_buildCustomListTile(
-        'assets/Icon_chat.png',
-        'Chat',
-        2,
-        DashboardConstants.chatIconColor,
-      ));
-    }
-
-    // Time Clock (teachers and admins)
-    if (availableFeatures.contains('time_clock')) {
-      items.add(_buildCustomListTile(
-        'assets/Icon_punch_clock.png',
-        'Time Clock',
-        3,
-        DashboardConstants.timeClockIconColor,
-      ));
-    }
-
-    // Admin Timesheet Review (admin only)
-    if (_userRole?.toLowerCase() == 'admin') {
-      items.add(_buildCustomListTile(
-        'assets/Icon_Scheduler.png',
-        'admin/Timesheet Review',
-        4,
-        Colors.teal,
-      ));
-    }
-
-    // Forms (available to most roles)
-    if (availableFeatures.contains('forms')) {
-      items.add(_buildCustomListTile(
-        'assets/Icon_forms.png',
-        'Forms',
-        5,
-        DashboardConstants.formsIconColor,
-      ));
-    }
-
-    // Form Builder (admin only)
-    if (availableFeatures.contains('form_builder')) {
-      items.add(_buildCustomListTile(
-        'assets/Icon_Scheduler.png',
-        'admin/Manage Forms',
-        6,
-        DashboardConstants.jobSchedulingIconColor,
-      ));
-    }
-
-    // Tasks (not available to parents)
-    if (availableFeatures.contains('tasks')) {
-      items.add(_buildCustomListTile(
-        'assets/Icon_task_manage.png',
-        'Quick Tasks',
-        7,
-        DashboardConstants.jobSchedulingIconColor,
-      ));
-    }
-
-    // Test Role System (temporary - admin only)
-    if (_userRole?.toLowerCase() == 'admin') {
-      items.add(_buildCustomListTile(
-        'assets/Icon_task_manage.png',
-        'Test Role System',
-        9, // Using index 9 for test screen
-        Colors.purple,
-      ));
-
-      // Debug Screen (admin only)
-      items.add(_buildCustomListTile(
-        'assets/Icon_task_manage.png',
-        'Debug Firestore',
-        10, // Using index 10 for debug screen
-        Colors.orange,
-      ));
-    }
-
-    return items;
   }
 
   /// Builds a custom list tile for navigation items
@@ -569,5 +556,66 @@ class _DashboardPageState extends State<DashboardPage> {
         width: 40,
       );
     }
+  }
+
+  /// Builds a side menu item
+  Widget _buildSideMenuItem({
+    required Widget icon,
+    required String text,
+    required int index,
+    Color? color,
+  }) {
+    final isSelected = _selectedIndex == index;
+    final iconColor = isSelected ? Colors.white : color;
+
+    // The icon logic needs to be handled carefully
+    Widget finalIcon = icon;
+    if (icon is SvgPicture) {
+      finalIcon = SvgPicture.asset(
+        (icon.bytesLoader as SvgAssetLoader).assetName,
+        width: 24,
+        height: 24,
+        colorFilter: iconColor != null
+            ? ColorFilter.mode(iconColor, BlendMode.srcIn)
+            : null,
+      );
+    } else if (icon is Image) {
+      finalIcon = Image.asset(
+        (icon.image as AssetImage).assetName,
+        width: 24,
+        height: 24,
+        color: iconColor,
+      );
+    } else if (icon is Icon) {
+      finalIcon = Icon(
+        icon.icon,
+        color: iconColor,
+        size: 24,
+      );
+    }
+
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xff0386FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(child: finalIcon),
+      ),
+      title: Text(
+        text,
+        style: TextStyle(
+          fontWeight:
+              _selectedIndex == index ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      onTap: () => _onItemTapped(index),
+      selected: _selectedIndex == index,
+      trailing: _selectedIndex == index
+          ? const Icon(Icons.arrow_right, color: Colors.blue)
+          : null,
+    );
   }
 }

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../widgets/navigation_menu.dart';
 import '../../chat/screens/chat_screen.dart';
-import '../../quick_tasks/screens/quick_tasks_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -50,8 +49,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return TimeClockScreen();
       case 3:
         return const UserListScreen();
-      case 4:
-        return QuickTasksScreen(currentUser: widget.currentUser);
       default:
         return const Center(child: Text('Screen not found'));
     }
