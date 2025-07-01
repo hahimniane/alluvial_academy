@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../screens/landing_page.dart';
+import '../../screens/islamic_courses_page.dart';
+import '../../screens/teachers_page.dart';
+import '../../screens/about_page.dart';
+import '../../screens/contact_page.dart';
+import '../../features/auth/screens/login_screen.dart';
 
 class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String currentPage;
@@ -38,29 +44,49 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
               if (MediaQuery.of(context).size.width > 1024) ...[
                 _buildNavItem(context, 'Home', currentPage == 'Home', () {
                   if (currentPage != 'Home') {
-                    Navigator.pushReplacementNamed(context, '/');
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const LandingPage()),
+                    );
                   }
                 }),
                 _buildNavItem(
                     context, 'Islamic Courses', currentPage == 'Courses', () {
                   if (currentPage != 'Courses') {
-                    Navigator.pushReplacementNamed(context, '/courses');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const IslamicCoursesPage()),
+                    );
                   }
                 }),
                 _buildNavItem(
                     context, 'Our Teachers', currentPage == 'Teachers', () {
                   if (currentPage != 'Teachers') {
-                    Navigator.pushReplacementNamed(context, '/teachers');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const TeachersPage()),
+                    );
                   }
                 }),
                 _buildNavItem(context, 'About Us', currentPage == 'About', () {
                   if (currentPage != 'About') {
-                    Navigator.pushReplacementNamed(context, '/about');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AboutPage()),
+                    );
                   }
                 }),
                 _buildNavItem(context, 'Contact', currentPage == 'Contact', () {
                   if (currentPage != 'Contact') {
-                    Navigator.pushReplacementNamed(context, '/contact');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ContactPage()),
+                    );
                   }
                 }),
                 const SizedBox(width: 32),
@@ -85,7 +111,10 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
     return GestureDetector(
       onTap: () {
         if (currentPage != 'Home') {
-          Navigator.pushReplacementNamed(context, '/');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LandingPage()),
+          );
         }
       },
       child: Row(
@@ -183,13 +212,19 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
         _buildButton(
           'Login',
           false,
-          () => Navigator.pushReplacementNamed(context, '/login'),
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          ),
         ),
         const SizedBox(width: 16),
         _buildButton(
           'Get Started',
           true,
-          () => Navigator.pushReplacementNamed(context, '/login'),
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          ),
         ),
       ],
     );
@@ -267,7 +302,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     () {
                       Navigator.pop(context);
                       if (currentPage != 'Home') {
-                        Navigator.pushReplacementNamed(context, '/');
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const LandingPage()),
+                        );
                       }
                     },
                   ),
@@ -278,7 +317,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     () {
                       Navigator.pop(context);
                       if (currentPage != 'Courses') {
-                        Navigator.pushReplacementNamed(context, '/courses');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const IslamicCoursesPage()),
+                        );
                       }
                     },
                   ),
@@ -289,7 +332,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     () {
                       Navigator.pop(context);
                       if (currentPage != 'Teachers') {
-                        Navigator.pushReplacementNamed(context, '/teachers');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const TeachersPage()),
+                        );
                       }
                     },
                   ),
@@ -300,7 +347,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     () {
                       Navigator.pop(context);
                       if (currentPage != 'About') {
-                        Navigator.pushReplacementNamed(context, '/about');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const AboutPage()),
+                        );
                       }
                     },
                   ),
@@ -311,7 +362,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     () {
                       Navigator.pop(context);
                       if (currentPage != 'Contact') {
-                        Navigator.pushReplacementNamed(context, '/contact');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const ContactPage()),
+                        );
                       }
                     },
                   ),
@@ -321,7 +376,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     false,
                     () {
                       Navigator.pop(context);
-                      Navigator.pushReplacementNamed(context, '/login');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginScreen()),
+                      );
                     },
                   ),
                   const SizedBox(height: 16),
@@ -330,7 +389,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     true,
                     () {
                       Navigator.pop(context);
-                      Navigator.pushReplacementNamed(context, '/login');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginScreen()),
+                      );
                     },
                   ),
                 ],
