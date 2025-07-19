@@ -3,7 +3,7 @@ import '../../time_clock/screens/time_clock_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../widgets/navigation_menu.dart';
-import '../../chat/screens/chat_screen.dart';
+import '../../chat/screens/chat_page.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -44,7 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 0:
         return _buildDashboardContent();
       case 1:
-        return const ChatScreen();
+        return const ChatPage();
       case 2:
         return TimeClockScreen();
       case 3:

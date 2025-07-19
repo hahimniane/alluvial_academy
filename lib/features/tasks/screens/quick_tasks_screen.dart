@@ -49,6 +49,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       floatingActionButton: ScaleTransition(
         scale: _fabAnimationController,
         child: FloatingActionButton.extended(
+          heroTag: "addTaskFAB", // Unique hero tag to avoid conflicts
           onPressed: () => _showAddEditTaskDialog(),
           backgroundColor: const Color(0xff0386FF),
           icon: const Icon(Icons.add, color: Colors.white),
