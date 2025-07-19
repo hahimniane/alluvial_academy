@@ -20,15 +20,20 @@ class LocationService {
     try {
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      print('LocationService: Location services enabled: $serviceEnabled');
       if (!serviceEnabled) {
         throw Exception(
             'Location services are disabled. Please enable location services to clock in.');
       }
 
-      // Check permissions
+      // Check permissions with detailed logging
       LocationPermission permission = await Geolocator.checkPermission();
+      print('LocationService: Current permission status: $permission');
+
       if (permission == LocationPermission.denied) {
+        print('LocationService: Permission denied, requesting permission...');
         permission = await Geolocator.requestPermission();
+        print('LocationService: Permission after request: $permission');
         if (permission == LocationPermission.denied) {
           throw Exception(
               'Location permission denied. Please allow location access to clock in.');
@@ -36,15 +41,72 @@ class LocationService {
       }
 
       if (permission == LocationPermission.deniedForever) {
+        print('LocationService: Permission denied forever');
         throw Exception(
             'Location permission permanently denied. Please enable location access in settings to clock in.');
       }
 
-      // Get current position with high accuracy
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
+      // Additional check for whileInUse and always permissions
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        print('LocationService: Unexpected permission status: $permission');
+        throw Exception(
+            'Location permission not properly granted. Current status: $permission');
+      }
+
+      print('LocationService: Permission granted, getting position...');
+
+      // Get current position with web-optimized settings
+      Position position;
+      try {
+        // For web, use lower accuracy but more reliable settings
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy
+              .medium, // Start with medium for web compatibility
+          timeLimit: const Duration(seconds: 30), // Longer timeout for web
+          forceAndroidLocationManager: false, // Use native location on Android
+        );
+        print(
+            'LocationService: Got position: ${position.latitude}, ${position.longitude}');
+      } catch (e) {
+        print(
+            'LocationService: Medium accuracy failed, trying low accuracy: $e');
+        // Fallback to low accuracy if medium accuracy fails
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.low,
+            timeLimit: const Duration(seconds: 20),
+          );
+          print(
+              'LocationService: Got position with low accuracy: ${position.latitude}, ${position.longitude}');
+        } catch (e2) {
+          print('LocationService: Low accuracy failed, trying last known: $e2');
+          // Final fallback to last known position
+          try {
+            Position? lastKnown = await Geolocator.getLastKnownPosition(
+              forceAndroidLocationManager: false,
+            );
+            if (lastKnown != null) {
+              position = lastKnown;
+              print(
+                  'LocationService: Using last known position: ${position.latitude}, ${position.longitude}');
+            } else {
+              print('LocationService: No last known position available');
+              // If all else fails, try one more time with lowest settings
+              position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.lowest,
+                timeLimit: const Duration(seconds: 45),
+              );
+              print(
+                  'LocationService: Got position with lowest accuracy: ${position.latitude}, ${position.longitude}');
+            }
+          } catch (e3) {
+            print('LocationService: All location attempts failed: $e3');
+            throw Exception(
+                'Unable to get your location. This may be due to browser restrictions. Please ensure location is enabled and try refreshing the page.');
+          }
+        }
+      }
 
       // Get address from coordinates
       String address = 'Unknown location';
@@ -95,15 +157,32 @@ class LocationService {
             'Coordinates: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       }
 
-      return LocationData(
+      final locationData = LocationData(
         latitude: position.latitude,
         longitude: position.longitude,
         address: address,
         neighborhood: neighborhood,
       );
+
+      print(
+          'LocationService: Successfully created LocationData: ${locationData.neighborhood}');
+      return locationData;
     } catch (e) {
-      print('Error getting location: $e');
-      return null;
+      print('LocationService: Error getting location: $e');
+
+      // Provide more specific error messages based on the error type
+      if (e.toString().contains('permission')) {
+        rethrow; // Permission errors should be passed through as-is
+      } else if (e.toString().contains('timeout') ||
+          e.toString().contains('TimeoutException')) {
+        throw Exception(
+            'Location request timed out. Please ensure GPS is enabled and you have a clear view of the sky.');
+      } else if (e.toString().contains('service')) {
+        throw Exception(
+            'Location services are not available. Please enable GPS in your device settings.');
+      } else {
+        throw Exception('Failed to get location: ${e.toString()}');
+      }
     }
   }
 
@@ -125,6 +204,45 @@ class LocationService {
 
   static void openAppSettings() {
     Geolocator.openAppSettings();
+  }
+
+  // Helper method to check if we have valid location permissions
+  static Future<bool> hasLocationPermission() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return false;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      return permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always;
+    } catch (e) {
+      print('LocationService: Error checking permission: $e');
+      return false;
+    }
+  }
+
+  // Method to get a quick location without detailed error handling (for testing)
+  static Future<Position?> getSimplePosition() async {
+    try {
+      bool hasPermission = await hasLocationPermission();
+      if (!hasPermission) {
+        print('LocationService: No valid permissions for simple position');
+        return null;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 5),
+      );
+      print(
+          'LocationService: Simple position: ${position.latitude}, ${position.longitude}');
+      return position;
+    } catch (e) {
+      print('LocationService: Simple position failed: $e');
+      return null;
+    }
   }
 
   /// Calculate distance between two coordinates in meters
