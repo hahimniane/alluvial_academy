@@ -24,6 +24,14 @@ class TimesheetEntry {
   final String? rejectionReason;
   final double? paymentAmount;
 
+  // Location fields
+  final double? clockInLatitude;
+  final double? clockInLongitude;
+  final String? clockInAddress;
+  final double? clockOutLatitude;
+  final double? clockOutLongitude;
+  final String? clockOutAddress;
+
   const TimesheetEntry({
     this.documentId,
     required this.date,
@@ -43,5 +51,11 @@ class TimesheetEntry {
     this.rejectedAt,
     this.rejectionReason,
     this.paymentAmount,
+    this.clockInLatitude,
+    this.clockInLongitude,
+    this.clockInAddress,
+    this.clockOutLatitude,
+    this.clockOutLongitude,
+    this.clockOutAddress,
   });
 }

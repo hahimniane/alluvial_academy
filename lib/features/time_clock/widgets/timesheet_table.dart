@@ -157,6 +157,13 @@ class _TimesheetTableState extends State<TimesheetTable>
           totalHours: data['total_hours'] ?? '00:00',
           description: data['description'] ?? '',
           status: _parseStatus(data['status'] ?? 'draft'),
+          // Location data
+          clockInLatitude: data['clock_in_latitude'] as double?,
+          clockInLongitude: data['clock_in_longitude'] as double?,
+          clockInAddress: data['clock_in_address'] as String?,
+          clockOutLatitude: data['clock_out_latitude'] as double?,
+          clockOutLongitude: data['clock_out_longitude'] as double?,
+          clockOutAddress: data['clock_out_address'] as String?,
         ));
       }
 
@@ -220,6 +227,13 @@ class _TimesheetTableState extends State<TimesheetTable>
         'total_hours': entry.totalHours,
         'description': entry.description,
         'status': entry.status.name,
+        // Location data (preserve existing values if available)
+        'clock_in_latitude': entry.clockInLatitude,
+        'clock_in_longitude': entry.clockInLongitude,
+        'clock_in_address': entry.clockInAddress,
+        'clock_out_latitude': entry.clockOutLatitude,
+        'clock_out_longitude': entry.clockOutLongitude,
+        'clock_out_address': entry.clockOutAddress,
         'updated_at': FieldValue.serverTimestamp(),
       };
 

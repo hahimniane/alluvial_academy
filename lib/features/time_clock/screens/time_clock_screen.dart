@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/timesheet_table.dart' show TimesheetTable;
+import '../../../core/services/location_service.dart';
 
 class TimeClockScreen extends StatefulWidget {
   const TimeClockScreen({super.key});
@@ -27,6 +28,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
   String _totalHoursWorked = "00:00:00";
+
+  // Location data
+  LocationData? _clockInLocation;
+  LocationData? _clockOutLocation;
+  bool _isGettingLocation = false;
 
   final List<dynamic> _timesheetEntries = [];
   final GlobalKey<State<TimesheetTable>> _timesheetTableKey =
@@ -130,17 +136,59 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _startTeachingSession(student);
   }
 
-  void _startTeachingSession(Map<String, dynamic> student) {
+  void _startTeachingSession(Map<String, dynamic> student) async {
     if (!mounted) return;
+
+    // Show loading state while getting location
     setState(() {
-      _isClockingIn = true;
-      _selectedStudentName = student['name'];
-      _clockInTime = DateTime.now();
-      _totalHoursWorked = "00:00:00"; // Reset timer display
-      _stopwatch.reset(); // Make sure stopwatch is reset
-      _stopwatch.start();
-      _startTimer();
+      _isGettingLocation = true;
     });
+
+    try {
+      // Get location before clocking in
+      LocationData? location = await LocationService.getCurrentLocation();
+
+      if (!mounted) return;
+
+      setState(() {
+        _isClockingIn = true;
+        _selectedStudentName = student['name'];
+        _clockInTime = DateTime.now();
+        _clockInLocation = location;
+        _totalHoursWorked = "00:00:00"; // Reset timer display
+        _stopwatch.reset(); // Make sure stopwatch is reset
+        _stopwatch.start();
+        _isGettingLocation = false;
+        _startTimer();
+      });
+
+      // Show location confirmation
+      if (location != null) {
+        _showLocationConfirmation(location, isClockIn: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isGettingLocation = false;
+      });
+
+      // Show error and ask if user wants to continue without location
+      _showLocationErrorDialog(e.toString(), () {
+        // Continue without location
+        if (!mounted) return;
+        setState(() {
+          _isClockingIn = true;
+          _selectedStudentName = student['name'];
+          _clockInTime = DateTime.now();
+          _clockInLocation = null;
+          _totalHoursWorked = "00:00:00";
+          _stopwatch.reset();
+          _stopwatch.start();
+          _startTimer();
+        });
+      });
+    }
   }
 
   void _startTimer() {
@@ -168,53 +216,132 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   void _clockOut() async {
     if (!_isClockingIn || _clockInTime == null) return;
 
-    final now = DateTime.now();
-    final startTime = DateFormat('h:mm a').format(_clockInTime!);
-    final endTime = DateFormat('h:mm a').format(now);
-
-    // Calculate final hours without seconds for storage
-    final elapsed = _stopwatch.elapsed;
-    final hours = elapsed.inHours.toString().padLeft(2, '0');
-    final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
-    final totalHours = '$hours:$minutes';
-
-    // Create a simple entry for the clock-in entries list
-    final clockInEntry = {
-      'date': DateFormat('EEE MM/dd').format(now),
-      'type': _selectedStudentName,
-      'start': startTime,
-      'end': endTime,
-      'totalHours': totalHours,
-    };
-
-    if (!mounted) return;
+    // Show loading state while getting location
     setState(() {
-      _timesheetEntries.insert(0, clockInEntry);
-      _isClockingIn = false;
-      _stopwatch.stop();
-      _timer?.cancel();
-      _stopwatch.reset();
-      _clockInTime = null;
-      _selectedStudentName = '';
+      _isGettingLocation = true;
     });
 
-    // Save to Firebase
-    bool savedSuccessfully = await _saveToFirebase(clockInEntry);
+    try {
+      // Get location for clock out
+      LocationData? clockOutLocation =
+          await LocationService.getCurrentLocation();
 
-    // If saved successfully, remove from local list to avoid duplicates
-    if (savedSuccessfully && mounted) {
+      final now = DateTime.now();
+      final startTime = DateFormat('h:mm a').format(_clockInTime!);
+      final endTime = DateFormat('h:mm a').format(now);
+
+      // Calculate final hours without seconds for storage
+      final elapsed = _stopwatch.elapsed;
+      final hours = elapsed.inHours.toString().padLeft(2, '0');
+      final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
+      final totalHours = '$hours:$minutes';
+
+      // Create a simple entry for the clock-in entries list
+      final clockInEntry = {
+        'date': DateFormat('EEE MM/dd').format(now),
+        'type': _selectedStudentName,
+        'start': startTime,
+        'end': endTime,
+        'totalHours': totalHours,
+        'clockInLocation': _clockInLocation,
+        'clockOutLocation': clockOutLocation,
+      };
+
+      if (!mounted) return;
       setState(() {
-        _timesheetEntries.removeWhere((entry) =>
-            entry is Map<String, dynamic> &&
-            entry['date'] == clockInEntry['date'] &&
-            entry['type'] == clockInEntry['type'] &&
-            entry['start'] == clockInEntry['start'] &&
-            entry['end'] == clockInEntry['end']);
+        _timesheetEntries.insert(0, clockInEntry);
+        _isClockingIn = false;
+        _stopwatch.stop();
+        _timer?.cancel();
+        _stopwatch.reset();
+        _clockInTime = null;
+        _selectedStudentName = '';
+        _clockOutLocation = clockOutLocation;
+        _isGettingLocation = false;
       });
-    }
 
-    // Show confirmation
-    _showClockOutConfirmation(clockInEntry);
+      // Save to Firebase
+      bool savedSuccessfully = await _saveToFirebase(clockInEntry);
+
+      // If saved successfully, remove from local list to avoid duplicates
+      if (savedSuccessfully && mounted) {
+        setState(() {
+          _timesheetEntries.removeWhere((entry) =>
+              entry is Map<String, dynamic> &&
+              entry['date'] == clockInEntry['date'] &&
+              entry['type'] == clockInEntry['type'] &&
+              entry['start'] == clockInEntry['start'] &&
+              entry['end'] == clockInEntry['end']);
+        });
+      }
+
+      // Show location confirmation if available
+      if (clockOutLocation != null) {
+        _showLocationConfirmation(clockOutLocation, isClockIn: false);
+      }
+
+      // Show confirmation
+      _showClockOutConfirmation(clockInEntry);
+
+      // Reset location data
+      _clockInLocation = null;
+      _clockOutLocation = null;
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isGettingLocation = false;
+      });
+
+      // Continue with clock out even if location fails
+      final now = DateTime.now();
+      final startTime = DateFormat('h:mm a').format(_clockInTime!);
+      final endTime = DateFormat('h:mm a').format(now);
+
+      final elapsed = _stopwatch.elapsed;
+      final hours = elapsed.inHours.toString().padLeft(2, '0');
+      final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
+      final totalHours = '$hours:$minutes';
+
+      final clockInEntry = {
+        'date': DateFormat('EEE MM/dd').format(now),
+        'type': _selectedStudentName,
+        'start': startTime,
+        'end': endTime,
+        'totalHours': totalHours,
+        'clockInLocation': _clockInLocation,
+        'clockOutLocation': null,
+      };
+
+      if (!mounted) return;
+      setState(() {
+        _timesheetEntries.insert(0, clockInEntry);
+        _isClockingIn = false;
+        _stopwatch.stop();
+        _timer?.cancel();
+        _stopwatch.reset();
+        _clockInTime = null;
+        _selectedStudentName = '';
+        _clockOutLocation = null;
+      });
+
+      // Save to Firebase
+      bool savedSuccessfully = await _saveToFirebase(clockInEntry);
+
+      if (savedSuccessfully && mounted) {
+        setState(() {
+          _timesheetEntries.removeWhere((entry) =>
+              entry is Map<String, dynamic> &&
+              entry['date'] == clockInEntry['date'] &&
+              entry['type'] == clockInEntry['type'] &&
+              entry['start'] == clockInEntry['start'] &&
+              entry['end'] == clockInEntry['end']);
+        });
+      }
+
+      _showClockOutConfirmation(clockInEntry);
+      _clockInLocation = null;
+    }
   }
 
   Future<bool> _saveToFirebase(Map<String, dynamic> entry) async {
@@ -223,6 +350,23 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       if (user == null) {
         print('User not authenticated, cannot save timesheet entry');
         return false;
+      }
+
+      // Prepare location data
+      final clockInLocation = entry['clockInLocation'] as LocationData?;
+      final clockOutLocation = entry['clockOutLocation'] as LocationData?;
+
+      // Create location display string
+      String locationInfo = '';
+      if (clockInLocation != null) {
+        locationInfo =
+            'Clock-in: ${LocationService.formatLocationForDisplay(clockInLocation.address, clockInLocation.neighborhood)}';
+        if (clockOutLocation != null) {
+          locationInfo +=
+              ' | Clock-out: ${LocationService.formatLocationForDisplay(clockOutLocation.address, clockOutLocation.neighborhood)}';
+        }
+      } else {
+        locationInfo = 'Location not captured';
       }
 
       await FirebaseFirestore.instance.collection('timesheet_entries').add({
@@ -237,16 +381,199 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         'description': 'Teaching session with ${entry['type']}',
         'status': 'draft',
         'source': 'clock_in',
+        // Location data
+        'clock_in_latitude': clockInLocation?.latitude,
+        'clock_in_longitude': clockInLocation?.longitude,
+        'clock_in_address': clockInLocation?.address,
+        'clock_in_neighborhood': clockInLocation?.neighborhood,
+        'clock_out_latitude': clockOutLocation?.latitude,
+        'clock_out_longitude': clockOutLocation?.longitude,
+        'clock_out_address': clockOutLocation?.address,
+        'clock_out_neighborhood': clockOutLocation?.neighborhood,
+        'location_info': locationInfo,
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      print('Clock-in entry saved to Firebase successfully');
+      print('Clock-in entry saved to Firebase successfully with location data');
       return true;
     } catch (e) {
       print('Error saving clock-in entry to Firebase: $e');
       return false;
     }
+  }
+
+  void _showLocationConfirmation(LocationData location,
+      {required bool isClockIn}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.location_on,
+              color: const Color(0xff0386FF),
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isClockIn ? 'Clock In Location' : 'Clock Out Location',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              ),
+            ),
+          ],
+        ),
+        content: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xffF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xffE2E8F0)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.place,
+                    color: const Color(0xff10B981),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      location.neighborhood,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff10B981),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                location.address,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xff64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'OK',
+              style: GoogleFonts.inter(
+                color: const Color(0xff0386FF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLocationErrorDialog(String error, VoidCallback onContinue) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(
+              Icons.location_off,
+              color: Colors.orange,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Location Error',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              error,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff475569),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline,
+                      color: Colors.orange, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You can continue without location, but it\'s recommended for attendance verification.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              onContinue();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Continue Without Location',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showClockOutConfirmation(Map<String, dynamic> entry) {
@@ -300,6 +627,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   _buildInfoRow('Date:', entry['date']),
                   _buildInfoRow('Time:', '${entry['start']} - ${entry['end']}'),
                   _buildInfoRow('Total Hours:', entry['totalHours']),
+                  if (entry['clockInLocation'] != null ||
+                      entry['clockOutLocation'] != null) ...[
+                    const SizedBox(height: 8),
+                    _buildLocationInfo(entry),
+                  ],
                 ],
               ),
             ),
@@ -359,6 +691,94 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationInfo(Map<String, dynamic> entry) {
+    final clockInLocation = entry['clockInLocation'] as LocationData?;
+    final clockOutLocation = entry['clockOutLocation'] as LocationData?;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xff10B981).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xff10B981).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on,
+                color: Color(0xff10B981),
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Location Information',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff10B981),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (clockInLocation != null) ...[
+            Text(
+              '📍 Clock-in: ${clockInLocation.neighborhood}',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff064E3B),
+              ),
+            ),
+            if (clockInLocation.address.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                '   ${clockInLocation.address}',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ],
+          ],
+          if (clockOutLocation != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '📍 Clock-out: ${clockOutLocation.neighborhood}',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff064E3B),
+              ),
+            ),
+            if (clockOutLocation.address.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                '   ${clockOutLocation.address}',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ],
+          ],
+          if (clockInLocation == null && clockOutLocation == null) ...[
+            Text(
+              '⚠️ Location was not captured',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -740,14 +1160,35 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                 ],
                               )
                             : ElevatedButton(
-                                onPressed: () =>
-                                    _showStudentSelectionPopup(context),
+                                onPressed: _isGettingLocation
+                                    ? null
+                                    : () => _showStudentSelectionPopup(context),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xff0386FF),
+                                  backgroundColor: _isGettingLocation
+                                      ? Colors.grey
+                                      : const Color(0xff0386FF),
                                   foregroundColor: Colors.white,
                                   minimumSize: const Size(100, 40),
                                 ),
-                                child: const Text('Clock In'),
+                                child: _isGettingLocation
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.white),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text('Getting Location...'),
+                                        ],
+                                      )
+                                    : const Text('Clock In'),
                               ),
                       ),
                     ),
