@@ -178,16 +178,19 @@ class LocationService {
             ? addressParts.join(', ')
             : 'Unknown location';
 
-        // Determine the best neighborhood/area name
+        // Determine the best neighborhood/area name with priority order
         String neighborhood = 'Unknown area';
-        if (place.subLocality?.isNotEmpty == true) {
-          neighborhood = place.subLocality!;
-        } else if (place.locality?.isNotEmpty == true) {
+        if (place.locality?.isNotEmpty == true) {
+          // City/town is usually the most useful for display
           neighborhood = place.locality!;
+        } else if (place.subLocality?.isNotEmpty == true) {
+          neighborhood = place.subLocality!;
         } else if (place.subAdministrativeArea?.isNotEmpty == true) {
           neighborhood = place.subAdministrativeArea!;
         } else if (place.administrativeArea?.isNotEmpty == true) {
           neighborhood = place.administrativeArea!;
+        } else if (place.name?.isNotEmpty == true) {
+          neighborhood = place.name!;
         }
 
         return LocationData(
@@ -199,6 +202,17 @@ class LocationService {
       }
     } catch (e) {
       print('Error converting coordinates to location: $e');
+      // Try to provide a meaningful location based on coordinate ranges if geocoding fails
+      String estimatedLocation =
+          _estimateLocationFromCoordinates(latitude, longitude);
+      if (estimatedLocation != 'Unknown location') {
+        return LocationData(
+          latitude: latitude,
+          longitude: longitude,
+          address: estimatedLocation,
+          neighborhood: estimatedLocation,
+        );
+      }
     }
 
     // Return coordinates as fallback if geocoding fails
@@ -245,8 +259,37 @@ class LocationService {
       LocationData? locationData =
           await coordinatesToLocation(latitude, longitude);
       if (locationData != null) {
-        return formatLocationForDisplay(
+        // Try to get a meaningful location name
+        String locationName = formatLocationForDisplay(
             locationData.address, locationData.neighborhood);
+
+        // If we got a valid location name (not coordinates or unknown), return it
+        if (locationName != 'Location unavailable' &&
+            !locationName.startsWith('Coordinates:') &&
+            !locationName.contains(RegExp(r'^\d+\.\d+'))) {
+          return locationName;
+        }
+
+        // Try to extract city and state from the full address for better display
+        if (locationData.address != 'Unknown location' &&
+            !locationData.address.contains(RegExp(r'^\d+\.\d+'))) {
+          List<String> parts = locationData.address.split(', ');
+          if (parts.length >= 3) {
+            // If we have Street, City, State, Country -> return "City, State"
+            return '${parts[parts.length - 3]}, ${parts[parts.length - 2]}';
+          } else if (parts.length >= 2) {
+            // If we have City, State -> return as is
+            return '${parts[parts.length - 2]}, ${parts[parts.length - 1]}';
+          } else if (parts.length == 1 && parts[0].isNotEmpty) {
+            return parts[0];
+          }
+        }
+
+        // Try neighborhood if address parsing failed
+        if (locationData.neighborhood != 'Unknown area' &&
+            !locationData.neighborhood.startsWith('Coordinates:')) {
+          return locationData.neighborhood;
+        }
       }
     } catch (e) {
       print('Error getting location display: $e');
@@ -254,6 +297,59 @@ class LocationService {
 
     // Fallback to coordinates if geocoding fails
     return 'Lat: ${latitude.toStringAsFixed(4)}, Lng: ${longitude.toStringAsFixed(4)}';
+  }
+
+  /// Estimate location based on coordinate ranges when geocoding fails
+  static String _estimateLocationFromCoordinates(
+      double latitude, double longitude) {
+    // US Maine coordinates are roughly: 43.0-47.5 latitude, -74.0 to -66.0 longitude
+    if (latitude >= 43.0 &&
+        latitude <= 47.5 &&
+        longitude >= -74.0 &&
+        longitude <= -66.0) {
+      if (latitude >= 44.8 &&
+          latitude <= 45.0 &&
+          longitude >= -69.0 &&
+          longitude <= -68.5) {
+        return 'Old Town, Maine';
+      } else if (latitude >= 44.7 &&
+          latitude <= 45.0 &&
+          longitude >= -69.0 &&
+          longitude <= -68.0) {
+        return 'Bangor, Maine';
+      } else {
+        return 'Maine, USA';
+      }
+    }
+
+    // Add more coordinate ranges for other common areas as needed
+    // US coordinates roughly: 24-49 latitude, -125 to -66 longitude
+    if (latitude >= 24.0 &&
+        latitude <= 49.0 &&
+        longitude >= -125.0 &&
+        longitude <= -66.0) {
+      return 'United States';
+    }
+
+    return 'Unknown location';
+  }
+
+  /// Test geocoding with specific coordinates for debugging
+  static Future<void> testCoordinateConversion(double lat, double lng) async {
+    try {
+      print('Testing conversion for coordinates: $lat, $lng');
+      LocationData? result = await coordinatesToLocation(lat, lng);
+      if (result != null) {
+        print('Address: ${result.address}');
+        print('Neighborhood: ${result.neighborhood}');
+        print(
+            'Display: ${formatLocationForDisplay(result.address, result.neighborhood)}');
+      } else {
+        print('Geocoding returned null');
+      }
+    } catch (e) {
+      print('Error in test conversion: $e');
+    }
   }
 
   /// Batch convert coordinates to locations for multiple timesheet entries

@@ -1749,14 +1749,7 @@ class TimesheetDataSource extends DataGridSource {
   }
 
   Future<String> _getLocationDisplayText(TimesheetEntry entry) async {
-    // Priority: use stored address if available and it's not just coordinates
-    if (entry.clockInAddress != null &&
-        entry.clockInAddress!.isNotEmpty &&
-        !entry.clockInAddress!.contains(RegExp(r'^\d+\.\d+, \d+\.\d+'))) {
-      return _extractNeighborhood(entry.clockInAddress!);
-    }
-
-    // Convert coordinates to location name using geocoding
+    // Always try to convert coordinates to actual location names first
     if (entry.clockInLatitude != null && entry.clockInLongitude != null) {
       try {
         String locationName =
@@ -1764,13 +1757,29 @@ class TimesheetDataSource extends DataGridSource {
           entry.clockInLatitude!,
           entry.clockInLongitude!,
         );
-        return locationName;
+
+        // Only use this result if it's not just coordinates
+        if (locationName != 'Location unavailable' &&
+            !locationName.startsWith('Lat:') &&
+            !locationName.startsWith('Coordinates:') &&
+            !locationName.contains(RegExp(r'^\d+\.\d+'))) {
+          return locationName;
+        }
       } catch (e) {
         print('Error converting coordinates to location: $e');
       }
     }
 
-    // Fallback to coordinates if everything else fails
+    // Fallback to stored address if geocoding failed but filter out coordinate strings
+    if (entry.clockInAddress != null &&
+        entry.clockInAddress!.isNotEmpty &&
+        !entry.clockInAddress!.contains(RegExp(r'^\d+\.\d+')) &&
+        !entry.clockInAddress!.toLowerCase().contains('lat') &&
+        !entry.clockInAddress!.toLowerCase().contains('coordinates')) {
+      return _extractNeighborhood(entry.clockInAddress!);
+    }
+
+    // Last resort: show coordinates in readable format
     if (entry.clockInLatitude != null && entry.clockInLongitude != null) {
       return 'Lat: ${entry.clockInLatitude!.toStringAsFixed(4)}, Lng: ${entry.clockInLongitude!.toStringAsFixed(4)}';
     }
