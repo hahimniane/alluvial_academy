@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:universal_html/html.dart' as html;
 import '../models/task.dart';
 
 class FileAttachmentService {
@@ -211,14 +214,157 @@ class FileAttachmentService {
   // Download/View file
   Future<void> downloadFile(TaskAttachment attachment) async {
     try {
-      final Uri uri = Uri.parse(attachment.downloadUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (kIsWeb) {
+        // For web, fetch file and create proper download
+        await _downloadFileWeb(attachment);
       } else {
-        throw Exception('Cannot open file');
+        // For mobile/desktop, use url launcher
+        final Uri uri = Uri.parse(attachment.downloadUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          throw Exception('Cannot open file');
+        }
       }
     } catch (e) {
       throw Exception('Failed to download file: ${e.toString()}');
+    }
+  }
+
+  // Web-specific download implementation
+  Future<void> _downloadFileWeb(TaskAttachment attachment) async {
+    try {
+      print('Starting download for: ${attachment.originalName}');
+
+      // Method 1: Try to fetch file and create blob download
+      try {
+        final response = await http.get(Uri.parse(attachment.downloadUrl));
+
+        if (response.statusCode == 200) {
+          // Create blob from file data
+          final bytes = response.bodyBytes;
+          final blob = html.Blob([bytes]);
+          final url = html.Url.createObjectUrlFromBlob(blob);
+
+          // Create download link
+          final anchor = html.AnchorElement(href: url);
+          anchor.setAttribute('download', attachment.originalName);
+          anchor.style.display = 'none';
+
+          // Add to document, click, and remove
+          html.document.body!.append(anchor);
+          anchor.click();
+          anchor.remove();
+
+          // Clean up the blob URL
+          html.Url.revokeObjectUrl(url);
+
+          print('Download completed for: ${attachment.originalName}');
+          return; // Success, exit early
+        }
+      } catch (fetchError) {
+        print('Fetch method failed: $fetchError');
+      }
+
+      // Method 2: Try direct download with proper headers
+      _tryDirectDownload(attachment);
+    } catch (e) {
+      print('All download methods failed: $e');
+      // Final fallback
+      _fallbackDownload(attachment);
+    }
+  }
+
+  // Try direct download with headers
+  void _tryDirectDownload(TaskAttachment attachment) {
+    try {
+      // Create anchor with download attribute and proper MIME type
+      final anchor = html.AnchorElement();
+      anchor.href = attachment.downloadUrl;
+      anchor.setAttribute('download', attachment.originalName);
+      anchor.setAttribute('target', '_self'); // Changed from _blank
+      anchor.style.display = 'none';
+
+      // Add headers to force download
+      final contentType = _getContentType(attachment.fileType);
+      if (contentType.isNotEmpty) {
+        anchor.setAttribute('type', contentType);
+      }
+
+      // Add to document, click, and remove
+      html.document.body!.append(anchor);
+      anchor.click();
+
+      // Small delay before removing
+      Future.delayed(const Duration(milliseconds: 500), () {
+        anchor.remove();
+      });
+
+      print('Direct download triggered for: ${attachment.originalName}');
+    } catch (e) {
+      print('Direct download failed: $e');
+      _fallbackDownload(attachment);
+    }
+  }
+
+  // Fallback download method
+  void _fallbackDownload(TaskAttachment attachment) {
+    try {
+      print('Trying iframe fallback for: ${attachment.originalName}');
+
+      // Method 3: Create iframe to trigger download
+      final iframe = html.IFrameElement();
+      iframe.style.display = 'none';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.src =
+          '${attachment.downloadUrl}?download=1&filename=${Uri.encodeComponent(attachment.originalName)}';
+      html.document.body!.append(iframe);
+
+      // Remove iframe after a delay
+      Future.delayed(const Duration(seconds: 3), () {
+        iframe.remove();
+      });
+
+      print('Iframe fallback triggered for: ${attachment.originalName}');
+
+      // Wait a bit and then try a final method if needed
+      Future.delayed(const Duration(seconds: 1), () {
+        _finalDownloadAttempt(attachment);
+      });
+    } catch (e) {
+      print('Iframe fallback failed: $e');
+      _finalDownloadAttempt(attachment);
+    }
+  }
+
+  // Final download attempt with forced headers
+  void _finalDownloadAttempt(TaskAttachment attachment) {
+    try {
+      print('Final download attempt for: ${attachment.originalName}');
+
+      // Create a form to POST and trigger download
+      final form = html.FormElement();
+      form.method = 'GET';
+      form.action = attachment.downloadUrl;
+      form.target = '_self';
+      form.style.display = 'none';
+
+      html.document.body!.append(form);
+      form.submit();
+
+      // Remove form after submission
+      Future.delayed(const Duration(milliseconds: 500), () {
+        form.remove();
+      });
+
+      print(
+          'Form submission download triggered for: ${attachment.originalName}');
+    } catch (e) {
+      print('Final download attempt failed: $e');
+      print('Opening in new tab as last resort');
+      // Last resort: open in new tab with download hint
+      html.window.open('${attachment.downloadUrl}?download=true', '_blank');
     }
   }
 

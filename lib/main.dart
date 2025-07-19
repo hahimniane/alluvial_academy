@@ -409,6 +409,25 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     );
   }
 
+  // Handle sign-in process
+  Future<void> _handleSignIn() async {
+    AuthService authService = AuthService();
+    User? user = await authService.signInWithEmailAndPassword(
+      emailAddressController.text,
+      passwordController.text,
+    );
+    if (user != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const DashboardPage(),
+        ),
+      );
+    } else {
+      _showErrorDialog('Invalid email or password. Please try again.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -508,6 +527,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     TextFormField(
                       controller: emailAddressController,
                       keyboardType: TextInputType.emailAddress,
+                      onFieldSubmitted: (_) => _handleSignIn(),
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: const Color(0xff111827),
@@ -567,6 +587,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     TextFormField(
                       controller: passwordController,
                       obscureText: true,
+                      onFieldSubmitted: (_) => _handleSignIn(),
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: const Color(0xff111827),
@@ -635,24 +656,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      AuthService authService = AuthService();
-                      User? user = await authService.signInWithEmailAndPassword(
-                        emailAddressController.text,
-                        passwordController.text,
-                      );
-                      if (user != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const DashboardPage(),
-                          ),
-                        );
-                      } else {
-                        _showErrorDialog(
-                            'Invalid email or password. Please try again.');
-                      }
-                    },
+                    onPressed: _handleSignIn,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff0386FF),
                       foregroundColor: Colors.white,
