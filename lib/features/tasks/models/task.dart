@@ -6,6 +6,56 @@ enum TaskStatus { todo, inProgress, done }
 
 enum RecurrenceType { none, daily, weekly, monthly }
 
+class TaskAttachment {
+  final String id;
+  final String fileName;
+  final String originalName;
+  final String downloadUrl;
+  final String fileType;
+  final int fileSize;
+  final DateTime uploadedAt;
+  final String uploadedBy;
+
+  TaskAttachment({
+    required this.id,
+    required this.fileName,
+    required this.originalName,
+    required this.downloadUrl,
+    required this.fileType,
+    required this.fileSize,
+    required this.uploadedAt,
+    required this.uploadedBy,
+  });
+
+  factory TaskAttachment.fromMap(Map<String, dynamic> map) {
+    return TaskAttachment(
+      id: map['id'] ?? '',
+      fileName: map['fileName'] ?? '',
+      originalName: map['originalName'] ?? '',
+      downloadUrl: map['downloadUrl'] ?? '',
+      fileType: map['fileType'] ?? '',
+      fileSize: map['fileSize'] ?? 0,
+      uploadedAt: map['uploadedAt'] is Timestamp
+          ? (map['uploadedAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      uploadedBy: map['uploadedBy'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'fileName': fileName,
+      'originalName': originalName,
+      'downloadUrl': downloadUrl,
+      'fileType': fileType,
+      'fileSize': fileSize,
+      'uploadedAt': Timestamp.fromDate(uploadedAt),
+      'uploadedBy': uploadedBy,
+    };
+  }
+}
+
 class Task {
   final String id;
   final String title;
@@ -18,6 +68,7 @@ class Task {
   final bool isRecurring;
   final RecurrenceType recurrenceType;
   final Timestamp createdAt;
+  final List<TaskAttachment> attachments;
 
   Task({
     required this.id,
@@ -31,6 +82,7 @@ class Task {
     this.isRecurring = false,
     this.recurrenceType = RecurrenceType.none,
     required this.createdAt,
+    this.attachments = const [],
   });
 
   factory Task.fromFirestore(DocumentSnapshot doc) {
@@ -46,6 +98,15 @@ class Task {
         // Old format: single string, convert to list
         assignedToList = [data['assignedTo'] as String];
       }
+    }
+
+    // Handle attachments
+    List<TaskAttachment> attachmentsList = [];
+    if (data['attachments'] != null && data['attachments'] is List) {
+      attachmentsList = (data['attachments'] as List)
+          .map((attachmentData) =>
+              TaskAttachment.fromMap(Map<String, dynamic>.from(attachmentData)))
+          .toList();
     }
 
     return Task(
@@ -66,6 +127,7 @@ class Task {
           (e) => e.toString() == data['recurrenceType'],
           orElse: () => RecurrenceType.none),
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      attachments: attachmentsList,
     );
   }
 
@@ -81,6 +143,8 @@ class Task {
       'isRecurring': isRecurring,
       'recurrenceType': recurrenceType.toString(),
       'createdAt': createdAt,
+      'attachments':
+          attachments.map((attachment) => attachment.toMap()).toList(),
     };
   }
 }
