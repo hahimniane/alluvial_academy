@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
+import '../services/file_attachment_service.dart';
 
 class TaskDetailsView extends StatefulWidget {
   final Task task;
@@ -22,18 +24,22 @@ class TaskDetailsView extends StatefulWidget {
 class _TaskDetailsViewState extends State<TaskDetailsView>
     with TickerProviderStateMixin {
   final TaskService _taskService = TaskService();
+  final FileAttachmentService _fileService = FileAttachmentService();
   final TextEditingController _notesController = TextEditingController();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
   bool _isUpdating = false;
+  bool _isUploadingFile = false;
   TaskStatus _currentStatus = TaskStatus.todo;
+  late Task _currentTask;
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.task.status;
+    _currentTask = widget.task;
 
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -157,6 +163,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             const SizedBox(height: 24),
             _buildDescriptionSection(),
             const SizedBox(height: 24),
+            _buildAttachmentsSection(),
+            const SizedBox(height: 24),
             _buildStatusUpdateSection(),
             if (_currentStatus != TaskStatus.todo) ...[
               const SizedBox(height: 24),
@@ -274,6 +282,207 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAttachmentsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Attachments',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              ),
+            ),
+            const Spacer(),
+            if (_currentStatus != TaskStatus.done)
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: _isUploadingFile
+                      ? null
+                      : () {
+                          print('Add Files button clicked');
+                          _pickAndUploadFiles();
+                        },
+                  icon: _isUploadingFile
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.attach_file, size: 18),
+                  label: Text(
+                    _isUploadingFile ? 'Uploading...' : 'Add Files',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_currentTask.attachments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xffF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xffE2E8F0)),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.attach_file,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No attachments yet',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff94A3B8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Add files to share resources or completed work',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff94A3B8),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          ...List.generate(_currentTask.attachments.length, (index) {
+            final attachment = _currentTask.attachments[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildAttachmentItem(attachment),
+            );
+          }),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentItem(TaskAttachment attachment) {
+    final fileIcon = _fileService.getFileIcon(attachment.fileType);
+    final fileSize = _fileService.formatFileSize(attachment.fileSize);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xff0386FF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                fileIcon,
+                style: const TextStyle(fontSize: 20),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  attachment.originalName,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff1E293B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$fileSize • ${DateFormat('MMM dd, yyyy').format(attachment.uploadedAt)}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: () => _downloadFile(attachment),
+                icon: const Icon(Icons.download),
+                tooltip: 'Download',
+                iconSize: 20,
+                color: const Color(0xff0386FF),
+              ),
+              if (_currentStatus != TaskStatus.done)
+                IconButton(
+                  onPressed: () => _removeAttachment(attachment),
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Remove',
+                  iconSize: 20,
+                  color: Colors.red.shade400,
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -537,6 +746,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         isRecurring: widget.task.isRecurring,
         recurrenceType: widget.task.recurrenceType,
         createdAt: widget.task.createdAt,
+        attachments: _currentTask.attachments,
       );
 
       await _taskService.updateTask(widget.task.id, updatedTask);
@@ -604,6 +814,234 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     } finally {
       if (mounted) {
         setState(() => _isUpdating = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadFiles() async {
+    print('_pickAndUploadFiles called');
+
+    try {
+      if (mounted) {
+        setState(() => _isUploadingFile = true);
+      }
+
+      print('Calling file service to pick files...');
+      final files = await _fileService.pickFiles();
+
+      if (files == null || files.isEmpty) {
+        print('No files selected or user cancelled');
+        if (mounted) {
+          setState(() => _isUploadingFile = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'No files selected',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      print('${files.length} files selected, starting upload...');
+      int successfulUploads = 0;
+
+      for (final file in files) {
+        try {
+          print('Uploading file: ${file.name}');
+          final attachment =
+              await _fileService.uploadFile(file, widget.task.id);
+          await _taskService.addAttachmentToTask(widget.task.id, attachment);
+
+          if (mounted) {
+            setState(() {
+              _currentTask = Task(
+                id: _currentTask.id,
+                title: _currentTask.title,
+                description: _currentTask.description,
+                createdBy: _currentTask.createdBy,
+                assignedTo: _currentTask.assignedTo,
+                dueDate: _currentTask.dueDate,
+                priority: _currentTask.priority,
+                status: _currentTask.status,
+                isRecurring: _currentTask.isRecurring,
+                recurrenceType: _currentTask.recurrenceType,
+                createdAt: _currentTask.createdAt,
+                attachments: [..._currentTask.attachments, attachment],
+              );
+            });
+          }
+
+          successfulUploads++;
+          print('Successfully uploaded: ${file.name}');
+        } catch (e) {
+          print('Failed to upload ${file.name}: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to upload ${file.name}: ${e.toString()}',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                ),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+        }
+      }
+
+      if (mounted && successfulUploads > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  '$successfulUploads file(s) uploaded successfully!',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error in _pickAndUploadFiles: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to upload files: ${e.toString()}',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingFile = false);
+      }
+    }
+  }
+
+  Future<void> _downloadFile(TaskAttachment attachment) async {
+    try {
+      await _fileService.downloadFile(attachment);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to download file: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeAttachment(TaskAttachment attachment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Attachment'),
+        content: Text(
+            'Are you sure you want to remove "${attachment.originalName}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _taskService.removeAttachmentFromTask(
+            widget.task.id, attachment.id);
+
+        setState(() {
+          _currentTask = Task(
+            id: _currentTask.id,
+            title: _currentTask.title,
+            description: _currentTask.description,
+            createdBy: _currentTask.createdBy,
+            assignedTo: _currentTask.assignedTo,
+            dueDate: _currentTask.dueDate,
+            priority: _currentTask.priority,
+            status: _currentTask.status,
+            isRecurring: _currentTask.isRecurring,
+            recurrenceType: _currentTask.recurrenceType,
+            createdAt: _currentTask.createdAt,
+            attachments: _currentTask.attachments
+                .where((a) => a.id != attachment.id)
+                .toList(),
+          );
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Attachment removed successfully!',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to remove attachment: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
