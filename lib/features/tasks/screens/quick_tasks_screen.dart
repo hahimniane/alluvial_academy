@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
+import '../../../core/services/user_role_service.dart';
 
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
@@ -18,6 +19,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   TaskPriority? _selectedPriority;
   String _searchQuery = '';
   late AnimationController _fabAnimationController;
+  bool _isAdmin = false;
+  Stream<List<Task>>? _taskStream;
 
   @override
   void initState() {
@@ -27,6 +30,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       vsync: this,
     );
     _fabAnimationController.forward();
+    _loadUserRoleAndTasks();
+  }
+
+  Future<void> _loadUserRoleAndTasks() async {
+    final isAdmin = await UserRoleService.isAdmin();
+    final taskStream = await _taskService.getRoleBasedTasks();
+
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+        _taskStream = taskStream;
+      });
+    }
   }
 
   @override
@@ -46,21 +62,24 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           _buildTaskGrid(),
         ],
       ),
-      floatingActionButton: ScaleTransition(
-        scale: _fabAnimationController,
-        child: FloatingActionButton.extended(
-          heroTag: "addTaskFAB", // Unique hero tag to avoid conflicts
-          onPressed: () => _showAddEditTaskDialog(),
-          backgroundColor: const Color(0xff0386FF),
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text('New Task',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          elevation: 8,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-      ),
+      // Only show floating action button for admins
+      floatingActionButton: _isAdmin
+          ? ScaleTransition(
+              scale: _fabAnimationController,
+              child: FloatingActionButton.extended(
+                heroTag: "addTaskFAB", // Unique hero tag to avoid conflicts
+                onPressed: () => _showAddEditTaskDialog(),
+                backgroundColor: const Color(0xff0386FF),
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text('New Task',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
+            )
+          : null,
     );
   }
 
@@ -72,9 +91,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       elevation: 0,
       backgroundColor: Colors.white,
       flexibleSpace: FlexibleSpaceBar(
-        title: const Text(
-          'Task Management',
-          style: TextStyle(
+        title: Text(
+          _isAdmin ? 'Task Management' : 'My Tasks',
+          style: const TextStyle(
             color: Color(0xFF1A202C),
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -231,8 +250,20 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildTaskGrid() {
+    // Return loading if task stream is not ready yet
+    if (_taskStream == null) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32.0),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
     return StreamBuilder<List<Task>>(
-      stream: _taskService.getTasks(),
+      stream: _taskStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverToBoxAdapter(
@@ -334,7 +365,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showAddEditTaskDialog(task: task),
+          onTap: _isAdmin ? () => _showAddEditTaskDialog(task: task) : null,
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -386,6 +417,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildTaskActions(Task task) {
+    // Only show actions for admins
+    if (!_isAdmin) {
+      return const SizedBox.shrink();
+    }
+
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert, color: Colors.grey[400]),
       onSelected: (value) {

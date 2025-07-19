@@ -1098,8 +1098,8 @@ class _DashboardPageState extends State<DashboardPage> {
               color: DashboardConstants.formsIconColor,
             ),
             _buildSideMenuItem(
-              icon: const Icon(Icons.schedule),
-              text: 'Job Scheduling',
+              icon: const Icon(Icons.task_alt),
+              text: 'Tasks',
               index: 7,
               color: DashboardConstants.jobSchedulingIconColor,
             ),

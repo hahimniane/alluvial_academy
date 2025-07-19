@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../system_settings_screen.dart';
 import 'package:csv/csv.dart';
@@ -18,6 +19,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? userRole;
   Map<String, dynamic>? userData;
   Map<String, dynamic> stats = {};
+  Map<String, dynamic> teacherStats = {};
 
   @override
   void initState() {
@@ -34,6 +36,111 @@ class _AdminDashboardState extends State<AdminDashboard> {
         userRole = role;
         userData = data;
       });
+
+      // Load teacher-specific stats if user is a teacher
+      if (role?.toLowerCase() == 'teacher') {
+        _loadTeacherStats();
+      }
+    }
+  }
+
+  Future<void> _loadTeacherStats() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      print('Loading teacher-specific statistics...');
+
+      // Load teacher's assigned tasks
+      final tasksSnapshot = await FirebaseFirestore.instance
+          .collection('tasks')
+          .where('assignedTo', arrayContains: currentUser.uid)
+          .get();
+
+      // Count tasks by status
+      int pendingTasks = 0;
+      int completedTasks = 0;
+      int inProgressTasks = 0;
+
+      for (var doc in tasksSnapshot.docs) {
+        final data = doc.data();
+        final status = data['status'] ?? 'TaskStatus.todo';
+
+        if (status.contains('todo')) {
+          pendingTasks++;
+        } else if (status.contains('done')) {
+          completedTasks++;
+        } else if (status.contains('inProgress')) {
+          inProgressTasks++;
+        }
+      }
+
+      // Load forms accessible to teachers
+      final formsSnapshot =
+          await FirebaseFirestore.instance.collection('form').get();
+
+      int accessibleForms = 0;
+      for (var doc in formsSnapshot.docs) {
+        final data = doc.data();
+        final permissions = data['permissions'] as Map<String, dynamic>?;
+
+        // Check if teacher can access this form
+        if (permissions == null ||
+            permissions['type'] == 'public' ||
+            (permissions['role'] == 'teacher' ||
+                permissions['role'] == 'teachers') ||
+            (permissions['users'] as List<dynamic>?)
+                    ?.contains(currentUser.uid) ==
+                true) {
+          accessibleForms++;
+        }
+      }
+
+      // Load teacher's timesheet entries to get student count
+      final timesheetSnapshot = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: currentUser.uid)
+          .get();
+
+      // Get unique students the teacher has worked with
+      Set<String> uniqueStudents = {};
+      for (var doc in timesheetSnapshot.docs) {
+        final data = doc.data();
+        final studentName = data['student_name'];
+        if (studentName != null && studentName.isNotEmpty) {
+          uniqueStudents.add(studentName);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          teacherStats = {
+            'assigned_tasks': tasksSnapshot.docs.length,
+            'pending_tasks': pendingTasks,
+            'completed_tasks': completedTasks,
+            'in_progress_tasks': inProgressTasks,
+            'accessible_forms': accessibleForms,
+            'my_students': uniqueStudents.length,
+            'total_sessions': timesheetSnapshot.docs.length,
+          };
+        });
+        print('Teacher stats loaded successfully: $teacherStats');
+      }
+    } catch (e) {
+      print('Error loading teacher stats: $e');
+      if (mounted) {
+        setState(() {
+          teacherStats = {
+            'assigned_tasks': 0,
+            'pending_tasks': 0,
+            'completed_tasks': 0,
+            'in_progress_tasks': 0,
+            'accessible_forms': 0,
+            'my_students': 0,
+            'total_sessions': 0,
+          };
+        });
+      }
     }
   }
 
@@ -421,10 +528,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
             mainAxisSpacing: 16,
             childAspectRatio: 1.3,
             children: [
-              _buildStatCard('My Students', 24, Icons.groups, Colors.blue),
-              _buildStatCard('Active Forms', stats['total_forms'] ?? 0,
-                  Icons.assignment, Colors.green),
-              _buildStatCard('Pending Tasks', 7, Icons.task_alt, Colors.orange),
+              _buildStatCard('My Students', teacherStats['my_students'] ?? 0,
+                  Icons.groups, Colors.blue),
+              _buildStatCard(
+                  'Available Forms',
+                  teacherStats['accessible_forms'] ?? 0,
+                  Icons.assignment,
+                  Colors.green),
+              _buildStatCard(
+                  'Pending Tasks',
+                  teacherStats['pending_tasks'] ?? 0,
+                  Icons.task_alt,
+                  Colors.orange),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Additional teacher stats row
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.3,
+            children: [
+              _buildStatCard('Total Tasks', teacherStats['assigned_tasks'] ?? 0,
+                  Icons.assignment_outlined, const Color(0xff8B5CF6)),
+              _buildStatCard(
+                  'Completed Tasks',
+                  teacherStats['completed_tasks'] ?? 0,
+                  Icons.check_circle,
+                  const Color(0xff10B981)),
+              _buildStatCard(
+                  'Teaching Sessions',
+                  teacherStats['total_sessions'] ?? 0,
+                  Icons.school,
+                  const Color(0xffF59E0B)),
             ],
           ),
           const SizedBox(height: 24),
