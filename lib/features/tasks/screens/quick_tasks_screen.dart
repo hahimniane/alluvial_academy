@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
+import '../widgets/task_details_view.dart';
 import '../../../core/services/user_role_service.dart';
 
 class QuickTasksScreen extends StatefulWidget {
@@ -365,7 +366,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: _isAdmin ? () => _showAddEditTaskDialog(task: task) : null,
+          onTap: _isAdmin
+              ? () => _showAddEditTaskDialog(task: task)
+              : () => _showTaskDetailsDialog(task),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -639,8 +642,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xff0386FF).withOpacity(0.1),
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xff0386FF).withOpacity(0.1),
+                    const Color(0xff0386FF).withOpacity(0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xff0386FF).withOpacity(0.2),
+                  width: 2,
+                ),
               ),
               child: const Icon(
                 Icons.task_alt,
@@ -649,9 +663,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No tasks yet',
-              style: TextStyle(
+            Text(
+              _isAdmin ? 'No tasks yet' : 'No tasks assigned',
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1A202C),
@@ -659,12 +673,35 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Create your first task to get started',
+              _isAdmin
+                  ? 'Create your first task to get started'
+                  : 'You don\'t have any tasks assigned yet.\nCheck back later or contact your administrator.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
+                height: 1.4,
               ),
+              textAlign: TextAlign.center,
             ),
+            if (_isAdmin) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _showAddEditTaskDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create Task'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff0386FF),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -771,6 +808,35 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AddEditTaskDialog(task: task),
+    );
+  }
+
+  void _showTaskDetailsDialog(Task task) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => _buildTaskDetailsDialog(task),
+    );
+  }
+
+  Widget _buildTaskDetailsDialog(Task task) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 16,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        constraints: const BoxConstraints(
+          maxHeight: 700,
+          maxWidth: 600,
+        ),
+        child: TaskDetailsView(
+          task: task,
+          onTaskUpdated: () {
+            // Refresh the task list when task is updated
+            setState(() {});
+          },
+        ),
+      ),
     );
   }
 
