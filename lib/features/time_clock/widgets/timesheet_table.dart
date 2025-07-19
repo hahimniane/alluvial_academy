@@ -567,14 +567,31 @@ class _TimesheetTableState extends State<TimesheetTable>
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              entry.clockInAddress?.isNotEmpty == true
-                  ? entry.clockInAddress!
-                  : 'Lat: ${entry.clockInLatitude!.toStringAsFixed(6)}, Lng: ${entry.clockInLongitude!.toStringAsFixed(6)}',
-              style: constants.openSansHebrewTextStyle.copyWith(
-                fontSize: 12,
-                color: const Color(0xff6B7280),
+            FutureBuilder<String>(
+              future: _getDetailedLocationText(
+                entry.clockInLatitude!,
+                entry.clockInLongitude!,
+                entry.clockInAddress,
               ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Text(
+                    'Loading location...',
+                    style: constants.openSansHebrewTextStyle.copyWith(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  );
+                }
+                return Text(
+                  snapshot.data ?? 'Location unavailable',
+                  style: constants.openSansHebrewTextStyle.copyWith(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                );
+              },
             ),
           ],
           if (entry.clockOutLatitude != null &&
@@ -589,14 +606,31 @@ class _TimesheetTableState extends State<TimesheetTable>
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              entry.clockOutAddress?.isNotEmpty == true
-                  ? entry.clockOutAddress!
-                  : 'Lat: ${entry.clockOutLatitude!.toStringAsFixed(6)}, Lng: ${entry.clockOutLongitude!.toStringAsFixed(6)}',
-              style: constants.openSansHebrewTextStyle.copyWith(
-                fontSize: 12,
-                color: const Color(0xff6B7280),
+            FutureBuilder<String>(
+              future: _getDetailedLocationText(
+                entry.clockOutLatitude!,
+                entry.clockOutLongitude!,
+                entry.clockOutAddress,
               ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Text(
+                    'Loading location...',
+                    style: constants.openSansHebrewTextStyle.copyWith(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  );
+                }
+                return Text(
+                  snapshot.data ?? 'Location unavailable',
+                  style: constants.openSansHebrewTextStyle.copyWith(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                );
+              },
             ),
           ],
           if ((entry.clockInLatitude == null ||
@@ -1418,6 +1452,35 @@ class _TimesheetTableState extends State<TimesheetTable>
       );
     }
   }
+
+  Future<String> _getDetailedLocationText(
+      double latitude, double longitude, String? storedAddress) async {
+    // If we have a good stored address, use it
+    if (storedAddress != null &&
+        storedAddress.isNotEmpty &&
+        !storedAddress.contains(RegExp(r'^\d+\.\d+, \d+\.\d+'))) {
+      return storedAddress;
+    }
+
+    // Convert coordinates to full address using geocoding
+    try {
+      LocationData? locationData = await LocationService.coordinatesToLocation(
+        latitude,
+        longitude,
+      );
+
+      if (locationData != null &&
+          locationData.address != 'Unknown location' &&
+          !locationData.address.contains(RegExp(r'^\d+\.\d+, \d+\.\d+'))) {
+        return locationData.address;
+      }
+    } catch (e) {
+      print('Error getting detailed location: $e');
+    }
+
+    // Fallback to coordinates with more precision for detailed view
+    return 'Coordinates: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+  }
 }
 
 class TimesheetDataSource extends DataGridSource {
@@ -1638,50 +1701,81 @@ class TimesheetDataSource extends DataGridSource {
       );
     }
 
-    // Build location display
-    String locationText = '';
-    if (hasClockInLocation) {
-      // Use the clockInAddress or fallback to a formatted neighborhood
-      String clockInDisplay = entry.clockInAddress?.isNotEmpty == true
-          ? _extractNeighborhood(entry.clockInAddress!)
-          : 'Clock-in: ${entry.clockInLatitude!.toStringAsFixed(3)}, ${entry.clockInLongitude!.toStringAsFixed(3)}';
-      locationText = clockInDisplay;
-    }
+    return FutureBuilder<String>(
+      future: _getLocationDisplayText(entry),
+      builder: (context, snapshot) {
+        String locationText = 'Loading...';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xff10B981).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xff10B981).withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.location_on,
-            size: 12,
-            color: Color(0xff10B981),
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              locationText,
-              style: constants.openSansHebrewTextStyle.copyWith(
-                fontSize: 11,
-                color: const Color(0xff064E3B),
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+        if (snapshot.connectionState == ConnectionState.done) {
+          locationText = snapshot.data ?? 'Location unavailable';
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xff10B981).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xff10B981).withOpacity(0.3),
+              width: 1,
             ),
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.location_on,
+                size: 12,
+                color: Color(0xff10B981),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  locationText,
+                  style: constants.openSansHebrewTextStyle.copyWith(
+                    fontSize: 11,
+                    color: const Color(0xff064E3B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Future<String> _getLocationDisplayText(TimesheetEntry entry) async {
+    // Priority: use stored address if available and it's not just coordinates
+    if (entry.clockInAddress != null &&
+        entry.clockInAddress!.isNotEmpty &&
+        !entry.clockInAddress!.contains(RegExp(r'^\d+\.\d+, \d+\.\d+'))) {
+      return _extractNeighborhood(entry.clockInAddress!);
+    }
+
+    // Convert coordinates to location name using geocoding
+    if (entry.clockInLatitude != null && entry.clockInLongitude != null) {
+      try {
+        String locationName =
+            await LocationService.getLocationDisplayFromCoordinates(
+          entry.clockInLatitude!,
+          entry.clockInLongitude!,
+        );
+        return locationName;
+      } catch (e) {
+        print('Error converting coordinates to location: $e');
+      }
+    }
+
+    // Fallback to coordinates if everything else fails
+    if (entry.clockInLatitude != null && entry.clockInLongitude != null) {
+      return 'Lat: ${entry.clockInLatitude!.toStringAsFixed(4)}, Lng: ${entry.clockInLongitude!.toStringAsFixed(4)}';
+    }
+
+    return 'Location unavailable';
   }
 
   String _extractNeighborhood(String fullAddress) {

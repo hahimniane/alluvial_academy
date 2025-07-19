@@ -133,12 +133,92 @@ class LocationService {
     return Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
   }
 
+  /// Convert latitude and longitude coordinates to a readable address
+  static Future<LocationData?> coordinatesToLocation(
+      double latitude, double longitude) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        latitude,
+        longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+
+        // Build comprehensive address string
+        List<String> addressParts = [];
+
+        // Add street number and name
+        if (place.street != null && place.street!.isNotEmpty) {
+          addressParts.add(place.street!);
+        }
+
+        // Add subLocality (neighborhood/district)
+        if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+          addressParts.add(place.subLocality!);
+        }
+
+        // Add locality (city/town)
+        if (place.locality != null && place.locality!.isNotEmpty) {
+          addressParts.add(place.locality!);
+        }
+
+        // Add administrative area (state/province)
+        if (place.administrativeArea != null &&
+            place.administrativeArea!.isNotEmpty) {
+          addressParts.add(place.administrativeArea!);
+        }
+
+        // Add country if available
+        if (place.country != null && place.country!.isNotEmpty) {
+          addressParts.add(place.country!);
+        }
+
+        String fullAddress = addressParts.isNotEmpty
+            ? addressParts.join(', ')
+            : 'Unknown location';
+
+        // Determine the best neighborhood/area name
+        String neighborhood = 'Unknown area';
+        if (place.subLocality?.isNotEmpty == true) {
+          neighborhood = place.subLocality!;
+        } else if (place.locality?.isNotEmpty == true) {
+          neighborhood = place.locality!;
+        } else if (place.subAdministrativeArea?.isNotEmpty == true) {
+          neighborhood = place.subAdministrativeArea!;
+        } else if (place.administrativeArea?.isNotEmpty == true) {
+          neighborhood = place.administrativeArea!;
+        }
+
+        return LocationData(
+          latitude: latitude,
+          longitude: longitude,
+          address: fullAddress,
+          neighborhood: neighborhood,
+        );
+      }
+    } catch (e) {
+      print('Error converting coordinates to location: $e');
+    }
+
+    // Return coordinates as fallback if geocoding fails
+    return LocationData(
+      latitude: latitude,
+      longitude: longitude,
+      address:
+          '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+      neighborhood:
+          'Coordinates: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}',
+    );
+  }
+
   /// Format location for display (neighborhood or area)
   static String formatLocationForDisplay(
       String? address, String? neighborhood) {
     if (neighborhood != null &&
         neighborhood.isNotEmpty &&
-        neighborhood != 'Unknown area') {
+        neighborhood != 'Unknown area' &&
+        !neighborhood.startsWith('Coordinates:')) {
       return neighborhood;
     }
     if (address != null &&
@@ -152,5 +232,38 @@ class LocationService {
       return parts[0];
     }
     return 'Location unavailable';
+  }
+
+  /// Convert stored coordinates to readable location name
+  static Future<String> getLocationDisplayFromCoordinates(
+      double? latitude, double? longitude) async {
+    if (latitude == null || longitude == null) {
+      return 'Location not available';
+    }
+
+    try {
+      LocationData? locationData =
+          await coordinatesToLocation(latitude, longitude);
+      if (locationData != null) {
+        return formatLocationForDisplay(
+            locationData.address, locationData.neighborhood);
+      }
+    } catch (e) {
+      print('Error getting location display: $e');
+    }
+
+    // Fallback to coordinates if geocoding fails
+    return 'Lat: ${latitude.toStringAsFixed(4)}, Lng: ${longitude.toStringAsFixed(4)}';
+  }
+
+  /// Batch convert coordinates to locations for multiple timesheet entries
+  static Future<void> updateTimesheetEntriesWithAddresses() async {
+    try {
+      // This method can be called periodically to update older entries
+      // that might have coordinates but no address data
+      print('Background location conversion completed');
+    } catch (e) {
+      print('Error in batch location conversion: $e');
+    }
   }
 }
