@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_constants.dart' as constants;
 import '../models/timesheet_entry.dart';
+import '../../../core/services/location_service.dart';
 
 class TimesheetTable extends StatefulWidget {
   final List<dynamic>? clockInEntries;
@@ -474,6 +475,12 @@ class _TimesheetTableState extends State<TimesheetTable>
             _buildDetailRow('Status:', _getStatusText(entry.status)),
             if (entry.description.isNotEmpty)
               _buildDetailRow('Description:', entry.description),
+            // Location information
+            if (entry.clockInLatitude != null ||
+                entry.clockOutLatitude != null) ...[
+              const SizedBox(height: 8),
+              _buildLocationSection(entry),
+            ],
           ],
         ),
         actions: [
@@ -512,6 +519,98 @@ class _TimesheetTableState extends State<TimesheetTable>
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationSection(TimesheetEntry entry) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xff10B981).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xff10B981).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on,
+                color: Color(0xff10B981),
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Location Information',
+                style: constants.openSansHebrewTextStyle.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff10B981),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (entry.clockInLatitude != null &&
+              entry.clockInLongitude != null) ...[
+            Text(
+              '📍 Clock-in Location:',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff064E3B),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              entry.clockInAddress?.isNotEmpty == true
+                  ? entry.clockInAddress!
+                  : 'Lat: ${entry.clockInLatitude!.toStringAsFixed(6)}, Lng: ${entry.clockInLongitude!.toStringAsFixed(6)}',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 12,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+          ],
+          if (entry.clockOutLatitude != null &&
+              entry.clockOutLongitude != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '📍 Clock-out Location:',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff064E3B),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              entry.clockOutAddress?.isNotEmpty == true
+                  ? entry.clockOutAddress!
+                  : 'Lat: ${entry.clockOutLatitude!.toStringAsFixed(6)}, Lng: ${entry.clockOutLongitude!.toStringAsFixed(6)}',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 12,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+          ],
+          if ((entry.clockInLatitude == null ||
+                  entry.clockInLongitude == null) &&
+              (entry.clockOutLatitude == null ||
+                  entry.clockOutLongitude == null)) ...[
+            Text(
+              '⚠️ Location information was not captured for this session',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 12,
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -618,6 +717,19 @@ class _TimesheetTableState extends State<TimesheetTable>
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Total Hours',
+                          style: constants.openSansHebrewTextStyle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    GridColumn(
+                      columnName: 'location',
+                      label: Container(
+                        padding: const EdgeInsets.all(8.0),
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Location',
                           style: constants.openSansHebrewTextStyle.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -1329,6 +1441,7 @@ class TimesheetDataSource extends DataGridSource {
                 DataGridCell(columnName: 'end', value: entry),
                 DataGridCell(columnName: 'break', value: entry),
                 DataGridCell(columnName: 'totalHours', value: entry),
+                DataGridCell(columnName: 'location', value: entry),
                 DataGridCell(columnName: 'status', value: entry),
                 DataGridCell(columnName: 'actions', value: entry),
               ],
@@ -1396,6 +1509,11 @@ class TimesheetDataSource extends DataGridSource {
               fontWeight: FontWeight.w600,
             ),
           ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(8.0),
+          alignment: Alignment.centerLeft,
+          child: _buildLocationCell(entry),
         ),
         Container(
           padding: const EdgeInsets.all(8.0),
@@ -1483,6 +1601,99 @@ class TimesheetDataSource extends DataGridSource {
       case TimesheetStatus.rejected:
         return 'Rejected';
     }
+  }
+
+  Widget _buildLocationCell(TimesheetEntry entry) {
+    // Check if we have any location data
+    bool hasClockInLocation =
+        entry.clockInLatitude != null && entry.clockInLongitude != null;
+    bool hasClockOutLocation =
+        entry.clockOutLatitude != null && entry.clockOutLongitude != null;
+
+    if (!hasClockInLocation && !hasClockOutLocation) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.location_off,
+              size: 12,
+              color: Colors.grey[600],
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Not captured',
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 11,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Build location display
+    String locationText = '';
+    if (hasClockInLocation) {
+      // Use the clockInAddress or fallback to a formatted neighborhood
+      String clockInDisplay = entry.clockInAddress?.isNotEmpty == true
+          ? _extractNeighborhood(entry.clockInAddress!)
+          : 'Clock-in: ${entry.clockInLatitude!.toStringAsFixed(3)}, ${entry.clockInLongitude!.toStringAsFixed(3)}';
+      locationText = clockInDisplay;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xff10B981).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xff10B981).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.location_on,
+            size: 12,
+            color: Color(0xff10B981),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              locationText,
+              style: constants.openSansHebrewTextStyle.copyWith(
+                fontSize: 11,
+                color: const Color(0xff064E3B),
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _extractNeighborhood(String fullAddress) {
+    // Extract neighborhood from full address
+    // Address format is usually: "Street, Neighborhood, City, State"
+    final parts = fullAddress.split(', ');
+    if (parts.length >= 2) {
+      return parts[1]; // Return the neighborhood part
+    } else if (parts.isNotEmpty) {
+      return parts[0]; // Return first part if only one part
+    }
+    return 'Location';
   }
 }
 
