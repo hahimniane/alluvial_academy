@@ -67,6 +67,7 @@ class _TimesheetTableState extends State<TimesheetTable>
   // Public method to manually refresh data
   void refreshData() {
     if (mounted) {
+      print('TimesheetTable: Refreshing data from Firebase...');
       _loadTimesheetData();
     }
   }
@@ -82,6 +83,7 @@ class _TimesheetTableState extends State<TimesheetTable>
 
   void _loadTimesheetData() {
     // Load saved timesheet entries from Firebase first
+    print('TimesheetTable: Loading timesheet entries from Firebase...');
     _loadSavedTimesheetEntries().then((savedEntries) {
       if (!mounted) return;
 
@@ -1243,20 +1245,24 @@ class _TimesheetTableState extends State<TimesheetTable>
             });
 
             // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Timesheet entry saved successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Timesheet entry saved successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
           } catch (e) {
             // Show error message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error saving entry: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error saving entry: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         },
       ),
@@ -1283,12 +1289,14 @@ class _TimesheetTableState extends State<TimesheetTable>
           .toList();
 
       if (draftEntries.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No draft entries to submit'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No draft entries to submit'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
         return;
       }
 
@@ -1335,20 +1343,24 @@ class _TimesheetTableState extends State<TimesheetTable>
         );
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text('${draftEntries.length} entries submitted for approval'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('${draftEntries.length} entries submitted for approval'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error submitting timesheet: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting timesheet: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1827,10 +1839,16 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
   List<Map<String, dynamic>> _filteredStudents = [];
   bool _isLoadingStudents = true;
 
+  // Location data for manual entries
+  LocationData? _currentLocation;
+  bool _isGettingLocation = false;
+  String _locationStatus = 'Getting location...';
+
   @override
   void initState() {
     super.initState();
     _loadStudents();
+    _getCurrentLocation(); // Get location when dialog opens
 
     if (widget.entry != null) {
       // Editing existing entry - populate fields
@@ -1910,6 +1928,37 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     }
   }
 
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isGettingLocation = true;
+      _locationStatus = 'Getting location...';
+    });
+
+    try {
+      LocationData? location = await LocationService.getCurrentLocation();
+
+      if (mounted) {
+        setState(() {
+          _currentLocation = location;
+          _isGettingLocation = false;
+          if (location != null) {
+            _locationStatus =
+                'Location: ${LocationService.formatLocationForDisplay(location.address, location.neighborhood)}';
+          } else {
+            _locationStatus = 'Location not available';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isGettingLocation = false;
+          _locationStatus = 'Location error: $e';
+        });
+      }
+    }
+  }
+
   void _filterStudents(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -1970,7 +2019,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     child: Text(
                       widget.entry != null
                           ? 'Edit Teaching Hours'
-                          : 'Add Teaching Hours',
+                          : 'Add Teaching Hours (Location Required)',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -2035,6 +2084,10 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
 
                       // Description
                       _buildDescriptionField(),
+                      const SizedBox(height: 24),
+
+                      // Location Display
+                      _buildLocationDisplay(),
                       const SizedBox(height: 24),
 
                       // Total Hours Display
@@ -2519,6 +2572,109 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     );
   }
 
+  Widget _buildLocationDisplay() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.location_on, size: 16, color: const Color(0xff10B981)),
+            const SizedBox(width: 8),
+            Text(
+              'Location Information (Required)',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _currentLocation != null
+                ? const Color(0xff10B981).withOpacity(0.1)
+                : Colors.grey.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _currentLocation != null
+                  ? const Color(0xff10B981).withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              if (_isGettingLocation)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xff10B981)),
+                  ),
+                )
+              else
+                Icon(
+                  _currentLocation != null
+                      ? Icons.location_on
+                      : Icons.location_off,
+                  color: _currentLocation != null
+                      ? const Color(0xff10B981)
+                      : Colors.grey[600],
+                  size: 20,
+                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _currentLocation != null
+                          ? 'Location Captured'
+                          : 'Location Status',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _currentLocation != null
+                            ? const Color(0xff064E3B)
+                            : Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _locationStatus,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _currentLocation != null
+                            ? const Color(0xff6B7280)
+                            : Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!_isGettingLocation && _currentLocation == null)
+                TextButton(
+                  onPressed: _getCurrentLocation,
+                  child: Text(
+                    'Retry',
+                    style: TextStyle(
+                      color: const Color(0xff10B981),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTotalHoursDisplay() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2575,70 +2731,111 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
   }
 
   Widget _buildActionButtons() {
-    return Row(
+    final bool isLocationAvailable = _currentLocation != null;
+    final bool isLocationLoading = _isGettingLocation;
+
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        // Warning message when location is not available
+        if (!isLocationAvailable && !isLocationLoading)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
             ),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: _saveEntry,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 2,
-            ),
-            child: const Text(
-              'Save Draft',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.red, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Location is mandatory for all timesheet entries. Please wait for location or grant permission.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: _saveAndSubmitEntry,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff0386FF),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: BorderSide(color: Colors.grey.shade400),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              elevation: 2,
             ),
-            child: const Text(
-              'Save & Submit',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: isLocationAvailable ? _saveEntry : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isLocationAvailable
+                      ? Colors.orange
+                      : Colors.grey.shade300,
+                  foregroundColor:
+                      isLocationAvailable ? Colors.white : Colors.grey.shade600,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: isLocationAvailable ? 2 : 0,
+                ),
+                child: Text(
+                  isLocationLoading ? 'Getting Location...' : 'Save Draft',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: isLocationAvailable ? _saveAndSubmitEntry : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isLocationAvailable
+                      ? const Color(0xff0386FF)
+                      : Colors.grey.shade300,
+                  foregroundColor:
+                      isLocationAvailable ? Colors.white : Colors.grey.shade600,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: isLocationAvailable ? 2 : 0,
+                ),
+                child: Text(
+                  isLocationLoading ? 'Getting Location...' : 'Save & Submit',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -2668,6 +2865,19 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       return;
     }
 
+    // Mandatory location validation
+    if (_currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Location is mandatory. Please wait for location to be captured or grant location permission.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       final entry = TimesheetEntry(
         documentId:
@@ -2680,6 +2890,13 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
         totalHours: _calculateTotalHours(),
         description: _descriptionController.text,
         status: TimesheetStatus.draft,
+        // Include captured location data
+        clockInLatitude: _currentLocation?.latitude,
+        clockInLongitude: _currentLocation?.longitude,
+        clockInAddress: _currentLocation?.address,
+        clockOutLatitude: null, // Manual entries don't have clock-out location
+        clockOutLongitude: null,
+        clockOutAddress: null,
       );
 
       widget.onSave(entry);
@@ -2699,6 +2916,19 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       return;
     }
 
+    // Mandatory location validation
+    if (_currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Location is mandatory. Please wait for location to be captured or grant location permission.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       final entry = TimesheetEntry(
         documentId:
@@ -2711,10 +2941,24 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
         totalHours: _calculateTotalHours(),
         description: _descriptionController.text,
         status: TimesheetStatus.pending,
+        // Include captured location data
+        clockInLatitude: _currentLocation?.latitude,
+        clockInLongitude: _currentLocation?.longitude,
+        clockInAddress: _currentLocation?.address,
+        clockOutLatitude: null, // Manual entries don't have clock-out location
+        clockOutLongitude: null,
+        clockOutAddress: null,
       );
 
       widget.onSave(entry);
       Navigator.of(context).pop();
     }
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 }

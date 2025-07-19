@@ -74,6 +74,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
   void _refreshTimesheetData() {
     // Call refresh on the TimesheetTable widget
+    print('Refreshing timesheet data after clock-out...');
     TimesheetTable.refreshData(_timesheetTableKey);
   }
 
@@ -139,6 +140,12 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   void _startTeachingSession(Map<String, dynamic> student) async {
     if (!mounted) return;
 
+    print('Starting teaching session for student: ${student['name']}');
+
+    // First check if we already have location permissions
+    bool hasPermission = await LocationService.hasLocationPermission();
+    print('Has location permission: $hasPermission');
+
     // Show loading state while getting location
     setState(() {
       _isGettingLocation = true;
@@ -146,48 +153,34 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
     try {
       // Get location before clocking in
+      print('Attempting to get current location...');
       LocationData? location = await LocationService.getCurrentLocation();
 
       if (!mounted) return;
 
       setState(() {
-        _isClockingIn = true;
-        _selectedStudentName = student['name'];
-        _clockInTime = DateTime.now();
-        _clockInLocation = location;
-        _totalHoursWorked = "00:00:00"; // Reset timer display
-        _stopwatch.reset(); // Make sure stopwatch is reset
-        _stopwatch.start();
         _isGettingLocation = false;
-        _startTimer();
       });
 
-      // Show location confirmation
+      // Show location confirmation FIRST - only proceed after confirmation
       if (location != null) {
-        _showLocationConfirmation(location, isClockIn: true);
+        print('Location obtained successfully: ${location.neighborhood}');
+        _showLocationConfirmation(location, student: student, isClockIn: true);
+      } else {
+        print('Location was null despite no exception');
+        _showLocationRequiredDialog(
+            'Location could not be determined. Please ensure GPS is enabled.');
       }
     } catch (e) {
+      print('Error getting location: $e');
       if (!mounted) return;
 
       setState(() {
         _isGettingLocation = false;
       });
 
-      // Show error and ask if user wants to continue without location
-      _showLocationErrorDialog(e.toString(), () {
-        // Continue without location
-        if (!mounted) return;
-        setState(() {
-          _isClockingIn = true;
-          _selectedStudentName = student['name'];
-          _clockInTime = DateTime.now();
-          _clockInLocation = null;
-          _totalHoursWorked = "00:00:00";
-          _stopwatch.reset();
-          _stopwatch.start();
-          _startTimer();
-        });
-      });
+      // Show error - location is now mandatory for clock in
+      _showLocationRequiredDialog(e.toString());
     }
   }
 
@@ -263,7 +256,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       // Save to Firebase
       bool savedSuccessfully = await _saveToFirebase(clockInEntry);
 
-      // If saved successfully, remove from local list to avoid duplicates
+      // If saved successfully, remove from local list to avoid duplicates and refresh timesheet
       if (savedSuccessfully && mounted) {
         setState(() {
           _timesheetEntries.removeWhere((entry) =>
@@ -272,6 +265,14 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               entry['type'] == clockInEntry['type'] &&
               entry['start'] == clockInEntry['start'] &&
               entry['end'] == clockInEntry['end']);
+        });
+
+        // Refresh the timesheet table to show the new entry immediately
+        // Add a small delay to ensure Firebase write is committed
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _refreshTimesheetData();
+          }
         });
       }
 
@@ -336,6 +337,14 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               entry['type'] == clockInEntry['type'] &&
               entry['start'] == clockInEntry['start'] &&
               entry['end'] == clockInEntry['end']);
+        });
+
+        // Refresh the timesheet table to show the new entry immediately
+        // Add a small delay to ensure Firebase write is committed
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _refreshTimesheetData();
+          }
         });
       }
 
@@ -403,8 +412,28 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     }
   }
 
+  void _proceedWithClockIn(
+      LocationData location, Map<String, dynamic> student) {
+    if (!mounted) return;
+    setState(() {
+      _isClockingIn = true;
+      _selectedStudentName = student['name'];
+      _clockInTime = DateTime.now();
+      _clockInLocation = location;
+      _totalHoursWorked = "00:00:00";
+      _stopwatch.reset();
+      _stopwatch.start();
+      _startTimer();
+    });
+  }
+
+  void _proceedWithClockOut(LocationData location) {
+    if (!mounted) return;
+    _clockOut();
+  }
+
   void _showLocationConfirmation(LocationData location,
-      {required bool isClockIn}) {
+      {Map<String, dynamic>? student, required bool isClockIn}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -472,9 +501,30 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'OK',
+              'Cancel',
               style: GoogleFonts.inter(
-                color: const Color(0xff0386FF),
+                color: const Color(0xff64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Proceed with clock-in or clock-out after location confirmation
+              if (isClockIn) {
+                _proceedWithClockIn(location, student!);
+              } else {
+                _proceedWithClockOut(location);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff0386FF),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              isClockIn ? 'Confirm Clock In' : 'Confirm Clock Out',
+              style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -484,20 +534,21 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     );
   }
 
-  void _showLocationErrorDialog(String error, VoidCallback onContinue) {
+  void _showLocationRequiredDialog(String error) {
     showDialog(
       context: context,
+      barrierDismissible: false, // Can't dismiss without action
       builder: (context) => AlertDialog(
         title: Row(
           children: [
             const Icon(
               Icons.location_off,
-              color: Colors.orange,
+              color: Colors.red,
               size: 24,
             ),
             const SizedBox(width: 8),
             Text(
-              'Location Error',
+              'Location Required',
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -521,22 +572,34 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  const Icon(Icons.info_outline,
-                      color: Colors.orange, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'You can continue without location, but it\'s recommended for attendance verification.',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Colors.orange.shade700,
+                  Row(
+                    children: [
+                      const Icon(Icons.warning, color: Colors.red, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Location access is mandatory for clock-in to verify attendance.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'If you\'re using Chrome, please ensure location is enabled for this site. You may need to refresh the page after granting permission.',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: Colors.red.shade600,
                     ),
                   ),
                 ],
@@ -555,21 +618,44 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onContinue();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(
-              'Continue Without Location',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Try again without going to settings
+                  },
+                  child: Text(
+                    'Try Again',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xff0386FF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Open app settings to enable location
+                    LocationService.openAppSettings();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(
+                    'Open Settings',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
