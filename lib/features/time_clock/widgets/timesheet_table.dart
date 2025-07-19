@@ -1034,67 +1034,135 @@ class _TimesheetTableState extends State<TimesheetTable>
   }
 
   Widget _buildDateRangeSelector() {
+    final now = DateTime.now();
+    final isCurrentMonth = _selectedDateRange == null ||
+        (_selectedDateRange!.start.year == now.year &&
+            _selectedDateRange!.start.month == now.month);
+
     return Material(
       elevation: 2,
       borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () => _selectDateRange(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: _selectedDateRange != null
+                ? const Color(0xff0386FF)
+                : Colors.grey.shade300,
+            width: _selectedDateRange != null ? 2 : 1,
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xff0386FF).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: const Color(0xff0386FF),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          borderRadius: BorderRadius.circular(12),
+          color: _selectedDateRange != null
+              ? const Color(0xff0386FF).withOpacity(0.05)
+              : Colors.white,
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () => _selectDateRange(context),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
                   children: [
-                    Text(
-                      _selectedDateRange != null
-                          ? '${DateFormat('MMM dd').format(_selectedDateRange!.start)} - ${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.end)}'
-                          : 'Select custom range',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: _selectedDateRange != null
-                            ? Colors.black87
-                            : Colors.grey.shade600,
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff0386FF).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: const Color(0xff0386FF),
                       ),
                     ),
-                    if (_selectedDateRange != null)
-                      Text(
-                        '${_selectedDateRange!.duration.inDays + 1} days selected',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedDateRange != null
+                                ? '${DateFormat('MMM dd').format(_selectedDateRange!.start)} - ${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.end)}'
+                                : 'Tap to select date range',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: _selectedDateRange != null
+                                  ? Colors.black87
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            _selectedDateRange != null
+                                ? '${_selectedDateRange!.duration.inDays + 1} days selected'
+                                : 'Currently showing: ${isCurrentMonth ? "This month" : "All time"}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _selectedDateRange != null
+                                  ? const Color(0xff0386FF)
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    Icon(
+                      Icons.edit_calendar,
+                      size: 18,
+                      color: const Color(0xff0386FF),
+                    ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: const Color(0xff0386FF),
+            ),
+            if (_selectedDateRange != null)
+              Container(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDateRange = null;
+                            _selectedFilter = 'All Time';
+                          });
+                          _filterTimesheetData('All Time');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Date filter cleared'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Clear Filter'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _selectDateRange(context),
+                        icon: const Icon(Icons.tune, size: 16),
+                        label: const Text('Change'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff0386FF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -1129,6 +1197,74 @@ class _TimesheetTableState extends State<TimesheetTable>
 
     print('Could not parse date: $dateString');
     return null;
+  }
+
+  int _getFilteredEntriesCount(String filter) {
+    List<TimesheetEntry> filteredData = [...timesheetData];
+
+    // Apply time period filter
+    if (filter != 'All Time') {
+      DateTime now = DateTime.now();
+
+      switch (filter) {
+        case 'Today':
+          filteredData = filteredData.where((entry) {
+            DateTime? entryDate = _parseEntryDate(entry.date);
+            if (entryDate == null) return false;
+
+            return entryDate.year == now.year &&
+                entryDate.month == now.month &&
+                entryDate.day == now.day;
+          }).toList();
+          break;
+
+        case 'This Week':
+          DateTime startDate = now.subtract(Duration(days: now.weekday - 1));
+          startDate = DateTime(startDate.year, startDate.month, startDate.day);
+          DateTime endDate = startDate.add(const Duration(days: 6));
+
+          filteredData = filteredData.where((entry) {
+            DateTime? entryDate = _parseEntryDate(entry.date);
+            if (entryDate == null) return false;
+
+            return entryDate
+                    .isAfter(startDate.subtract(const Duration(days: 1))) &&
+                entryDate.isBefore(endDate.add(const Duration(days: 1)));
+          }).toList();
+          break;
+
+        case 'This Month':
+          DateTime startDate = DateTime(now.year, now.month, 1);
+          DateTime endDate = DateTime(now.year, now.month + 1, 1)
+              .subtract(const Duration(days: 1));
+
+          filteredData = filteredData.where((entry) {
+            DateTime? entryDate = _parseEntryDate(entry.date);
+            if (entryDate == null) return false;
+
+            return entryDate
+                    .isAfter(startDate.subtract(const Duration(days: 1))) &&
+                entryDate.isBefore(endDate.add(const Duration(days: 1)));
+          }).toList();
+          break;
+
+        case 'Custom Date Range':
+          if (_selectedDateRange != null) {
+            filteredData = filteredData.where((entry) {
+              DateTime? entryDate = _parseEntryDate(entry.date);
+              if (entryDate == null) return false;
+
+              return entryDate.isAfter(_selectedDateRange!.start
+                      .subtract(const Duration(days: 1))) &&
+                  entryDate.isBefore(
+                      _selectedDateRange!.end.add(const Duration(days: 1)));
+            }).toList();
+          }
+          break;
+      }
+    }
+
+    return filteredData.length;
   }
 
   void _filterTimesheetData(String filter) {
@@ -1365,77 +1501,117 @@ class _TimesheetTableState extends State<TimesheetTable>
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+    final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
+
     final DateTimeRange? result = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime(2025),
-      initialDateRange: _selectedDateRange,
-      helpText: 'Select Date Range',
+      lastDate: DateTime(now.year + 5), // Allow 5 years into the future
+      initialDateRange: _selectedDateRange ??
+          DateTimeRange(
+            start: currentMonthStart,
+            end: currentMonthEnd,
+          ), // Default to current month
+      currentDate: now, // Highlight current date
+      helpText: 'Select Date Range for Timesheet',
       cancelText: 'Cancel',
-      confirmText: 'Apply',
-      saveText: 'Apply Range',
+      confirmText: 'Apply Filter',
+      saveText: 'Apply',
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: const Color(0xff0386FF),
-                  onPrimary: Colors.white,
-                  onSurface: Colors.black87,
-                  onSurfaceVariant: Colors.grey.shade700,
-                  surface: Colors.white,
-                  surfaceVariant: Colors.grey.shade50,
-                ),
-            datePickerTheme: DatePickerThemeData(
-              backgroundColor: Colors.white,
-              headerBackgroundColor: const Color(0xff0386FF),
-              headerForegroundColor: Colors.white,
-              weekdayStyle: TextStyle(
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w600,
+        return Center(
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 450,
+                maxHeight: 650,
               ),
-              dayStyle: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
-              yearStyle: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
-              rangeSelectionBackgroundColor:
-                  const Color(0xff0386FF).withOpacity(0.1),
-              rangeSelectionOverlayColor: MaterialStateProperty.all(
-                const Color(0xff0386FF).withOpacity(0.1),
-              ),
-              todayBackgroundColor: MaterialStateProperty.resolveWith(
-                (states) {
-                  if (states.contains(MaterialState.selected)) {
-                    return const Color(0xff0386FF);
-                  }
-                  return const Color(0xff0386FF).withOpacity(0.2);
-                },
-              ),
-              todayForegroundColor: MaterialStateProperty.resolveWith(
-                (states) {
-                  if (states.contains(MaterialState.selected)) {
-                    return Colors.white;
-                  }
-                  return const Color(0xff0386FF);
-                },
-              ),
-              shape: RoundedRectangleBorder(
+              margin: const EdgeInsets.all(16),
+              child: Material(
                 borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xff0386FF),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
+                elevation: 8,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                          primary: const Color(0xff0386FF),
+                          onPrimary: Colors.white,
+                          onSurface: Colors.black87,
+                          onSurfaceVariant: Colors.grey.shade700,
+                          surface: Colors.white,
+                          surfaceVariant: Colors.grey.shade50,
+                        ),
+                    datePickerTheme: DatePickerThemeData(
+                      backgroundColor: Colors.white,
+                      headerBackgroundColor: const Color(0xff0386FF),
+                      headerForegroundColor: Colors.white,
+                      weekdayStyle: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                      dayStyle: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                      ),
+                      yearStyle: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                      rangeSelectionBackgroundColor:
+                          const Color(0xff0386FF).withOpacity(0.1),
+                      rangeSelectionOverlayColor: MaterialStateProperty.all(
+                        const Color(0xff0386FF).withOpacity(0.1),
+                      ),
+                      todayBackgroundColor: MaterialStateProperty.resolveWith(
+                        (states) {
+                          if (states.contains(MaterialState.selected)) {
+                            return const Color(0xff0386FF);
+                          }
+                          return const Color(0xff0386FF).withOpacity(0.2);
+                        },
+                      ),
+                      todayForegroundColor: MaterialStateProperty.resolveWith(
+                        (states) {
+                          if (states.contains(MaterialState.selected)) {
+                            return Colors.white;
+                          }
+                          return const Color(0xff0386FF);
+                        },
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      headerHeadlineStyle: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      headerHelpStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    textButtonTheme: TextButtonThemeData(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xff0386FF),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: child!,
                 ),
               ),
             ),
           ),
-          child: child!,
         );
       },
     );
@@ -1443,25 +1619,51 @@ class _TimesheetTableState extends State<TimesheetTable>
     if (result != null) {
       setState(() {
         _selectedDateRange = result;
+        _selectedFilter = 'Custom Date Range';
       });
 
-      // Also apply the filter when date range is selected
-      _filterTimesheetData(_selectedFilter);
+      // Apply the custom date range filter
+      _filterTimesheetData('Custom Date Range');
 
-      // Show feedback to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Date range applied: ${DateFormat('MMM dd').format(result.start)} - ${DateFormat('MMM dd, yyyy').format(result.end)}',
+      // Show feedback to user with entry count
+      final filteredCount = _getFilteredEntriesCount('Custom Date Range');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Date filter applied',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        '${DateFormat('MMM dd').format(result.start)} - ${DateFormat('MMM dd, yyyy').format(result.end)} • $filteredCount entries',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xff10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            duration: const Duration(seconds: 2),
           ),
-          backgroundColor: const Color(0xff0386FF),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+        );
+      }
     }
   }
 
