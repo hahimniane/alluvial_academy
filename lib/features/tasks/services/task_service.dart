@@ -29,10 +29,13 @@ class TaskService {
 
     return _taskCollection
         .where('assignedTo', arrayContains: currentUser.uid)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
+      // Sort on the client side to avoid needing a composite index
+      final tasks =
+          snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
+      tasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return tasks;
     });
   }
 
