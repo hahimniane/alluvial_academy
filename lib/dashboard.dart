@@ -20,6 +20,7 @@ import 'test_role_system.dart';
 import 'firestore_debug_screen.dart';
 import 'features/tasks/screens/quick_tasks_screen.dart';
 import 'screens/landing_page.dart';
+import 'role_based_dashboard.dart';
 
 /// Constants for the Dashboard
 class DashboardConstants {
@@ -55,6 +56,7 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   String? _userRole;
   Map<String, dynamic>? _userData;
+  int _refreshTrigger = 0;
 
   @override
   void initState() {
@@ -101,19 +103,19 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // List of screens available in the dashboard
-  final List<Widget> _screens = [
-    const AdminDashboard(),
-    const UserManagementScreen(),
-    const ChatPage(),
-    const TimeClockScreen(),
-    const AdminTimesheetReview(),
-    const FormScreen(),
-    const FormBuilder(),
-    const QuickTasksScreen(),
-    const TestRoleSystemScreen(),
-    const FirestoreDebugScreen(),
-  ];
+  // Get screens available in the dashboard (built dynamically to include refresh trigger)
+  List<Widget> get _screens => [
+        AdminDashboard(refreshTrigger: _refreshTrigger),
+        const UserManagementScreen(),
+        const ChatPage(),
+        const TimeClockScreen(),
+        const AdminTimesheetReview(),
+        const FormScreen(),
+        const FormBuilder(),
+        const QuickTasksScreen(),
+        const TestRoleSystemScreen(),
+        const FirestoreDebugScreen(),
+      ];
 
   /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
@@ -807,8 +809,14 @@ class _DashboardPageState extends State<DashboardPage> {
         // Role switcher for dual-role users
         RoleSwitcher(
           onRoleChanged: (newRole) {
-            // Reload user data when role changes
+            // Reload user data when role changes to update UI
             _loadUserData();
+
+            // Reset to dashboard view to see role-appropriate content
+            setState(() {
+              _selectedIndex = 0;
+              _refreshTrigger++; // Trigger refresh of child widgets
+            });
           },
           padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
@@ -1016,7 +1024,7 @@ class _DashboardPageState extends State<DashboardPage> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Admins can see both admin and user-specific menu items
+                  // Admin-role users can see both admin and user-specific menu items
                   if (_userRole == 'admin') ...[
                     _buildSideMenuItem(
                       icon: SvgPicture.asset('assets/dashboard.svg'),

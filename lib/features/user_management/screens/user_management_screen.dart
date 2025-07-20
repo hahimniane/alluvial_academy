@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,6 +39,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   int numberOfUsers = 0;
   int numberOfAdmins = 0;
+  Timer? _debounceTimer;
 
   void getFirebaseData() async {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -73,6 +75,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -133,34 +136,52 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   }
 
   void _updateEmployeeData(List<Employee> employees) {
-    setState(() {
-      // Separate admin and regular users
-      _allEmployees =
-          employees.where((emp) => emp.userType != 'admin').toList();
-      _adminUsers = employees
-          .where((emp) => emp.userType == 'admin' || emp.isAdminTeacher)
-          .toList();
+    // Separate admin and regular users
+    final newAllEmployees = employees
+        .where((emp) => emp.userType != 'admin' && !emp.isAdminTeacher)
+        .toList();
+    final newAdminUsers = employees
+        .where((emp) => emp.userType == 'admin' || emp.isAdminTeacher)
+        .toList();
 
-      numberOfUsers = _allEmployees.length;
-      numberOfAdmins = _adminUsers.length;
+    final newNumberOfUsers = newAllEmployees.length;
+    final newNumberOfAdmins = newAdminUsers.length;
 
-      // Initialize data sources if needed
-      if (_employeeDataSource == null) {
-        _employeeDataSource = UserEmployeeDataSource(
-          employees: _allEmployees,
-          onPromoteToAdmin: _promoteToAdminTeacher,
-        );
-      }
-      if (_adminDataSource == null) {
-        _adminDataSource = AdminEmployeeDataSource(
-          employees: _adminUsers,
-          onPromoteToAdmin: _promoteToAdminTeacher,
-          onRevokeAdmin: _revokeAdminPrivileges,
-        );
-      }
+    // Only update state if there are actual changes
+    bool shouldUpdate = _allEmployees.length != newAllEmployees.length ||
+        _adminUsers.length != newAdminUsers.length ||
+        numberOfUsers != newNumberOfUsers ||
+        numberOfAdmins != newNumberOfAdmins;
 
-      _applyFilters(); // Apply current filters to new data
-    });
+    if (shouldUpdate) {
+      setState(() {
+        _allEmployees = newAllEmployees;
+        _adminUsers = newAdminUsers;
+        numberOfUsers = newNumberOfUsers;
+        numberOfAdmins = newNumberOfAdmins;
+
+        // Initialize data sources if needed
+        if (_employeeDataSource == null) {
+          _employeeDataSource = UserEmployeeDataSource(
+            employees: _allEmployees,
+            onPromoteToAdmin: _promoteToAdminTeacher,
+          );
+        }
+        if (_adminDataSource == null) {
+          _adminDataSource = AdminEmployeeDataSource(
+            employees: _adminUsers,
+            onPromoteToAdmin: _promoteToAdminTeacher,
+            onRevokeAdmin: _revokeAdminPrivileges,
+          );
+        }
+
+        _applyFilters(); // Apply current filters to new data
+      });
+    } else {
+      // Data hasn't changed, but update the data sources with fresh data
+      _employeeDataSource?.updateDataSource(_allEmployees);
+      _adminDataSource?.updateDataSource(_adminUsers);
+    }
   }
 
   Future<void> _promoteToAdminTeacher(Employee employee) async {
@@ -352,6 +373,36 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   void _refreshData() {
     // Force rebuild by calling setState
     setState(() {});
+  }
+
+  void _debouncedUpdateEmployeeData(List<Employee> employees) {
+    // Cancel any existing timer
+    _debounceTimer?.cancel();
+
+    // Set a new timer with a short delay
+    _debounceTimer = Timer(const Duration(milliseconds: 100), () {
+      // Check if we need to update the data
+      bool dataChanged = _allEmployees.length != employees.length ||
+          _employeeDataSource == null ||
+          _adminDataSource == null;
+
+      // Only check for actual content changes if lengths are the same
+      if (!dataChanged && _allEmployees.isNotEmpty) {
+        // Check if the actual data content has changed
+        for (int i = 0; i < employees.length && i < _allEmployees.length; i++) {
+          if (employees[i].email != _allEmployees[i].email ||
+              employees[i].userType != _allEmployees[i].userType ||
+              employees[i].isAdminTeacher != _allEmployees[i].isAdminTeacher) {
+            dataChanged = true;
+            break;
+          }
+        }
+      }
+
+      if (dataChanged) {
+        _updateEmployeeData(employees);
+      }
+    });
   }
 
   Widget _buildAdminGrid() {
@@ -587,18 +638,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
                     // Update the employee data (this will trigger filtering)
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      // Check if we need to update the data
-                      bool dataChanged =
-                          _allEmployees.length != employees.length ||
-                              _allEmployees.isEmpty ||
-                              _employeeDataSource == null;
-
-                      if (dataChanged) {
-                        _updateEmployeeData(employees);
-                      } else if (_allEmployees.isNotEmpty) {
-                        // If data hasn't changed but we have employees, ensure current filters are applied
-                        _applyFilters();
-                      }
+                      _debouncedUpdateEmployeeData(employees);
                     });
 
                     return Column(
@@ -801,6 +841,22 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
+                                              ),
+                                            ),
+                                          ),
+                                          GridColumn(
+                                            columnName: 'Actions',
+                                            label: Container(
+                                              padding:
+                                                  const EdgeInsets.all(8.0),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                'Actions',
+                                                style: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      const Color(0xff3f4648),
+                                                ),
                                               ),
                                             ),
                                           ),

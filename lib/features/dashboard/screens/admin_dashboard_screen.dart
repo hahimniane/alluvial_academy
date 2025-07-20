@@ -10,7 +10,9 @@ import 'dart:html' as html;
 import '../../../utility_functions/export_helpers.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  final int? refreshTrigger;
+
+  const AdminDashboard({super.key, this.refreshTrigger});
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -28,6 +30,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
     super.initState();
     _loadUserData();
     _loadStats();
+  }
+
+  @override
+  void didUpdateWidget(AdminDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload data when refresh trigger changes
+    if (widget.refreshTrigger != oldWidget.refreshTrigger) {
+      _loadUserData();
+      _loadStats();
+    }
   }
 
   Future<void> _loadUserData() async {
