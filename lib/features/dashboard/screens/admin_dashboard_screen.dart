@@ -5811,16 +5811,23 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
     final createdAt = assignment['created_at'] as Timestamp?;
     final dueDate = assignment['due_date'] as Timestamp?;
 
+    // Check if assignment is overdue for styling
+    final isOverdue = dueDate != null && _isOverdue(dueDate);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xffE5E7EB)),
+        border: Border.all(
+          color:
+              isOverdue ? Colors.red.withOpacity(0.3) : const Color(0xffE5E7EB),
+          width: isOverdue ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: (isOverdue ? Colors.red : Colors.black).withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -5832,13 +5839,40 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff111827),
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                    ),
+                    if (isOverdue) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'OVERDUE',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               PopupMenuButton<String>(
@@ -5903,13 +5937,20 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
               ),
               const SizedBox(width: 16),
               if (dueDate != null) ...[
-                Icon(Icons.schedule, size: 16, color: Colors.grey[600]),
+                Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: _getDueDateColor(dueDate),
+                ),
                 const SizedBox(width: 4),
                 Text(
-                  'Due: ${_formatDate(dueDate)}',
+                  'Due: ${_formatDueDate(dueDate)}',
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xff6B7280),
+                    color: _getDueDateColor(dueDate),
+                    fontWeight: _isOverdue(dueDate)
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -5946,6 +5987,60 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
+  }
+
+  String _formatDueDate(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    final now = DateTime.now();
+    final difference =
+        date.difference(now); // Note: date - now for future dates
+
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Tomorrow';
+    } else if (difference.inDays < 7 && difference.inDays > 0) {
+      return 'In ${difference.inDays} days';
+    } else if (difference.inDays < 0) {
+      // Past due
+      final pastDays = difference.inDays.abs();
+      if (pastDays == 1) {
+        return 'Overdue (1 day)';
+      } else if (pastDays < 7) {
+        return 'Overdue ($pastDays days)';
+      } else {
+        return 'Overdue';
+      }
+    } else {
+      // More than a week away or specific date
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  Color _getDueDateColor(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    final now = DateTime.now();
+    final difference = date.difference(now);
+
+    if (difference.inDays < 0) {
+      // Overdue - red
+      return Colors.red;
+    } else if (difference.inDays <= 1) {
+      // Due today or tomorrow - orange
+      return Colors.orange;
+    } else if (difference.inDays <= 3) {
+      // Due soon - amber
+      return Colors.amber[700]!;
+    } else {
+      // Normal - gray
+      return const Color(0xff6B7280);
+    }
+  }
+
+  bool _isOverdue(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    final now = DateTime.now();
+    return date.isBefore(now);
   }
 
   void _editAssignment(Map<String, dynamic> assignment) {
