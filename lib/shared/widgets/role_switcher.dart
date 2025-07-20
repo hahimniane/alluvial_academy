@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/user_role_service.dart';
 
 class RoleSwitcher extends StatefulWidget {
@@ -22,11 +25,19 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
   bool _isLoading = true;
   bool _hasDualRoles = false;
   bool _isSwitching = false;
+  StreamSubscription<QuerySnapshot>? _userSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadRoleData();
+    _setupUserListener();
+  }
+
+  @override
+  void dispose() {
+    _userSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadRoleData() async {
@@ -51,6 +62,68 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _setupUserListener() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user?.email == null) return;
+
+    // Listen to changes in the user's document
+    _userSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .where('e-mail', isEqualTo: user!.email!.toLowerCase())
+        .limit(1)
+        .snapshots()
+        .listen(
+      (querySnapshot) {
+        if (querySnapshot.docs.isNotEmpty) {
+          final userData = querySnapshot.docs.first.data();
+          final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
+          final userType = userData['user_type'] as String?;
+
+          // Check if dual role status changed
+          final newHasDualRoles = isAdminTeacher && userType == 'teacher';
+
+          if (newHasDualRoles != _hasDualRoles) {
+            print(
+                'Role change detected: hasDualRoles changed from $_hasDualRoles to $newHasDualRoles');
+
+            // Reload role data when dual role status changes
+            _loadRoleData();
+
+            // If user lost admin privileges, notify parent
+            if (!newHasDualRoles && _hasDualRoles) {
+              // User lost admin privileges - switch back to primary role
+              UserRoleService.switchActiveRole(userType ?? 'teacher')
+                  .then((success) {
+                if (success && mounted) {
+                  widget.onRoleChanged?.call(userType ?? 'teacher');
+
+                  // Show notification
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.info, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Admin privileges have been revoked'),
+                        ],
+                      ),
+                      backgroundColor: Colors.orange,
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              });
+            }
+          }
+        }
+      },
+      onError: (error) {
+        print('Error listening to user changes: $error');
+      },
+    );
   }
 
   Future<void> _switchRole(String newRole) async {

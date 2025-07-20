@@ -68,8 +68,9 @@ class UserEmployeeDataSource extends DataGridSource {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (employee.userType.toLowerCase() == 'teacher') ...[
-                  // Promote to admin button for teachers
+                if (employee.userType.toLowerCase() == 'teacher' &&
+                    !employee.isAdminTeacher) ...[
+                  // Promote to admin button for teachers who are not already admin-teachers
                   Material(
                     elevation: 2,
                     borderRadius: BorderRadius.circular(6),
@@ -106,6 +107,39 @@ class UserEmployeeDataSource extends DataGridSource {
                           ],
                         ),
                       ),
+                    ),
+                  ),
+                ] else if (employee.userType.toLowerCase() == 'teacher' &&
+                    employee.isAdminTeacher) ...[
+                  // Show "Already Admin" for admin-teachers
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.verified,
+                          size: 14,
+                          color: Colors.green.shade700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Admin-Teacher',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ] else ...[

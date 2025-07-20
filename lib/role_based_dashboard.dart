@@ -25,7 +25,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
 
   Future<void> _loadUserRole() async {
     try {
-      print('Loading user role...');
+      print('=== Loading User Role ===');
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
 
@@ -37,7 +37,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
         });
       }
 
-      print('User role loaded: $role');
+      print('Role loaded successfully: $role');
     } catch (e) {
       print('Error loading user role: $e');
       if (mounted) {
@@ -47,6 +47,15 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
         });
       }
     }
+  }
+
+  /// Reload user role when role switcher triggers a change
+  void _onRoleChanged() {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+    _loadUserRole();
   }
 
   @override
