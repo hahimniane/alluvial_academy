@@ -113,7 +113,6 @@ class UserRoleService {
           'dashboard',
           'user_management',
           'chat',
-          'time_clock',
           'forms',
           'form_builder',
           'tasks',

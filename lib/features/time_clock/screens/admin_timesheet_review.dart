@@ -84,6 +84,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           rejectedAt: data['rejected_at'] as Timestamp?,
           rejectionReason: data['rejection_reason'] as String?,
           paymentAmount: data['payment_amount'] as double?,
+          source: data['source'] as String? ??
+              'manual', // Default to manual if not specified
         ));
       }
 
@@ -594,6 +596,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       "Hourly Rate",
       "Payment Amount",
       "Status",
+      "Source",
       "Submitted Date",
       "Approved Date",
       "Rejected Date",
@@ -613,6 +616,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         '\$${entry.hourlyRate.toStringAsFixed(2)}',
         '\$${_calculatePayment(entry).toStringAsFixed(2)}',
         entry.status.toString().split('.').last,
+        entry.source == 'clock_in' ? 'Clock In' : 'Unclocked Hours',
         entry.submittedAt != null
             ? DateFormat('MMM dd, yyyy').format(entry.submittedAt!.toDate())
             : '',
@@ -1169,6 +1173,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 ),
                               ),
                               GridColumn(
+                                columnName: 'source',
+                                label: Container(
+                                  padding: const EdgeInsets.all(8.0),
+                                  alignment: Alignment.center,
+                                  child: Text('Source',
+                                      style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                              GridColumn(
                                 columnName: 'status',
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
@@ -1223,6 +1237,8 @@ class TimesheetReviewDataSource extends DataGridSource {
               columnName: 'hours', value: timesheet.totalHours),
           DataGridCell<double>(
               columnName: 'payment', value: _calculatePayment(timesheet)),
+          DataGridCell<String>(
+              columnName: 'source', value: timesheet.source ?? 'manual'),
           DataGridCell<TimesheetStatus>(
               columnName: 'status', value: timesheet.status),
           DataGridCell<TimesheetEntry>(columnName: 'actions', value: timesheet),
@@ -1266,6 +1282,46 @@ class TimesheetReviewDataSource extends DataGridSource {
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: Colors.green.shade700,
+              ),
+            ),
+          );
+        } else if (dataGridCell.columnName == 'source') {
+          final source = dataGridCell.value as String;
+          final isClockIn = source == 'clock_in';
+
+          return Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(8.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isClockIn
+                    ? const Color(0xff10B981).withOpacity(0.1)
+                    : const Color(0xff0386FF).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isClockIn ? Icons.access_time : Icons.edit,
+                    size: 12,
+                    color: isClockIn
+                        ? const Color(0xff10B981)
+                        : const Color(0xff0386FF),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isClockIn ? 'Clock In' : 'Unclocked',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isClockIn
+                          ? const Color(0xff10B981)
+                          : const Color(0xff0386FF),
+                    ),
+                  ),
+                ],
               ),
             ),
           );

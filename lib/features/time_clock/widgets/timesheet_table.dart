@@ -161,6 +161,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           totalHours: data['total_hours'] ?? '00:00',
           description: data['description'] ?? '',
           status: _parseStatus(data['status'] ?? 'draft'),
+          source: data['source'] as String? ?? 'manual',
           // Location data
           clockInLatitude: data['clock_in_latitude'] as double?,
           clockInLongitude: data['clock_in_longitude'] as double?,
@@ -231,6 +232,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         'total_hours': entry.totalHours,
         'description': entry.description,
         'status': entry.status.name,
+        'source': 'manual', // Mark as manually added entry
         // Location data (preserve existing values if available)
         'clock_in_latitude': entry.clockInLatitude,
         'clock_in_longitude': entry.clockInLongitude,
@@ -2282,8 +2284,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                   Expanded(
                     child: Text(
                       widget.entry != null
-                          ? 'Edit Teaching Hours'
-                          : 'Add Teaching Hours (Location Required)',
+                          ? 'Edit Unclocked Hours'
+                          : 'Add Unclocked Hours (Location Required)',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
