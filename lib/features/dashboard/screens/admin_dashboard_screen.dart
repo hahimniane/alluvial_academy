@@ -2801,6 +2801,227 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  /// Get count of students this teacher has worked with
+  Future<int> _getMyStudentsCount() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return 0;
+
+      final timesheetSnapshot = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: user.uid)
+          .get();
+
+      // Get unique students
+      Set<String> uniqueStudents = {};
+      for (var doc in timesheetSnapshot.docs) {
+        final data = doc.data();
+        final studentName = data['student_name'];
+        if (studentName != null && studentName.isNotEmpty) {
+          uniqueStudents.add(studentName);
+        }
+      }
+
+      return uniqueStudents.length;
+    } catch (e) {
+      print('Error getting student count: $e');
+      return 0;
+    }
+  }
+
+  /// Get list of students this teacher has worked with from timesheet entries
+  Future<List<Map<String, dynamic>>> _getMyStudents() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return [];
+
+      final timesheetSnapshot = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: user.uid)
+          .get();
+
+      // Group by student and calculate stats
+      Map<String, Map<String, dynamic>> studentStats = {};
+
+      for (var doc in timesheetSnapshot.docs) {
+        final data = doc.data();
+        final studentName = data['student_name'];
+
+        if (studentName != null && studentName.isNotEmpty) {
+          if (!studentStats.containsKey(studentName)) {
+            studentStats[studentName] = {
+              'name': studentName,
+              'sessions': 0,
+              'totalHours': 0.0,
+              'lastSession': null,
+              'performance': 0, // Will be calculated based on sessions
+            };
+          }
+
+          studentStats[studentName]!['sessions']++;
+
+          // Calculate hours
+          final totalHours = data['total_hours'] ?? '00:00';
+          final hoursParts = totalHours.split(':');
+          if (hoursParts.length == 2) {
+            final hours = int.tryParse(hoursParts[0]) ?? 0;
+            final minutes = int.tryParse(hoursParts[1]) ?? 0;
+            studentStats[studentName]!['totalHours'] +=
+                hours + (minutes / 60.0);
+          }
+
+          // Update last session date
+          final createdAt = data['created_at'] as Timestamp?;
+          if (createdAt != null) {
+            final currentLast =
+                studentStats[studentName]!['lastSession'] as Timestamp?;
+            if (currentLast == null || createdAt.compareTo(currentLast) > 0) {
+              studentStats[studentName]!['lastSession'] = createdAt;
+            }
+          }
+        }
+      }
+
+      // Convert to list and calculate performance score
+      List<Map<String, dynamic>> students = studentStats.values.map((student) {
+        // Simple performance calculation based on sessions and total hours
+        final sessions = student['sessions'] as int;
+        final totalHours = student['totalHours'] as double;
+        final performance =
+            ((sessions * 10) + (totalHours * 5)).clamp(0, 100).round();
+
+        student['performance'] = performance;
+        return student;
+      }).toList();
+
+      // Sort by performance descending
+      students.sort((a, b) => b['performance'].compareTo(a['performance']));
+
+      return students;
+    } catch (e) {
+      print('Error getting students: $e');
+      return [];
+    }
+  }
+
+  /// Build real student progress item from timesheet data
+  Widget _buildRealStudentProgressItem(Map<String, dynamic> student) {
+    final name = student['name'] as String;
+    final sessions = student['sessions'] as int;
+    final totalHours = student['totalHours'] as double;
+    final performance = student['performance'] as int;
+    final lastSession = student['lastSession'] as Timestamp?;
+
+    // Determine performance color
+    Color performanceColor;
+    if (performance >= 80) {
+      performanceColor = const Color(0xff10B981);
+    } else if (performance >= 60) {
+      performanceColor = const Color(0xff3B82F6);
+    } else if (performance >= 40) {
+      performanceColor = const Color(0xffF59E0B);
+    } else {
+      performanceColor = const Color(0xffEF4444);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: performanceColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.person, color: performanceColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                Text(
+                  '$sessions sessions • ${totalHours.toStringAsFixed(1)}h total',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$performance%',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: performanceColor,
+                ),
+              ),
+              if (lastSession != null)
+                Text(
+                  'Last: ${_formatLastSession(lastSession)}',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: const Color(0xff9CA3AF),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Format last session timestamp
+  String _formatLastSession(Timestamp timestamp) {
+    final now = DateTime.now();
+    final sessionDate = timestamp.toDate();
+    final difference = now.difference(sessionDate);
+
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return '${(difference.inDays / 7).floor()}w ago';
+    }
+  }
+
+  /// Show assignment creation dialog
+  void _showAssignmentDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _AssignmentDialog(
+          onAssignmentCreated: () {
+            // Refresh student data after assignment creation
+            setState(() {});
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildTeacherWelcomeHeader() {
     final firstName =
         userData?['first_name'] ?? userData?['firstName'] ?? 'Teacher';
@@ -3574,7 +3795,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Student Progress Overview',
+                'My Students Overview',
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -3582,10 +3803,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
               const Spacer(),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  'View All',
+              TextButton.icon(
+                onPressed: _showAssignmentDialog,
+                icon: const Icon(Icons.add, size: 16),
+                label: Text(
+                  'Add Assignment',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -3618,24 +3840,130 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 20),
 
-          // Top Students
-          Text(
-            'Top Performing Students',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff111827),
-            ),
+          // My Students Section
+          Row(
+            children: [
+              Text(
+                'My Students',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+              const Spacer(),
+              FutureBuilder<int>(
+                future: _getMyStudentsCount(),
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff06B6D4).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$count total',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff06B6D4),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          _buildStudentProgressItem(
-              'Ahmad Al-Rashid', 'Grade 4', 94, const Color(0xff10B981)),
-          const SizedBox(height: 8),
-          _buildStudentProgressItem(
-              'Fatima Hassan', 'Grade 3', 89, const Color(0xff3B82F6)),
-          const SizedBox(height: 8),
-          _buildStudentProgressItem(
-              'Omar Malik', 'Grade 5', 87, const Color(0xffF59E0B)),
+
+          // Students List
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _getMyStudents(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(color: Color(0xff06B6D4)),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Error loading students',
+                        style:
+                            GoogleFonts.inter(fontSize: 14, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final students = snapshot.data ?? [];
+
+              if (students.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.school_outlined,
+                        size: 48,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No Known Students Yet',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Students will appear here after you clock in for teaching sessions',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              // Show students with progress tracking
+              return Column(
+                children: students.take(3).map((student) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _buildRealStudentProgressItem(student),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -4441,5 +4769,516 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
         setState(() => _isSaving = false);
       }
     }
+  }
+}
+
+// Assignment Dialog for creating assignments
+class _AssignmentDialog extends StatefulWidget {
+  final VoidCallback? onAssignmentCreated;
+
+  const _AssignmentDialog({Key? key, this.onAssignmentCreated})
+      : super(key: key);
+
+  @override
+  _AssignmentDialogState createState() => _AssignmentDialogState();
+}
+
+class _AssignmentDialogState extends State<_AssignmentDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _dueDateController = TextEditingController();
+
+  List<String> _selectedStudents = [];
+  List<Map<String, dynamic>> _myStudents = [];
+  bool _isLoading = false;
+  bool _isSaving = false;
+  DateTime? _selectedDueDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMyStudents();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _dueDateController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMyStudents() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final timesheetSnapshot = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: user.uid)
+          .get();
+
+      // Get unique students
+      Set<String> uniqueStudents = {};
+      for (var doc in timesheetSnapshot.docs) {
+        final data = doc.data();
+        final studentName = data['student_name'];
+        if (studentName != null && studentName.isNotEmpty) {
+          uniqueStudents.add(studentName);
+        }
+      }
+
+      setState(() {
+        _myStudents = uniqueStudents.map((name) => {'name': name}).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading students: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveAssignment() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedStudents.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one student'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final assignmentData = {
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'due_date': _selectedDueDate != null
+            ? Timestamp.fromDate(_selectedDueDate!)
+            : null,
+        'assigned_to': _selectedStudents,
+        'teacher_id': user.uid,
+        'teacher_email': user.email,
+        'created_at': FieldValue.serverTimestamp(),
+        'status': 'active',
+        'type': 'assignment',
+      };
+
+      await FirebaseFirestore.instance
+          .collection('assignments')
+          .add(assignmentData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(
+                  'Assignment created successfully!',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xff10B981),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+
+        Navigator.of(context).pop();
+
+        if (widget.onAssignmentCreated != null) {
+          widget.onAssignmentCreated!();
+        }
+      }
+    } catch (e) {
+      print('Error saving assignment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create assignment: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Container(
+        width: 600,
+        padding: const EdgeInsets.all(32),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff06B6D4).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.assignment_rounded,
+                        color: Color(0xff06B6D4),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Create Assignment',
+                            style: GoogleFonts.inter(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff111827),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Assign tasks to your students',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: const Color(0xff6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                      color: const Color(0xff6B7280),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // Assignment Title
+                _buildFormField(
+                  'Assignment Title',
+                  'Enter assignment title',
+                  _titleController,
+                  Icons.title_outlined,
+                ),
+                const SizedBox(height: 24),
+
+                // Description
+                _buildFormField(
+                  'Description',
+                  'Enter assignment description and instructions',
+                  _descriptionController,
+                  Icons.description_outlined,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 24),
+
+                // Due Date
+                _buildDateField(),
+                const SizedBox(height: 24),
+
+                // Student Selection
+                _buildStudentSelection(),
+                const SizedBox(height: 32),
+
+                // Action Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _saveAssignment,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff06B6D4),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isSaving
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Creating...',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Create Assignment',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormField(
+    String label,
+    String hint,
+    TextEditingController controller,
+    IconData icon, {
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xff111827),
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.inter(
+              color: const Color(0xff9CA3AF),
+              fontSize: 14,
+            ),
+            prefixIcon: Icon(icon, color: const Color(0xff6B7280)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xff06B6D4), width: 2),
+            ),
+            filled: true,
+            fillColor: const Color(0xffF9FAFB),
+            contentPadding: const EdgeInsets.all(16),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'This field is required';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Due Date (Optional)',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _dueDateController,
+          readOnly: true,
+          onTap: () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now().add(const Duration(days: 7)),
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (date != null) {
+              setState(() {
+                _selectedDueDate = date;
+                _dueDateController.text =
+                    '${date.day}/${date.month}/${date.year}';
+              });
+            }
+          },
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xff111827),
+          ),
+          decoration: InputDecoration(
+            hintText: 'Select due date',
+            hintStyle: GoogleFonts.inter(
+              color: const Color(0xff9CA3AF),
+              fontSize: 14,
+            ),
+            prefixIcon:
+                const Icon(Icons.calendar_today, color: Color(0xff6B7280)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xff06B6D4), width: 2),
+            ),
+            filled: true,
+            fillColor: const Color(0xffF9FAFB),
+            contentPadding: const EdgeInsets.all(16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStudentSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Assign To Students',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_myStudents.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xffF9FAFB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xffD1D5DB)),
+            ),
+            child: Text(
+              'No students available. Students will appear here after you clock in for teaching sessions.',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xffD1D5DB)),
+            ),
+            child: Column(
+              children: _myStudents.map((student) {
+                final studentName = student['name'] as String;
+                final isSelected = _selectedStudents.contains(studentName);
+
+                return CheckboxListTile(
+                  title: Text(
+                    studentName,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  value: isSelected,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true) {
+                        _selectedStudents.add(studentName);
+                      } else {
+                        _selectedStudents.remove(studentName);
+                      }
+                    });
+                  },
+                  activeColor: const Color(0xff06B6D4),
+                );
+              }).toList(),
+            ),
+          ),
+      ],
+    );
   }
 }
