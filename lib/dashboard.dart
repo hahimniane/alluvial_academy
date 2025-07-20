@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'core/services/user_role_service.dart';
 import 'core/constants/app_constants.dart';
+import 'shared/widgets/role_switcher.dart';
 import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
 import 'test_role_system.dart';
@@ -803,6 +804,15 @@ class _DashboardPageState extends State<DashboardPage> {
   Row _buildActions() {
     return Row(
       children: [
+        // Role switcher for dual-role users
+        RoleSwitcher(
+          onRoleChanged: (newRole) {
+            // Reload user data when role changes
+            _loadUserData();
+          },
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        const SizedBox(width: 16),
         _buildNotificationIcon(),
         const SizedBox(width: 20),
         _buildUserProfile(),
