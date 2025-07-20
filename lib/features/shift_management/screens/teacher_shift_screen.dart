@@ -406,29 +406,35 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
 
   Widget _buildShiftCard(TeachingShift shift) {
     final now = DateTime.now();
-    final canClockIn = shift.canClockIn;
-    final isActive = shift.isCurrentlyActive;
+    final canClockIn = shift.canClockIn && !shift.isClockedIn;
+    final isActive = shift.isClockedIn;
+    final canClockOut = shift.canClockOut;
     final hasExpired = shift.hasExpired;
+    final needsAutoLogout = shift.needsAutoLogout;
 
     Color statusColor;
     String statusText;
     IconData statusIcon;
 
-    if (isActive) {
+    if (needsAutoLogout) {
+      statusColor = Colors.red;
+      statusText = 'AUTO-LOGOUT PENDING';
+      statusIcon = Icons.warning;
+    } else if (isActive && canClockOut) {
       statusColor = Colors.green;
-      statusText = 'ACTIVE NOW';
+      statusText = 'CLOCKED IN';
       statusIcon = Icons.play_circle;
     } else if (canClockIn) {
       statusColor = Colors.orange;
-      statusText = 'READY TO START';
+      statusText = 'READY TO CLOCK IN';
       statusIcon = Icons.access_time;
-    } else if (hasExpired) {
+    } else if (hasExpired && shift.status == ShiftStatus.scheduled) {
       statusColor = Colors.red;
-      statusText = 'EXPIRED';
+      statusText = 'MISSED';
       statusIcon = Icons.cancel;
     } else if (shift.status == ShiftStatus.completed) {
       statusColor = Colors.purple;
-      statusText = 'COMPLETED';
+      statusText = shift.clockOutTime != null ? 'COMPLETED' : 'AUTO-COMPLETED';
       statusIcon = Icons.check_circle;
     } else {
       statusColor = Colors.blue;
@@ -560,7 +566,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    if (canClockIn && !isActive)
+                    if (canClockIn) ...[
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _clockIn(shift),
@@ -577,7 +583,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                           ),
                         ),
                       ),
-                    if (isActive) ...[
+                      const SizedBox(width: 12),
+                    ],
+                    if (canClockOut) ...[
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _clockOut(shift),
@@ -595,6 +603,24 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
+                    ],
+                    // Always show details button, expand if no action buttons
+                    if (!canClockIn && !canClockOut)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showShiftDetails(shift),
+                          icon: const Icon(Icons.info_outline, size: 20),
+                          label: Text(
+                            'View Details',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      )
+                    else
                       OutlinedButton.icon(
                         onPressed: () => _showShiftDetails(shift),
                         icon: const Icon(Icons.info_outline, size: 20),
@@ -607,7 +633,6 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                               vertical: 12, horizontal: 16),
                         ),
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -684,24 +709,134 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     );
   }
 
-  void _clockIn(TeachingShift shift) {
-    // TODO: Implement clock-in functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Clock-in functionality coming soon!'),
-        backgroundColor: Colors.blue,
-      ),
-    );
+  void _clockIn(TeachingShift shift) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Show loading state
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Clocking in...'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      final success = await ShiftService.clockIn(user.uid, shift.id);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully clocked in to ${shift.displayName}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Failed to clock in. Please check timing and try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error clocking in: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _clockOut(TeachingShift shift) {
-    // TODO: Implement clock-out functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Clock-out functionality coming soon!'),
-        backgroundColor: Colors.blue,
-      ),
-    );
+  void _clockOut(TeachingShift shift) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Clock Out',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            'Are you sure you want to clock out of "${shift.displayName}"?',
+            style: GoogleFonts.inter(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Clock Out',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      // Show loading state
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clocking out...'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+
+      final success = await ShiftService.clockOut(user.uid, shift.id);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully clocked out of ${shift.displayName}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to clock out. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error clocking out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _cleanupDuplicates() async {
