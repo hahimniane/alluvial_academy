@@ -6,6 +6,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import '../models/timesheet_entry.dart';
 import '../../../core/constants/app_constants.dart' as constants;
+import '../../../utility_functions/export_helpers.dart';
 
 class AdminTimesheetReview extends StatefulWidget {
   const AdminTimesheetReview({super.key});
@@ -20,6 +21,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   TimesheetReviewDataSource? _dataSource;
   String _selectedFilter = 'Pending';
   bool _isLoading = true;
+  DateTimeRange? _selectedDateRange;
 
   final List<String> _filterOptions = [
     'All',
@@ -78,6 +80,10 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           hourlyRate: hourlyRate,
           createdAt: data['created_at'] as Timestamp?,
           submittedAt: data['submitted_at'] as Timestamp?,
+          approvedAt: data['approved_at'] as Timestamp?,
+          rejectedAt: data['rejected_at'] as Timestamp?,
+          rejectionReason: data['rejection_reason'] as String?,
+          paymentAmount: data['payment_amount'] as double?,
         ));
       }
 
@@ -109,14 +115,30 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     setState(() {
       _selectedFilter = filter;
 
+      List<TimesheetEntry> statusFiltered;
       if (filter == 'All') {
-        _filteredTimesheets = List.from(_allTimesheets);
+        statusFiltered = List.from(_allTimesheets);
       } else {
         TimesheetStatus targetStatus = _parseStatus(filter);
-        _filteredTimesheets = _allTimesheets
+        statusFiltered = _allTimesheets
             .where((timesheet) => timesheet.status == targetStatus)
             .toList();
       }
+
+      // Apply date range filter if selected
+      if (_selectedDateRange != null) {
+        statusFiltered = statusFiltered.where((entry) {
+          final entryDate = _parseEntryDate(entry.date);
+          if (entryDate == null) return false;
+
+          return entryDate.isAfter(_selectedDateRange!.start
+                  .subtract(const Duration(days: 1))) &&
+              entryDate.isBefore(
+                  _selectedDateRange!.end.add(const Duration(days: 1)));
+        }).toList();
+      }
+
+      _filteredTimesheets = statusFiltered;
 
       _dataSource = TimesheetReviewDataSource(
         timesheets: _filteredTimesheets,
@@ -125,6 +147,34 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         onViewDetails: _viewTimesheetDetails,
       );
     });
+  }
+
+  DateTime? _parseEntryDate(String dateString) {
+    final formats = [
+      'MMM dd, yyyy', // Standard format: Jan 26, 2025
+      'EEE MM/dd/yyyy', // Clock-in format with year: Mon 01/26/2025
+      'EEE MM/dd', // Clock-in format without year: Mon 01/26
+      'MM/dd/yyyy', // Simple format with year: 01/26/2025
+      'MM/dd', // Simple format without year: 01/26
+      'yyyy-MM-dd', // ISO format: 2025-01-26
+    ];
+
+    for (String format in formats) {
+      try {
+        DateTime parsed = DateFormat(format).parse(dateString);
+
+        if (format == 'EEE MM/dd' || format == 'MM/dd') {
+          parsed = DateTime(DateTime.now().year, parsed.month, parsed.day);
+        }
+
+        return parsed;
+      } catch (e) {
+        continue;
+      }
+    }
+
+    print('Could not parse date: $dateString');
+    return null;
   }
 
   double _calculatePayment(TimesheetEntry timesheet) {
@@ -532,6 +582,325 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
   }
 
+  void _exportTimesheets() {
+    List<String> headers = [
+      "Teacher",
+      "Date",
+      "Student",
+      "Start Time",
+      "End Time",
+      "Break Duration",
+      "Total Hours",
+      "Hourly Rate",
+      "Payment Amount",
+      "Status",
+      "Submitted Date",
+      "Approved Date",
+      "Rejected Date",
+      "Rejection Reason",
+      "Description"
+    ];
+
+    List<List<String>> timesheetData = _filteredTimesheets.map((entry) {
+      return [
+        entry.teacherName,
+        entry.date,
+        entry.subject,
+        entry.start,
+        entry.end,
+        entry.breakDuration,
+        entry.totalHours,
+        '\$${entry.hourlyRate.toStringAsFixed(2)}',
+        '\$${_calculatePayment(entry).toStringAsFixed(2)}',
+        entry.status.toString().split('.').last,
+        entry.submittedAt != null
+            ? DateFormat('MMM dd, yyyy').format(entry.submittedAt!.toDate())
+            : '',
+        entry.approvedAt != null
+            ? DateFormat('MMM dd, yyyy').format(entry.approvedAt!.toDate())
+            : '',
+        entry.rejectedAt != null
+            ? DateFormat('MMM dd, yyyy').format(entry.rejectedAt!.toDate())
+            : '',
+        entry.rejectionReason ?? '',
+        entry.description,
+      ];
+    }).toList();
+
+    print('Exporting ${timesheetData.length} timesheet entries for review');
+
+    String fileName = 'timesheet_review';
+    if (_selectedDateRange != null) {
+      fileName +=
+          '_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.start)}_to_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.end)}';
+    } else {
+      fileName += '_${_selectedFilter.toLowerCase()}';
+    }
+    fileName += '_${DateTime.now().toString().split(' ')[0]}';
+
+    ExportHelpers.showExportDialog(
+      context,
+      headers,
+      timesheetData,
+      fileName,
+    );
+  }
+
+  Future<void> _selectDateRange(BuildContext context) async {
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+    final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
+
+    final DateTimeRange? result = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 5),
+      initialDateRange: _selectedDateRange ??
+          DateTimeRange(
+            start: currentMonthStart,
+            end: currentMonthEnd,
+          ),
+      currentDate: now,
+      helpText: 'Select Date Range for Timesheet Review',
+      cancelText: 'Cancel',
+      confirmText: 'Apply Filter',
+      saveText: 'Apply',
+      builder: (context, child) {
+        return Center(
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 450,
+                maxHeight: 650,
+              ),
+              margin: const EdgeInsets.all(16),
+              child: Material(
+                borderRadius: BorderRadius.circular(16),
+                elevation: 8,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                          primary: const Color(0xff0386FF),
+                          onPrimary: Colors.white,
+                          onSurface: Colors.black87,
+                          onSurfaceVariant: Colors.grey.shade700,
+                          surface: Colors.white,
+                          surfaceVariant: Colors.grey.shade50,
+                        ),
+                    datePickerTheme: DatePickerThemeData(
+                      backgroundColor: Colors.white,
+                      headerBackgroundColor: const Color(0xff0386FF),
+                      headerForegroundColor: Colors.white,
+                      weekdayStyle: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                      dayStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      yearStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      headerHelpStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    textButtonTheme: TextButtonThemeData(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xff0386FF),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: child!,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedDateRange = result;
+      });
+
+      // Apply the filter with the new date range
+      _applyFilter(_selectedFilter);
+
+      // Show feedback to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Showing ${_filteredTimesheets.length} timesheets from ${DateFormat('MMM dd').format(result.start)} - ${DateFormat('MMM dd, yyyy').format(result.end)}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xff0386FF),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildDateRangeSelector() {
+    final now = DateTime.now();
+    final isCurrentMonth = _selectedDateRange == null ||
+        (_selectedDateRange!.start.year == now.year &&
+            _selectedDateRange!.start.month == now.month);
+
+    return Material(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: _selectedDateRange != null
+                ? const Color(0xff0386FF)
+                : Colors.grey.shade300,
+            width: _selectedDateRange != null ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: _selectedDateRange != null
+              ? const Color(0xff0386FF).withOpacity(0.05)
+              : Colors.white,
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () => _selectDateRange(context),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff0386FF).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Color(0xff0386FF),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedDateRange != null
+                                ? '${DateFormat('MMM dd').format(_selectedDateRange!.start)} - ${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.end)}'
+                                : 'Tap to select date range',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: _selectedDateRange != null
+                                  ? Colors.black87
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            _selectedDateRange != null
+                                ? '${_selectedDateRange!.duration.inDays + 1} days selected'
+                                : 'Currently showing: ${isCurrentMonth ? "This month" : "All time"}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _selectedDateRange != null
+                                  ? const Color(0xff0386FF)
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.edit_calendar,
+                      size: 18,
+                      color: Color(0xff0386FF),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_selectedDateRange != null)
+              Container(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDateRange = null;
+                          });
+                          _applyFilter(_selectedFilter);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Date filter cleared'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Clear Filter'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _selectDateRange(context),
+                        icon: const Icon(Icons.tune, size: 16),
+                        label: const Text('Change'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff0386FF),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -590,6 +959,32 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       ],
                     ),
                     const Spacer(),
+                    // Export Button
+                    Material(
+                      elevation: 2,
+                      borderRadius: BorderRadius.circular(12),
+                      child: ElevatedButton.icon(
+                        onPressed: _filteredTimesheets.isNotEmpty
+                            ? _exportTimesheets
+                            : null,
+                        icon: const Icon(Icons.file_download, size: 18),
+                        label: const Text(
+                          'Export',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff10B981),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -657,6 +1052,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                // Date Range Picker
+                _buildDateRangeSelector(),
               ],
             ),
           ),

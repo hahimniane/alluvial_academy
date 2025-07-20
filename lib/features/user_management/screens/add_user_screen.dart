@@ -147,19 +147,21 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           rowState.emailController.text.isNotEmpty) {
         print('Row $index has some fields populated');
 
-        // Check if all required fields are populated
+        // Check if all required fields are populated (phone number is optional)
         if (rowState.firstNameController.text.isEmpty ||
             rowState.lastNameController.text.isEmpty ||
-            rowState.phoneController.text.isEmpty ||
             rowState.emailController.text.isEmpty ||
             rowState.kioskCodeController.text.isEmpty) {
           print('Row $index is incomplete');
           allValid = false;
+          setState(() {
+            _isLoading = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xffF56565),
               content: Text(
-                'All fields in row ${index + 1} must be filled',
+                'First name, last name, email, and kiosk code are required in row ${index + 1}',
                 style: GoogleFonts.openSans(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -175,8 +177,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         }
 
         print('Row $index is complete, adding to usersData');
-        final fullPhoneNumber =
-            "${rowState.countryCode}${rowState.phoneController.text.trim()}";
+        final fullPhoneNumber = rowState.phoneController.text.trim().isNotEmpty
+            ? "${rowState.countryCode}${rowState.phoneController.text.trim()}"
+            : "";
 
         // Map user type to title (user type and title should be the same)
         String title = rowState.selectedUserType;
@@ -231,6 +234,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
     if (usersData.isEmpty) {
       print('No users data to save');
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -252,6 +258,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     for (var userData in usersData) {
       String kioskCode = userData['kiosk_code'];
       if (kioskCodes.contains(kioskCode)) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -274,6 +283,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     for (String kioskCode in kioskCodes) {
       bool isUnique = await _isKioskCodeUnique(kioskCode);
       if (!isUnique) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -521,7 +533,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Users will log in using their mobile phone number and receive login credentials via email',
+                          'Users will receive login credentials via email. Phone number is optional.',
                           style: GoogleFonts.openSans(
                             fontSize: 14,
                             color: const Color(0xff0B3858),
@@ -626,7 +638,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 3,
                             child: Text(
-                              'Mobile Phone*',
+                              'Mobile Phone',
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -902,10 +914,8 @@ class _UserInputRowState extends State<UserInputRow> {
   bool areAllFieldsPopulated() {
     return firstNameController.text.isNotEmpty &&
         lastNameController.text.isNotEmpty &&
-        phoneController.text.isNotEmpty &&
         emailController.text.isNotEmpty &&
         kioskCodeController.text.isNotEmpty &&
-        countryCode.isNotEmpty &&
         hourlyRateController.text.isNotEmpty;
   }
 
@@ -1170,7 +1180,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 });
               },
               decoration: InputDecoration(
-                hintText: 'Phone Number',
+                hintText: 'Phone Number (Optional)',
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
