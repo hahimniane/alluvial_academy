@@ -15,6 +15,7 @@ class Employee {
     required this.kioskCode,
     required this.dateAdded,
     required this.lastLogin,
+    this.isAdminTeacher = false,
   });
 
   final String firstName;
@@ -28,6 +29,7 @@ class Employee {
   final String kioskCode;
   final String dateAdded;
   final String lastLogin;
+  final bool isAdminTeacher;
 }
 
 class EmployeeDataSource extends DataGridSource {
@@ -113,6 +115,7 @@ class EmployeeDataSource extends DataGridSource {
         kioskCode: data['kiosk_code'] ?? '',
         dateAdded: formatTimestamp(data['date_added']),
         lastLogin: formatTimestamp(data['last_login']),
+        isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
       );
     }).toList();
   }

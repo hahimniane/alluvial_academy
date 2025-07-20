@@ -7,11 +7,15 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:csv/csv.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/widgets/header_widget.dart';
 import '../../../core/models/employee_model.dart';
+import '../../../core/models/admin_employee_datasource.dart';
+import '../../../core/models/user_employee_datasource.dart';
 import '../../../utility_functions/export_helpers.dart';
+import '../../../core/services/user_role_service.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -23,13 +27,17 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  EmployeeDataSource? _employeeDataSource;
+  UserEmployeeDataSource? _employeeDataSource;
+  AdminEmployeeDataSource? _adminDataSource;
   List<Employee> _allEmployees = [];
   List<Employee> _filteredEmployees = [];
+  List<Employee> _adminUsers = [];
+  List<Employee> _filteredAdmins = [];
   String _currentSearchTerm = '';
   String? _currentFilterType;
 
-  int? numberOfUsers = 0;
+  int numberOfUsers = 0;
+  int numberOfAdmins = 0;
 
   void getFirebaseData() async {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -51,7 +59,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     super.initState();
     getFirebaseData();
     _tabController = TabController(length: 2, vsync: this);
-    _employeeDataSource = EmployeeDataSource(employees: []);
+    _employeeDataSource = UserEmployeeDataSource(
+      employees: [],
+      onPromoteToAdmin: _promoteToAdminTeacher,
+    );
+    _adminDataSource = AdminEmployeeDataSource(
+      employees: [],
+      onPromoteToAdmin: _promoteToAdminTeacher,
+      onRevokeAdmin: _revokeAdminPrivileges,
+    );
   }
 
   @override
@@ -76,6 +92,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   void _applyFilters() {
     List<Employee> filtered = _allEmployees;
+    List<Employee> adminFiltered = _adminUsers;
 
     // Apply user type filter
     if (_currentFilterType != null && _currentFilterType != 'all') {
@@ -93,25 +110,341 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             employee.email.toLowerCase().contains(_currentSearchTerm) ||
             employee.userType.toLowerCase().contains(_currentSearchTerm);
       }).toList();
+
+      adminFiltered = adminFiltered.where((employee) {
+        return employee.firstName.toLowerCase().contains(_currentSearchTerm) ||
+            employee.lastName.toLowerCase().contains(_currentSearchTerm) ||
+            employee.email.toLowerCase().contains(_currentSearchTerm) ||
+            employee.userType.toLowerCase().contains(_currentSearchTerm);
+      }).toList();
     }
 
-    // Update the filtered list
+    // Update the filtered lists
     _filteredEmployees = filtered;
+    _filteredAdmins = adminFiltered;
 
-    // Update the data source
+    // Update the data sources
     if (_employeeDataSource != null) {
       _employeeDataSource!.updateDataSource(_filteredEmployees);
-    } else {
-      print('ERROR: Data source is null!'); // Debug log
+    }
+    if (_adminDataSource != null) {
+      _adminDataSource!.updateDataSource(_filteredAdmins);
     }
   }
 
   void _updateEmployeeData(List<Employee> employees) {
     setState(() {
-      _allEmployees = employees;
-      numberOfUsers = employees.length;
+      // Separate admin and regular users
+      _allEmployees =
+          employees.where((emp) => emp.userType != 'admin').toList();
+      _adminUsers = employees
+          .where((emp) => emp.userType == 'admin' || emp.isAdminTeacher)
+          .toList();
+
+      numberOfUsers = _allEmployees.length;
+      numberOfAdmins = _adminUsers.length;
+
+      // Initialize data sources if needed
+      if (_employeeDataSource == null) {
+        _employeeDataSource = UserEmployeeDataSource(
+          employees: _allEmployees,
+          onPromoteToAdmin: _promoteToAdminTeacher,
+        );
+      }
+      if (_adminDataSource == null) {
+        _adminDataSource = AdminEmployeeDataSource(
+          employees: _adminUsers,
+          onPromoteToAdmin: _promoteToAdminTeacher,
+          onRevokeAdmin: _revokeAdminPrivileges,
+        );
+      }
+
       _applyFilters(); // Apply current filters to new data
     });
+  }
+
+  Future<void> _promoteToAdminTeacher(Employee employee) async {
+    final confirmed = await _showPromotionDialog(employee);
+    if (!confirmed) return;
+
+    try {
+      final success =
+          await UserRoleService.promoteToAdminTeacher(employee.email);
+
+      if (success) {
+        _showSuccessSnackBar(
+            '${employee.firstName} ${employee.lastName} has been promoted to Admin-Teacher!');
+        _refreshData();
+      } else {
+        _showErrorSnackBar(
+            'Failed to promote user. Only teachers can be promoted to admin-teacher role.');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error promoting user: $e');
+    }
+  }
+
+  Future<void> _revokeAdminPrivileges(Employee employee) async {
+    final confirmed = await _showRevocationDialog(employee);
+    if (!confirmed) return;
+
+    try {
+      final success =
+          await UserRoleService.revokeAdminPrivileges(employee.email);
+
+      if (success) {
+        _showSuccessSnackBar(
+            'Admin privileges revoked for ${employee.firstName} ${employee.lastName}');
+        _refreshData();
+      } else {
+        _showErrorSnackBar('Failed to revoke admin privileges.');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error revoking privileges: $e');
+    }
+  }
+
+  Future<bool> _showPromotionDialog(Employee employee) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.admin_panel_settings, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text('Promote to Admin-Teacher',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to promote ${employee.firstName} ${employee.lastName} to Admin-Teacher?',
+                  style: GoogleFonts.inter(),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('This will give them:',
+                          style:
+                              GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text('• Full admin privileges',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                      Text(
+                          '• Ability to switch between Admin and Teacher roles',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                      Text('• Access to user management and system settings',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: const Text('Promote',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<bool> _showRevocationDialog(Employee employee) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.remove_moderator, color: Colors.red),
+                const SizedBox(width: 8),
+                Text('Revoke Admin Privileges',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to revoke admin privileges from ${employee.firstName} ${employee.lastName}?',
+                  style: GoogleFonts.inter(),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('This will:',
+                          style:
+                              GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text('• Remove admin privileges',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                      Text('• Keep their teacher role intact',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                      Text('• Remove access to admin functions',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child:
+                    const Text('Revoke', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _refreshData() {
+    // Force rebuild by calling setState
+    setState(() {});
+  }
+
+  Widget _buildAdminGrid() {
+    return SfDataGrid(
+      source: _adminDataSource!,
+      columnWidthMode: ColumnWidthMode.fill,
+      columns: <GridColumn>[
+        GridColumn(
+          columnName: 'FirstName',
+          label: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: Text(
+              'First Name',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3f4648),
+              ),
+            ),
+          ),
+        ),
+        GridColumn(
+          columnName: 'LastName',
+          label: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: Text(
+              'Last Name',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3f4648),
+              ),
+            ),
+          ),
+        ),
+        GridColumn(
+          columnName: 'Email',
+          label: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: Text(
+              'Email',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3f4648),
+              ),
+            ),
+          ),
+        ),
+        GridColumn(
+          columnName: 'UserType',
+          label: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: Text(
+              'Role Type',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3f4648),
+              ),
+            ),
+          ),
+        ),
+        GridColumn(
+          columnName: 'AdminType',
+          label: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: Text(
+              'Admin Type',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3f4648),
+              ),
+            ),
+          ),
+        ),
+        GridColumn(
+          columnName: 'Actions',
+          label: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: Text(
+              'Actions',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff3f4648),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _exportData() {
@@ -289,9 +622,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                               Tab(
                                 text: 'USERS (${_filteredEmployees.length})',
                               ),
-                              const Tab(
-                                  text:
-                                      'ADMINS (${0})'), // Will be updated dynamically
+                              Tab(
+                                text: 'ADMINS (${_filteredAdmins.length})',
+                              ),
                             ],
                           ),
                         ),
@@ -317,11 +650,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               alignment: Alignment.center,
                                               child: Text(
                                                 'First Name',
-                                                style: openSansHebrewTextStyle
-                                                    .copyWith(
+                                                style: GoogleFonts.inter(
                                                   color:
                                                       const Color(0xff3f4648),
-                                                  fontWeight: FontWeight.w500,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ),
@@ -475,10 +807,102 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                         ],
                                       ),
                               ),
-                              // Admins Tab (placeholder)
-                              const Center(
-                                child:
-                                    Text('Admin users will be displayed here'),
+                              // Admins Tab
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Header with role management info
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.info,
+                                              color: Colors.blue),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Admin Role Management',
+                                                  style: GoogleFonts.inter(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.blue.shade700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Promote teachers to admin-teacher (dual role) or revoke admin privileges. Admin-teachers can switch between roles.',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 12,
+                                                    color: Colors.blue.shade600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    // Admin users grid
+                                    Expanded(
+                                      child: _adminDataSource == null
+                                          ? const Center(
+                                              child:
+                                                  CircularProgressIndicator())
+                                          : _filteredAdmins.isEmpty
+                                              ? Center(
+                                                  child: Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons
+                                                            .admin_panel_settings_outlined,
+                                                        size: 64,
+                                                        color: Colors
+                                                            .grey.shade400,
+                                                      ),
+                                                      const SizedBox(
+                                                          height: 16),
+                                                      Text(
+                                                        'No admin users found',
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                          fontSize: 18,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors
+                                                              .grey.shade600,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'Promote teachers from the Users tab to create admin-teachers',
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                          fontSize: 14,
+                                                          color: Colors
+                                                              .grey.shade500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                )
+                                              : _buildAdminGrid(),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
