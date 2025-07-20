@@ -7,6 +7,7 @@ import '../../../system_settings_screen.dart';
 import 'package:csv/csv.dart';
 import 'dart:convert';
 import 'dart:html' as html;
+import '../../../utility_functions/export_helpers.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -2717,20 +2718,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   /// Show the form responses export dialog with date range selection
   void _showFormResponsesExportDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Export Feature'),
-          content: const Text('Export functionality will be implemented soon.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
+    // Sample data - replace with actual form responses from your database
+    List<String> headers = [
+      "Response ID",
+      "Form Title",
+      "Submitted Date",
+      "User Name",
+      "User Email",
+      "Response Status"
+    ];
+
+    List<List<String>> sampleData = [
+      [
+        "1",
+        "Course Feedback",
+        "2024-01-15",
+        "John Doe",
+        "john@example.com",
+        "Complete"
+      ],
+      [
+        "2",
+        "Assignment Submission",
+        "2024-01-14",
+        "Jane Smith",
+        "jane@example.com",
+        "Complete"
+      ],
+      [
+        "3",
+        "Registration Form",
+        "2024-01-13",
+        "Mike Johnson",
+        "mike@example.com",
+        "Pending"
+      ],
+    ];
+
+    ExportHelpers.showExportDialog(
+      context,
+      headers,
+      sampleData,
+      "form_responses_${DateTime.now().toString().split(' ')[0]}",
     );
   }
 

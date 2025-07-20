@@ -11,6 +11,7 @@ import 'package:universal_html/html.dart' as html;
 import 'core/constants/app_constants.dart';
 import 'shared/widgets/header_widget.dart';
 import 'core/models/employee_model.dart';
+import 'utility_functions/export_helpers.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -106,47 +107,49 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   }
 
   void _exportData() {
-    List<List<String>> userData = [
-      [
-        "First Name",
-        "Last Name",
-        "Email",
-        "Country Code",
-        "Mobile Phone",
-        "User Type",
-        "Title",
-        "Employment Start Date",
-        "Kiosk Code",
-        "Date Added",
-        "Last Login"
-      ],
-      ..._allEmployees.map((e) => [
-            e.firstName,
-            e.lastName,
-            e.email,
-            e.countryCode,
-            e.mobilePhone,
-            e.userType,
-            e.title,
-            e.employmentStartDate,
-            e.kioskCode,
-            e.dateAdded,
-            e.lastLogin,
-          ])
+    print('_exportData called. _allEmployees length: ${_allEmployees.length}');
+
+    List<String> headers = [
+      "First Name",
+      "Last Name",
+      "Email",
+      "Country Code",
+      "Mobile Phone",
+      "User Type",
+      "Title",
+      "Employment Start Date",
+      "Kiosk Code",
+      "Date Added",
+      "Last Login"
     ];
 
-    String csv = const ListToCsvConverter().convert(userData);
+    List<List<String>> userData = _allEmployees
+        .map((e) => [
+              e.firstName,
+              e.lastName,
+              e.email,
+              e.countryCode,
+              e.mobilePhone,
+              e.userType,
+              e.title,
+              e.employmentStartDate,
+              e.kioskCode,
+              e.dateAdded,
+              e.lastLogin,
+            ])
+        .toList();
 
-    // Create a Blob
-    final bytes = utf8.encode(csv);
-    final blob = html.Blob([bytes]);
+    print('userData length: ${userData.length}');
+    if (userData.isNotEmpty) {
+      print('First user data: ${userData[0]}');
+    }
 
-    // Create a link element
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute("download", "employees.csv")
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    ExportHelpers.showExportDialog(
+      context,
+      headers,
+      userData,
+      "employees",
+    );
   }
 
   @override

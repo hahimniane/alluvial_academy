@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_constants.dart' as constants;
 import '../models/timesheet_entry.dart';
 import '../../../core/services/location_service.dart';
+import '../../../utility_functions/export_helpers.dart';
 
 class TimesheetTable extends StatefulWidget {
   final List<dynamic>? clockInEntries;
@@ -1405,10 +1406,71 @@ class _TimesheetTableState extends State<TimesheetTable>
     );
   }
 
-  void _exportTimesheet() {
-    // Implement export functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export functionality will be implemented')),
+  void _exportTimesheet() async {
+    // Get current user information
+    final user = FirebaseAuth.instance.currentUser;
+    String teacherName = 'Unknown Teacher';
+
+    if (user != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          final firstName = userData['first_name'] ?? '';
+          final lastName = userData['last_name'] ?? '';
+          teacherName = '$firstName $lastName'.trim();
+          if (teacherName.isEmpty) {
+            teacherName = userData['e-mail'] ?? user.email ?? 'Current Teacher';
+          }
+        }
+      } catch (e) {
+        print('Error fetching teacher name: $e');
+        teacherName = user.email ?? 'Current Teacher';
+      }
+    }
+
+    List<String> headers = [
+      "Date",
+      "Student",
+      "Start Time",
+      "End Time",
+      "Break Duration",
+      "Total Hours",
+      "Description",
+      "Status",
+      "Teacher",
+      "Location"
+    ];
+
+    List<List<String>> timesheetData = this
+        .timesheetData
+        .map((entry) => [
+              entry.date,
+              entry.subject,
+              entry.start,
+              entry.end,
+              entry.breakDuration,
+              entry.totalHours,
+              entry.description,
+              entry.status.toString().split('.').last, // Get enum name
+              entry.teacherName?.isNotEmpty == true
+                  ? entry.teacherName!
+                  : teacherName,
+              entry.clockInAddress ?? 'Location not available',
+            ])
+        .toList();
+
+    print('Exporting timesheet with teacher name: $teacherName');
+
+    ExportHelpers.showExportDialog(
+      context,
+      headers,
+      timesheetData,
+      "timesheet_${DateTime.now().toString().split(' ')[0]}",
     );
   }
 
