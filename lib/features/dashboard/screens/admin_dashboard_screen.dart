@@ -20,6 +20,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic>? userData;
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
+  int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
 
   @override
   void initState() {
@@ -2752,7 +2753,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return _TeacherProfileDialog();
+        return _TeacherProfileDialog(
+          onProfileUpdated: () {
+            setState(() {
+              _profileCompletionTrigger++; // Trigger refresh
+            });
+          },
+        );
       },
     );
   }
@@ -3283,6 +3290,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(width: 8),
                     FutureBuilder<int>(
+                      key: ValueKey(_profileCompletionTrigger),
                       future: _getProfileCompletionPercentage(),
                       builder: (context, snapshot) {
                         final percentage = snapshot.data ?? 0;
@@ -3918,6 +3926,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
 // Teacher Profile Dialog for completing profile information
 class _TeacherProfileDialog extends StatefulWidget {
+  final VoidCallback? onProfileUpdated;
+
+  const _TeacherProfileDialog({Key? key, this.onProfileUpdated})
+      : super(key: key);
+
   @override
   _TeacherProfileDialogState createState() => _TeacherProfileDialogState();
 }
@@ -4386,6 +4399,11 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
         );
 
         Navigator.of(context).pop();
+
+        // Notify parent to refresh completion percentage
+        if (widget.onProfileUpdated != null) {
+          widget.onProfileUpdated!();
+        }
       }
     } catch (e) {
       print('Error saving teacher profile: $e');
