@@ -28,6 +28,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   Map<String, dynamic> _shiftStats = {};
   bool _isLoading = true;
 
+  // Bulk selection state
+  Set<String> _selectedShiftIds = {};
+  bool _isSelectionMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -151,21 +155,67 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Shift Management',
-                  style: GoogleFonts.inter(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff111827),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Manage Islamic education teaching shifts and schedules',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    color: const Color(0xff6B7280),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Shift Management',
+                            style: GoogleFonts.inter(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff111827),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Manage Islamic education teaching shifts and schedules',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              color: const Color(0xff6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Bulk selection toggle
+                    if (!_isLoading) ...[
+                      TextButton.icon(
+                        onPressed: _toggleSelectionMode,
+                        icon: Icon(
+                          _isSelectionMode ? Icons.close : Icons.checklist,
+                          size: 20,
+                        ),
+                        label: Text(
+                          _isSelectionMode ? 'Cancel' : 'Select',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: _isSelectionMode
+                              ? Colors.red
+                              : const Color(0xff0386FF),
+                        ),
+                      ),
+                      if (_isSelectionMode && _selectedShiftIds.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _deleteSelectedShifts,
+                          icon: const Icon(Icons.delete, size: 20),
+                          label: Text(
+                            'Delete (${_selectedShiftIds.length})',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -411,8 +461,26 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           onViewDetails: _showShiftDetails,
           onEditShift: _editShift,
           onDeleteShift: _deleteShift,
+          isSelectionMode: _isSelectionMode,
+          selectedShiftIds: _selectedShiftIds,
+          onSelectionChanged: _onShiftSelectionChanged,
         ),
         columns: [
+          if (_isSelectionMode)
+            GridColumn(
+              columnName: 'checkbox',
+              width: 60,
+              label: Container(
+                padding: const EdgeInsets.all(16),
+                alignment: Alignment.center,
+                child: Checkbox(
+                  value: _selectedShiftIds.isNotEmpty &&
+                      _selectedShiftIds.length == _getCurrentShifts().length,
+                  tristate: true,
+                  onChanged: _selectAllShifts,
+                ),
+              ),
+            ),
           GridColumn(
             columnName: 'shiftName',
             label: Container(
@@ -606,14 +674,28 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
     if (confirmed == true) {
       try {
-        await ShiftService.deleteShift(shift.id);
+        // Show loading state
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
+              content: Text('Deleting shift...'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+
+        await ShiftService.deleteShift(shift.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
               content: Text('Shift deleted successfully'),
               backgroundColor: Colors.green,
             ),
           );
+          // Force refresh statistics
+          _loadShiftStatistics();
         }
       } catch (e) {
         if (mounted) {
@@ -627,6 +709,133 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       }
     }
   }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedShiftIds.clear();
+      }
+    });
+  }
+
+  void _onShiftSelectionChanged(String shiftId, bool isSelected) {
+    setState(() {
+      if (isSelected) {
+        _selectedShiftIds.add(shiftId);
+      } else {
+        _selectedShiftIds.remove(shiftId);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedShifts() async {
+    if (_selectedShiftIds.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete Multiple Shifts',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to delete ${_selectedShiftIds.length} selected shifts? This action cannot be undone.',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Delete All',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Show loading state
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Deleting ${_selectedShiftIds.length} shifts...'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+
+        // Delete all selected shifts
+        await ShiftService.deleteMultipleShifts(_selectedShiftIds.toList());
+
+        if (mounted) {
+          setState(() {
+            _selectedShiftIds.clear();
+            _isSelectionMode = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('All selected shifts deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Force refresh statistics
+          _loadShiftStatistics();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting shifts: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  List<TeachingShift> _getCurrentShifts() {
+    switch (_tabController.index) {
+      case 0:
+        return _allShifts;
+      case 1:
+        return _todayShifts;
+      case 2:
+        return _upcomingShifts;
+      case 3:
+        return _activeShifts;
+      default:
+        return _allShifts;
+    }
+  }
+
+  void _selectAllShifts(bool? value) {
+    setState(() {
+      if (value == true) {
+        // Select all shifts in current tab
+        _selectedShiftIds.addAll(_getCurrentShifts().map((shift) => shift.id));
+      } else {
+        // Deselect all
+        _selectedShiftIds.clear();
+      }
+    });
+  }
 }
 
 class ShiftDataSource extends DataGridSource {
@@ -634,18 +843,34 @@ class ShiftDataSource extends DataGridSource {
   final Function(TeachingShift) onViewDetails;
   final Function(TeachingShift) onEditShift;
   final Function(TeachingShift) onDeleteShift;
+  final bool isSelectionMode;
+  final Set<String> selectedShiftIds;
+  final Function(String, bool) onSelectionChanged;
 
   ShiftDataSource({
     required this.shifts,
     required this.onViewDetails,
     required this.onEditShift,
     required this.onDeleteShift,
+    required this.isSelectionMode,
+    required this.selectedShiftIds,
+    required this.onSelectionChanged,
   });
 
   @override
   List<DataGridRow> get rows {
     return shifts.map<DataGridRow>((shift) {
-      return DataGridRow(cells: [
+      final cells = <DataGridCell>[];
+
+      // Add checkbox cell if in selection mode
+      if (isSelectionMode) {
+        cells.add(DataGridCell<bool>(
+            columnName: 'checkbox',
+            value: selectedShiftIds.contains(shift.id)));
+      }
+
+      // Add regular cells
+      cells.addAll([
         DataGridCell<String>(columnName: 'shiftName', value: shift.displayName),
         DataGridCell<String>(columnName: 'teacher', value: shift.teacherName),
         DataGridCell<String>(
@@ -658,6 +883,8 @@ class ShiftDataSource extends DataGridSource {
         DataGridCell<double>(columnName: 'payment', value: shift.totalPayment),
         DataGridCell<TeachingShift>(columnName: 'actions', value: shift),
       ]);
+
+      return DataGridRow(cells: cells);
     }).toList();
   }
 
@@ -671,7 +898,21 @@ class ShiftDataSource extends DataGridSource {
   DataGridRowAdapter buildRow(DataGridRow row) {
     return DataGridRowAdapter(
       cells: row.getCells().map<Widget>((cell) {
-        if (cell.columnName == 'status') {
+        if (cell.columnName == 'checkbox') {
+          return Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(16),
+            child: Checkbox(
+              value: cell.value as bool,
+              onChanged: (bool? value) {
+                final shift = _getShiftFromRow(row);
+                if (shift != null) {
+                  onSelectionChanged(shift.id, value ?? false);
+                }
+              },
+            ),
+          );
+        } else if (cell.columnName == 'status') {
           return _buildStatusChip(cell.value.toString());
         } else if (cell.columnName == 'payment') {
           return Container(
@@ -756,6 +997,21 @@ class ShiftDataSource extends DataGridSource {
   }
 
   Widget _buildActionButtons(TeachingShift shift) {
+    // Hide action buttons in selection mode
+    if (isSelectionMode) {
+      return Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'Select items',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+      );
+    }
+
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.all(16),
@@ -788,5 +1044,15 @@ class ShiftDataSource extends DataGridSource {
         ],
       ),
     );
+  }
+
+  TeachingShift? _getShiftFromRow(DataGridRow row) {
+    // Get the shift from the actions cell which contains the TeachingShift object
+    final actionsCell = row.getCells().firstWhere(
+          (cell) => cell.columnName == 'actions',
+          orElse: () =>
+              DataGridCell<TeachingShift>(columnName: 'actions', value: null),
+        );
+    return actionsCell.value as TeachingShift?;
   }
 }
