@@ -20,6 +20,7 @@ import 'test_role_system.dart';
 import 'firestore_debug_screen.dart';
 import 'features/tasks/screens/quick_tasks_screen.dart';
 import 'features/shift_management/screens/shift_management_screen.dart';
+import 'features/shift_management/screens/teacher_shift_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
@@ -109,6 +110,7 @@ class _DashboardPageState extends State<DashboardPage> {
         AdminDashboard(refreshTrigger: _refreshTrigger),
         const UserManagementScreen(),
         const ShiftManagementScreen(),
+        const TeacherShiftScreen(),
         const ChatPage(),
         const TimeClockScreen(),
         const AdminTimesheetReview(),
@@ -1096,27 +1098,33 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xff0386FF),
                     ),
                     _buildSideMenuItem(
+                      icon: const Icon(Icons.schedule),
+                      text: 'My Shifts',
+                      index: 3,
+                      color: const Color(0xff059669),
+                    ),
+                    _buildSideMenuItem(
                       icon: const Icon(Icons.chat),
                       text: 'Chat',
-                      index: 3,
+                      index: 4,
                       color: DashboardConstants.chatIconColor,
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.timer),
                       text: 'Time Clock',
-                      index: 4,
+                      index: 5,
                       color: DashboardConstants.timeClockIconColor,
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.assignment),
                       text: 'Forms',
-                      index: 6,
+                      index: 7,
                       color: DashboardConstants.formsIconColor,
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.task_alt),
                       text: 'Tasks',
-                      index: 8,
+                      index: 9,
                       color: DashboardConstants.jobSchedulingIconColor,
                     ),
                   ],

@@ -107,8 +107,11 @@ class ShiftService {
     try {
       final List<TeachingShift> recurringShifts = [];
       DateTime currentDate = baseShift.shiftStart;
+      int maxRecurringShifts = 50; // Limit to prevent too many shifts
+      int createdCount = 0;
 
-      while (currentDate.isBefore(endDate)) {
+      while (
+          currentDate.isBefore(endDate) && createdCount < maxRecurringShifts) {
         DateTime nextDate;
 
         switch (baseShift.recurrence) {
@@ -148,6 +151,7 @@ class ShiftService {
 
         recurringShifts.add(recurringShift);
         currentDate = nextDate;
+        createdCount++;
       }
 
       // Batch write all recurring shifts
@@ -169,21 +173,29 @@ class ShiftService {
   static Stream<List<TeachingShift>> getTeacherShifts(String teacherId) {
     return _shiftsCollection
         .where('teacher_id', isEqualTo: teacherId)
-        .orderBy('shift_start', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => TeachingShift.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+
+      // Sort by shift_start since we can't use orderBy in query without index
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      return shifts;
+    });
   }
 
   /// Get all shifts (admin view)
   static Stream<List<TeachingShift>> getAllShifts() {
-    return _shiftsCollection
-        .orderBy('shift_start', descending: false)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => TeachingShift.fromFirestore(doc))
-            .toList());
+    return _shiftsCollection.snapshots().map((snapshot) {
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+
+      // Sort by shift_start for consistent ordering
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      return shifts;
+    });
   }
 
   /// Get shifts for today
@@ -258,6 +270,26 @@ class ShiftService {
     } catch (e) {
       print('Error deleting shift: $e');
       throw Exception('Failed to delete shift');
+    }
+  }
+
+  /// Delete multiple shifts at once
+  static Future<void> deleteMultipleShifts(List<String> shiftIds) async {
+    try {
+      print('ShiftService: Deleting ${shiftIds.length} shifts');
+
+      // Use a batch to delete all shifts atomically
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (String shiftId in shiftIds) {
+        batch.delete(_shiftsCollection.doc(shiftId));
+      }
+
+      await batch.commit();
+      print('ShiftService: Successfully deleted ${shiftIds.length} shifts');
+    } catch (e) {
+      print('Error deleting multiple shifts: $e');
+      throw Exception('Failed to delete multiple shifts');
     }
   }
 
@@ -458,6 +490,163 @@ class ShiftService {
     } catch (e) {
       print('Error getting shift statistics: $e');
       return {};
+    }
+  }
+
+  /// Get all shifts for a specific teacher with timezone conversion
+  static Future<List<TeachingShift>> getShiftsForTeacher(
+    String teacherId, {
+    String? teacherTimezone,
+    int? limitDays,
+  }) async {
+    try {
+      print('ShiftService: Getting shifts for teacher $teacherId');
+
+      // Temporarily remove orderBy to avoid index requirement
+      var query = _shiftsCollection.where('teacher_id', isEqualTo: teacherId);
+
+      // Optionally limit to upcoming shifts within X days
+      if (limitDays != null) {
+        final futureLimit = DateTime.now().add(Duration(days: limitDays));
+        query = query.where('shift_start',
+            isLessThan: Timestamp.fromDate(futureLimit));
+      }
+
+      final snapshot = await query.get();
+      print('ShiftService: Found ${snapshot.docs.length} shifts for teacher');
+
+      // Debug: Print ALL shift documents for this teacher
+      if (snapshot.docs.isNotEmpty) {
+        print(
+            'ShiftService: All ${snapshot.docs.length} shifts for teacher $teacherId:');
+        for (int i = 0; i < snapshot.docs.length; i++) {
+          final doc = snapshot.docs[i];
+          final data = doc.data() as Map<String, dynamic>;
+          print('  ${i + 1}. Shift ID: ${doc.id}');
+          print('     Teacher ID: ${data['teacher_id']}');
+          print('     Name: ${data['auto_generated_name']}');
+          print('     Subject: ${data['subject']}');
+          print('     Date: ${data['shift_start']}');
+          print('     Recurrence: ${data['recurrence']}');
+          print('     Created: ${data['created_at']}');
+          print('');
+        }
+
+        // Check for duplicates
+        final duplicateNames = <String, int>{};
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name = data['auto_generated_name'] as String? ?? 'Unknown';
+          duplicateNames[name] = (duplicateNames[name] ?? 0) + 1;
+        }
+
+        print('ShiftService: Duplicate analysis:');
+        duplicateNames.forEach((name, count) {
+          if (count > 1) {
+            print('  - "$name" appears $count times');
+          }
+        });
+      } else {
+        print('ShiftService: No shifts found for teacher_id: $teacherId');
+      }
+
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+
+      // Sort by shift_start since we can't use orderBy in query without index
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      // Convert to teacher's timezone if specified
+      if (teacherTimezone != null) {
+        // Note: In a real app, you'd use a proper timezone library like timezone
+        // For now, we'll just note the timezone in the shift object
+        return shifts
+            .map((shift) => shift.copyWith(
+                  teacherTimezone: teacherTimezone,
+                ))
+            .toList();
+      }
+
+      return shifts;
+    } catch (e) {
+      print('Error getting shifts for teacher: $e');
+      return [];
+    }
+  }
+
+  /// Get upcoming shifts for teacher (next 7 days)
+  static Future<List<TeachingShift>> getUpcomingShiftsForTeacher(
+    String teacherId, {
+    String? teacherTimezone,
+  }) async {
+    return getShiftsForTeacher(
+      teacherId,
+      teacherTimezone: teacherTimezone,
+      limitDays: 7,
+    );
+  }
+
+  /// Check if teacher has any active shifts right now
+  static Future<bool> hasActiveShift(String teacherId) async {
+    try {
+      final activeShift = await getCurrentActiveShift(teacherId);
+      return activeShift != null;
+    } catch (e) {
+      print('Error checking active shift: $e');
+      return false;
+    }
+  }
+
+  /// Clean up duplicate shifts for a teacher (EMERGENCY FUNCTION)
+  static Future<void> cleanupDuplicateShifts(String teacherId) async {
+    try {
+      print('ShiftService: Starting cleanup for teacher $teacherId');
+
+      final snapshot = await _shiftsCollection
+          .where('teacher_id', isEqualTo: teacherId)
+          .get();
+
+      print('ShiftService: Found ${snapshot.docs.length} total shifts');
+
+      // Group by auto_generated_name and date
+      final shiftGroups = <String, List<QueryDocumentSnapshot>>{};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final name = data['auto_generated_name'] as String? ?? 'Unknown';
+        final date = (data['shift_start'] as Timestamp?)?.toDate();
+        final key = '$name-${date?.day}/${date?.month}/${date?.year}';
+
+        if (!shiftGroups.containsKey(key)) {
+          shiftGroups[key] = [];
+        }
+        shiftGroups[key]!.add(doc);
+      }
+
+      // Delete duplicates (keep only the first one of each group)
+      int deletedCount = 0;
+      final batch = _firestore.batch();
+
+      for (var group in shiftGroups.values) {
+        if (group.length > 1) {
+          print('Found ${group.length} duplicates of same shift');
+          // Keep the first one, delete the rest
+          for (int i = 1; i < group.length; i++) {
+            batch.delete(group[i].reference);
+            deletedCount++;
+          }
+        }
+      }
+
+      if (deletedCount > 0) {
+        await batch.commit();
+        print('ShiftService: Deleted $deletedCount duplicate shifts');
+      } else {
+        print('ShiftService: No duplicates found to clean up');
+      }
+    } catch (e) {
+      print('Error cleaning up duplicate shifts: $e');
+      throw Exception('Failed to cleanup duplicate shifts');
     }
   }
 }
