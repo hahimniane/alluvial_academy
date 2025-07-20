@@ -49,6 +49,11 @@ class TeachingShift {
   final Map<String, dynamic>? recurrenceSettings;
   final String? notes;
 
+  // Clock-in/out tracking fields
+  final DateTime? clockInTime;
+  final DateTime? clockOutTime;
+  final bool isManualOverride; // For admin manual adjustments
+
   TeachingShift({
     required this.id,
     required this.teacherId,
@@ -71,6 +76,9 @@ class TeachingShift {
     this.recurrenceEndDate,
     this.recurrenceSettings,
     this.notes,
+    this.clockInTime,
+    this.clockOutTime,
+    this.isManualOverride = false,
   });
 
   // Get the display name (custom name takes priority over auto-generated)
@@ -127,6 +135,53 @@ class TeachingShift {
     final now = DateTime.now();
     final expiredTime = shiftEnd.add(const Duration(minutes: 15));
     return now.isAfter(expiredTime);
+  }
+
+  // Check if teacher is currently clocked in
+  bool get isClockedIn {
+    return clockInTime != null &&
+        clockOutTime == null &&
+        status == ShiftStatus.active;
+  }
+
+  // Check if teacher can clock out
+  bool get canClockOut {
+    return isClockedIn && !hasExpired;
+  }
+
+  // Check if shift needs auto-logout (clocked in but expired)
+  bool get needsAutoLogout {
+    return isClockedIn && hasExpired;
+  }
+
+  // Get actual shift duration based on clock-in/out times
+  Duration? get actualShiftDuration {
+    if (clockInTime != null && clockOutTime != null) {
+      return clockOutTime!.difference(clockInTime!);
+    }
+    return null;
+  }
+
+  // Get actual shift duration in hours for payment calculation
+  double? get actualShiftDurationHours {
+    final duration = actualShiftDuration;
+    return duration != null ? duration.inMinutes / 60.0 : null;
+  }
+
+  // Calculate payment based on actual worked hours (if clocked out) or scheduled hours
+  double get actualPayment {
+    final actualHours = actualShiftDurationHours;
+    return actualHours != null ? actualHours * hourlyRate : totalPayment;
+  }
+
+  // Get clock-in window start time (15 minutes before shift)
+  DateTime get clockInWindowStart {
+    return shiftStart.subtract(const Duration(minutes: 15));
+  }
+
+  // Get clock-out deadline (15 minutes after shift end)
+  DateTime get clockOutDeadline {
+    return shiftEnd.add(const Duration(minutes: 15));
   }
 
   // Generate automatic name based on teacher, subject, and students
@@ -196,6 +251,11 @@ class TeachingShift {
           : null,
       'recurrence_settings': recurrenceSettings,
       'notes': notes,
+      'clock_in_time':
+          clockInTime != null ? Timestamp.fromDate(clockInTime!) : null,
+      'clock_out_time':
+          clockOutTime != null ? Timestamp.fromDate(clockOutTime!) : null,
+      'is_manual_override': isManualOverride,
     };
   }
 
@@ -238,6 +298,13 @@ class TeachingShift {
           : null,
       recurrenceSettings: data['recurrence_settings'],
       notes: data['notes'],
+      clockInTime: data['clock_in_time'] != null
+          ? (data['clock_in_time'] as Timestamp).toDate()
+          : null,
+      clockOutTime: data['clock_out_time'] != null
+          ? (data['clock_out_time'] as Timestamp).toDate()
+          : null,
+      isManualOverride: data['is_manual_override'] ?? false,
     );
   }
 
@@ -264,6 +331,9 @@ class TeachingShift {
     DateTime? recurrenceEndDate,
     Map<String, dynamic>? recurrenceSettings,
     String? notes,
+    DateTime? clockInTime,
+    DateTime? clockOutTime,
+    bool? isManualOverride,
   }) {
     return TeachingShift(
       id: id ?? this.id,
@@ -287,6 +357,9 @@ class TeachingShift {
       recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
       recurrenceSettings: recurrenceSettings ?? this.recurrenceSettings,
       notes: notes ?? this.notes,
+      clockInTime: clockInTime ?? this.clockInTime,
+      clockOutTime: clockOutTime ?? this.clockOutTime,
+      isManualOverride: isManualOverride ?? this.isManualOverride,
     );
   }
 }

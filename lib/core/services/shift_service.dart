@@ -304,6 +304,111 @@ class ShiftService {
     }
   }
 
+  /// Clock in to a shift
+  static Future<bool> clockIn(String teacherId, String shiftId) async {
+    try {
+      print(
+          'ShiftService: Attempting clock-in for teacher $teacherId, shift $shiftId');
+
+      final doc = await _shiftsCollection.doc(shiftId).get();
+      if (!doc.exists) {
+        print('Shift not found: $shiftId');
+        return false;
+      }
+
+      final shift = TeachingShift.fromFirestore(doc);
+
+      // Validation checks
+      if (shift.teacherId != teacherId) {
+        print(
+            'Teacher ID mismatch: expected ${shift.teacherId}, got $teacherId');
+        return false;
+      }
+
+      if (shift.status != ShiftStatus.scheduled) {
+        print('Shift not in scheduled status: ${shift.status}');
+        return false;
+      }
+
+      if (!shift.canClockIn) {
+        print('Clock-in window not available');
+        return false;
+      }
+
+      if (shift.isClockedIn) {
+        print('Teacher already clocked in');
+        return false;
+      }
+
+      // Check if teacher has any other active shifts
+      final activeShifts = await _shiftsCollection
+          .where('teacher_id', isEqualTo: teacherId)
+          .where('status', isEqualTo: 'active')
+          .get();
+
+      if (activeShifts.docs.isNotEmpty) {
+        print('Teacher has another active shift');
+        return false;
+      }
+
+      // Perform clock-in
+      final now = DateTime.now();
+      await _shiftsCollection.doc(shiftId).update({
+        'status': ShiftStatus.active.name,
+        'clock_in_time': Timestamp.fromDate(now),
+        'last_modified': Timestamp.fromDate(now),
+      });
+
+      print('Clock-in successful at $now');
+      return true;
+    } catch (e) {
+      print('Error during clock-in: $e');
+      return false;
+    }
+  }
+
+  /// Clock out from a shift
+  static Future<bool> clockOut(String teacherId, String shiftId) async {
+    try {
+      print(
+          'ShiftService: Attempting clock-out for teacher $teacherId, shift $shiftId');
+
+      final doc = await _shiftsCollection.doc(shiftId).get();
+      if (!doc.exists) {
+        print('Shift not found: $shiftId');
+        return false;
+      }
+
+      final shift = TeachingShift.fromFirestore(doc);
+
+      // Validation checks
+      if (shift.teacherId != teacherId) {
+        print(
+            'Teacher ID mismatch: expected ${shift.teacherId}, got $teacherId');
+        return false;
+      }
+
+      if (!shift.isClockedIn) {
+        print('Teacher not clocked in');
+        return false;
+      }
+
+      // Perform clock-out
+      final now = DateTime.now();
+      await _shiftsCollection.doc(shiftId).update({
+        'status': ShiftStatus.completed.name,
+        'clock_out_time': Timestamp.fromDate(now),
+        'last_modified': Timestamp.fromDate(now),
+      });
+
+      print('Clock-out successful at $now');
+      return true;
+    } catch (e) {
+      print('Error during clock-out: $e');
+      return false;
+    }
+  }
+
   /// Check if teacher can clock in to a shift
   static Future<bool> canTeacherClockIn(
       String teacherId, String shiftId) async {
@@ -316,15 +421,17 @@ class ShiftService {
       // Check if it's the right teacher
       if (shift.teacherId != teacherId) return false;
 
-      // Check if within clock-in window
-      return shift.canClockIn && shift.status == ShiftStatus.scheduled;
+      // Check if within clock-in window and not already clocked in
+      return shift.canClockIn &&
+          shift.status == ShiftStatus.scheduled &&
+          !shift.isClockedIn;
     } catch (e) {
       print('Error checking clock-in eligibility: $e');
       return false;
     }
   }
 
-  /// Auto-logout expired shifts
+  /// Auto-logout expired shifts (for teachers who didn't clock out)
   static Future<void> autoLogoutExpiredShifts() async {
     try {
       final now = DateTime.now();
@@ -337,12 +444,17 @@ class ShiftService {
       for (final doc in snapshot.docs) {
         final shift = TeachingShift.fromFirestore(doc);
 
-        if (shift.hasExpired) {
+        if (shift.needsAutoLogout) {
+          // Auto clock-out expired shifts
           batch.update(doc.reference, {
             'status': ShiftStatus.completed.name,
+            'clock_out_time': Timestamp.fromDate(shift.clockOutDeadline),
             'last_modified': Timestamp.fromDate(now),
+            'is_manual_override': true, // Mark as auto-logout
           });
           expiredCount++;
+          print(
+              'Auto-logout shift ${shift.id} - teacher clocked in at ${shift.clockInTime} but didn\'t clock out by ${shift.clockOutDeadline}');
         }
       }
 
@@ -352,6 +464,24 @@ class ShiftService {
       }
     } catch (e) {
       print('Error auto-logging out expired shifts: $e');
+    }
+  }
+
+  /// Get shifts that need auto-logout (for monitoring)
+  static Future<List<TeachingShift>> getShiftsNeedingAutoLogout() async {
+    try {
+      final snapshot =
+          await _shiftsCollection.where('status', isEqualTo: 'active').get();
+
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .where((shift) => shift.needsAutoLogout)
+          .toList();
+
+      return shifts;
+    } catch (e) {
+      print('Error getting shifts needing auto-logout: $e');
+      return [];
     }
   }
 
