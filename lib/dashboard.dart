@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'core/services/user_role_service.dart';
 import 'core/constants/app_constants.dart';
 import 'features/user_management/screens/user_management_screen.dart';
@@ -22,13 +24,13 @@ import 'screens/landing_page.dart';
 class DashboardConstants {
   // Dimensions
   static const double sideMenuWidth = 250.0;
+  static const double sideMenuCollapsedWidth = 70.0;
   static const double logoHoverHeight = 180.0;
   static const double logoNormalHeight = 160.0;
-  static const double searchBarWidth = 200.0;
-  static const double searchBarHeight = 40.0;
 
   // Durations
   static const Duration hoverAnimationDuration = Duration(milliseconds: 200);
+  static const Duration sideMenuAnimationDuration = Duration(milliseconds: 300);
 
   // Colors
   static const chatIconColor = Color(0xff2ED9B9);
@@ -48,6 +50,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   // State variables
   bool _isHovered = false;
+  bool _isSideMenuCollapsed = false;
   int _selectedIndex = 0;
   String? _userRole;
   Map<String, dynamic>? _userData;
@@ -56,6 +59,7 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadSidebarState();
   }
 
   Future<void> _loadUserData() async {
@@ -70,6 +74,29 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (e) {
       print('Error loading user data: $e');
+    }
+  }
+
+  Future<void> _loadSidebarState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isCollapsed = prefs.getBool('sidebar_collapsed') ?? false;
+      if (mounted) {
+        setState(() {
+          _isSideMenuCollapsed = isCollapsed;
+        });
+      }
+    } catch (e) {
+      print('Error loading sidebar state: $e');
+    }
+  }
+
+  Future<void> _saveSidebarState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('sidebar_collapsed', _isSideMenuCollapsed);
+    } catch (e) {
+      print('Error saving sidebar state: $e');
     }
   }
 
@@ -89,12 +116,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
-    if (index == -1) {
-      // Handle sign out
-      _showSignOutConfirmation();
-      return;
-    }
-
     if (mounted) {
       setState(() {
         _selectedIndex = index;
@@ -749,15 +770,9 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  /// Builds the logo and search section of the app bar
-  Row _buildLogoAndSearch() {
-    return Row(
-      children: [
-        _buildAnimatedLogo(),
-        const SizedBox(width: 10),
-        _buildSearchBar(),
-      ],
-    );
+  /// Builds the logo section of the app bar
+  Widget _buildLogoAndSearch() {
+    return _buildAnimatedLogo();
   }
 
   /// Builds the animated logo with hover effect
@@ -781,40 +796,6 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ),
-    );
-  }
-
-  /// Builds the search bar with custom styling
-  Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 10),
-      margin: const EdgeInsets.only(bottom: 10, top: 20),
-      width: DashboardConstants.searchBarWidth,
-      height: DashboardConstants.searchBarHeight,
-      child: TextField(
-        decoration: InputDecoration(
-          hintStyle: GoogleFonts.openSans(
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w400,
-              fontSize: 14,
-              color: Color.fromARGB(255, 63, 70, 72),
-            ),
-          ),
-          hintText: 'Search anything',
-          suffixIcon: Icon(Icons.search, color: Colors.grey.shade300),
-          border: _buildSearchBarBorder(),
-          enabledBorder: _buildSearchBarBorder(color: Colors.green),
-          focusedBorder: _buildSearchBarBorder(color: Colors.green),
-        ),
-      ),
-    );
-  }
-
-  /// Helper method to build consistent search bar borders
-  OutlineInputBorder _buildSearchBarBorder({Color color = Colors.grey}) {
-    return OutlineInputBorder(
-      borderSide: BorderSide(width: 0.4, color: color),
-      borderRadius: BorderRadius.circular(10.0),
     );
   }
 
@@ -994,8 +975,10 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   /// Builds the side navigation menu
-  Container _buildSideMenu() {
-    return Container(
+  Widget _buildSideMenu() {
+    return AnimatedContainer(
+      duration: DashboardConstants.sideMenuAnimationDuration,
+      curve: Curves.easeInOut,
       margin: const EdgeInsets.only(top: 20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1010,108 +993,169 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ],
       ),
-      width: DashboardConstants.sideMenuWidth,
+      width: _isSideMenuCollapsed
+          ? DashboardConstants.sideMenuCollapsedWidth
+          : DashboardConstants.sideMenuWidth,
       child: Column(
         children: [
-          // Admins can see both admin and user-specific menu items
-          if (_userRole == 'admin') ...[
-            _buildSideMenuItem(
-              icon: SvgPicture.asset('assets/dashboard.svg'),
-              text: 'Dashboard',
-              index: 0,
+          // Toggle button
+          _buildToggleButton(),
+
+          // Menu items
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Admins can see both admin and user-specific menu items
+                  if (_userRole == 'admin') ...[
+                    _buildSideMenuItem(
+                      icon: SvgPicture.asset('assets/dashboard.svg'),
+                      text: 'Dashboard',
+                      index: 0,
+                    ),
+                    _buildSideMenuItem(
+                      icon: SvgPicture.asset('assets/users-sidebar.svg'),
+                      text: 'User Management',
+                      index: 1,
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_chat.png'),
+                      text: 'Chat',
+                      index: 2,
+                      color: const Color(0xffA646F2),
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_punch_clock.png'),
+                      text: 'Time Clock',
+                      index: 3,
+                      color: const Color(0xff466AF2),
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_Scheduler.png'),
+                      text: 'Timesheet Review',
+                      index: 4,
+                      color: const Color(0xffF28B46),
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_forms.png'),
+                      text: 'Forms',
+                      index: 5,
+                      color: const Color(0xffBA39A9),
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_task_manage.png'),
+                      text: 'Quick Tasks',
+                      index: 7,
+                      color: const Color(0xff4CAF50),
+                    ),
+                    const Divider(),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.build),
+                      text: 'Form Builder',
+                      index: 6,
+                    ),
+                    // Debug features - only show in debug mode
+                    if (kDebugMode) ...[
+                      _buildSideMenuItem(
+                        icon: const Icon(Icons.bug_report),
+                        text: 'Test Role System',
+                        index: 8,
+                      ),
+                      _buildSideMenuItem(
+                        icon: const Icon(Icons.storage),
+                        text: 'Firestore Debug',
+                        index: 9,
+                      ),
+                    ],
+                  ] else ...[
+                    // Non-admins see a limited menu
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.dashboard),
+                      text: 'Dashboard',
+                      index: 0,
+                      color: const Color(0xff0386FF),
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.chat),
+                      text: 'Chat',
+                      index: 2,
+                      color: DashboardConstants.chatIconColor,
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.timer),
+                      text: 'Time Clock',
+                      index: 3,
+                      color: DashboardConstants.timeClockIconColor,
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.assignment),
+                      text: 'Forms',
+                      index: 5,
+                      color: DashboardConstants.formsIconColor,
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.task_alt),
+                      text: 'Tasks',
+                      index: 7,
+                      color: DashboardConstants.jobSchedulingIconColor,
+                    ),
+                  ],
+                ],
+              ),
             ),
-            _buildSideMenuItem(
-              icon: SvgPicture.asset('assets/users-sidebar.svg'),
-              text: 'User Management',
-              index: 1,
-            ),
-            _buildSideMenuItem(
-              icon: Image.asset('assets/Icon_chat.png'),
-              text: 'Chat',
-              index: 2,
-              color: const Color(0xffA646F2),
-            ),
-            _buildSideMenuItem(
-              icon: Image.asset('assets/Icon_punch_clock.png'),
-              text: 'Time Clock',
-              index: 3,
-              color: const Color(0xff466AF2),
-            ),
-            _buildSideMenuItem(
-              icon: Image.asset('assets/Icon_Scheduler.png'),
-              text: 'Timesheet Review',
-              index: 4,
-              color: const Color(0xffF28B46),
-            ),
-            _buildSideMenuItem(
-              icon: Image.asset('assets/Icon_forms.png'),
-              text: 'Forms',
-              index: 5,
-              color: const Color(0xffBA39A9),
-            ),
-            _buildSideMenuItem(
-              icon: Image.asset('assets/Icon_task_manage.png'),
-              text: 'Quick Tasks',
-              index: 7,
-              color: const Color(0xff4CAF50),
-            ),
-            const Divider(),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.build),
-              text: 'Form Builder',
-              index: 6,
-            ),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.bug_report),
-              text: 'Test Role System',
-              index: 8,
-            ),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.storage),
-              text: 'Firestore Debug',
-              index: 9,
-            ),
-          ] else ...[
-            // Non-admins see a limited menu
-            _buildSideMenuItem(
-              icon: const Icon(Icons.dashboard),
-              text: 'Dashboard',
-              index: 0,
-              color: const Color(0xff0386FF),
-            ),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.chat),
-              text: 'Chat',
-              index: 2,
-              color: DashboardConstants.chatIconColor,
-            ),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.timer),
-              text: 'Time Clock',
-              index: 3,
-              color: DashboardConstants.timeClockIconColor,
-            ),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.assignment),
-              text: 'Forms',
-              index: 5,
-              color: DashboardConstants.formsIconColor,
-            ),
-            _buildSideMenuItem(
-              icon: const Icon(Icons.task_alt),
-              text: 'Tasks',
-              index: 7,
-              color: DashboardConstants.jobSchedulingIconColor,
-            ),
-          ],
-          const Spacer(),
-          _buildSideMenuItem(
-            icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-            text: 'Sign Out',
-            index: -1, // Special index for sign out
-            color: Colors.grey,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Builds the toggle button for collapsing/expanding the sidebar
+  Widget _buildToggleButton() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isSideMenuCollapsed = !_isSideMenuCollapsed;
+          });
+          _saveSidebarState();
+        },
+        child: Container(
+          width: double.infinity,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xff0386FF).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xff0386FF).withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _isSideMenuCollapsed
+                    ? Icons.keyboard_arrow_right
+                    : Icons.keyboard_arrow_left,
+                color: const Color(0xff0386FF),
+                size: 20,
+              ),
+              if (!_isSideMenuCollapsed) ...[
+                const SizedBox(width: 8),
+                Text(
+                  'Collapse',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff0386FF),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1205,28 +1249,65 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
 
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xff0386FF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+    if (_isSideMenuCollapsed) {
+      // Collapsed sidebar - show only icon with tooltip
+      return Tooltip(
+        message: text,
+        preferBelow: false,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => _onItemTapped(index),
+              child: Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  color:
+                      isSelected ? const Color(0xff0386FF) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(child: finalIcon),
+              ),
+            ),
+          ),
         ),
-        child: Center(child: finalIcon),
-      ),
-      title: Text(
-        text,
-        style: TextStyle(
-          fontWeight:
-              _selectedIndex == index ? FontWeight.bold : FontWeight.normal,
+      );
+    } else {
+      // Expanded sidebar - show icon and text
+      return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xff0386FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(child: finalIcon),
         ),
-      ),
-      onTap: () => _onItemTapped(index),
-      selected: _selectedIndex == index,
-      trailing: _selectedIndex == index
-          ? const Icon(Icons.arrow_right, color: Colors.blue)
-          : null,
-    );
+        title: AnimatedOpacity(
+          duration: DashboardConstants.sideMenuAnimationDuration,
+          opacity: _isSideMenuCollapsed ? 0.0 : 1.0,
+          child: Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? const Color(0xff0386FF)
+                  : const Color(0xff374151),
+            ),
+          ),
+        ),
+        onTap: () => _onItemTapped(index),
+        selected: _selectedIndex == index,
+        trailing: _selectedIndex == index
+            ? const Icon(Icons.arrow_right, color: Color(0xff0386FF), size: 18)
+            : null,
+      );
+    }
   }
 }
