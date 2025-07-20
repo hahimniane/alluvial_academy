@@ -23,6 +23,7 @@ class TimesheetEntry {
   final Timestamp? rejectedAt;
   final String? rejectionReason;
   final double? paymentAmount;
+  final String? source; // 'clock_in' or 'manual'
 
   // Location fields
   final double? clockInLatitude;
@@ -51,6 +52,7 @@ class TimesheetEntry {
     this.rejectedAt,
     this.rejectionReason,
     this.paymentAmount,
+    this.source,
     this.clockInLatitude,
     this.clockInLongitude,
     this.clockInAddress,

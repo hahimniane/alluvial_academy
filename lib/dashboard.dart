@@ -1025,12 +1025,6 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xffA646F2),
                     ),
                     _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_punch_clock.png'),
-                      text: 'Time Clock',
-                      index: 3,
-                      color: const Color(0xff466AF2),
-                    ),
-                    _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_Scheduler.png'),
                       text: 'Timesheet Review',
                       index: 4,
