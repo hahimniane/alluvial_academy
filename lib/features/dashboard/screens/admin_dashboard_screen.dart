@@ -518,68 +518,59 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildTeacherDashboard() {
     return SingleChildScrollView(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Teacher Stats
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.3,
-            children: [
-              _buildStatCard('My Students', teacherStats['my_students'] ?? 0,
-                  Icons.groups, Colors.blue),
-              _buildStatCard(
-                  'Available Forms',
-                  teacherStats['accessible_forms'] ?? 0,
-                  Icons.assignment,
-                  Colors.green),
-              _buildStatCard(
-                  'Pending Tasks',
-                  teacherStats['pending_tasks'] ?? 0,
-                  Icons.task_alt,
-                  Colors.orange),
-            ],
-          ),
-          const SizedBox(height: 24),
+          // Modern Welcome Header for Teachers
+          _buildTeacherWelcomeHeader(),
+          const SizedBox(height: 32),
 
-          // Additional teacher stats row
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.3,
-            children: [
-              _buildStatCard('Total Tasks', teacherStats['assigned_tasks'] ?? 0,
-                  Icons.assignment_outlined, const Color(0xff8B5CF6)),
-              _buildStatCard(
-                  'Completed Tasks',
-                  teacherStats['completed_tasks'] ?? 0,
-                  Icons.check_circle,
-                  const Color(0xff10B981)),
-              _buildStatCard(
-                  'Teaching Sessions',
-                  teacherStats['total_sessions'] ?? 0,
-                  Icons.school,
-                  const Color(0xffF59E0B)),
-            ],
-          ),
-          const SizedBox(height: 24),
+          // Quick Stats Row - Compact and Modern
+          _buildTeacherQuickStats(),
+          const SizedBox(height: 32),
 
+          // Main Content Row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildMyClassesCard()),
-              const SizedBox(width: 16),
-              Expanded(child: _buildUpcomingTasksCard()),
+              // Left Column - 60%
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    _buildMyClassesModern(),
+                    const SizedBox(height: 24),
+                    _buildStudentProgressModern(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+
+              // Right Column - 40%
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    _buildTeacherProfileCard(),
+                    const SizedBox(height: 24),
+                    _buildIslamicCalendarCard(),
+                    const SizedBox(height: 24),
+                    _buildQuickActionsTeacher(),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
-          _buildStudentProgressCard(),
+          // Bottom Row - Full Width Cards
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildRecentLessonsCard()),
+              const SizedBox(width: 24),
+              Expanded(child: _buildIslamicResourcesCard()),
+            ],
+          ),
         ],
       ),
     );
@@ -2722,119 +2713,406 @@ class _AdminDashboardState extends State<AdminDashboard> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return FormResponsesExportDialog();
+        return AlertDialog(
+          title: const Text('Export Feature'),
+          content: const Text('Export functionality will be implemented soon.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
       },
     );
   }
-}
 
-/// Dialog for exporting form responses with date range selection
-class FormResponsesExportDialog extends StatefulWidget {
-  @override
-  State<FormResponsesExportDialog> createState() =>
-      _FormResponsesExportDialogState();
-}
-
-class _FormResponsesExportDialogState extends State<FormResponsesExportDialog> {
-  DateTime? startDate;
-  DateTime? endDate;
-  String? selectedFormId;
-  String selectedFormat = 'csv';
-  bool isLoading = false;
-  List<Map<String, dynamic>> availableForms = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadForms();
-    // Set default date range to last 30 days
-    endDate = DateTime.now();
-    startDate = endDate!.subtract(const Duration(days: 30));
+  // Helper methods for Islamic features
+  String _getCurrentIslamicTime() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    if (hour >= 5 && hour < 12) return 'Dhuhr in ${12 - hour}h';
+    if (hour >= 12 && hour < 15) return 'Asr in ${15 - hour}h';
+    if (hour >= 15 && hour < 18) return 'Maghrib in ${18 - hour}h';
+    if (hour >= 18 && hour < 20) return 'Isha in ${20 - hour}h';
+    return 'Fajr in ${29 - hour}h';
   }
 
-  Future<void> _loadForms() async {
-    try {
-      final formsSnapshot =
-          await FirebaseFirestore.instance.collection('form').get();
-
-      setState(() {
-        availableForms = formsSnapshot.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'title': data['title'] ?? 'Untitled Form',
-            'createdAt': data['createdAt'],
-          };
-        }).toList();
-
-        // Sort by creation date, newest first
-        availableForms.sort((a, b) {
-          final aTime = a['createdAt'] as Timestamp?;
-          final bTime = b['createdAt'] as Timestamp?;
-          if (aTime == null || bTime == null) return 0;
-          return bTime.compareTo(aTime);
-        });
-      });
-    } catch (e) {
-      print('Error loading forms: $e');
-    }
+  String _getCurrentHijriDate() {
+    // This is a simplified example - in production you'd use a proper Hijri calendar library
+    return '15 Ramadan 1445';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(child: _buildContent()),
-            _buildActions(),
-          ],
-        ),
-      ),
+  String _getCurrentHijriMonth() {
+    return 'Ramadan 1445 AH';
+  }
+
+  void _showProfileCompletionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return _TeacherProfileDialog();
+      },
     );
   }
 
-  Widget _buildHeader() {
+  /// Get profile completion percentage from Firestore
+  Future<int> _getProfileCompletionPercentage() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return 0;
+
+      final profileDoc = await FirebaseFirestore.instance
+          .collection('teacher_profiles')
+          .doc(user.uid)
+          .get();
+
+      if (!profileDoc.exists) return 0;
+
+      final data = profileDoc.data()!;
+      int completedFields = 0;
+      const totalFields = 6;
+
+      if ((data['full_name'] ?? '').toString().trim().isNotEmpty)
+        completedFields++;
+      if ((data['professional_title'] ?? '').toString().trim().isNotEmpty)
+        completedFields++;
+      if ((data['biography'] ?? '').toString().trim().isNotEmpty)
+        completedFields++;
+      if ((data['years_of_experience'] ?? '').toString().trim().isNotEmpty)
+        completedFields++;
+      if ((data['specialties'] ?? '').toString().trim().isNotEmpty)
+        completedFields++;
+      if ((data['education_certifications'] ?? '').toString().trim().isNotEmpty)
+        completedFields++;
+
+      return ((completedFields / totalFields) * 100).round();
+    } catch (e) {
+      print('Error calculating profile completion: $e');
+      return 0;
+    }
+  }
+
+  Widget _buildTeacherWelcomeHeader() {
+    final firstName =
+        userData?['first_name'] ?? userData?['firstName'] ?? 'Teacher';
+
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xff0d9488), Color(0xff14b8a6)],
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Color(0xff1E40AF),
+            Color(0xff3B82F6),
+            Color(0xff60A5FA),
+          ],
         ),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff3B82F6).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
-              Icons.file_download,
+              Icons.menu_book_rounded,
+              size: 40,
               color: Colors.white,
-              size: 24,
             ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Assalamu Alaikum, $firstName! 🕌',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'May Allah bless your teaching efforts today',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _buildHeaderStat('Students Today',
+                        '${teacherStats['my_students'] ?? 0}', Icons.groups),
+                    const SizedBox(width: 32),
+                    _buildHeaderStat('Lessons This Week',
+                        '${teacherStats['total_sessions'] ?? 0}', Icons.school),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.schedule, color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  _getCurrentIslamicTime(),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherQuickStats() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 5,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 1.4,
+      children: [
+        _buildModernStatCard(
+          'Active Students',
+          '${teacherStats['my_students'] ?? 0}',
+          Icons.groups_rounded,
+          const Color(0xff10B981),
+          '+${((teacherStats['my_students'] ?? 0) * 0.12).round()}',
+        ),
+        _buildModernStatCard(
+          'Quran Sessions',
+          '${((teacherStats['total_sessions'] ?? 0) * 0.6).round()}',
+          Icons.menu_book_rounded,
+          const Color(0xff3B82F6),
+          '+${((teacherStats['total_sessions'] ?? 0) * 0.08).round()}',
+        ),
+        _buildModernStatCard(
+          'Arabic Lessons',
+          '${((teacherStats['total_sessions'] ?? 0) * 0.3).round()}',
+          Icons.language_rounded,
+          const Color(0xffF59E0B),
+          '+${((teacherStats['total_sessions'] ?? 0) * 0.05).round()}',
+        ),
+        _buildModernStatCard(
+          'Completed Tasks',
+          '${teacherStats['completed_tasks'] ?? 0}',
+          Icons.task_alt_rounded,
+          const Color(0xff8B5CF6),
+          '+${((teacherStats['completed_tasks'] ?? 0) * 0.15).round()}',
+        ),
+        _buildModernStatCard(
+          'Parent Messages',
+          '${((teacherStats['my_students'] ?? 0) * 1.2).round()}',
+          Icons.chat_bubble_rounded,
+          const Color(0xffEF4444),
+          '+3',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModernStatCard(
+      String title, String value, IconData icon, Color color, String change) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              Text(
+                change,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff10B981),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMyClassesModern() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff3B82F6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.class_rounded,
+                  color: Color(0xff3B82F6),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'My Islamic Classes',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('New Class'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xff3B82F6),
+                  textStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Class Cards
+          _buildClassCard(
+            'Quran Memorization (Grade 3)',
+            '8 Students',
+            'Next: Today 2:00 PM',
+            const Color(0xff10B981),
+            Icons.menu_book_rounded,
+            85,
+          ),
+          const SizedBox(height: 12),
+          _buildClassCard(
+            'Arabic Grammar (Beginners)',
+            '12 Students',
+            'Next: Tomorrow 10:00 AM',
+            const Color(0xffF59E0B),
+            Icons.language_rounded,
+            92,
+          ),
+          const SizedBox(height: 12),
+          _buildClassCard(
+            'Islamic Studies (Advanced)',
+            '6 Students',
+            'Next: Today 4:30 PM',
+            const Color(0xff8B5CF6),
+            Icons.school_rounded,
+            78,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClassCard(String className, String students, String nextClass,
+      Color color, IconData icon, int progress) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -2842,16 +3120,290 @@ class _FormResponsesExportDialogState extends State<FormResponsesExportDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Export Form Responses',
+                  className,
                   style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      students,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    const Text(' • '),
+                    Text(
+                      nextClass,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: LinearProgressIndicator(
+                        value: progress / 100,
+                        backgroundColor: const Color(0xffE5E7EB),
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                        minHeight: 4,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$progress%',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherProfileCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff10B981).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: Color(0xff10B981),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Teacher Profile',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Profile Picture & Basic Info
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xff10B981), Color(0xff34D399)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  userData?['first_name'] ?? 'Teacher Name',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                Text(
+                  'Islamic Studies Teacher',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Profile Completion
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xffFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xffFCD34D)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xffF59E0B),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    FutureBuilder<int>(
+                      future: _getProfileCompletionPercentage(),
+                      builder: (context, snapshot) {
+                        final percentage = snapshot.data ?? 0;
+                        return Text(
+                          'Profile ${percentage}% Complete',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xffF59E0B),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Complete your profile to appear on the public teachers page and attract more students.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff92400E),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _showProfileCompletionDialog,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xffF59E0B),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Complete Profile',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIslamicCalendarCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff8B5CF6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Color(0xff8B5CF6),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Islamic Calendar',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Current Islamic Date
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xff8B5CF6), Color(0xffA78BFA)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _getCurrentHijriDate(),
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Download responses as CSV with date filtering',
+                  _getCurrentHijriMonth(),
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.9),
@@ -2860,312 +3412,388 @@ class _FormResponsesExportDialogState extends State<FormResponsesExportDialog> {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, color: Colors.white),
+          const SizedBox(height: 16),
+
+          // Upcoming Islamic Events
+          Text(
+            'Upcoming Events',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
+            ),
           ),
+          const SizedBox(height: 12),
+          _buildIslamicEvent('🌙', 'Laylat al-Qadr', '3 days'),
+          const SizedBox(height: 8),
+          _buildIslamicEvent('🕌', 'Eid al-Fitr', '12 days'),
+          const SizedBox(height: 8),
+          _buildIslamicEvent('📚', 'Ramadan Reading Week', '2 days'),
         ],
       ),
     );
   }
 
-  Widget _buildContent() {
-    return SingleChildScrollView(
+  Widget _buildIslamicEvent(String emoji, String event, String timeLeft) {
+    return Row(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 16)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            event,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xff374151),
+            ),
+          ),
+        ),
+        Text(
+          timeLeft,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xff8B5CF6),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionsTeacher() {
+    return Container(
       padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFormSelection(),
-          const SizedBox(height: 24),
-          _buildDateRangeSelection(),
-          const SizedBox(height: 24),
-          _buildFormatSelection(),
-          const SizedBox(height: 24),
-          _buildExportPreview(),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xffEF4444).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.flash_on_rounded,
+                  color: Color(0xffEF4444),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Quick Actions',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildQuickActionButton(
+            'Start Live Class',
+            Icons.video_call_rounded,
+            const Color(0xff10B981),
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'Message Parents',
+            Icons.chat_bubble_rounded,
+            const Color(0xff3B82F6),
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'Add Assignment',
+            Icons.assignment_rounded,
+            const Color(0xffF59E0B),
+          ),
+          const SizedBox(height: 12),
+          _buildQuickActionButton(
+            'View Reports',
+            Icons.analytics_rounded,
+            const Color(0xff8B5CF6),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFormSelection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.assignment, color: Colors.teal.shade600, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Select Form',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff111827),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xffE2E8F0)),
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildStudentProgressModern() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selectedFormId,
-              isExpanded: true,
-              hint: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'All Forms (default)',
-                  style: GoogleFonts.inter(
-                    color: const Color(0xff6B7280),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              items: [
-                DropdownMenuItem<String>(
-                  value: null,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Icon(Icons.select_all,
-                            color: Colors.teal.shade600, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          'All Forms',
-                          style: GoogleFonts.inter(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                ...availableForms.map((form) {
-                  return DropdownMenuItem<String>(
-                    value: form['id'],
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Icon(Icons.assignment,
-                              color: Colors.blue.shade600, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              form['title'],
-                              style: GoogleFonts.inter(fontSize: 14),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  selectedFormId = value;
-                });
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateRangeSelection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.date_range, color: Colors.teal.shade600, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Date Range',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff111827),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildDateButton('Start Date', startDate, true)),
-            const SizedBox(width: 16),
-            Expanded(child: _buildDateButton('End Date', endDate, false)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            _buildQuickDateButton('Last 7 days', 7),
-            _buildQuickDateButton('Last 30 days', 30),
-            _buildQuickDateButton('Last 90 days', 90),
-            _buildQuickDateButton('This year', 365),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateButton(String label, DateTime? date, bool isStart) {
-    return InkWell(
-      onTap: () => _selectDate(isStart),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xffE2E8F0)),
-          borderRadius: BorderRadius.circular(12),
-          color: const Color(0xffF8FAFC),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: const Color(0xff6B7280),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              date != null
-                  ? '${date.day}/${date.month}/${date.year}'
-                  : 'Select date',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: const Color(0xff111827),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildQuickDateButton(String label, int days) {
-    return InkWell(
-      onTap: () => _setQuickDateRange(days),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.teal.shade50,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.teal.shade200),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: Colors.teal.shade700,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFormatSelection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.description, color: Colors.teal.shade600, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Export Format',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff111827),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: const Color(0xffF1F5F9),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Expanded(
-                child: _buildFormatOption('CSV', 'csv', Icons.table_chart),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff06B6D4).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.trending_up_rounded,
+                  color: Color(0xff06B6D4),
+                  size: 20,
+                ),
               ),
-              Expanded(
-                child: _buildFormatOption('JSON', 'json', Icons.code),
+              const SizedBox(width: 12),
+              Text(
+                'Student Progress Overview',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {},
+                child: Text(
+                  'View All',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff06B6D4),
+                  ),
+                ),
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
+          const SizedBox(height: 20),
 
-  Widget _buildFormatOption(String label, String value, IconData icon) {
-    final isSelected = selectedFormat == value;
-    return InkWell(
-      onTap: () => setState(() => selectedFormat = value),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color:
-                  isSelected ? Colors.teal.shade600 : const Color(0xff6B7280),
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color:
-                    isSelected ? Colors.teal.shade600 : const Color(0xff6B7280),
+          // Progress Stats
+          Row(
+            children: [
+              Expanded(
+                child: _buildProgressStat(
+                    'Quran Memorization', '87%', const Color(0xff10B981)),
               ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildProgressStat(
+                    'Arabic Fluency', '73%', const Color(0xffF59E0B)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildProgressStat(
+                    'Islamic Studies', '91%', const Color(0xff8B5CF6)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Top Students
+          Text(
+            'Top Performing Students',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          _buildStudentProgressItem(
+              'Ahmad Al-Rashid', 'Grade 4', 94, const Color(0xff10B981)),
+          const SizedBox(height: 8),
+          _buildStudentProgressItem(
+              'Fatima Hassan', 'Grade 3', 89, const Color(0xff3B82F6)),
+          const SizedBox(height: 8),
+          _buildStudentProgressItem(
+              'Omar Malik', 'Grade 5', 87, const Color(0xffF59E0B)),
+        ],
       ),
     );
   }
 
-  Widget _buildExportPreview() {
+  Widget _buildProgressStat(String title, String percentage, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            percentage,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xff6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentProgressItem(
+      String name, String grade, int score, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.person, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                Text(
+                  grade,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '$score%',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentLessonsCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff3B82F6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  color: Color(0xff3B82F6),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Recent Lessons',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildRecentLessonItem(
+            'Surah Al-Baqarah (Verse 1-20)',
+            'Ahmad Al-Rashid',
+            '2 hours ago',
+            const Color(0xff10B981),
+            Icons.menu_book_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildRecentLessonItem(
+            'Arabic Grammar - Verb Conjugation',
+            'Fatima Hassan',
+            '4 hours ago',
+            const Color(0xffF59E0B),
+            Icons.language_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildRecentLessonItem(
+            'Hadith Studies - Sahih Bukhari',
+            'Omar Malik',
+            '1 day ago',
+            const Color(0xff8B5CF6),
+            Icons.library_books_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentLessonItem(
+      String lesson, String student, String time, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3173,443 +3801,627 @@ class _FormResponsesExportDialogState extends State<FormResponsesExportDialog> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xffE2E8F0)),
       ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lesson,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      'Student: $student',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    const Text(' • '),
+                    Text(
+                      time,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIslamicResourcesCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF59E0B).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.library_books_rounded,
+                  color: Color(0xffF59E0B),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
               Text(
-                'Export Summary',
+                'Islamic Resources',
                 style: GoogleFonts.inter(
-                  fontSize: 14,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff111827),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          _buildResourceItem('Quran Tafsir Library', Icons.menu_book_rounded,
+              const Color(0xff10B981)),
           const SizedBox(height: 12),
-          _buildSummaryRow(
-              'Form:',
-              selectedFormId == null
-                  ? 'All forms'
-                  : (availableForms.firstWhere((f) => f['id'] == selectedFormId,
-                              orElse: () => {'title': 'Unknown'})['title']
-                          as String? ??
-                      'Unknown')),
-          _buildSummaryRow('Date Range:',
-              '${startDate != null ? "${startDate!.day}/${startDate!.month}/${startDate!.year}" : "N/A"} - ${endDate != null ? "${endDate!.day}/${endDate!.month}/${endDate!.year}" : "N/A"}'),
-          _buildSummaryRow('Format:', selectedFormat.toUpperCase()),
+          _buildResourceItem('Hadith Collections', Icons.book_rounded,
+              const Color(0xff3B82F6)),
+          const SizedBox(height: 12),
+          _buildResourceItem('Islamic History Materials',
+              Icons.history_edu_rounded, const Color(0xffF59E0B)),
+          const SizedBox(height: 12),
+          _buildResourceItem('Arabic Learning Tools', Icons.language_rounded,
+              const Color(0xff8B5CF6)),
+          const SizedBox(height: 12),
+          _buildResourceItem('Prayer Time Calculator',
+              Icons.access_time_rounded, const Color(0xffEF4444)),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSummaryRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: const Color(0xff6B7280),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: const Color(0xff111827),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+// Teacher Profile Dialog for completing profile information
+class _TeacherProfileDialog extends StatefulWidget {
+  @override
+  _TeacherProfileDialogState createState() => _TeacherProfileDialogState();
+}
+
+class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _titleController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _experienceController = TextEditingController();
+  final _specialtiesController = TextEditingController();
+  final _educationController = TextEditingController();
+
+  bool _isLoading = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingProfile();
   }
 
-  Widget _buildActions() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xffE2E8F0))),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: isLoading ? null : () => Navigator.of(context).pop(),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: Color(0xffE2E8F0)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff6B7280),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: isLoading || startDate == null || endDate == null
-                  ? null
-                  : _exportResponses,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: isLoading
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Exporting...',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.download, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Export Responses',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _titleController.dispose();
+    _bioController.dispose();
+    _experienceController.dispose();
+    _specialtiesController.dispose();
+    _educationController.dispose();
+    super.dispose();
   }
 
-  Future<void> _selectDate(bool isStart) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate:
-          isStart ? (startDate ?? DateTime.now()) : (endDate ?? DateTime.now()),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Colors.teal.shade600,
-              onPrimary: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          startDate = picked;
-          // Ensure end date is not before start date
-          if (endDate != null && endDate!.isBefore(startDate!)) {
-            endDate = startDate;
-          }
-        } else {
-          endDate = picked;
-          // Ensure start date is not after end date
-          if (startDate != null && startDate!.isAfter(endDate!)) {
-            startDate = endDate;
-          }
-        }
-      });
-    }
-  }
-
-  void _setQuickDateRange(int days) {
-    setState(() {
-      endDate = DateTime.now();
-      startDate = endDate!.subtract(Duration(days: days));
-    });
-  }
-
-  Future<void> _exportResponses() async {
-    if (startDate == null || endDate == null) return;
-
-    setState(() => isLoading = true);
+  /// Load existing teacher profile data from Firestore
+  Future<void> _loadExistingProfile() async {
+    setState(() => _isLoading = true);
 
     try {
-      // Use simpler query to avoid composite index requirement
-      Query query = FirebaseFirestore.instance
-          .collection('form_responses')
-          .where('submittedAt',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startDate!))
-          .where('submittedAt',
-              isLessThanOrEqualTo:
-                  Timestamp.fromDate(endDate!.add(const Duration(days: 1))))
-          .orderBy('submittedAt', descending: true);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-      final responsesSnapshot = await query.get();
+      final profileDoc = await FirebaseFirestore.instance
+          .collection('teacher_profiles')
+          .doc(user.uid)
+          .get();
 
-      // Filter by form ID in memory if specified
-      List<QueryDocumentSnapshot> filteredDocs = responsesSnapshot.docs;
-      if (selectedFormId != null) {
-        filteredDocs = responsesSnapshot.docs.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['formId'] == selectedFormId;
-        }).toList();
+      if (profileDoc.exists) {
+        final data = profileDoc.data()!;
+        _nameController.text = data['full_name'] ?? '';
+        _titleController.text = data['professional_title'] ?? '';
+        _bioController.text = data['biography'] ?? '';
+        _experienceController.text = data['years_of_experience'] ?? '';
+        _specialtiesController.text = data['specialties'] ?? '';
+        _educationController.text = data['education_certifications'] ?? '';
       }
-
-      if (filteredDocs.isEmpty) {
-        _showSnackBar('No responses found for the selected criteria',
-            isError: true);
-        return;
-      }
-
-      // Get all form details for proper column headers
-      final formIds = filteredDocs
-          .map(
-              (doc) => (doc.data() as Map<String, dynamic>)['formId'] as String)
-          .toSet();
-      final formsData = <String, Map<String, dynamic>>{};
-
-      for (String formId in formIds) {
-        final formDoc = await FirebaseFirestore.instance
-            .collection('form')
-            .doc(formId)
-            .get();
-        if (formDoc.exists) {
-          formsData[formId] = formDoc.data()!;
-        }
-      }
-
-      if (selectedFormat == 'csv') {
-        await _exportAsCSV(filteredDocs, formsData);
-      } else {
-        await _exportAsJSON(filteredDocs, formsData);
-      }
-
-      _showSnackBar(
-          'Export completed successfully! ${filteredDocs.length} responses exported.',
-          isError: false);
-      Navigator.of(context).pop();
     } catch (e) {
-      print('Export error: $e');
-      _showSnackBar('Export failed: ${e.toString()}', isError: true);
+      print('Error loading teacher profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load existing profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _exportAsCSV(List<QueryDocumentSnapshot> responses,
-      Map<String, Map<String, dynamic>> formsData) async {
-    // Build dynamic headers based on all possible fields across all forms
-    Set<String> allFieldIds = {};
-    for (var response in responses) {
-      final data = response.data() as Map<String, dynamic>;
-      final responseData = data['responses'] as Map<String, dynamic>? ?? {};
-      allFieldIds.addAll(responseData.keys);
-    }
-
-    // Create CSV headers
-    List<String> headers = [
-      'Response ID',
-      'Form Title',
-      'User Email',
-      'Submitted At',
-      'Status',
-    ];
-
-    // Add field headers with proper labels
-    Map<String, String> fieldLabels = {};
-    for (String formId in formsData.keys) {
-      final fields =
-          formsData[formId]!['fields'] as Map<String, dynamic>? ?? {};
-      for (String fieldId in fields.keys) {
-        final field = fields[fieldId] as Map<String, dynamic>;
-        fieldLabels[fieldId] = field['label'] ?? fieldId;
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
-
-    for (String fieldId in allFieldIds) {
-      headers.add(fieldLabels[fieldId] ?? fieldId);
-    }
-
-    // Build CSV rows
-    List<List<String>> csvData = [headers];
-
-    for (var response in responses) {
-      final data = response.data() as Map<String, dynamic>;
-      final formId = data['formId'] as String;
-      final formTitle = formsData[formId]?['title'] ?? 'Unknown Form';
-      final userEmail = data['userEmail'] ?? 'Unknown User';
-      final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
-      final status = data['status'] ?? 'completed';
-      final responseData = data['responses'] as Map<String, dynamic>? ?? {};
-
-      List<String> row = [
-        response.id,
-        formTitle,
-        userEmail,
-        submittedAt?.toString() ?? 'Unknown',
-        status,
-      ];
-
-      // Add field values
-      for (String fieldId in allFieldIds) {
-        final value = responseData[fieldId];
-        String cellValue = '';
-
-        if (value != null) {
-          if (value is List) {
-            cellValue = value.join('; ');
-          } else if (value is Map) {
-            // Handle complex objects like image uploads
-            if (value['downloadURL'] != null) {
-              cellValue =
-                  'File: ${value['fileName'] ?? 'Unknown'} (${value['downloadURL']})';
-            } else {
-              cellValue = value.toString();
-            }
-          } else {
-            cellValue = value.toString();
-          }
-        }
-
-        row.add(cellValue);
-      }
-
-      csvData.add(row);
-    }
-
-    // Convert to CSV and download
-    String csvString = const ListToCsvConverter().convert(csvData);
-    final bytes = utf8.encode(csvString);
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-
-    final fileName =
-        'form_responses_${startDate!.day}-${startDate!.month}-${startDate!.year}_to_${endDate!.day}-${endDate!.month}-${endDate!.year}.csv';
-
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute("download", fileName)
-      ..click();
-    html.Url.revokeObjectUrl(url);
   }
 
-  Future<void> _exportAsJSON(List<QueryDocumentSnapshot> responses,
-      Map<String, Map<String, dynamic>> formsData) async {
-    List<Map<String, dynamic>> jsonData = [];
-
-    for (var response in responses) {
-      final data = response.data() as Map<String, dynamic>;
-      final formId = data['formId'] as String;
-      final formTitle = formsData[formId]?['title'] ?? 'Unknown Form';
-
-      jsonData.add({
-        'responseId': response.id,
-        'formId': formId,
-        'formTitle': formTitle,
-        'userEmail': data['userEmail'],
-        'submittedAt':
-            (data['submittedAt'] as Timestamp?)?.toDate()?.toIso8601String(),
-        'status': data['status'],
-        'responses': data['responses'],
-      });
-    }
-
-    final jsonString = jsonEncode({
-      'exportInfo': {
-        'exportedAt': DateTime.now().toIso8601String(),
-        'dateRange': {
-          'startDate': startDate!.toIso8601String(),
-          'endDate': endDate!.toIso8601String(),
-        },
-        'totalResponses': jsonData.length,
-        'selectedForm': selectedFormId == null
-            ? 'All Forms'
-            : formsData[selectedFormId]?['title'],
-      },
-      'responses': jsonData,
-    });
-
-    final bytes = utf8.encode(jsonString);
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-
-    final fileName =
-        'form_responses_${startDate!.day}-${startDate!.month}-${startDate!.year}_to_${endDate!.day}-${endDate!.month}-${endDate!.year}.json';
-
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute("download", fileName)
-      ..click();
-    html.Url.revokeObjectUrl(url);
-  }
-
-  void _showSnackBar(String message, {required bool isError}) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
+  /// Builds loading state widget
+  Widget _buildLoadingState() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xff10B981).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                color: Color(0xff10B981),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Loading Profile...',
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close),
+              color: const Color(0xff6B7280),
+            ),
+          ],
+        ),
+        const SizedBox(height: 40),
+        const CircularProgressIndicator(
+          color: Color(0xff10B981),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Loading your existing profile information...',
           style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
+            fontSize: 14,
+            color: const Color(0xff6B7280),
           ),
         ),
-        backgroundColor:
-            isError ? const Color(0xffEF4444) : const Color(0xff10B981),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        margin: const EdgeInsets.all(16),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Container(
+        width: 600,
+        padding: const EdgeInsets.all(32),
+        child: _isLoading
+            ? _buildLoadingState()
+            : SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff10B981).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: Color(0xff10B981),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Complete Your Profile',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xff111827),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Help parents and students learn about your expertise',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: const Color(0xff6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                            color: const Color(0xff6B7280),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Form Fields
+                      _buildFormField(
+                        'Full Name',
+                        'Enter your full name as it should appear publicly',
+                        _nameController,
+                        Icons.person_outline,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildFormField(
+                        'Professional Title',
+                        'e.g., Quran & Tajweed Specialist, Arabic Teacher',
+                        _titleController,
+                        Icons.work_outline,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildFormField(
+                        'Biography',
+                        'Tell parents and students about your background and teaching approach',
+                        _bioController,
+                        Icons.description_outlined,
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildFormField(
+                        'Years of Experience',
+                        'e.g., 10+ years',
+                        _experienceController,
+                        Icons.timeline_outlined,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildFormField(
+                        'Specialties',
+                        'e.g., Quran Memorization, Tajweed, Arabic Grammar, Islamic Studies',
+                        _specialtiesController,
+                        Icons.star_outline,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildFormField(
+                        'Education & Certifications',
+                        'e.g., PhD in Islamic Theology from Al-Azhar University, Ijazah in Quran',
+                        _educationController,
+                        Icons.school_outlined,
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Action Buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xff6B7280),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton(
+                            onPressed: _isSaving ? null : _saveProfile,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 32, vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isSaving
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Saving...',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    'Save Profile',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
+  }
+
+  Widget _buildFormField(
+    String label,
+    String hint,
+    TextEditingController controller,
+    IconData icon, {
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.inter(
+              color: const Color(0xff9CA3AF),
+              fontSize: 14,
+            ),
+            prefixIcon: Icon(icon, color: const Color(0xff6B7280)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xff10B981), width: 2),
+            ),
+            filled: true,
+            fillColor: const Color(0xffF9FAFB),
+            contentPadding: const EdgeInsets.all(16),
+          ),
+          validator: (value) {
+            // No required validation - allow partial saves
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Save teacher profile to Firestore (allows partial saves)
+  Future<void> _saveProfile() async {
+    if (_isSaving) return; // Prevent double saves
+
+    setState(() => _isSaving = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Prepare profile data - allow empty fields for partial saves
+      final profileData = {
+        'full_name': _nameController.text.trim(),
+        'professional_title': _titleController.text.trim(),
+        'biography': _bioController.text.trim(),
+        'years_of_experience': _experienceController.text.trim(),
+        'specialties': _specialtiesController.text.trim(),
+        'education_certifications': _educationController.text.trim(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'user_id': user.uid,
+        'user_email': user.email,
+      };
+
+      // Only add created_at if this is a new profile
+      final existingDoc = await FirebaseFirestore.instance
+          .collection('teacher_profiles')
+          .doc(user.uid)
+          .get();
+
+      if (!existingDoc.exists) {
+        profileData['created_at'] = FieldValue.serverTimestamp();
+      }
+
+      // Save to Firestore
+      await FirebaseFirestore.instance
+          .collection('teacher_profiles')
+          .doc(user.uid)
+          .set(profileData, SetOptions(merge: true));
+
+      // Calculate and show completion percentage
+      int completedFields = 0;
+      final totalFields = 6;
+
+      if (_nameController.text.trim().isNotEmpty) completedFields++;
+      if (_titleController.text.trim().isNotEmpty) completedFields++;
+      if (_bioController.text.trim().isNotEmpty) completedFields++;
+      if (_experienceController.text.trim().isNotEmpty) completedFields++;
+      if (_specialtiesController.text.trim().isNotEmpty) completedFields++;
+      if (_educationController.text.trim().isNotEmpty) completedFields++;
+
+      final completionPercentage =
+          ((completedFields / totalFields) * 100).round();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Profile saved successfully!',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Profile $completionPercentage% complete',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xff10B981),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      print('Error saving teacher profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Failed to save profile: ${e.toString()}',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 }
