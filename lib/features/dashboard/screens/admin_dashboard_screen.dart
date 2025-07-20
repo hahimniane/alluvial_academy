@@ -4919,6 +4919,11 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
+      print('Saving assignment for user: ${user.uid}');
+      print('Assignment title: ${_titleController.text.trim()}');
+      print('Selected students: $_selectedStudents');
+      print('Attachments: ${_attachments.length}');
+
       final assignmentData = {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -4934,9 +4939,13 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         'updated_at': FieldValue.serverTimestamp(),
       };
 
+      DocumentReference? docRef;
+
       // Check if we're editing or creating
       if (widget.existingAssignment != null) {
         // Update existing assignment
+        print(
+            'Updating existing assignment: ${widget.existingAssignment!['id']}');
         await FirebaseFirestore.instance
             .collection('assignments')
             .doc(widget.existingAssignment!['id'])
@@ -4944,9 +4953,11 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       } else {
         // Create new assignment
         assignmentData['created_at'] = FieldValue.serverTimestamp();
-        await FirebaseFirestore.instance
+        print('Creating new assignment...');
+        docRef = await FirebaseFirestore.instance
             .collection('assignments')
             .add(assignmentData);
+        print('Assignment created with ID: ${docRef.id}');
       }
 
       if (mounted) {
@@ -4980,6 +4991,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         Navigator.of(context).pop();
 
         if (widget.onAssignmentCreated != null) {
+          print('Calling onAssignmentCreated callback');
           widget.onAssignmentCreated!();
         }
       }
@@ -5323,7 +5335,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               border: Border.all(color: const Color(0xffD1D5DB)),
             ),
             child: Text(
-              'No students available. Students will appear here after you clock in for teaching sessions.',
+              'No students available in the system.',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),
@@ -5513,39 +5525,71 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     setState(() => _isUploadingFile = true);
 
     try {
-      // For web, we'll simulate file selection and upload
-      // In a real implementation, you'd use file_picker package and Firebase Storage
+      // Create a file input element for web
+      final html.FileUploadInputElement uploadInput =
+          html.FileUploadInputElement();
+      uploadInput.multiple = false;
+      uploadInput.accept =
+          '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx';
 
-      // Simulate file selection
-      await Future.delayed(const Duration(seconds: 1));
+      // Trigger file picker
+      uploadInput.click();
 
-      // Simulate adding a file
-      final mockFile = {
-        'name': 'Assignment_${DateTime.now().millisecondsSinceEpoch}.pdf',
-        'size': 2048576, // 2MB
-        'url': 'https://example.com/mock-file-url',
-        'type': 'application/pdf',
-      };
+      // Wait for file selection
+      await uploadInput.onChange.first;
 
-      setState(() {
-        _attachments.add(mockFile);
-      });
+      if (uploadInput.files!.isNotEmpty) {
+        final file = uploadInput.files!.first;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('File uploaded successfully!'),
-          backgroundColor: const Color(0xff10B981),
-        ),
-      );
+        // Create file object
+        final attachment = {
+          'name': file.name,
+          'size': file.size,
+          'url':
+              'https://example.com/${file.name}', // In real app, upload to Firebase Storage
+          'type': file.type,
+          'lastModified': file.lastModified,
+        };
+
+        setState(() {
+          _attachments.add(attachment);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text('File "${file.name}" added successfully!'),
+                ],
+              ),
+              backgroundColor: const Color(0xff10B981),
+            ),
+          );
+        }
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to upload file: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error adding attachment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Failed to add file: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => _isUploadingFile = false);
+      if (mounted) {
+        setState(() => _isUploadingFile = false);
+      }
     }
   }
 }
@@ -5571,30 +5615,87 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      final assignmentsSnapshot = await FirebaseFirestore.instance
-          .collection('assignments')
-          .where('teacher_id', isEqualTo: user.uid)
-          .orderBy('created_at', descending: true)
-          .get();
-
-      List<Map<String, dynamic>> assignments = [];
-      for (var doc in assignmentsSnapshot.docs) {
-        final data = doc.data();
-        assignments.add({
-          'id': doc.id,
-          ...data,
-        });
+      if (user == null) {
+        print('No authenticated user found');
+        setState(() => _isLoading = false);
+        return;
       }
 
-      setState(() {
-        _assignments = assignments;
-        _isLoading = false;
-      });
+      print('Loading assignments for user: ${user.uid}');
+
+      // Try without orderBy first to see if that's causing issues
+      var query = FirebaseFirestore.instance
+          .collection('assignments')
+          .where('teacher_id', isEqualTo: user.uid);
+
+      try {
+        final assignmentsSnapshot =
+            await query.orderBy('created_at', descending: true).get();
+
+        print(
+            'Found ${assignmentsSnapshot.docs.length} assignments with orderBy');
+
+        List<Map<String, dynamic>> assignments = [];
+        for (var doc in assignmentsSnapshot.docs) {
+          final data = doc.data();
+          print('Assignment: ${doc.id} - ${data['title']}');
+          assignments.add({
+            'id': doc.id,
+            ...data,
+          });
+        }
+
+        setState(() {
+          _assignments = assignments;
+          _isLoading = false;
+        });
+      } catch (orderError) {
+        print('OrderBy failed, trying without order: $orderError');
+
+        // Fallback: load without ordering
+        final assignmentsSnapshot = await query.get();
+
+        print(
+            'Found ${assignmentsSnapshot.docs.length} assignments without orderBy');
+
+        List<Map<String, dynamic>> assignments = [];
+        for (var doc in assignmentsSnapshot.docs) {
+          final data = doc.data();
+          print('Assignment: ${doc.id} - ${data['title']}');
+          assignments.add({
+            'id': doc.id,
+            ...data,
+          });
+        }
+
+        // Sort manually by created_at if available
+        assignments.sort((a, b) {
+          final aCreated = a['created_at'] as Timestamp?;
+          final bCreated = b['created_at'] as Timestamp?;
+          if (aCreated == null || bCreated == null) return 0;
+          return bCreated.compareTo(aCreated);
+        });
+
+        setState(() {
+          _assignments = assignments;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error loading assignments: $e');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+
+      // Show error to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load assignments: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
