@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/timesheet_table.dart' show TimesheetTable;
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
+import '../../../core/services/shift_monitoring_service.dart';
 import '../../../core/models/teaching_shift.dart';
 
 class TimeClockScreen extends StatefulWidget {
@@ -55,6 +56,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     WidgetsBinding.instance.addObserver(this);
     _loadStudents();
     _checkForActiveShift();
+    // Run shift monitoring in background
+    _runPeriodicShiftMonitoring();
   }
 
   void _checkForActiveShift() async {
@@ -90,6 +93,59 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _autoLogoutTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// Run periodic shift monitoring for auto clock-outs and missed shifts
+  void _runPeriodicShiftMonitoring() {
+    // Run monitoring immediately
+    ShiftMonitoringService.runPeriodicMonitoring();
+
+    // Set up periodic monitoring every 15 minutes
+    Timer.periodic(const Duration(minutes: 15), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      ShiftMonitoringService.runPeriodicMonitoring();
+    });
+  }
+
+  /// Reset location loading state (safety method)
+  void _resetLocationState() {
+    if (mounted) {
+      setState(() {
+        _isGettingLocation = false;
+      });
+    }
+  }
+
+  /// Reset the entire clock-out UI state
+  void _resetClockOutState(LocationData? finalLocation) {
+    if (mounted) {
+      setState(() {
+        _isClockingIn = false;
+        _stopwatch.stop();
+        _timer?.cancel();
+        _stopAutoLogoutTimer();
+        _stopwatch.reset();
+        _clockInTime = null;
+        _selectedStudentName = '';
+        _clockOutLocation = finalLocation;
+        _isGettingLocation = false;
+      });
+    }
+  }
+
+  /// Show a less alarming error when UI state is out of sync with backend
+  void _showStateMismatchError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+            'Session already closed by system. Timer has been reset.'),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -229,7 +285,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       });
 
       if (canClockOut && !canClockIn) {
-        // Teacher is already clocked in, show clock-out option
+        // Teacher has an active timesheet (is currently clocked in)
         _showAlreadyClockedInDialog(shift);
         return;
       }
@@ -651,7 +707,10 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   }
 
   void _clockOut() async {
-    if (!_isClockingIn || _clockInTime == null) return;
+    if (!_isClockingIn || _clockInTime == null || _currentShift == null) return;
+
+    // Prevent multiple simultaneous clock-out attempts
+    if (_isGettingLocation) return;
 
     // Show loading state while getting location
     setState(() {
@@ -659,108 +718,108 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     });
 
     try {
-      // Get location for clock out
-      LocationData? clockOutLocation =
-          await LocationService.getCurrentLocation();
+      LocationData? clockOutLocation;
 
-      final now = DateTime.now();
-      final startTime = DateFormat('h:mm a').format(_clockInTime!);
-      final endTime = DateFormat('h:mm a').format(now);
+      // Try to use cached location first (if clock-in location is recent enough)
+      if (_clockInLocation != null) {
+        final clockInTime = _clockInTime!;
+        final now = DateTime.now();
+        final timeSinceClockIn = now.difference(clockInTime);
 
-      // Calculate final hours without seconds for UI display
-      final elapsed = _stopwatch.elapsed;
-      final hours = elapsed.inHours.toString().padLeft(2, '0');
-      final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
-      final totalHours = '$hours:$minutes';
-
-      // Create entry data for UI confirmation only (not saved locally)
-      final clockInEntry = {
-        'date': DateFormat('EEE MM/dd').format(now),
-        'type': _selectedStudentName,
-        'start': startTime,
-        'end': endTime,
-        'totalHours': totalHours,
-        'clockInLocation': _clockInLocation,
-        'clockOutLocation': clockOutLocation,
-      };
-
-      if (!mounted) return;
-      setState(() {
-        // DO NOT add to _timesheetEntries - timesheet is handled by ShiftTimesheetService
-        _isClockingIn = false;
-        _stopwatch.stop();
-        _timer?.cancel();
-        _stopAutoLogoutTimer();
-        _stopwatch.reset();
-        _clockInTime = null;
-        _selectedStudentName = '';
-        _clockOutLocation = clockOutLocation;
-        _isGettingLocation = false;
-      });
-
-      // Timesheet entry is already handled by ShiftTimesheetService.clockOutFromShift
-      // Refresh the timesheet table to show the updated entry
-      if (mounted) {
-        // Add a small delay to ensure Firebase write is committed
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            _refreshTimesheetData();
-          }
-        });
+        // If clocked in less than 5 minutes ago, use the same location
+        if (timeSinceClockIn.inMinutes < 5) {
+          print(
+              'Using cached clock-in location for clock-out (${timeSinceClockIn.inMinutes} min ago)');
+          clockOutLocation = _clockInLocation;
+        }
       }
 
-      // Show location confirmation if available
+      // If no cached location available, try to get new location with timeout
+      if (clockOutLocation == null) {
+        print('Getting new location for clock-out...');
+        try {
+          clockOutLocation = await LocationService.getCurrentLocation()
+              .timeout(const Duration(seconds: 10));
+        } catch (e) {
+          print('Clock-out location failed, using fallback: $e');
+          // Use a fallback location for clock-out to prevent endless loops
+          clockOutLocation = LocationData(
+            latitude: _clockInLocation?.latitude ?? 0.0,
+            longitude: _clockInLocation?.longitude ?? 0.0,
+            address: 'Clock-out location unavailable',
+            neighborhood: 'Previous Location',
+          );
+        }
+      }
+
+      if (!mounted) return;
+
       if (clockOutLocation != null) {
-        _showLocationConfirmation(clockOutLocation, isClockIn: false);
+        // Use the shift timesheet service to properly clock out
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final result = await ShiftTimesheetService.clockOutFromShift(
+            user.uid,
+            _currentShift!.id,
+            location: clockOutLocation,
+          );
+
+          if (result['success']) {
+            // Clock-out successful - update UI immediately
+            _resetClockOutState(clockOutLocation);
+
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result['message']),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+
+            // Refresh timesheet data and check for next shift
+            _refreshTimesheetData();
+            _checkForActiveShift();
+          } else {
+            // Clock-out failed. This is where the loop happens.
+            // If the error is "no valid shift to clock out", it means the backend
+            // state and UI state are mismatched. Force a UI reset.
+            if (result['message']
+                .toString()
+                .toLowerCase()
+                .contains('couldn\'t find a valid shift')) {
+              _showStateMismatchError();
+              _resetClockOutState(clockOutLocation); // Force reset UI
+            } else {
+              // For other errors, just show the message and reset loading state
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Clock-out failed: ${result['message']}'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+
+            // Always reset the loading state to prevent getting stuck
+            _resetLocationState();
+          }
+        }
+      } else {
+        // This should not happen now since we have fallback location
+        setState(() {
+          _isGettingLocation = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Unable to determine location for clock-out. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
       }
-
-      // Show confirmation
-      _showClockOutConfirmation(clockInEntry);
-
-      // Reset location data
-      _clockInLocation = null;
-      _clockOutLocation = null;
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isGettingLocation = false;
-      });
-
-      // Continue with clock out even if location fails
-      final now = DateTime.now();
-      final startTime = DateFormat('h:mm a').format(_clockInTime!);
-      final endTime = DateFormat('h:mm a').format(now);
-
-      final elapsed = _stopwatch.elapsed;
-      final hours = elapsed.inHours.toString().padLeft(2, '0');
-      final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
-      final totalHours = '$hours:$minutes';
-
-      final clockInEntry = {
-        'date': DateFormat('EEE MM/dd').format(now),
-        'type': _selectedStudentName,
-        'start': startTime,
-        'end': endTime,
-        'totalHours': totalHours,
-        'clockInLocation': _clockInLocation,
-        'clockOutLocation': null,
-      };
-
-      if (!mounted) return;
-      setState(() {
-        // DO NOT add to _timesheetEntries - timesheet is handled by ShiftTimesheetService
-        _isClockingIn = false;
-        _stopwatch.stop();
-        _timer?.cancel();
-        _stopwatch.reset();
-        _clockInTime = null;
-        _selectedStudentName = '';
-        _clockOutLocation = null;
-      });
-
-      // Timesheet entry is already handled by ShiftTimesheetService.clockOutFromShift
-      // Refresh the timesheet table to show the updated entry
       if (mounted) {
         // Add a small delay to ensure Firebase write is committed
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -770,8 +829,24 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         });
       }
 
-      _showClockOutConfirmation(clockInEntry);
-      _clockInLocation = null;
+      // Location handling is now done in the shift timesheet service above
+    } catch (e) {
+      print('Clock-out error: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _isGettingLocation = false;
+      });
+
+      // Show error message and stop the process
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Clock-out failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return; // Stop here to prevent further processing
     }
   }
 

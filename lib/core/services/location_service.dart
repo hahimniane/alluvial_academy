@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LocationData {
   final double latitude;
@@ -129,27 +130,29 @@ class LocationService {
   static Future<Position?> _getPositionWithFallbacks() async {
     print('LocationService: Starting position acquisition with fallbacks...');
 
-    // Strategy 1: Try last known position first (fastest)
-    try {
-      Position? lastKnown = await Geolocator.getLastKnownPosition(
-        forceAndroidLocationManager: false,
-      );
+    // Strategy 1: Try last known position first (not supported on web)
+    if (!kIsWeb) {
+      try {
+        Position? lastKnown = await Geolocator.getLastKnownPosition(
+          forceAndroidLocationManager: false,
+        );
 
-      if (lastKnown != null) {
-        final now = DateTime.now();
-        final lastKnownTime = DateTime.fromMillisecondsSinceEpoch(
-            lastKnown.timestamp.millisecondsSinceEpoch);
-        final timeDiff = now.difference(lastKnownTime);
+        if (lastKnown != null) {
+          final now = DateTime.now();
+          final lastKnownTime = DateTime.fromMillisecondsSinceEpoch(
+              lastKnown.timestamp.millisecondsSinceEpoch);
+          final timeDiff = now.difference(lastKnownTime);
 
-        // Use recent last known position (within 2 hours)
-        if (timeDiff.inHours < 2) {
-          print(
-              'LocationService: Using recent last known position (${timeDiff.inMinutes} min old)');
-          return lastKnown;
+          // Use recent last known position (within 2 hours)
+          if (timeDiff.inHours < 2) {
+            print(
+                'LocationService: Using recent last known position (${timeDiff.inMinutes} min old)');
+            return lastKnown;
+          }
         }
+      } catch (e) {
+        print('LocationService: Last known position failed: $e');
       }
-    } catch (e) {
-      print('LocationService: Last known position failed: $e');
     }
 
     // Strategy 2: Quick medium accuracy location
@@ -182,19 +185,21 @@ class LocationService {
       print('LocationService: Low accuracy attempt failed: $e');
     }
 
-    // Strategy 4: Use any available last known position as final fallback
-    try {
-      Position? lastKnown = await Geolocator.getLastKnownPosition(
-        forceAndroidLocationManager: false,
-      );
+    // Strategy 4: Use any available last known position as final fallback (not on web)
+    if (!kIsWeb) {
+      try {
+        Position? lastKnown = await Geolocator.getLastKnownPosition(
+          forceAndroidLocationManager: false,
+        );
 
-      if (lastKnown != null) {
-        print(
-            'LocationService: Using any available last known position as final fallback');
-        return lastKnown;
+        if (lastKnown != null) {
+          print(
+              'LocationService: Using any available last known position as final fallback');
+          return lastKnown;
+        }
+      } catch (e) {
+        print('LocationService: Final last known position attempt failed: $e');
       }
-    } catch (e) {
-      print('LocationService: Final last known position attempt failed: $e');
     }
 
     // Strategy 5: Lowest accuracy with maximum timeout
@@ -225,12 +230,12 @@ class LocationService {
 
     try {
       // Try geocoding with timeout
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      List<Placemark>? placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       ).timeout(const Duration(seconds: 5));
 
-      if (placemarks.isNotEmpty) {
+      if (placemarks != null && placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
 
         // Build address string
@@ -264,7 +269,10 @@ class LocationService {
       }
     } catch (e) {
       print('LocationService: Geocoding failed, using coordinates: $e');
-      // We already have fallback values set above
+      // Use more descriptive coordinate display as fallback
+      address =
+          'Location: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+      neighborhood = 'GPS Coordinates';
     }
 
     return {
@@ -538,35 +546,8 @@ class LocationService {
   /// Estimate location based on coordinate ranges when geocoding fails
   static String _estimateLocationFromCoordinates(
       double latitude, double longitude) {
-    // US Maine coordinates are roughly: 43.0-47.5 latitude, -74.0 to -66.0 longitude
-    if (latitude >= 43.0 &&
-        latitude <= 47.5 &&
-        longitude >= -74.0 &&
-        longitude <= -66.0) {
-      if (latitude >= 44.8 &&
-          latitude <= 45.0 &&
-          longitude >= -69.0 &&
-          longitude <= -68.5) {
-        return 'Old Town, Maine';
-      } else if (latitude >= 44.7 &&
-          latitude <= 45.0 &&
-          longitude >= -69.0 &&
-          longitude <= -68.0) {
-        return 'Bangor, Maine';
-      } else {
-        return 'Maine, USA';
-      }
-    }
-
-    // Add more coordinate ranges for other common areas as needed
-    // US coordinates roughly: 24-49 latitude, -125 to -66 longitude
-    if (latitude >= 24.0 &&
-        latitude <= 49.0 &&
-        longitude >= -125.0 &&
-        longitude <= -66.0) {
-      return 'United States';
-    }
-
+    // Don't use hardcoded location estimates - let geocoding handle it
+    // or show coordinates if geocoding fails
     return 'Unknown location';
   }
 

@@ -31,9 +31,11 @@ class ShiftTimesheetService {
         return {
           'shift': activeShift,
           'canClockIn': false,
-          'canClockOut': activeShift.canClockOut,
+          'canClockOut':
+              true, // If we found an active timesheet, they can clock out
           'status': 'active',
-          'message': 'You are already clocked in to ${activeShift.displayName}',
+          'message':
+              'You are currently clocked in to ${activeShift.displayName}',
         };
       }
 
@@ -73,8 +75,8 @@ class ShiftTimesheetService {
         print('  - isClockedIn: ${shift.isClockedIn}');
         print('  - Is scheduled: ${shift.status == ShiftStatus.scheduled}');
 
-        // Allow clock-in if within time window (15 min before to 15 min after)
-        // Remove status restriction to allow multiple clock-ins after clock-out
+        // Allow clock-in during entire shift window (15 min before to 15 min after)
+        // Allow multiple clock-ins throughout the shift duration
         if (now.isAfter(clockInWindow) && now.isBefore(clockOutWindow)) {
           print(
               'ShiftTimesheetService: ✅ VALID SHIFT FOUND: ${shift.id} - ${shift.displayName}');
@@ -82,6 +84,8 @@ class ShiftTimesheetService {
         } else {
           print(
               'ShiftTimesheetService: ❌ Shift not valid for clock-in - outside time window');
+          print(
+              'ShiftTimesheetService: Current time: $now, Window: $clockInWindow to $clockOutWindow');
         }
       }
 
@@ -363,11 +367,11 @@ class ShiftTimesheetService {
       print('  - Clock-in Window: $clockInWindow');
       print('  - Clock-out Window: $clockOutWindow');
 
-      // Allow clock-in if within the time window regardless of current status
-      // This allows multiple clock-ins/outs within the same shift window
+      // Allow clock-in during entire shift window regardless of current clock status
+      // This enables multiple clock-in/out cycles throughout the shift duration
       if (now.isAfter(clockInWindow) && now.isBefore(clockOutWindow)) {
         print(
-            'ShiftTimesheetService: ✅ Shift validated for multiple clock-in - within time window');
+            'ShiftTimesheetService: ✅ Shift validated for multiple clock-in - within extended time window');
         return shift;
       }
 
@@ -577,29 +581,44 @@ class ShiftTimesheetService {
     }
   }
 
-  /// Get active shift for teacher (if any) - only if currently clocked in
+  /// Get active shift for teacher (if any) - only if currently has an open timesheet
   static Future<TeachingShift?> getActiveShift(String teacherId) async {
     try {
-      final snapshot = await _firestore
-          .collection('teaching_shifts')
+      // Instead of checking shift.isClockedIn, check for open timesheet entries
+      final openTimesheetQuery = await _firestore
+          .collection('timesheet_entries')
           .where('teacher_id', isEqualTo: teacherId)
-          .where('status', isEqualTo: 'active')
+          .where('end_time', isEqualTo: '') // Open timesheet entry
+          .limit(1)
           .get();
 
-      if (snapshot.docs.isEmpty) return null;
-
-      // Find the shift where teacher is actually clocked in (not just active status)
-      for (var doc in snapshot.docs) {
-        final shift = TeachingShift.fromFirestore(doc);
-        if (shift.isClockedIn) {
-          print(
-              'ShiftTimesheetService: Found active clocked-in shift: ${shift.id}');
-          return shift;
-        }
+      if (openTimesheetQuery.docs.isEmpty) {
+        print('ShiftTimesheetService: No open timesheet entries found');
+        return null;
       }
 
-      print('ShiftTimesheetService: No actively clocked-in shifts found');
-      return null;
+      // Get the shift ID from the open timesheet entry
+      final openEntry = openTimesheetQuery.docs.first.data();
+      final shiftId = openEntry['shift_id'] as String?;
+
+      if (shiftId == null) {
+        print(
+            'ShiftTimesheetService: No shift_id found in open timesheet entry');
+        return null;
+      }
+
+      // Get the actual shift
+      final shiftDoc =
+          await _firestore.collection('teaching_shifts').doc(shiftId).get();
+      if (!shiftDoc.exists) {
+        print('ShiftTimesheetService: Shift $shiftId not found');
+        return null;
+      }
+
+      final shift = TeachingShift.fromFirestore(shiftDoc);
+      print(
+          'ShiftTimesheetService: Found active shift with open timesheet: ${shift.id}');
+      return shift;
     } catch (e) {
       print('Error getting active shift: $e');
       return null;
