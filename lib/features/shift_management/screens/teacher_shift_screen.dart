@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_timesheet_service.dart';
+import '../../../core/services/location_service.dart';
 import '../widgets/shift_details_dialog.dart';
 
 class TeacherShiftScreen extends StatefulWidget {
@@ -564,75 +566,65 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
               ],
               if (canClockIn || isActive) ...[
                 const SizedBox(height: 16),
+                // Action buttons - only show details and time clock redirect
                 Row(
                   children: [
-                    if (canClockIn) ...[
+                    // Show instruction text for clock-in/out
+                    if (canClockIn || canClockOut) ...[
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _clockIn(shift),
-                          icon: const Icon(Icons.play_arrow, size: 20),
-                          label: Text(
-                            'Clock In',
-                            style:
-                                GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: (canClockIn ? Colors.green : Colors.red)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: (canClockIn ? Colors.green : Colors.red)
+                                  .withOpacity(0.3),
+                            ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info,
+                                color: canClockIn ? Colors.green : Colors.red,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  canClockIn
+                                      ? 'To clock in: Go to Time Clock tab'
+                                      : 'To clock out: Go to Time Clock tab',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: canClockIn
+                                        ? Colors.green.shade700
+                                        : Colors.red.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                     ],
-                    if (canClockOut) ...[
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _clockOut(shift),
-                          icon: const Icon(Icons.stop, size: 20),
-                          label: Text(
-                            'Clock Out',
-                            style:
-                                GoogleFonts.inter(fontWeight: FontWeight.w600),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    // Always show details button, expand if no action buttons
-                    if (!canClockIn && !canClockOut)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showShiftDetails(shift),
-                          icon: const Icon(Icons.info_outline, size: 20),
-                          label: Text(
-                            'View Details',
-                            style:
-                                GoogleFonts.inter(fontWeight: FontWeight.w600),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      )
-                    else
-                      OutlinedButton.icon(
+                    // Always show details button
+                    Expanded(
+                      child: OutlinedButton.icon(
                         onPressed: () => _showShiftDetails(shift),
                         icon: const Icon(Icons.info_outline, size: 20),
                         label: Text(
-                          'Details',
+                          'View Details',
                           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                         ),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ],
@@ -717,27 +709,62 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       // Show loading state
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Clocking in...'),
+          content: Text('Getting location for clock-in...'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 1),
         ),
       );
 
-      final success = await ShiftService.clockIn(user.uid, shift.id);
-
-      if (mounted) {
-        if (success) {
+      // Get location first
+      LocationData? location;
+      try {
+        location = await LocationService.getCurrentLocation();
+      } catch (e) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Successfully clocked in to ${shift.displayName}'),
+              content: Text(
+                  'Location permission required. Please enable location access: ${e.toString().split(': ').last}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (location == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Location temporarily unavailable. Please try again or move to an open area.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Use the integrated shift-timesheet service
+      final result = await ShiftTimesheetService.clockInToShift(
+        user.uid,
+        shift.id,
+        location: location,
+      );
+
+      if (mounted) {
+        if (result['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
               backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Failed to clock in. Please check timing and try again.'),
+            SnackBar(
+              content: Text(result['message']),
               backgroundColor: Colors.red,
             ),
           );
@@ -801,27 +828,63 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Clocking out...'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 1),
+            content: Text('Getting location (usually takes 5-10 seconds)...'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
           ),
         );
       }
 
-      final success = await ShiftService.clockOut(user.uid, shift.id);
-
-      if (mounted) {
-        if (success) {
+      // Get location first
+      LocationData? location;
+      try {
+        location = await LocationService.getCurrentLocation();
+      } catch (e) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Successfully clocked out of ${shift.displayName}'),
+              content: Text(
+                  'Location permission required: ${e.toString().split(': ').last}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (location == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Location temporarily unavailable. Please try again or move to an open area.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Use the integrated shift-timesheet service
+      final result = await ShiftTimesheetService.clockOutFromShift(
+        user.uid,
+        shift.id,
+        location: location,
+      );
+
+      if (mounted) {
+        if (result['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
               backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to clock out. Please try again.'),
+            SnackBar(
+              content: Text(result['message']),
               backgroundColor: Colors.red,
             ),
           );

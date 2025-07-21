@@ -325,39 +325,45 @@ class ShiftService {
         return false;
       }
 
-      if (shift.status != ShiftStatus.scheduled) {
-        print('Shift not in scheduled status: ${shift.status}');
-        return false;
-      }
-
+      // Allow clock-in if within time window (15 min before to 15 min after shift)
       if (!shift.canClockIn) {
         print('Clock-in window not available');
         return false;
       }
 
-      if (shift.isClockedIn) {
-        print('Teacher already clocked in');
-        return false;
-      }
+      // Allow multiple clock-ins within the same shift window
+      // Remove status and isClockedIn checks to enable multiple entries
 
-      // Check if teacher has any other active shifts
+      // Check if teacher has any OTHER active shifts (not the current one)
       final activeShifts = await _shiftsCollection
           .where('teacher_id', isEqualTo: teacherId)
           .where('status', isEqualTo: 'active')
           .get();
 
-      if (activeShifts.docs.isNotEmpty) {
+      // Allow if no active shifts OR if the only active shift is the current one
+      final otherActiveShifts =
+          activeShifts.docs.where((doc) => doc.id != shiftId).toList();
+
+      if (otherActiveShifts.isNotEmpty) {
         print('Teacher has another active shift');
         return false;
       }
 
       // Perform clock-in
       final now = DateTime.now();
-      await _shiftsCollection.doc(shiftId).update({
-        'status': ShiftStatus.active.name,
-        'clock_in_time': Timestamp.fromDate(now),
+
+      // Update shift with clock-in time and set status to active if not already
+      final updateData = <String, dynamic>{
         'last_modified': Timestamp.fromDate(now),
-      });
+      };
+
+      // Only set status to active and first clock-in time if not already active
+      if (shift.status != ShiftStatus.active) {
+        updateData['status'] = ShiftStatus.active.name;
+        updateData['clock_in_time'] = Timestamp.fromDate(now);
+      }
+
+      await _shiftsCollection.doc(shiftId).update(updateData);
 
       print('Clock-in successful at $now');
       return true;
@@ -388,20 +394,20 @@ class ShiftService {
         return false;
       }
 
-      if (!shift.isClockedIn) {
-        print('Teacher not clocked in');
-        return false;
-      }
+      // No need to check isClockedIn here, as the timesheet service handles this.
+      // This allows multiple clock-outs as long as there's an open timesheet entry.
 
       // Perform clock-out
       final now = DateTime.now();
+
+      // We only update the last_modified timestamp.
+      // We no longer set clock_out_time on the shift record itself.
       await _shiftsCollection.doc(shiftId).update({
-        'status': ShiftStatus.completed.name,
-        'clock_out_time': Timestamp.fromDate(now),
         'last_modified': Timestamp.fromDate(now),
       });
 
-      print('Clock-out successful at $now');
+      print(
+          'Clock-out successful at $now (shift remains active for multiple sessions)');
       return true;
     } catch (e) {
       print('Error during clock-out: $e');
