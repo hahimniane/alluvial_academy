@@ -100,7 +100,6 @@ class _TimesheetTableState extends State<TimesheetTable>
                   entry['type'] ?? '', // type field contains the student name
               start: entry['start'] ?? '',
               end: entry['end'] ?? '',
-              breakDuration: '15 min', // Default break from clock-in
               totalHours: entry['totalHours'] ?? '00:00',
               description:
                   'Teaching session with ${entry['type'] ?? 'Unknown Student'}',
@@ -157,7 +156,6 @@ class _TimesheetTableState extends State<TimesheetTable>
           subject: data['student_name'] ?? '',
           start: data['start_time'] ?? '',
           end: data['end_time'] ?? '',
-          breakDuration: data['break_duration'] ?? '15 min',
           totalHours: data['total_hours'] ?? '00:00',
           description: data['description'] ?? '',
           status: _parseStatus(data['status'] ?? 'draft'),
@@ -228,7 +226,6 @@ class _TimesheetTableState extends State<TimesheetTable>
         'student_name': entry.subject,
         'start_time': entry.start,
         'end_time': entry.end,
-        'break_duration': entry.breakDuration,
         'total_hours': entry.totalHours,
         'description': entry.description,
         'status': entry.status.name,
@@ -403,7 +400,6 @@ class _TimesheetTableState extends State<TimesheetTable>
         subject: entry.subject,
         start: entry.start,
         end: entry.end,
-        breakDuration: entry.breakDuration,
         totalHours: entry.totalHours,
         description: entry.description,
         status: TimesheetStatus.pending,
@@ -475,7 +471,6 @@ class _TimesheetTableState extends State<TimesheetTable>
             _buildDetailRow('Student:', entry.subject),
             _buildDetailRow('Start Time:', entry.start),
             _buildDetailRow('End Time:', entry.end),
-            _buildDetailRow('Break Duration:', entry.breakDuration),
             _buildDetailRow('Total Hours:', entry.totalHours),
             _buildDetailRow('Status:', _getStatusText(entry.status)),
             if (entry.description.isNotEmpty)
@@ -730,19 +725,6 @@ class _TimesheetTableState extends State<TimesheetTable>
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'End Time',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    GridColumn(
-                      columnName: 'break',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Break',
                           style: constants.openSansHebrewTextStyle.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -1440,7 +1422,6 @@ class _TimesheetTableState extends State<TimesheetTable>
       "Student",
       "Start Time",
       "End Time",
-      "Break Duration",
       "Total Hours",
       "Description",
       "Status",
@@ -1455,7 +1436,6 @@ class _TimesheetTableState extends State<TimesheetTable>
               entry.subject,
               entry.start,
               entry.end,
-              entry.breakDuration,
               entry.totalHours,
               entry.description,
               entry.status.toString().split('.').last, // Get enum name
@@ -1528,7 +1508,6 @@ class _TimesheetTableState extends State<TimesheetTable>
               subject: timesheetData[i].subject,
               start: timesheetData[i].start,
               end: timesheetData[i].end,
-              breakDuration: timesheetData[i].breakDuration,
               totalHours: timesheetData[i].totalHours,
               description: timesheetData[i].description,
               status: TimesheetStatus.pending,
@@ -1780,7 +1759,6 @@ class TimesheetDataSource extends DataGridSource {
                 DataGridCell(columnName: 'subject', value: entry),
                 DataGridCell(columnName: 'start', value: entry),
                 DataGridCell(columnName: 'end', value: entry),
-                DataGridCell(columnName: 'break', value: entry),
                 DataGridCell(columnName: 'totalHours', value: entry),
                 DataGridCell(columnName: 'location', value: entry),
                 DataGridCell(columnName: 'status', value: entry),
@@ -1830,14 +1808,6 @@ class TimesheetDataSource extends DataGridSource {
           alignment: Alignment.centerLeft,
           child: Text(
             entry.end,
-            style: constants.openSansHebrewTextStyle,
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(8.0),
-          alignment: Alignment.centerLeft,
-          child: Text(
-            entry.breakDuration,
             style: constants.openSansHebrewTextStyle,
           ),
         ),
@@ -2151,9 +2121,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       _selectedStudent = entry.subject;
       _descriptionController.text = entry.description;
 
-      // Parse break duration
-      final breakStr = entry.breakDuration.replaceAll(' min', '');
-      _breakMinutes = int.tryParse(breakStr) ?? 30;
+      // Break duration removed - no longer used
+      _breakMinutes = 0;
     } else {
       // Creating new entry - use defaults
       _selectedDate = DateTime.now();
@@ -3152,7 +3121,6 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
         subject: _selectedStudent,
         start: _startTime.format(context),
         end: _endTime.format(context),
-        breakDuration: '$_breakMinutes min',
         totalHours: _calculateTotalHours(),
         description: _descriptionController.text,
         status: TimesheetStatus.draft,
@@ -3203,7 +3171,6 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
         subject: _selectedStudent,
         start: _startTime.format(context),
         end: _endTime.format(context),
-        breakDuration: '$_breakMinutes min',
         totalHours: _calculateTotalHours(),
         description: _descriptionController.text,
         status: TimesheetStatus.pending,

@@ -1055,38 +1055,38 @@ class _DashboardPageState extends State<DashboardPage> {
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_Scheduler.png'),
                       text: 'Timesheet Review',
-                      index: 5,
+                      index: 6,
                       color: const Color(0xffF28B46),
                     ),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_forms.png'),
                       text: 'Forms',
-                      index: 6,
+                      index: 7,
                       color: const Color(0xffBA39A9),
                     ),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_task_manage.png'),
                       text: 'Quick Tasks',
-                      index: 8,
+                      index: 9,
                       color: const Color(0xff4CAF50),
                     ),
                     const Divider(),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.build),
                       text: 'Form Builder',
-                      index: 7,
+                      index: 8,
                     ),
                     // Debug features - only show in debug mode
                     if (kDebugMode) ...[
                       _buildSideMenuItem(
                         icon: const Icon(Icons.bug_report),
                         text: 'Test Role System',
-                        index: 9,
+                        index: 10,
                       ),
                       _buildSideMenuItem(
                         icon: const Icon(Icons.storage),
                         text: 'Firestore Debug',
-                        index: 10,
+                        index: 11,
                       ),
                     ],
                   ] else ...[

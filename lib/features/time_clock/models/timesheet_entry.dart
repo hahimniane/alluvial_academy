@@ -8,7 +8,6 @@ class TimesheetEntry {
   final String subject; // student name
   final String start;
   final String end;
-  final String breakDuration;
   final String totalHours;
   final String description;
   final TimesheetStatus status;
@@ -39,7 +38,6 @@ class TimesheetEntry {
     required this.subject,
     required this.start,
     required this.end,
-    required this.breakDuration,
     required this.totalHours,
     required this.description,
     required this.status,

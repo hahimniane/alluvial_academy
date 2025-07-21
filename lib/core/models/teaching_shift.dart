@@ -119,21 +119,27 @@ class TeachingShift {
   // Check if teacher can clock in (15 minutes before shift)
   bool get canClockIn {
     final now = DateTime.now();
-    final clockInWindow = shiftStart.subtract(const Duration(minutes: 15));
+    // Convert shift times to local timezone for comparison
+    final shiftStartLocal = shiftStart.toLocal();
+    final shiftEndLocal = shiftEnd.toLocal();
+    final clockInWindow = shiftStartLocal.subtract(const Duration(minutes: 15));
     return now.isAfter(clockInWindow) &&
-        now.isBefore(shiftEnd.add(const Duration(minutes: 15)));
+        now.isBefore(shiftEndLocal.add(const Duration(minutes: 15)));
   }
 
   // Check if shift is currently active
   bool get isCurrentlyActive {
     final now = DateTime.now();
-    return now.isAfter(shiftStart) && now.isBefore(shiftEnd);
+    final shiftStartLocal = shiftStart.toLocal();
+    final shiftEndLocal = shiftEnd.toLocal();
+    return now.isAfter(shiftStartLocal) && now.isBefore(shiftEndLocal);
   }
 
   // Check if shift has expired (15 minutes after end)
   bool get hasExpired {
     final now = DateTime.now();
-    final expiredTime = shiftEnd.add(const Duration(minutes: 15));
+    final shiftEndLocal = shiftEnd.toLocal();
+    final expiredTime = shiftEndLocal.add(const Duration(minutes: 15));
     return now.isAfter(expiredTime);
   }
 
@@ -176,12 +182,12 @@ class TeachingShift {
 
   // Get clock-in window start time (15 minutes before shift)
   DateTime get clockInWindowStart {
-    return shiftStart.subtract(const Duration(minutes: 15));
+    return shiftStart.toLocal().subtract(const Duration(minutes: 15));
   }
 
   // Get clock-out deadline (15 minutes after shift end)
   DateTime get clockOutDeadline {
-    return shiftEnd.add(const Duration(minutes: 15));
+    return shiftEnd.toLocal().add(const Duration(minutes: 15));
   }
 
   // Generate automatic name based on teacher, subject, and students

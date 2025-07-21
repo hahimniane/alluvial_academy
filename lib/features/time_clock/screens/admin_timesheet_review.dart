@@ -22,6 +22,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   String _selectedFilter = 'Pending';
   bool _isLoading = true;
   DateTimeRange? _selectedDateRange;
+  Set<String> _selectedTimesheetIds = {};
+  bool _showBulkActions = false;
 
   final List<String> _filterOptions = [
     'All',
@@ -71,7 +73,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           subject: data['student_name'] ?? '',
           start: data['start_time'] ?? '',
           end: data['end_time'] ?? '',
-          breakDuration: data['break_duration'] ?? '15 min',
           totalHours: data['total_hours'] ?? '00:00',
           description: data['description'] ?? '',
           status: _parseStatus(data['status'] ?? 'draft'),
@@ -116,6 +117,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   void _applyFilter(String filter) {
     setState(() {
       _selectedFilter = filter;
+      _selectedTimesheetIds.clear(); // Clear selections when filter changes
 
       List<TimesheetEntry> statusFiltered;
       if (filter == 'All') {
@@ -141,14 +143,282 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       }
 
       _filteredTimesheets = statusFiltered;
+      _showBulkActions = _selectedTimesheetIds.isNotEmpty;
 
       _dataSource = TimesheetReviewDataSource(
         timesheets: _filteredTimesheets,
         onApprove: _approveTimesheet,
         onReject: _rejectTimesheet,
         onViewDetails: _viewTimesheetDetails,
+        onSelectionChanged: _onTimesheetSelectionChanged,
+        selectedIds: _selectedTimesheetIds,
       );
     });
+  }
+
+  void _onTimesheetSelectionChanged(String timesheetId, bool isSelected) {
+    setState(() {
+      if (isSelected) {
+        _selectedTimesheetIds.add(timesheetId);
+      } else {
+        _selectedTimesheetIds.remove(timesheetId);
+      }
+      _showBulkActions = _selectedTimesheetIds.isNotEmpty;
+    });
+  }
+
+  Future<void> _bulkApproveTimesheets() async {
+    final selectedTimesheets = _filteredTimesheets
+        .where((t) => _selectedTimesheetIds.contains(t.documentId))
+        .toList();
+
+    if (selectedTimesheets.isEmpty) return;
+
+    final confirmed = await _showBulkApprovalDialog(selectedTimesheets);
+    if (!confirmed) return;
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      double totalPayment = 0.0;
+
+      for (var timesheet in selectedTimesheets) {
+        final payment = _calculatePayment(timesheet);
+        totalPayment += payment;
+
+        batch.update(
+          FirebaseFirestore.instance
+              .collection('timesheet_entries')
+              .doc(timesheet.documentId!),
+          {
+            'status': 'approved',
+            'approved_at': FieldValue.serverTimestamp(),
+            'payment_amount': payment,
+            'updated_at': FieldValue.serverTimestamp(),
+          },
+        );
+      }
+
+      await batch.commit();
+
+      _showSuccessSnackBar(
+          'Approved ${selectedTimesheets.length} timesheets. Total payment: \$${totalPayment.toStringAsFixed(2)}');
+
+      setState(() {
+        _selectedTimesheetIds.clear();
+        _showBulkActions = false;
+      });
+
+      _loadTimesheets();
+    } catch (e) {
+      _showErrorSnackBar('Error approving timesheets: $e');
+    }
+  }
+
+  Future<void> _bulkRejectTimesheets() async {
+    final selectedTimesheets = _filteredTimesheets
+        .where((t) => _selectedTimesheetIds.contains(t.documentId))
+        .toList();
+
+    if (selectedTimesheets.isEmpty) return;
+
+    final reason = await _showBulkRejectionDialog(selectedTimesheets.length);
+    if (reason == null) return;
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var timesheet in selectedTimesheets) {
+        batch.update(
+          FirebaseFirestore.instance
+              .collection('timesheet_entries')
+              .doc(timesheet.documentId!),
+          {
+            'status': 'rejected',
+            'rejected_at': FieldValue.serverTimestamp(),
+            'rejection_reason': reason,
+            'updated_at': FieldValue.serverTimestamp(),
+          },
+        );
+      }
+
+      await batch.commit();
+
+      _showSuccessSnackBar(
+          'Rejected ${selectedTimesheets.length} timesheets with feedback');
+
+      setState(() {
+        _selectedTimesheetIds.clear();
+        _showBulkActions = false;
+      });
+
+      _loadTimesheets();
+    } catch (e) {
+      _showErrorSnackBar('Error rejecting timesheets: $e');
+    }
+  }
+
+  Future<bool> _showBulkApprovalDialog(List<TimesheetEntry> timesheets) async {
+    final totalPayment = timesheets.fold<double>(
+        0.0, (sum, timesheet) => sum + _calculatePayment(timesheet));
+
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.check_circle,
+                      color: Colors.green, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text('Bulk Approve Timesheets',
+                    style: GoogleFonts.inter(
+                        fontSize: 18, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'You are about to approve ${timesheets.length} timesheets:',
+                    style: GoogleFonts.inter(fontSize: 14)),
+                const SizedBox(height: 16),
+                Container(
+                  height: 150,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.builder(
+                    itemCount: timesheets.length,
+                    itemBuilder: (context, index) {
+                      final timesheet = timesheets[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(timesheet.teacherName,
+                            style: GoogleFonts.inter(fontSize: 12)),
+                        subtitle: Text(
+                            '${timesheet.date} - ${timesheet.totalHours}',
+                            style: GoogleFonts.inter(fontSize: 11)),
+                        trailing: Text(
+                            '\$${_calculatePayment(timesheet).toStringAsFixed(2)}',
+                            style: GoogleFonts.inter(
+                                fontSize: 12, fontWeight: FontWeight.w600)),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.payments, color: Colors.green),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Total Payment: \$${totalPayment.toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Approve All'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<String?> _showBulkRejectionDialog(int count) async {
+    final controller = TextEditingController();
+
+    return await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.cancel, color: Colors.red, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text('Bulk Reject Timesheets',
+                style: GoogleFonts.inter(
+                    fontSize: 18, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'You are about to reject $count timesheets. Please provide a reason:',
+              style: GoogleFonts.inter(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Enter reason for rejection...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                Navigator.of(context).pop(controller.text.trim());
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reject All'),
+          ),
+        ],
+      ),
+    );
   }
 
   DateTime? _parseEntryDate(String dateString) {
@@ -417,12 +687,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               _buildDetailRow('Student:', timesheet.subject),
               _buildDetailRow('Start Time:', timesheet.start),
               _buildDetailRow('End Time:', timesheet.end),
-              _buildDetailRow('Break Duration:', timesheet.breakDuration),
               _buildDetailRow('Total Hours:', timesheet.totalHours),
-              _buildDetailRow('Hourly Rate:',
-                  '\$${timesheet.hourlyRate.toStringAsFixed(2)}'),
-              _buildDetailRow('Calculated Payment:',
-                  '\$${_calculatePayment(timesheet).toStringAsFixed(2)}'),
+              _buildDetailRow('Description:', timesheet.description),
               if (timesheet.description.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text('Description:',
@@ -591,7 +857,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       "Student",
       "Start Time",
       "End Time",
-      "Break Duration",
       "Total Hours",
       "Hourly Rate",
       "Payment Amount",
@@ -611,7 +876,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         entry.subject,
         entry.start,
         entry.end,
-        entry.breakDuration,
         entry.totalHours,
         '\$${entry.hourlyRate.toStringAsFixed(2)}',
         '\$${_calculatePayment(entry).toStringAsFixed(2)}',
@@ -1007,6 +1271,74 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                   ],
                 ),
+                // Bulk Actions Bar
+                if (_showBulkActions) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff0386FF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: const Color(0xff0386FF).withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_box, color: const Color(0xff0386FF)),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_selectedTimesheetIds.length} selected',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff0386FF),
+                          ),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: _bulkApproveTimesheets,
+                          icon: const Icon(Icons.check_circle, size: 16),
+                          label: const Text('Approve All'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _bulkRejectTimesheets,
+                          icon: const Icon(Icons.cancel, size: 16),
+                          label: const Text('Reject All'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _selectedTimesheetIds.clear();
+                              _showBulkActions = false;
+                            });
+                          },
+                          icon: const Icon(Icons.clear, size: 16),
+                          label: const Text('Clear'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.grey.shade700,
+                            side: BorderSide(color: Colors.grey.shade400),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 // Filter Chips
                 Row(
@@ -1123,6 +1455,19 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             columnWidthMode: ColumnWidthMode.fill,
                             columns: [
                               GridColumn(
+                                columnName: 'select',
+                                width: 60,
+                                label: Container(
+                                  padding: const EdgeInsets.all(8.0),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.check_box_outline_blank,
+                                    size: 18,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                              GridColumn(
                                 columnName: 'teacher',
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
@@ -1218,17 +1563,22 @@ class TimesheetReviewDataSource extends DataGridSource {
   final Function(TimesheetEntry) onApprove;
   final Function(TimesheetEntry) onReject;
   final Function(TimesheetEntry) onViewDetails;
+  final Function(String, bool) onSelectionChanged;
+  final Set<String> selectedIds;
 
   TimesheetReviewDataSource({
     required this.timesheets,
     required this.onApprove,
     required this.onReject,
     required this.onViewDetails,
+    required this.onSelectionChanged,
+    required this.selectedIds,
   });
 
   @override
   List<DataGridRow> get rows => timesheets.map<DataGridRow>((timesheet) {
         return DataGridRow(cells: [
+          DataGridCell<TimesheetEntry>(columnName: 'select', value: timesheet),
           DataGridCell<String>(
               columnName: 'teacher', value: timesheet.teacherName),
           DataGridCell<String>(columnName: 'date', value: timesheet.date),
@@ -1264,7 +1614,22 @@ class TimesheetReviewDataSource extends DataGridSource {
   DataGridRowAdapter buildRow(DataGridRow row) {
     return DataGridRowAdapter(
       cells: row.getCells().map<Widget>((dataGridCell) {
-        if (dataGridCell.columnName == 'teacher') {
+        if (dataGridCell.columnName == 'select') {
+          final timesheet = dataGridCell.value as TimesheetEntry;
+          final isSelected = selectedIds.contains(timesheet.documentId);
+
+          return Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(8.0),
+            child: Checkbox(
+              value: isSelected,
+              onChanged: (value) {
+                onSelectionChanged(timesheet.documentId!, value ?? false);
+              },
+              activeColor: const Color(0xff0386FF),
+            ),
+          );
+        } else if (dataGridCell.columnName == 'teacher') {
           return Container(
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.all(8.0),
