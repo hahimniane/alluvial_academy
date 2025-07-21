@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_core/theme.dart';
 import '../models/timesheet_entry.dart';
 import '../../../core/constants/app_constants.dart' as constants;
 import '../../../utility_functions/export_helpers.dart';
+import 'dart:async';
 
 class AdminTimesheetReview extends StatefulWidget {
   const AdminTimesheetReview({super.key});
@@ -25,6 +26,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   Set<String> _selectedTimesheetIds = {};
   bool _showBulkActions = false;
 
+  // Real-time listener
+  StreamSubscription<QuerySnapshot>? _timesheetListener;
+
   final List<String> _filterOptions = [
     'All',
     'Pending',
@@ -36,69 +40,153 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   @override
   void initState() {
     super.initState();
-    _loadTimesheets();
+    _setupRealtimeListener();
   }
 
-  Future<void> _loadTimesheets() async {
+  @override
+  void dispose() {
+    _timesheetListener?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time listener for timesheet changes
+  void _setupRealtimeListener() {
     setState(() => _isLoading = true);
 
-    try {
-      // Load all timesheet entries with user information
-      final QuerySnapshot timesheetSnapshot = await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .orderBy('created_at', descending: true)
-          .get();
+    // Listen to real-time changes in timesheet_entries collection
+    _timesheetListener = FirebaseFirestore.instance
+        .collection('timesheet_entries')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .listen((snapshot) async {
+      await _processTimesheetSnapshot(snapshot);
+    }, onError: (error) {
+      print('Error in timesheet listener: $error');
+      setState(() => _isLoading = false);
+    });
+  }
 
+  /// Process timesheet snapshot and update UI in real-time
+  Future<void> _processTimesheetSnapshot(QuerySnapshot snapshot) async {
+    try {
       List<TimesheetEntry> timesheets = [];
 
-      for (QueryDocumentSnapshot doc in timesheetSnapshot.docs) {
+      // Process all timesheet entries
+      for (QueryDocumentSnapshot doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
 
-        // Get user information for hourly rate
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(data['teacher_id'])
-            .get();
-
-        final userData = userDoc.data() as Map<String, dynamic>?;
-        final hourlyRate =
-            userData?['hourly_rate'] as double? ?? 15.0; // Default rate
-        final userName =
-            '${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}'
-                .trim();
-
-        timesheets.add(TimesheetEntry(
-          documentId: doc.id,
-          date: data['date'] ?? '',
-          subject: data['student_name'] ?? '',
-          start: data['start_time'] ?? '',
-          end: data['end_time'] ?? '',
-          totalHours: data['total_hours'] ?? '00:00',
-          description: data['description'] ?? '',
-          status: _parseStatus(data['status'] ?? 'draft'),
-          teacherId: data['teacher_id'] ?? '',
-          teacherName: userName,
-          hourlyRate: hourlyRate,
-          createdAt: data['created_at'] as Timestamp?,
-          submittedAt: data['submitted_at'] as Timestamp?,
-          approvedAt: data['approved_at'] as Timestamp?,
-          rejectedAt: data['rejected_at'] as Timestamp?,
-          rejectionReason: data['rejection_reason'] as String?,
-          paymentAmount: data['payment_amount'] as double?,
-          source: data['source'] as String? ??
-              'manual', // Default to manual if not specified
-        ));
+        // Get user information for hourly rate - use cached data or fetch if needed
+        TimesheetEntry? entry = await _createTimesheetEntry(doc, data);
+        if (entry != null) {
+          timesheets.add(entry);
+        }
       }
 
-      setState(() {
-        _allTimesheets = timesheets;
-        _applyFilter(_selectedFilter);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allTimesheets = timesheets;
+          _applyFilter(_selectedFilter);
+          _isLoading = false;
+        });
+
+        // Show notification for new pending timesheets if admin was viewing other filters
+        _checkForNewPendingTimesheets(timesheets);
+      }
     } catch (e) {
-      print('Error loading timesheets: $e');
-      setState(() => _isLoading = false);
+      print('Error processing timesheet snapshot: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  /// Create timesheet entry with user data
+  Future<TimesheetEntry?> _createTimesheetEntry(
+      QueryDocumentSnapshot doc, Map<String, dynamic> data) async {
+    try {
+      // Get user information for hourly rate - with caching to avoid repeated queries
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(data['teacher_id'])
+          .get();
+
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      final hourlyRate = userData?['hourly_rate'] as double? ?? 15.0;
+      final userName =
+          '${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}'
+              .trim();
+
+      return TimesheetEntry(
+        documentId: doc.id,
+        date: data['date'] ?? '',
+        subject: data['student_name'] ?? '',
+        start: data['start_time'] ?? '',
+        end: data['end_time'] ?? '',
+        totalHours: data['total_hours'] ?? '00:00',
+        description: data['description'] ?? '',
+        status: _parseStatus(data['status'] ?? 'draft'),
+        teacherId: data['teacher_id'] ?? '',
+        teacherName: userName,
+        hourlyRate: hourlyRate,
+        createdAt: data['created_at'] as Timestamp?,
+        submittedAt: data['submitted_at'] as Timestamp?,
+        approvedAt: data['approved_at'] as Timestamp?,
+        rejectedAt: data['rejected_at'] as Timestamp?,
+        rejectionReason: data['rejection_reason'] as String?,
+        paymentAmount: data['payment_amount'] as double?,
+        source: data['source'] as String? ?? 'manual',
+      );
+    } catch (e) {
+      print('Error creating timesheet entry for doc ${doc.id}: $e');
+      return null;
+    }
+  }
+
+  /// Check for new pending timesheets and notify admin
+  void _checkForNewPendingTimesheets(List<TimesheetEntry> timesheets) {
+    final newPendingCount =
+        timesheets.where((t) => t.status == TimesheetStatus.pending).length;
+
+    // Only show notification if we're not currently viewing pending timesheets
+    if (_selectedFilter != 'Pending' && newPendingCount > 0) {
+      // Show subtle notification in the app bar or as a badge
+      _showPendingNotification(newPendingCount);
+    }
+  }
+
+  /// Show notification for new pending timesheets
+  void _showPendingNotification(int count) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.notification_important, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('$count new timesheet${count > 1 ? 's' : ''} pending review'),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() {
+              _selectedFilter = 'Pending';
+              _applyFilter(_selectedFilter);
+            });
+          },
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Legacy load method (now replaced by real-time listener)
+  Future<void> _loadTimesheets() async {
+    // This method is kept for manual refresh but real-time listener handles most updates
+    _setupRealtimeListener();
   }
 
   TimesheetStatus _parseStatus(String status) {
@@ -208,7 +296,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         _showBulkActions = false;
       });
 
-      _loadTimesheets();
+      // Real-time listener will automatically update the UI
     } catch (e) {
       _showErrorSnackBar('Error approving timesheets: $e');
     }
@@ -251,7 +339,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         _showBulkActions = false;
       });
 
-      _loadTimesheets();
+      // Real-time listener will automatically update the UI
     } catch (e) {
       _showErrorSnackBar('Error rejecting timesheets: $e');
     }
@@ -484,7 +572,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
       _showSuccessSnackBar(
           'Timesheet approved successfully! Payment: \$${payment.toStringAsFixed(2)}');
-      _loadTimesheets();
+      // Real-time listener will automatically update the UI
     } catch (e) {
       _showErrorSnackBar('Error approving timesheet: $e');
     }
@@ -506,7 +594,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       });
 
       _showSuccessSnackBar('Timesheet rejected with feedback sent to user');
-      _loadTimesheets();
+      // Real-time listener will automatically update the UI
     } catch (e) {
       _showErrorSnackBar('Error rejecting timesheet: $e');
     }

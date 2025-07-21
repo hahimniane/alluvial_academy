@@ -357,11 +357,12 @@ class ShiftService {
         'last_modified': Timestamp.fromDate(now),
       };
 
-      // Only set status to active and first clock-in time if not already active
+      // Only set status to active on first clock-in, don't update clock times for subsequent sessions
       if (shift.status != ShiftStatus.active) {
         updateData['status'] = ShiftStatus.active.name;
         updateData['clock_in_time'] = Timestamp.fromDate(now);
       }
+      // For subsequent clock-ins during the same shift, don't modify clock_in_time
 
       await _shiftsCollection.doc(shiftId).update(updateData);
 
@@ -400,8 +401,8 @@ class ShiftService {
       // Perform clock-out
       final now = DateTime.now();
 
-      // We only update the last_modified timestamp.
-      // We no longer set clock_out_time on the shift record itself.
+      // For multiple sessions, we don't modify the shift's clock_out_time
+      // Each timesheet entry tracks its own start/end times
       await _shiftsCollection.doc(shiftId).update({
         'last_modified': Timestamp.fromDate(now),
       });

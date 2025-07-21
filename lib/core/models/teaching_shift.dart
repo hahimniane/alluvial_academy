@@ -116,15 +116,15 @@ class TeachingShift {
     }
   }
 
-  // Check if teacher can clock in (15 minutes before shift)
+  // Check if teacher can clock in (15 minutes before shift until 15 minutes after shift end)
   bool get canClockIn {
     final now = DateTime.now();
     // Convert shift times to local timezone for comparison
     final shiftStartLocal = shiftStart.toLocal();
     final shiftEndLocal = shiftEnd.toLocal();
     final clockInWindow = shiftStartLocal.subtract(const Duration(minutes: 15));
-    return now.isAfter(clockInWindow) &&
-        now.isBefore(shiftEndLocal.add(const Duration(minutes: 15)));
+    final clockOutWindow = shiftEndLocal.add(const Duration(minutes: 15));
+    return now.isAfter(clockInWindow) && now.isBefore(clockOutWindow);
   }
 
   // Check if shift is currently active

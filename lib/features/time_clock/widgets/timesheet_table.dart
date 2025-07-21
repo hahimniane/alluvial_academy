@@ -652,142 +652,144 @@ class _TimesheetTableState extends State<TimesheetTable>
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Card(
-        elevation: 4,
-        color: Colors.white,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const Divider(height: 1),
-            Expanded(
-              child: SfDataGridTheme(
-                data: SfDataGridThemeData(
-                  headerColor: Colors.grey[50],
-                  gridLineColor: Colors.grey[300]!,
-                  gridLineStrokeWidth: 1,
-                ),
-                child: SfDataGrid(
-                  source: _timesheetDataSource ??
-                      TimesheetDataSource(
-                        timesheetData: [],
-                        onEdit: _editEntry,
-                        onView: _viewEntry,
-                        onSubmit: _submitEntry,
-                      ),
-                  columnWidthMode: ColumnWidthMode.fill,
-                  columns: [
-                    GridColumn(
-                      columnName: 'date',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Date',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+    return Flexible(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Card(
+          elevation: 4,
+          color: Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const Divider(height: 1),
+              Expanded(
+                child: SfDataGridTheme(
+                  data: SfDataGridThemeData(
+                    headerColor: Colors.grey[50],
+                    gridLineColor: Colors.grey[300]!,
+                    gridLineStrokeWidth: 1,
+                  ),
+                  child: SfDataGrid(
+                    source: _timesheetDataSource ??
+                        TimesheetDataSource(
+                          timesheetData: [],
+                          onEdit: _editEntry,
+                          onView: _viewEntry,
+                          onSubmit: _submitEntry,
+                        ),
+                    columnWidthMode: ColumnWidthMode.fill,
+                    columns: [
+                      GridColumn(
+                        columnName: 'date',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Date',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'subject',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Student',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'subject',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Student',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'start',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Start Time',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'start',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Start Time',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'end',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'End Time',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'end',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'End Time',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'totalHours',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Total Hours',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'totalHours',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Total Hours',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'location',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Location',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'location',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Location',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'status',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Status',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'status',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Status',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GridColumn(
-                      columnName: 'actions',
-                      label: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Actions',
-                          style: constants.openSansHebrewTextStyle.copyWith(
-                            fontWeight: FontWeight.w600,
+                      GridColumn(
+                        columnName: 'actions',
+                        label: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Actions',
+                            style: constants.openSansHebrewTextStyle.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
