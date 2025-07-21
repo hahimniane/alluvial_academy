@@ -793,25 +793,27 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        ...(selectedFormData!['fields'] as Map<String, dynamic>)
-                            .entries
-                            .map((field) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 24),
-                                  child: _buildModernFormField(
-                                    field.value['label'],
-                                    field.value['placeholder'] ?? 'Enter value',
-                                    fieldControllers[field.key]!,
-                                    field.value['required'] ?? false,
-                                    field.value['type'] ?? 'text',
-                                    options: (field.value['type'] == 'select' ||
-                                            field.value['type'] == 'dropdown' ||
-                                            field.value['type'] ==
+                        ..._getVisibleFields().map((fieldEntry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: _buildModernFormField(
+                                fieldEntry.value['label'],
+                                fieldEntry.value['placeholder'] ??
+                                    'Enter value',
+                                fieldControllers[fieldEntry.key]!,
+                                fieldEntry.value['required'] ?? false,
+                                fieldEntry.value['type'] ?? 'text',
+                                fieldEntry.key,
+                                options:
+                                    (fieldEntry.value['type'] == 'select' ||
+                                            fieldEntry.value['type'] ==
+                                                'dropdown' ||
+                                            fieldEntry.value['type'] ==
                                                 'multi_select')
                                         ? List<String>.from(
-                                            field.value['options'] ?? [])
+                                            fieldEntry.value['options'] ?? [])
                                         : null,
-                                  ),
-                                )),
+                              ),
+                            )),
                       ],
                     ),
                   ),
@@ -931,7 +933,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String hintText,
     TextEditingController controller,
     bool required,
-    String type, {
+    String type,
+    String fieldKey, {
     List<String>? options,
   }) {
     return Column(
@@ -979,7 +982,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           _buildDropdownField(controller, hintText, options, required, label),
         ] else if (type == 'multi_select') ...[
           _buildMultiSelectField(
-              controller, hintText, options, required, label),
+              controller, hintText, options, required, label, fieldKey),
         ] else if (type == 'multiline' ||
             type == 'long_text' ||
             type == 'description') ...[
@@ -990,7 +993,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             type == 'yes_no' ||
             type == 'radio' ||
             type == 'yesNo') ...[
-          _buildBooleanField(controller, label),
+          _buildBooleanField(controller, label, fieldKey),
         ] else if (type == 'number') ...[
           _buildNumberField(controller, hintText, required, label),
         ] else if (type == 'image_upload' || type == 'imageUpload') ...[
@@ -1120,7 +1123,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           [],
       onChanged: (value) {
         if (value != null) {
-          controller.text = value;
+          setState(() {
+            controller.text = value;
+          });
         }
       },
       validator: required
@@ -1140,6 +1145,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     List<String>? options,
     bool required,
     String label,
+    String fieldKey,
   ) {
     // Parse selected values from controller text (stored as comma-separated string)
     List<String> selectedValues = controller.text.isEmpty
@@ -1247,6 +1253,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                               }
                               // Update controller with comma-separated values
                               controller.text = selectedValues.join(', ');
+                              // Store as list for conditional logic evaluation
+                              fieldValues[fieldKey] = selectedValues.toList();
                             });
                           },
                           activeColor: const Color(0xff0386FF),
@@ -1444,7 +1452,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildBooleanField(TextEditingController controller, String label) {
+  Widget _buildBooleanField(
+      TextEditingController controller, String label, String fieldKey) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1460,6 +1469,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             onChanged: (value) {
               setState(() {
                 controller.text = value ?? '';
+                // Store as boolean for conditional logic evaluation
+                fieldValues[fieldKey] = value == 'Yes';
               });
             },
             activeColor: const Color(0xff0386FF),
@@ -1478,6 +1489,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             onChanged: (value) {
               setState(() {
                 controller.text = value ?? '';
+                // Store as boolean for conditional logic evaluation
+                fieldValues[fieldKey] = value == 'Yes';
               });
             },
             activeColor: const Color(0xff0386FF),
@@ -2084,6 +2097,129 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     _animationController.forward();
   }
 
+  // Get fields that should be visible based on conditional logic
+  List<MapEntry<String, dynamic>> _getVisibleFields() {
+    if (selectedFormData == null) return [];
+
+    final fields = selectedFormData!['fields'] as Map<String, dynamic>;
+    final visibleFields = <MapEntry<String, dynamic>>[];
+
+    // Sort fields by order first
+    final sortedEntries = fields.entries.toList()
+      ..sort((a, b) {
+        final aOrder = (a.value as Map<String, dynamic>)['order'] as int? ?? 0;
+        final bOrder = (b.value as Map<String, dynamic>)['order'] as int? ?? 0;
+        return aOrder.compareTo(bOrder);
+      });
+
+    for (var fieldEntry in sortedEntries) {
+      if (_shouldShowField(fieldEntry.key, fieldEntry.value)) {
+        visibleFields.add(fieldEntry);
+      }
+    }
+
+    return visibleFields;
+  }
+
+  // Check if a field should be visible based on its conditional logic
+  bool _shouldShowField(String fieldId, Map<String, dynamic> fieldData) {
+    final conditionalLogic = fieldData['conditionalLogic'];
+
+    // If no conditional logic, always show
+    if (conditionalLogic == null) return true;
+
+    final dependsOnFieldId = conditionalLogic['dependsOnFieldId'];
+    final condition = conditionalLogic['condition'];
+    final expectedValue = conditionalLogic['expectedValue'];
+    final expectedValues = conditionalLogic['expectedValues'];
+    final isVisible = conditionalLogic['isVisible'] ?? true;
+
+    // If no dependency set up yet, show the field
+    if (dependsOnFieldId == null || condition == null) return true;
+
+    // Get the current value of the dependent field
+    final dependentValue = _getCurrentFieldValue(dependsOnFieldId);
+
+    // Check the condition
+    bool conditionMet = false;
+    switch (condition) {
+      case 'equals':
+        conditionMet = dependentValue == expectedValue;
+        break;
+      case 'not_equals':
+        conditionMet = dependentValue != expectedValue;
+        break;
+      case 'contains':
+        if (expectedValues != null && expectedValues.isNotEmpty) {
+          // Check if dependent value contains ANY of the expected values
+          if (dependentValue is List) {
+            conditionMet = expectedValues
+                .any((expectedVal) => dependentValue.contains(expectedVal));
+          }
+        } else {
+          // Fallback to single value check for backwards compatibility
+          if (dependentValue is List) {
+            conditionMet = dependentValue.contains(expectedValue);
+          } else if (dependentValue is String) {
+            conditionMet =
+                dependentValue.contains(expectedValue?.toString() ?? '');
+          }
+        }
+        break;
+      case 'contains_all':
+        if (expectedValues != null && expectedValues.isNotEmpty) {
+          // Check if dependent value contains ALL of the expected values
+          if (dependentValue is List) {
+            conditionMet = expectedValues
+                .every((expectedVal) => dependentValue.contains(expectedVal));
+          }
+        }
+        break;
+      case 'contains_exactly':
+        if (expectedValues != null && expectedValues.isNotEmpty) {
+          // Check if dependent value contains EXACTLY the expected values (same set)
+          if (dependentValue is List) {
+            final dependentSet = Set.from(dependentValue);
+            final expectedSet = Set.from(expectedValues);
+            conditionMet = dependentSet.length == expectedSet.length &&
+                dependentSet.containsAll(expectedSet);
+          }
+        }
+        break;
+      case 'is_empty':
+        conditionMet = dependentValue == null ||
+            dependentValue == '' ||
+            (dependentValue is List && dependentValue.isEmpty);
+        break;
+      case 'is_not_empty':
+        conditionMet = dependentValue != null &&
+            dependentValue != '' &&
+            !(dependentValue is List && dependentValue.isEmpty);
+        break;
+      default:
+        conditionMet = false;
+    }
+
+    // Return whether field should be visible based on condition and isVisible setting
+    return isVisible ? conditionMet : !conditionMet;
+  }
+
+  // Get the current value of a field (from controller or fieldValues)
+  dynamic _getCurrentFieldValue(String fieldId) {
+    // Check if it's stored in fieldValues (for multi-select, boolean, etc.)
+    if (fieldValues.containsKey(fieldId)) {
+      return fieldValues[fieldId];
+    }
+
+    // Check text controller
+    if (fieldControllers.containsKey(fieldId)) {
+      final text = fieldControllers[fieldId]!.text.trim();
+      return text.isEmpty ? null : text;
+    }
+
+    return null;
+  }
+
   Future<String?> _uploadImageToStorage(
       Uint8List imageBytes, String fileName) async {
     const maxRetries = 3;
@@ -2480,7 +2616,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         print('Processing field: $fieldId');
 
         if (fieldValues.containsKey(fieldId)) {
-          final fieldData = fieldValues[fieldId] as Map<String, dynamic>;
+          final fieldValue = fieldValues[fieldId];
+
+          // Handle non-map values (like booleans from conditional logic)
+          if (fieldValue is! Map<String, dynamic>) {
+            responses[fieldId] = fieldValue;
+            continue;
+          }
+
+          final fieldData = fieldValue as Map<String, dynamic>;
           print('Field $fieldId has data: ${fieldData.keys.toList()}');
 
           // Check if this is an image/signature field with bytes

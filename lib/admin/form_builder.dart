@@ -1677,7 +1677,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                         size: 10, color: Color(0xff8B5CF6)),
                     const SizedBox(width: 2),
                     Text(
-                      'Conditional',
+                      _getConditionalSummary(field.conditionalLogic!),
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -1879,6 +1879,40 @@ class _FormBuilderViewState extends State<FormBuilderView> {
               color: const Color(0xff6B7280),
             ),
           ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xff3B82F6).withOpacity(0.05),
+              borderRadius: BorderRadius.circular(6),
+              border:
+                  Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '💡 Condition Types for Multi-Select:',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff3B82F6),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '• Contains any of: Show if ANY selected\n'
+                  '• Contains all of: Show if ALL are selected\n'
+                  '• Contains exactly: Show if ONLY those are selected',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: const Color(0xff3B82F6),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
           CheckboxListTile(
             title: Text(
@@ -2053,7 +2087,18 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           ),
           DropdownMenuItem(
             value: 'contains',
-            child: Text('contains', style: GoogleFonts.inter(fontSize: 13)),
+            child:
+                Text('contains any of', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'contains_all',
+            child:
+                Text('contains all of', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'contains_exactly',
+            child: Text('contains exactly',
+                style: GoogleFonts.inter(fontSize: 13)),
           ),
           DropdownMenuItem(
             value: 'is_empty',
@@ -2089,6 +2134,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
 
   Widget _buildExpectedValueInput(
       FormFieldData field, FormFieldData dependentField) {
+    final condition = field.conditionalLogic!.condition;
+
     if (dependentField.type == 'yesNo') {
       return DropdownButtonFormField<bool>(
         decoration: InputDecoration(
@@ -2123,6 +2170,14 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           ? ['Option 1', 'Option 2', 'Option 3']
           : dependentField.options;
 
+      // For multi-value conditions, show multi-select widget
+      if (condition == 'contains_all' ||
+          condition == 'contains_exactly' ||
+          (condition == 'contains' && dependentField.type == 'multiSelect')) {
+        return _buildMultiValueSelector(field, options);
+      }
+
+      // For single-value conditions, show dropdown
       return DropdownButtonFormField<String>(
         decoration: InputDecoration(
           labelText: 'Expected value',
@@ -2143,6 +2198,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         onChanged: (value) {
           setState(() {
             field.conditionalLogic!.expectedValue = value;
+            field.conditionalLogic!.expectedValues = null; // Clear multi-values
           });
         },
       );
@@ -2162,6 +2218,88 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       onChanged: (value) {
         field.conditionalLogic!.expectedValue = value;
       },
+    );
+  }
+
+  Widget _buildMultiValueSelector(FormFieldData field, List<String> options) {
+    List<String> selectedValues = field.conditionalLogic!.expectedValues != null
+        ? List<String>.from(field.conditionalLogic!.expectedValues!)
+        : [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Select expected values:',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xffE2E8F0)),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Column(
+            children: options.map((option) {
+              final isSelected = selectedValues.contains(option);
+              return CheckboxListTile(
+                title: Text(
+                  option,
+                  style: GoogleFonts.inter(fontSize: 13),
+                ),
+                value: isSelected,
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      selectedValues.add(option);
+                    } else {
+                      selectedValues.remove(option);
+                    }
+                    field.conditionalLogic!.expectedValues =
+                        selectedValues.toList();
+                    field.conditionalLogic!.expectedValue =
+                        null; // Clear single value
+                  });
+                },
+                activeColor: const Color(0xff8B5CF6),
+                dense: true,
+                controlAffinity: ListTileControlAffinity.leading,
+              );
+            }).toList(),
+          ),
+        ),
+        if (selectedValues.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            children: selectedValues.map((value) {
+              return Chip(
+                label: Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff8B5CF6),
+                  ),
+                ),
+                backgroundColor: const Color(0xff8B5CF6).withOpacity(0.1),
+                deleteIcon: const Icon(Icons.close, size: 16),
+                onDeleted: () {
+                  setState(() {
+                    selectedValues.remove(value);
+                    field.conditionalLogic!.expectedValues =
+                        selectedValues.toList();
+                  });
+                },
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              );
+            }).toList(),
+          ),
+        ],
+      ],
     );
   }
 
@@ -2258,12 +2396,44 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         conditionMet = dependentValue != conditionalLogic.expectedValue;
         break;
       case 'contains':
-        if (dependentValue is List) {
-          conditionMet =
-              dependentValue.contains(conditionalLogic.expectedValue);
-        } else if (dependentValue is String) {
-          conditionMet = dependentValue
-              .contains(conditionalLogic.expectedValue?.toString() ?? '');
+        if (conditionalLogic.expectedValues != null &&
+            conditionalLogic.expectedValues!.isNotEmpty) {
+          // Check if dependent value contains ANY of the expected values
+          if (dependentValue is List) {
+            conditionMet = conditionalLogic.expectedValues!
+                .any((expectedVal) => dependentValue.contains(expectedVal));
+          }
+        } else {
+          // Fallback to single value check for backwards compatibility
+          if (dependentValue is List) {
+            conditionMet =
+                dependentValue.contains(conditionalLogic.expectedValue);
+          } else if (dependentValue is String) {
+            conditionMet = dependentValue
+                .contains(conditionalLogic.expectedValue?.toString() ?? '');
+          }
+        }
+        break;
+      case 'contains_all':
+        if (conditionalLogic.expectedValues != null &&
+            conditionalLogic.expectedValues!.isNotEmpty) {
+          // Check if dependent value contains ALL of the expected values
+          if (dependentValue is List) {
+            conditionMet = conditionalLogic.expectedValues!
+                .every((expectedVal) => dependentValue.contains(expectedVal));
+          }
+        }
+        break;
+      case 'contains_exactly':
+        if (conditionalLogic.expectedValues != null &&
+            conditionalLogic.expectedValues!.isNotEmpty) {
+          // Check if dependent value contains EXACTLY the expected values (same set)
+          if (dependentValue is List) {
+            final dependentSet = Set.from(dependentValue);
+            final expectedSet = Set.from(conditionalLogic.expectedValues!);
+            conditionMet = dependentSet.length == expectedSet.length &&
+                dependentSet.containsAll(expectedSet);
+          }
         }
         break;
       case 'is_empty':
@@ -2325,7 +2495,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                           size: 12, color: Color(0xff8B5CF6)),
                       const SizedBox(width: 4),
                       Text(
-                        'Conditional',
+                        _getConditionalSummary(field.conditionalLogic!),
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
@@ -2499,6 +2669,24 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     setState(() {
       fields.remove(field);
     });
+  }
+
+  String _getConditionalSummary(ConditionalLogic logic) {
+    if (logic.condition == null) return 'Conditional';
+
+    switch (logic.condition) {
+      case 'contains_all':
+        return 'All of';
+      case 'contains_exactly':
+        return 'Exactly';
+      case 'contains':
+        if (logic.expectedValues != null && logic.expectedValues!.length > 1) {
+          return 'Any of';
+        }
+        return 'Contains';
+      default:
+        return 'Conditional';
+    }
   }
 
   Future<void> _saveForm() async {
@@ -3330,14 +3518,16 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
 class ConditionalLogic {
   String? dependsOnFieldId;
   String?
-      condition; // 'equals', 'not_equals', 'contains', 'is_empty', 'is_not_empty'
-  dynamic expectedValue;
+      condition; // 'equals', 'not_equals', 'contains', 'contains_all', 'contains_exactly', 'is_empty', 'is_not_empty'
+  dynamic expectedValue; // Single value for backwards compatibility
+  List<dynamic>? expectedValues; // Multiple values for new conditions
   bool isVisible; // whether field should be visible when condition is met
 
   ConditionalLogic({
     this.dependsOnFieldId,
     this.condition,
     this.expectedValue,
+    this.expectedValues,
     this.isVisible = true,
   });
 
@@ -3346,6 +3536,7 @@ class ConditionalLogic {
       'dependsOnFieldId': dependsOnFieldId,
       'condition': condition,
       'expectedValue': expectedValue,
+      'expectedValues': expectedValues,
       'isVisible': isVisible,
     };
   }
@@ -3355,6 +3546,9 @@ class ConditionalLogic {
       dependsOnFieldId: map['dependsOnFieldId'],
       condition: map['condition'],
       expectedValue: map['expectedValue'],
+      expectedValues: map['expectedValues'] != null
+          ? List<dynamic>.from(map['expectedValues'])
+          : null,
       isVisible: map['isVisible'] ?? true,
     );
   }
