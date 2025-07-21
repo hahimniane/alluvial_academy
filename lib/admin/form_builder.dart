@@ -1056,6 +1056,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                     'maxValue': fieldData['maxValue'],
                 }
               : null,
+          conditionalLogic: fieldData['conditionalLogic'] != null
+              ? ConditionalLogic.fromMap(fieldData['conditionalLogic'])
+              : null,
         ));
       }
 
@@ -1657,6 +1660,34 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                   ),
                 ),
               ),
+            if (field.conditionalLogic != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xff8B5CF6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                      color: const Color(0xff8B5CF6).withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.alt_route,
+                        size: 10, color: Color(0xff8B5CF6)),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Conditional',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff8B5CF6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(width: 8),
             const Icon(
               Icons.drag_handle,
@@ -1712,6 +1743,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         const SizedBox(height: 16),
         if (field.type == 'dropdown' || field.type == 'multiSelect')
           _buildDropdownOptions(field),
+        const SizedBox(height: 16),
+        _buildConditionalLogicSection(field),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -1804,6 +1837,334 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     );
   }
 
+  Widget _buildConditionalLogicSection(FormFieldData field) {
+    // Get available fields that can be dependencies (only fields that come before this one)
+    final availableFields = fields
+        .where((f) =>
+            f.order < field.order &&
+            (f.type == 'yesNo' ||
+                f.type == 'dropdown' ||
+                f.type == 'multiSelect'))
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.alt_route, color: Color(0xff8B5CF6), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Conditional Logic',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff374151),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Show or hide this field based on another field\'s answer',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xff6B7280),
+            ),
+          ),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            title: Text(
+              'Enable conditional logic for this field',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            value: field.conditionalLogic != null,
+            onChanged: (value) {
+              setState(() {
+                if (value == true) {
+                  field.conditionalLogic = ConditionalLogic();
+                } else {
+                  field.conditionalLogic = null;
+                }
+              });
+            },
+            activeColor: const Color(0xff8B5CF6),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          if (field.conditionalLogic != null) ...[
+            const SizedBox(height: 16),
+            if (availableFields.isEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffFEF3C7),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: const Color(0xffF59E0B).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber,
+                        color: Color(0xffF59E0B), size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No compatible fields available. Add Yes/No, Dropdown, or Multi-Select fields above this one.',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xffD97706),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Text(
+                    'Show this field when',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff374151),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Field dependency dropdown
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: 'Depends on field',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                value: field.conditionalLogic!.dependsOnFieldId,
+                items: availableFields
+                    .map((f) => DropdownMenuItem(
+                          value: f.id,
+                          child: Text(
+                            f.label.isEmpty ? 'Untitled Field' : f.label,
+                            style: GoogleFonts.inter(fontSize: 13),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    field.conditionalLogic!.dependsOnFieldId = value;
+                    field.conditionalLogic!.expectedValue =
+                        null; // Reset expected value
+                  });
+                },
+              ),
+
+              if (field.conditionalLogic!.dependsOnFieldId != null) ...[
+                const SizedBox(height: 12),
+                _buildConditionSelector(field),
+              ],
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConditionSelector(FormFieldData field) {
+    final dependentField = fields.firstWhere(
+      (f) => f.id == field.conditionalLogic!.dependsOnFieldId,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: 'Condition',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                value: field.conditionalLogic!.condition,
+                items: _getConditionOptions(dependentField.type),
+                onChanged: (value) {
+                  setState(() {
+                    field.conditionalLogic!.condition = value;
+                    field.conditionalLogic!.expectedValue =
+                        null; // Reset expected value
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+        if (field.conditionalLogic!.condition != null &&
+            field.conditionalLogic!.condition != 'is_empty' &&
+            field.conditionalLogic!.condition != 'is_not_empty') ...[
+          const SizedBox(height: 12),
+          _buildExpectedValueInput(field, dependentField),
+        ],
+      ],
+    );
+  }
+
+  List<DropdownMenuItem<String>> _getConditionOptions(String fieldType) {
+    switch (fieldType) {
+      case 'yesNo':
+        return [
+          DropdownMenuItem(
+            value: 'equals',
+            child: Text('equals', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+        ];
+      case 'dropdown':
+      case 'multiSelect':
+        return [
+          DropdownMenuItem(
+            value: 'equals',
+            child: Text('equals', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'not_equals',
+            child:
+                Text('does not equal', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'contains',
+            child: Text('contains', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'is_empty',
+            child: Text('is empty', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'is_not_empty',
+            child: Text('is not empty', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+        ];
+      default:
+        return [
+          DropdownMenuItem(
+            value: 'equals',
+            child: Text('equals', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'not_equals',
+            child:
+                Text('does not equal', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'is_empty',
+            child: Text('is empty', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: 'is_not_empty',
+            child: Text('is not empty', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+        ];
+    }
+  }
+
+  Widget _buildExpectedValueInput(
+      FormFieldData field, FormFieldData dependentField) {
+    if (dependentField.type == 'yesNo') {
+      return DropdownButtonFormField<bool>(
+        decoration: InputDecoration(
+          labelText: 'Expected answer',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: field.conditionalLogic!.expectedValue as bool?,
+        items: [
+          DropdownMenuItem(
+            value: true,
+            child: Text('Yes', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+          DropdownMenuItem(
+            value: false,
+            child: Text('No', style: GoogleFonts.inter(fontSize: 13)),
+          ),
+        ],
+        onChanged: (value) {
+          setState(() {
+            field.conditionalLogic!.expectedValue = value;
+          });
+        },
+      );
+    } else if (dependentField.type == 'dropdown' ||
+        dependentField.type == 'multiSelect') {
+      final options = dependentField.options.isEmpty
+          ? ['Option 1', 'Option 2', 'Option 3']
+          : dependentField.options;
+
+      return DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: 'Expected value',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: field.conditionalLogic!.expectedValue as String?,
+        items: options
+            .map((option) => DropdownMenuItem(
+                  value: option,
+                  child: Text(option, style: GoogleFonts.inter(fontSize: 13)),
+                ))
+            .toList(),
+        onChanged: (value) {
+          setState(() {
+            field.conditionalLogic!.expectedValue = value;
+          });
+        },
+      );
+    }
+
+    // Fallback to text input for other field types
+    return TextFormField(
+      decoration: InputDecoration(
+        labelText: 'Expected value',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      initialValue: field.conditionalLogic!.expectedValue?.toString() ?? '',
+      onChanged: (value) {
+        field.conditionalLogic!.expectedValue = value;
+      },
+    );
+  }
+
   Widget _buildPreview() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -1859,7 +2220,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                       ),
                       const SizedBox(height: 32),
                     ],
-                    ...fields.map((field) => _buildPreviewField(field)),
+                    ...fields
+                        .where((field) => _shouldShowFieldInPreview(field))
+                        .map((field) => _buildPreviewField(field)),
                   ],
                 ),
               ),
@@ -1868,6 +2231,57 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         ],
       ),
     );
+  }
+
+  bool _shouldShowFieldInPreview(FormFieldData field) {
+    // If no conditional logic, always show
+    if (field.conditionalLogic == null) return true;
+
+    final conditionalLogic = field.conditionalLogic!;
+
+    // If no dependency set up yet, show the field
+    if (conditionalLogic.dependsOnFieldId == null ||
+        conditionalLogic.condition == null) {
+      return true;
+    }
+
+    // Get the current value of the dependent field
+    final dependentValue = _previewValues[conditionalLogic.dependsOnFieldId];
+
+    // Check the condition
+    bool conditionMet = false;
+    switch (conditionalLogic.condition) {
+      case 'equals':
+        conditionMet = dependentValue == conditionalLogic.expectedValue;
+        break;
+      case 'not_equals':
+        conditionMet = dependentValue != conditionalLogic.expectedValue;
+        break;
+      case 'contains':
+        if (dependentValue is List) {
+          conditionMet =
+              dependentValue.contains(conditionalLogic.expectedValue);
+        } else if (dependentValue is String) {
+          conditionMet = dependentValue
+              .contains(conditionalLogic.expectedValue?.toString() ?? '');
+        }
+        break;
+      case 'is_empty':
+        conditionMet = dependentValue == null ||
+            dependentValue == '' ||
+            (dependentValue is List && dependentValue.isEmpty);
+        break;
+      case 'is_not_empty':
+        conditionMet = dependentValue != null &&
+            dependentValue != '' &&
+            !(dependentValue is List && dependentValue.isEmpty);
+        break;
+      default:
+        conditionMet = false;
+    }
+
+    // Return whether field should be visible based on condition and isVisible setting
+    return conditionalLogic.isVisible ? conditionMet : !conditionMet;
   }
 
   Widget _buildPreviewField(FormFieldData field) {
@@ -1891,6 +2305,35 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                 const Text(
                   '*',
                   style: TextStyle(color: Color(0xffEF4444)),
+                ),
+              ],
+              if (field.conditionalLogic != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff8B5CF6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                        color: const Color(0xff8B5CF6).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.alt_route,
+                          size: 12, color: Color(0xff8B5CF6)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Conditional',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff8B5CF6),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -2117,6 +2560,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           'order': field.order,
           if (field.options.isNotEmpty) 'options': field.options,
           if (field.additionalConfig != null) ...field.additionalConfig!,
+          if (field.conditionalLogic != null)
+            'conditionalLogic': field.conditionalLogic!.toMap(),
         };
       }
 
@@ -2297,6 +2742,8 @@ class FormFieldData {
   double? maxValue;
   bool allowMultiple;
   Map<String, dynamic>? additionalConfig;
+  // Add conditional logic support
+  ConditionalLogic? conditionalLogic;
 
   FormFieldData({
     required this.id,
@@ -2310,6 +2757,7 @@ class FormFieldData {
     this.maxValue,
     this.allowMultiple = false,
     this.additionalConfig,
+    this.conditionalLogic,
   });
 }
 
@@ -2875,5 +3323,39 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
         );
       }
     }
+  }
+}
+
+// New class for conditional logic
+class ConditionalLogic {
+  String? dependsOnFieldId;
+  String?
+      condition; // 'equals', 'not_equals', 'contains', 'is_empty', 'is_not_empty'
+  dynamic expectedValue;
+  bool isVisible; // whether field should be visible when condition is met
+
+  ConditionalLogic({
+    this.dependsOnFieldId,
+    this.condition,
+    this.expectedValue,
+    this.isVisible = true,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'dependsOnFieldId': dependsOnFieldId,
+      'condition': condition,
+      'expectedValue': expectedValue,
+      'isVisible': isVisible,
+    };
+  }
+
+  static ConditionalLogic fromMap(Map<String, dynamic> map) {
+    return ConditionalLogic(
+      dependsOnFieldId: map['dependsOnFieldId'],
+      condition: map['condition'],
+      expectedValue: map['expectedValue'],
+      isVisible: map['isVisible'] ?? true,
+    );
   }
 }
