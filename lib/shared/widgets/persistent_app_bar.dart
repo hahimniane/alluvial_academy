@@ -5,7 +5,7 @@ import '../../screens/islamic_courses_page.dart';
 import '../../screens/teachers_page.dart';
 import '../../screens/about_page.dart';
 import '../../screens/contact_page.dart';
-import '../../features/auth/screens/login_screen.dart';
+import '../../main.dart';
 
 class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String currentPage;
@@ -214,7 +214,7 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
           false,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
           ),
         ),
         const SizedBox(width: 16),
@@ -223,7 +223,7 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
           true,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
           ),
         ),
       ],
@@ -379,7 +379,7 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const LoginScreen()),
+                            builder: (context) => const FirebaseInitializer()),
                       );
                     },
                   ),
@@ -392,7 +392,7 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const LoginScreen()),
+                            builder: (context) => const FirebaseInitializer()),
                       );
                     },
                   ),
