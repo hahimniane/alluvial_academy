@@ -128,19 +128,29 @@ class ShiftTimesheetService {
     try {
       print(
           'ShiftTimesheetService: Starting clock-in process for shift $shiftId');
+      print('ShiftTimesheetService: Teacher ID: $teacherId');
+      print('ShiftTimesheetService: Location: ${location.neighborhood}');
 
       // First validate the shift timing and eligibility (allow multiple clock-ins)
+      print('ShiftTimesheetService: Validating shift for multiple clock-in...');
       final shift = await _validateShiftForMultipleClockIn(teacherId, shiftId);
       if (shift == null) {
+        print(
+            'ShiftTimesheetService: ❌ Shift validation failed - no valid shift found');
         return {
           'success': false,
-          'message': 'No valid shift found for clock-in',
+          'message': 'Shift not found or not valid for clock-in right now',
           'shift': null,
         };
       }
 
+      print('ShiftTimesheetService: ✅ Shift validation passed');
+      print('ShiftTimesheetService: Shift name: ${shift.displayName}');
+      print('ShiftTimesheetService: Shift status: ${shift.status.name}');
+
       // Get location and validate
       if (location == null) {
+        print('ShiftTimesheetService: ❌ No location provided');
         return {
           'success': false,
           'message': 'Location is required for clock-in',
@@ -148,23 +158,31 @@ class ShiftTimesheetService {
         };
       }
 
+      print('ShiftTimesheetService: ✅ Location validated');
+
       // Perform clock-in (this will update shift status to active)
+      print('ShiftTimesheetService: Calling ShiftService.clockIn...');
       final clockInSuccess = await ShiftService.clockIn(teacherId, shiftId);
       if (!clockInSuccess) {
+        print('ShiftTimesheetService: ❌ ShiftService.clockIn failed');
         return {
           'success': false,
-          'message': 'Failed to clock in to shift',
+          'message':
+              'Failed to update shift status - you may already be clocked in or shift is not available',
           'shift': null,
         };
       }
 
+      print('ShiftTimesheetService: ✅ ShiftService.clockIn succeeded');
+
       // Create timesheet entry (always create new entry for each clock-in)
+      print('ShiftTimesheetService: Creating timesheet entry...');
       final timesheetEntry = await _createTimesheetEntryFromShift(
           shift, location,
           isClockIn: true);
 
       print(
-          'ShiftTimesheetService: Clock-in successful, timesheet entry created');
+          'ShiftTimesheetService: ✅ Clock-in successful, timesheet entry created');
 
       return {
         'success': true,
@@ -174,7 +192,7 @@ class ShiftTimesheetService {
         'clockInTime': DateTime.now(),
       };
     } catch (e) {
-      print('Error during shift clock-in: $e');
+      print('ShiftTimesheetService: ❌ Exception during shift clock-in: $e');
       return {
         'success': false,
         'message': 'Error during clock-in: $e',
@@ -343,14 +361,29 @@ class ShiftTimesheetService {
   static Future<TeachingShift?> _validateShiftForMultipleClockIn(
       String teacherId, String shiftId) async {
     try {
+      print(
+          'ShiftTimesheetService: _validateShiftForMultipleClockIn starting...');
+      print(
+          'ShiftTimesheetService: Looking for shift $shiftId for teacher $teacherId');
+
       final doc =
           await _firestore.collection('teaching_shifts').doc(shiftId).get();
-      if (!doc.exists) return null;
+      if (!doc.exists) {
+        print('ShiftTimesheetService: ❌ Shift document does not exist');
+        return null;
+      }
 
+      print('ShiftTimesheetService: ✅ Shift document found');
       final shift = TeachingShift.fromFirestore(doc);
 
       // Check if it's the right teacher
-      if (shift.teacherId != teacherId) return null;
+      if (shift.teacherId != teacherId) {
+        print(
+            'ShiftTimesheetService: ❌ Teacher ID mismatch - expected ${shift.teacherId}, got $teacherId');
+        return null;
+      }
+
+      print('ShiftTimesheetService: ✅ Teacher ID matches');
 
       final now = DateTime.now();
       // Convert shift times to local timezone for comparison
@@ -362,10 +395,17 @@ class ShiftTimesheetService {
 
       print('ShiftTimesheetService: Multiple clock-in validation:');
       print('  - Current local time: $now');
+      print('  - Shift Start (stored): ${shift.shiftStart}');
+      print('  - Shift End (stored): ${shift.shiftEnd}');
       print('  - Shift Start (local): $shiftStartLocal');
       print('  - Shift End (local): $shiftEndLocal');
-      print('  - Clock-in Window: $clockInWindow');
-      print('  - Clock-out Window: $clockOutWindow');
+      print('  - Clock-in Window Start: $clockInWindow');
+      print('  - Clock-out Window End: $clockOutWindow');
+      print('  - Shift Status: ${shift.status.name}');
+      print(
+          '  - Time check: now.isAfter(clockInWindow) = ${now.isAfter(clockInWindow)}');
+      print(
+          '  - Time check: now.isBefore(clockOutWindow) = ${now.isBefore(clockOutWindow)}');
 
       // Allow clock-in during entire shift window regardless of current clock status
       // This enables multiple clock-in/out cycles throughout the shift duration
@@ -375,10 +415,13 @@ class ShiftTimesheetService {
         return shift;
       }
 
-      print('ShiftTimesheetService: Shift not within valid time window');
+      print('ShiftTimesheetService: ❌ Shift not within valid time window');
+      print(
+          'ShiftTimesheetService: Current time $now is not between $clockInWindow and $clockOutWindow');
       return null;
     } catch (e) {
-      print('Error validating shift for multiple clock-in: $e');
+      print(
+          'ShiftTimesheetService: ❌ Exception in validating shift for multiple clock-in: $e');
       return null;
     }
   }

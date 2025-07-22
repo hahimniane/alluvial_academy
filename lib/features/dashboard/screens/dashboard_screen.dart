@@ -1,5 +1,5 @@
 import '../../user_management/screens/user_list_screen.dart';
-import '../../time_clock/screens/time_clock_screen.dart';
+import '../../time_clock/screens/simple_clock_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../widgets/navigation_menu.dart';
@@ -46,7 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 1:
         return const ChatPage();
       case 2:
-        return TimeClockScreen();
+        return const SimpleClockScreen();
       case 3:
         return const UserListScreen();
       default:

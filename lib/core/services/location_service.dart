@@ -1,6 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'location_preference_service.dart';
 
 class LocationData {
   final double latitude;
@@ -43,6 +44,13 @@ class LocationService {
       // Handle permissions more gracefully
       LocationPermission permission = await _ensureLocationPermission();
       print('LocationService: Final permission status: $permission');
+
+      // Check if we have valid permissions before proceeding
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        print('LocationService: No valid permissions, cannot get location');
+        return null; // Return null instead of throwing
+      }
 
       // Try to get position with multiple fallback strategies
       Position? position = await _getPositionWithFallbacks();
@@ -95,34 +103,67 @@ class LocationService {
       print('LocationService: Initial permission check: $permission');
 
       if (permission == LocationPermission.denied) {
+        // For web, don't request permissions during background operations
+        if (kIsWeb) {
+          print('LocationService: Web platform - skipping permission request');
+          await LocationPreferenceService.markLocationDenied();
+          return LocationPermission.denied;
+        }
+
+        // Check if we should skip asking (recently denied or asked)
+        final shouldSkip =
+            await LocationPreferenceService.shouldSkipLocationRequest();
+        if (shouldSkip) {
+          print(
+              'LocationService: Skipping permission request based on user preferences');
+          return LocationPermission.denied;
+        }
+
         print('LocationService: Permission denied, requesting...');
-        permission = await Geolocator.requestPermission();
+
+        // Mark that we're asking for permission
+        await LocationPreferenceService.markLocationAsked();
+
+        // Add timeout for permission request to prevent hanging
+        try {
+          permission = await Geolocator.requestPermission()
+              .timeout(const Duration(seconds: 30), onTimeout: () {
+            print('LocationService: Permission request timed out');
+            return LocationPermission.denied;
+          });
+        } catch (e) {
+          print('LocationService: Permission request failed: $e');
+          return LocationPermission.denied;
+        }
+
         print('LocationService: Permission after request: $permission');
 
         if (permission == LocationPermission.denied) {
-          throw Exception(
-              'Location permission denied. Please allow location access in your browser or device settings.');
+          // Mark permission as denied to avoid asking again soon
+          await LocationPreferenceService.markLocationDenied();
+          print('LocationService: Permission was denied by user');
+          return permission;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         print('LocationService: Permission denied forever');
-        throw Exception(
-            'Location permission permanently denied. Please enable location access in your device settings.');
+        await LocationPreferenceService.markLocationDenied();
+        return permission;
       }
 
       // Accept both whileInUse and always permissions
       if (permission != LocationPermission.whileInUse &&
-          permission != LocationPermission.always) {
+          permission != LocationPermission.always &&
+          permission != LocationPermission.denied &&
+          permission != LocationPermission.deniedForever) {
         print('LocationService: Unexpected permission status: $permission');
-        throw Exception(
-            'Location permission not properly granted. Please ensure location access is enabled.');
       }
 
       return permission;
     } catch (e) {
       print('LocationService: Permission handling error: $e');
-      rethrow;
+      return LocationPermission.denied;
     }
   }
 
