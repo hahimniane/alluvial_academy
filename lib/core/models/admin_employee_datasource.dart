@@ -8,6 +8,8 @@ class AdminEmployeeDataSource extends DataGridSource {
     required List<Employee> employees,
     required this.onPromoteToAdmin,
     required this.onRevokeAdmin,
+    required this.onDeactivateUser,
+    required this.onActivateUser,
   }) {
     _employees = employees.map<DataGridRow>((e) {
       return DataGridRow(cells: [
@@ -25,6 +27,8 @@ class AdminEmployeeDataSource extends DataGridSource {
 
   final Function(Employee) onPromoteToAdmin;
   final Function(Employee) onRevokeAdmin;
+  final Function(Employee) onDeactivateUser;
+  final Function(Employee) onActivateUser;
 
   List<DataGridRow> _employees = [];
 
@@ -56,83 +60,39 @@ class AdminEmployeeDataSource extends DataGridSource {
           return Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4.0,
+              runSpacing: 4.0,
               children: [
-                if (employee.isAdminTeacher) ...[
-                  // Revoke admin button for admin-teachers
-                  Material(
-                    elevation: 2,
-                    borderRadius: BorderRadius.circular(6),
-                    child: InkWell(
-                      onTap: () => onRevokeAdmin(employee),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.remove_moderator,
-                              size: 14,
-                              color: Colors.red.shade700,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Revoke',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.red.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                if (employee.isAdminTeacher)
+                  _buildActionButton(
+                    icon: Icons.remove_moderator,
+                    color: Colors.red,
+                    onTap: () => onRevokeAdmin(employee),
+                    tooltip: 'Revoke Admin Privileges',
                   ),
-                ] else ...[
-                  // Full admin - no actions available
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.admin_panel_settings,
-                          size: 14,
-                          color: Colors.blue.shade700,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Full Admin',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
+                if (employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.block,
+                    color: Colors.red,
+                    onTap: () => onDeactivateUser(employee),
+                    tooltip: 'Deactivate User',
                   ),
-                ],
+                if (!employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.check_circle,
+                    color: Colors.green,
+                    onTap: () => onActivateUser(employee),
+                    tooltip: 'Activate User',
+                  ),
+                if (!employee.isAdminTeacher)
+                  _buildActionButton(
+                    icon: Icons.admin_panel_settings,
+                    color: Colors.blue,
+                    onTap: () {}, // No action available for full admins
+                    tooltip: 'Full Admin (No Actions)',
+                  ),
               ],
             ),
           );
@@ -177,6 +137,37 @@ class AdminEmployeeDataSource extends DataGridSource {
           );
         }
       }).toList(),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: color,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

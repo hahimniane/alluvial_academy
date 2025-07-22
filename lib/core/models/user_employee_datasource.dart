@@ -7,6 +7,8 @@ class UserEmployeeDataSource extends DataGridSource {
   UserEmployeeDataSource({
     required List<Employee> employees,
     required this.onPromoteToAdmin,
+    required this.onDeactivateUser,
+    required this.onActivateUser,
   }) {
     _employees = employees.map<DataGridRow>((e) {
       return DataGridRow(cells: [
@@ -28,6 +30,8 @@ class UserEmployeeDataSource extends DataGridSource {
   }
 
   final Function(Employee) onPromoteToAdmin;
+  final Function(Employee) onDeactivateUser;
+  final Function(Employee) onActivateUser;
 
   List<DataGridRow> _employees = [];
 
@@ -64,106 +68,41 @@ class UserEmployeeDataSource extends DataGridSource {
           return Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4.0,
+              runSpacing: 4.0,
               children: [
                 if (employee.userType.toLowerCase() == 'teacher' &&
-                    !employee.isAdminTeacher) ...[
-                  // Promote to admin button for teachers who are not already admin-teachers
-                  Material(
-                    elevation: 2,
-                    borderRadius: BorderRadius.circular(6),
-                    child: InkWell(
-                      onTap: () => onPromoteToAdmin(employee),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.orange.shade200),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.admin_panel_settings,
-                              size: 14,
-                              color: Colors.orange.shade700,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Promote',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.orange.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    !employee.isAdminTeacher)
+                  _buildActionButton(
+                    icon: Icons.admin_panel_settings,
+                    color: Colors.orange,
+                    onTap: () => onPromoteToAdmin(employee),
+                    tooltip: 'Promote to Admin-Teacher',
                   ),
-                ] else if (employee.userType.toLowerCase() == 'teacher' &&
-                    employee.isAdminTeacher) ...[
-                  // Show "Already Admin" for admin-teachers
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.verified,
-                          size: 14,
-                          color: Colors.green.shade700,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Admin-Teacher',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
+                if (employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.block,
+                    color: Colors.red,
+                    onTap: () => onDeactivateUser(employee),
+                    tooltip: 'Deactivate User',
                   ),
-                ] else ...[
-                  // No action for non-teachers
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Text(
-                      'No Actions',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
+                if (!employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.check_circle,
+                    color: Colors.green,
+                    onTap: () => onActivateUser(employee),
+                    tooltip: 'Activate User',
                   ),
-                ],
+                if (employee.userType.toLowerCase() == 'teacher' &&
+                    employee.isAdminTeacher)
+                  _buildActionButton(
+                    icon: Icons.verified,
+                    color: Colors.green,
+                    onTap: () {}, // No action needed
+                    tooltip: 'Already Admin-Teacher',
+                  ),
               ],
             ),
           );
@@ -223,6 +162,37 @@ class UserEmployeeDataSource extends DataGridSource {
           );
         }
       }).toList(),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: color,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
