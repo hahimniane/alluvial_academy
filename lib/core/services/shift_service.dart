@@ -312,45 +312,74 @@ class ShiftService {
 
       final doc = await _shiftsCollection.doc(shiftId).get();
       if (!doc.exists) {
-        print('Shift not found: $shiftId');
+        print('ShiftService: ❌ Shift not found: $shiftId');
         return false;
       }
 
+      print('ShiftService: ✅ Shift document found');
       final shift = TeachingShift.fromFirestore(doc);
 
       // Validation checks
       if (shift.teacherId != teacherId) {
         print(
-            'Teacher ID mismatch: expected ${shift.teacherId}, got $teacherId');
+            'ShiftService: ❌ Teacher ID mismatch: expected ${shift.teacherId}, got $teacherId');
         return false;
       }
 
+      print('ShiftService: ✅ Teacher ID matches');
+
       // Allow clock-in if within time window (15 min before to 15 min after shift)
+      print('ShiftService: Checking clock-in window...');
+      print('ShiftService: shift.canClockIn = ${shift.canClockIn}');
       if (!shift.canClockIn) {
-        print('Clock-in window not available');
+        print('ShiftService: ❌ Clock-in window not available');
+        print('ShiftService: Current time: ${DateTime.now()}');
+        print('ShiftService: Shift start: ${shift.shiftStart}');
+        print('ShiftService: Shift end: ${shift.shiftEnd}');
         return false;
       }
+
+      print('ShiftService: ✅ Clock-in window is available');
 
       // Allow multiple clock-ins within the same shift window
       // Remove status and isClockedIn checks to enable multiple entries
 
       // Check if teacher has any OTHER active shifts (not the current one)
-      final activeShifts = await _shiftsCollection
+      print('ShiftService: Checking for other active shifts...');
+      final activeShiftsSnapshot = await _shiftsCollection
           .where('teacher_id', isEqualTo: teacherId)
           .where('status', isEqualTo: 'active')
           .get();
 
-      // Allow if no active shifts OR if the only active shift is the current one
-      final otherActiveShifts =
-          activeShifts.docs.where((doc) => doc.id != shiftId).toList();
+      // Convert to TeachingShift models so we can evaluate if they actually block a new clock-in.
+      final otherActiveShifts = activeShiftsSnapshot.docs
+          .where((doc) =>
+              doc.id != shiftId) // exclude the shift we are clocking into
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          // Ignore active shifts that have already surpassed their auto-logout deadline.
+          // These shifts are "stuck" in active state because the auto-logout job hasn’t run yet
+          // and shouldn’t prevent the teacher from starting a new session.
+          .where((s) => !s.needsAutoLogout)
+          .toList();
+
+      print(
+          'ShiftService: Found ${activeShiftsSnapshot.docs.length} total active shifts');
+      print(
+          'ShiftService: Found ${otherActiveShifts.length} other active shifts');
 
       if (otherActiveShifts.isNotEmpty) {
-        print('Teacher has another active shift');
+        print('ShiftService: ❌ Teacher has another active shift');
+        for (var otherShift in otherActiveShifts) {
+          print('ShiftService: Other active shift: ${otherShift.id}');
+        }
         return false;
       }
 
+      print('ShiftService: ✅ No conflicting active shifts');
+
       // Perform clock-in
       final now = DateTime.now();
+      print('ShiftService: Performing clock-in update...');
 
       // Update shift with clock-in time and set status to active if not already
       final updateData = <String, dynamic>{
@@ -359,17 +388,22 @@ class ShiftService {
 
       // Only set status to active on first clock-in, don't update clock times for subsequent sessions
       if (shift.status != ShiftStatus.active) {
+        print('ShiftService: Setting shift status to active (first clock-in)');
         updateData['status'] = ShiftStatus.active.name;
         updateData['clock_in_time'] = Timestamp.fromDate(now);
+      } else {
+        print('ShiftService: Shift already active (subsequent clock-in)');
+        // Clear previous clock_out_time so UI recognises that the teacher is clocked-in again
+        updateData['clock_out_time'] = null;
       }
       // For subsequent clock-ins during the same shift, don't modify clock_in_time
 
       await _shiftsCollection.doc(shiftId).update(updateData);
 
-      print('Clock-in successful at $now');
+      print('ShiftService: ✅ Clock-in successful at $now');
       return true;
     } catch (e) {
-      print('Error during clock-in: $e');
+      print('ShiftService: ❌ Exception during clock-in: $e');
       return false;
     }
   }
@@ -405,6 +439,8 @@ class ShiftService {
       // Each timesheet entry tracks its own start/end times
       await _shiftsCollection.doc(shiftId).update({
         'last_modified': Timestamp.fromDate(now),
+        // Mark end of the current session so UI knows the user is no longer clocked-in.
+        'clock_out_time': Timestamp.fromDate(now),
       });
 
       print(

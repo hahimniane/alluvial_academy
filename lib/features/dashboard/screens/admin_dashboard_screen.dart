@@ -8,6 +8,12 @@ import 'package:csv/csv.dart';
 import 'dart:convert';
 import 'dart:html' as html;
 import '../../../utility_functions/export_helpers.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/services/shift_service.dart';
+import '../../../core/services/prayer_time_service.dart';
+import '../../../core/services/islamic_calendar_service.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
@@ -2677,6 +2683,78 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildClickableResourceItem(
+      String title, IconData icon, Color color, String url) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => _launchURL(url),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff374151),
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.open_in_new,
+                size: 16,
+                color: color.withOpacity(0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchURL(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        print('Could not launch $url');
+        // Show snackbar or error message to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open $url'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // Helper methods
   LinearGradient _getRoleGradient() {
     switch (userRole?.toLowerCase()) {
@@ -2776,23 +2854,77 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   // Helper methods for Islamic features
-  String _getCurrentIslamicTime() {
-    final now = DateTime.now();
-    final hour = now.hour;
-    if (hour >= 5 && hour < 12) return 'Dhuhr in ${12 - hour}h';
-    if (hour >= 12 && hour < 15) return 'Asr in ${15 - hour}h';
-    if (hour >= 15 && hour < 18) return 'Maghrib in ${18 - hour}h';
-    if (hour >= 18 && hour < 20) return 'Isha in ${20 - hour}h';
-    return 'Fajr in ${29 - hour}h';
+  Widget _buildLocationBasedPrayerTime() {
+    return FutureBuilder<String>(
+      future: PrayerTimeService.getNextPrayerInfo(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Loading prayer times...',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final prayerInfo = snapshot.data ?? 'Prayer times unavailable';
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.schedule, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                prayerInfo,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  String _getCurrentHijriDate() {
-    // This is a simplified example - in production you'd use a proper Hijri calendar library
-    return '15 Ramadan 1445';
+  Future<String> _getCurrentHijriDate() async {
+    final hijriDate = await IslamicCalendarService.getCurrentHijriDate();
+    return hijriDate.fullDate;
   }
 
-  String _getCurrentHijriMonth() {
-    return 'Ramadan 1445 AH';
+  Future<String> _getCurrentHijriMonth() async {
+    final monthInfo = await IslamicCalendarService.getCurrentMonthInfo();
+    return '${monthInfo['name']} ${monthInfo['year']} AH';
   }
 
   void _showProfileCompletionDialog() {
@@ -3152,28 +3284,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.schedule, color: Colors.white, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  _getCurrentIslamicTime(),
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildLocationBasedPrayerTime(),
         ],
       ),
     );
@@ -3332,49 +3443,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
               const Spacer(),
-              TextButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('New Class'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xff3B82F6),
-                  textStyle: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // Class Cards
-          _buildClassCard(
-            'Quran Memorization (Grade 3)',
-            '8 Students',
-            'Next: Today 2:00 PM',
-            const Color(0xff10B981),
-            Icons.menu_book_rounded,
-            85,
-          ),
-          const SizedBox(height: 12),
-          _buildClassCard(
-            'Arabic Grammar (Beginners)',
-            '12 Students',
-            'Next: Tomorrow 10:00 AM',
-            const Color(0xffF59E0B),
-            Icons.language_rounded,
-            92,
-          ),
-          const SizedBox(height: 12),
-          _buildClassCard(
-            'Islamic Studies (Advanced)',
-            '6 Students',
-            'Next: Today 4:30 PM',
-            const Color(0xff8B5CF6),
-            Icons.school_rounded,
-            78,
-          ),
+          // Real Shift Data
+          _buildTeacherShiftsSection(),
         ],
       ),
     );
@@ -3461,6 +3535,268 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  }
+
+  Widget _buildTeacherShiftsSection() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      return _buildNoShiftsMessage('Please log in to view your classes');
+    }
+
+    return StreamBuilder<List<TeachingShift>>(
+      stream: ShiftService.getTeacherShifts(currentUser.uid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingShifts();
+        }
+
+        if (snapshot.hasError) {
+          return _buildNoShiftsMessage('Error loading your classes');
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return _buildNoShiftsMessage('No classes scheduled yet');
+        }
+
+        // Filter to get upcoming/current shifts
+        final now = DateTime.now();
+        final allShifts = snapshot.data!;
+
+        // Get upcoming shifts (starting from today onwards)
+        final upcomingShifts = allShifts.where((shift) {
+          final shiftDate = DateTime(
+            shift.shiftStart.year,
+            shift.shiftStart.month,
+            shift.shiftStart.day,
+          );
+          final today = DateTime(now.year, now.month, now.day);
+          return shiftDate.isAfter(today.subtract(const Duration(days: 1))) &&
+              (shift.status == ShiftStatus.scheduled ||
+                  shift.status == ShiftStatus.active);
+        }).toList();
+
+        // Sort by shift start time
+        upcomingShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+        // Take only the next 3 shifts
+        final nextShifts = upcomingShifts.take(3).toList();
+
+        if (nextShifts.isEmpty) {
+          return _buildNoShiftsMessage('No upcoming classes scheduled');
+        }
+
+        return Column(
+          children: nextShifts.asMap().entries.map((entry) {
+            final index = entry.key;
+            final shift = entry.value;
+            return Column(
+              children: [
+                _buildRealClassCard(shift),
+                if (index < nextShifts.length - 1) const SizedBox(height: 12),
+              ],
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildRealClassCard(TeachingShift shift) {
+    final color = _getSubjectColor(shift.subject);
+    final icon = _getSubjectIcon(shift.subject);
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final isToday = shiftStart.day == now.day &&
+        shiftStart.month == now.month &&
+        shiftStart.year == now.year;
+    final isTomorrow = shiftStart.day == now.day + 1 &&
+        shiftStart.month == now.month &&
+        shiftStart.year == now.year;
+
+    String timeText;
+    if (isToday) {
+      timeText = 'Today ${DateFormat('h:mm a').format(shiftStart)}';
+    } else if (isTomorrow) {
+      timeText = 'Tomorrow ${DateFormat('h:mm a').format(shiftStart)}';
+    } else {
+      timeText = DateFormat('MMM d, h:mm a').format(shiftStart);
+    }
+
+    final studentCount = shift.studentNames.length;
+    final studentsText =
+        '$studentCount ${studentCount == 1 ? 'Student' : 'Students'}';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  shift.displayName,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      studentsText,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    const Text(' • '),
+                    Text(
+                      timeText,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        shift.status.name.toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingShifts() {
+    return Column(
+      children: [
+        for (int i = 0; i < 3; i++) ...[
+          Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff3B82F6)),
+              ),
+            ),
+          ),
+          if (i < 2) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNoShiftsMessage(String message) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xffF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.calendar_today_outlined,
+            size: 48,
+            color: Color(0xff9CA3AF),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getSubjectColor(IslamicSubject subject) {
+    switch (subject) {
+      case IslamicSubject.quranStudies:
+        return const Color(0xff10B981);
+      case IslamicSubject.arabicLanguage:
+        return const Color(0xffF59E0B);
+      case IslamicSubject.hadithStudies:
+        return const Color(0xff8B5CF6);
+      case IslamicSubject.fiqh:
+        return const Color(0xff3B82F6);
+      case IslamicSubject.islamicHistory:
+        return const Color(0xffEF4444);
+      case IslamicSubject.aqeedah:
+        return const Color(0xff06B6D4);
+      case IslamicSubject.tafseer:
+        return const Color(0xffF97316);
+      case IslamicSubject.seerah:
+        return const Color(0xff84CC16);
+    }
+  }
+
+  IconData _getSubjectIcon(IslamicSubject subject) {
+    switch (subject) {
+      case IslamicSubject.quranStudies:
+        return Icons.menu_book_rounded;
+      case IslamicSubject.arabicLanguage:
+        return Icons.language_rounded;
+      case IslamicSubject.hadithStudies:
+        return Icons.format_quote_rounded;
+      case IslamicSubject.fiqh:
+        return Icons.balance_rounded;
+      case IslamicSubject.islamicHistory:
+        return Icons.history_edu_rounded;
+      case IslamicSubject.aqeedah:
+        return Icons.favorite_rounded;
+      case IslamicSubject.tafseer:
+        return Icons.psychology_rounded;
+      case IslamicSubject.seerah:
+        return Icons.person_rounded;
+    }
   }
 
   Widget _buildTeacherProfileCard() {
@@ -3668,35 +4004,46 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 20),
 
           // Current Islamic Date
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xff8B5CF6), Color(0xffA78BFA)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getCurrentHijriDate(),
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+          FutureBuilder<HijriDate>(
+            future: IslamicCalendarService.getCurrentHijriDate(),
+            builder: (context, snapshot) {
+              final hijriDate = snapshot.data;
+              final hijriDateText = hijriDate?.fullDate ?? 'Loading...';
+              final hijriMonthText = hijriDate != null
+                  ? '${hijriDate.monthName} ${hijriDate.year} AH'
+                  : 'Islamic Calendar';
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xff8B5CF6), Color(0xffA78BFA)],
                   ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _getCurrentHijriMonth(),
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hijriDateText,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hijriMonthText,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(height: 16),
 
@@ -3710,11 +4057,54 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildIslamicEvent('🌙', 'Laylat al-Qadr', '3 days'),
-          const SizedBox(height: 8),
-          _buildIslamicEvent('🕌', 'Eid al-Fitr', '12 days'),
-          const SizedBox(height: 8),
-          _buildIslamicEvent('📚', 'Ramadan Reading Week', '2 days'),
+          FutureBuilder<List<IslamicEvent>>(
+            future: IslamicCalendarService.getUpcomingEvents(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Column(
+                  children: [
+                    for (int i = 0; i < 3; i++) ...[
+                      Container(
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      if (i < 2) const SizedBox(height: 8),
+                    ],
+                  ],
+                );
+              }
+
+              final events = snapshot.data ?? [];
+              if (events.isEmpty) {
+                return Text(
+                  'No upcoming events',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                );
+              }
+
+              return Column(
+                children: events.take(3).map((event) {
+                  final timeText = event.daysUntil == 0
+                      ? 'Today'
+                      : event.daysUntil == 1
+                          ? 'Tomorrow'
+                          : '${event.daysUntil} days';
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child:
+                        _buildIslamicEvent(event.emoji, event.name, timeText),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -3803,14 +4193,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 12),
           _buildQuickActionButton(
-            'Message Parents',
-            Icons.chat_bubble_rounded,
+            'Schedule Class',
+            Icons.schedule_rounded,
             const Color(0xffF59E0B),
           ),
           const SizedBox(height: 12),
           _buildQuickActionButton(
-            'View Reports',
-            Icons.analytics_rounded,
+            'View Students',
+            Icons.people_rounded,
             const Color(0xff8B5CF6),
           ),
         ],
@@ -4157,28 +4547,162 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildRecentLessonItem(
-            'Surah Al-Baqarah (Verse 1-20)',
-            'Ahmad Al-Rashid',
-            '2 hours ago',
-            const Color(0xff10B981),
-            Icons.menu_book_rounded,
+          _buildRecentLessonsSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentLessonsSection() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      return _buildNoRecentLessonsMessage('Please log in to view your lessons');
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: currentUser.uid)
+          .where('status', whereIn: ['completed', 'pending'])
+          .orderBy('created_at', descending: true)
+          .limit(3)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingRecentLessons();
+        }
+
+        if (snapshot.hasError) {
+          return _buildNoRecentLessonsMessage('Error loading recent lessons');
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildNoRecentLessonsMessage('No recent lessons found');
+        }
+
+        final lessons = snapshot.data!.docs;
+        return Column(
+          children: lessons.asMap().entries.map((entry) {
+            final index = entry.key;
+            final lesson = entry.value.data() as Map<String, dynamic>;
+            return Column(
+              children: [
+                _buildRecentLessonItemFromData(lesson),
+                if (index < lessons.length - 1) const SizedBox(height: 12),
+              ],
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentLessonItemFromData(Map<String, dynamic> lesson) {
+    final description = lesson['description'] ?? 'Islamic lesson';
+    final studentName = lesson['student_name'] ?? 'Student';
+    final startTime = lesson['start_time'] ?? '';
+    final date = lesson['date'] ?? '';
+
+    // Parse created_at or use start_time for timing
+    String timeAgo = 'Recently';
+    try {
+      final createdAt = lesson['created_at'];
+      if (createdAt != null) {
+        final timestamp = createdAt is Timestamp
+            ? createdAt.toDate()
+            : DateTime.parse(createdAt.toString());
+        final now = DateTime.now();
+        final difference = now.difference(timestamp);
+
+        if (difference.inDays > 0) {
+          timeAgo =
+              '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+        } else if (difference.inHours > 0) {
+          timeAgo =
+              '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+        } else if (difference.inMinutes > 0) {
+          timeAgo =
+              '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+        } else {
+          timeAgo = 'Just now';
+        }
+      } else if (date.isNotEmpty && startTime.isNotEmpty) {
+        timeAgo = '$date at $startTime';
+      }
+    } catch (e) {
+      timeAgo = date.isNotEmpty ? date : 'Recent lesson';
+    }
+
+    // Determine color and icon based on description content
+    Color color = const Color(0xff10B981);
+    IconData icon = Icons.school_rounded;
+
+    if (description.toLowerCase().contains('quran') ||
+        description.toLowerCase().contains('surah')) {
+      color = const Color(0xff10B981);
+      icon = Icons.menu_book_rounded;
+    } else if (description.toLowerCase().contains('arabic') ||
+        description.toLowerCase().contains('language')) {
+      color = const Color(0xffF59E0B);
+      icon = Icons.language_rounded;
+    } else if (description.toLowerCase().contains('hadith') ||
+        description.toLowerCase().contains('studies')) {
+      color = const Color(0xff8B5CF6);
+      icon = Icons.library_books_rounded;
+    }
+
+    return _buildRecentLessonItem(
+        description, studentName, timeAgo, color, icon);
+  }
+
+  Widget _buildLoadingRecentLessons() {
+    return Column(
+      children: [
+        for (int i = 0; i < 3; i++) ...[
+          Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          if (i < 2) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNoRecentLessonsMessage(String message) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.history_edu_outlined,
+            size: 48,
+            color: Colors.grey[400],
           ),
           const SizedBox(height: 12),
-          _buildRecentLessonItem(
-            'Arabic Grammar - Verb Conjugation',
-            'Fatima Hassan',
-            '4 hours ago',
-            const Color(0xffF59E0B),
-            Icons.language_rounded,
+          Text(
+            'No Recent Lessons',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff6B7280),
+            ),
           ),
-          const SizedBox(height: 12),
-          _buildRecentLessonItem(
-            'Hadith Studies - Sahih Bukhari',
-            'Omar Malik',
-            '1 day ago',
-            const Color(0xff8B5CF6),
-            Icons.library_books_rounded,
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff9CA3AF),
+            ),
           ),
         ],
       ),
@@ -4289,20 +4813,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildResourceItem('Quran Tafsir Library', Icons.menu_book_rounded,
-              const Color(0xff10B981)),
+          _buildClickableResourceItem(
+            'Quran Tafsir Library',
+            Icons.menu_book_rounded,
+            const Color(0xff10B981),
+            'https://quran.com/',
+          ),
           const SizedBox(height: 12),
-          _buildResourceItem('Hadith Collections', Icons.book_rounded,
-              const Color(0xff3B82F6)),
+          _buildClickableResourceItem(
+            'Hadith Collections',
+            Icons.book_rounded,
+            const Color(0xff3B82F6),
+            'https://sunnah.com/',
+          ),
           const SizedBox(height: 12),
-          _buildResourceItem('Islamic History Materials',
-              Icons.history_edu_rounded, const Color(0xffF59E0B)),
+          _buildClickableResourceItem(
+            'Islamic History Materials',
+            Icons.history_edu_rounded,
+            const Color(0xffF59E0B),
+            'https://islamichistory.org/',
+          ),
           const SizedBox(height: 12),
-          _buildResourceItem('Arabic Learning Tools', Icons.language_rounded,
-              const Color(0xff8B5CF6)),
+          _buildClickableResourceItem(
+            'Arabic Learning Tools',
+            Icons.language_rounded,
+            const Color(0xff8B5CF6),
+            'https://www.arabacademy.com/',
+          ),
           const SizedBox(height: 12),
-          _buildResourceItem('Prayer Time Calculator',
-              Icons.access_time_rounded, const Color(0xffEF4444)),
+          _buildClickableResourceItem(
+            'Prayer Time Calculator',
+            Icons.access_time_rounded,
+            const Color(0xffEF4444),
+            'https://www.islamicfinder.org/prayer-times/',
+          ),
         ],
       ),
     );

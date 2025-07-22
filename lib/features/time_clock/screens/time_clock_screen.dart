@@ -510,19 +510,19 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     print(
         'Starting teaching session for shift: ${_currentShift?.displayName ?? "unknown"}');
 
-    // First check if we already have location permissions
-    bool hasPermission = await LocationService.hasLocationPermission();
-    print('Has location permission: $hasPermission');
-
     // Show loading state while getting location
     setState(() {
       _isGettingLocation = true;
     });
 
     try {
-      // Get location before clocking in
+      // Try to get location but make it optional
       print('Attempting to get current location...');
-      LocationData? location = await LocationService.getCurrentLocation();
+      LocationData? location = await LocationService.getCurrentLocation()
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        print('Location request timed out - proceeding without location');
+        return null;
+      });
 
       if (!mounted) return;
 
@@ -530,14 +530,14 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _isGettingLocation = false;
       });
 
-      // Show location confirmation FIRST - only proceed after confirmation
+      // If location was obtained, show confirmation
       if (location != null) {
         print('Location obtained successfully: ${location.neighborhood}');
         _showLocationConfirmation(location, isClockIn: true);
       } else {
-        print('Location was null despite no exception');
-        _showLocationRequiredDialog(
-            'Location could not be determined. Please ensure GPS is enabled.');
+        print(
+            'Location unavailable - showing option to proceed without location');
+        _showLocationOptionalDialog();
       }
     } catch (e) {
       print('Error getting location: $e');
@@ -547,8 +547,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _isGettingLocation = false;
       });
 
-      // Show error - location is now mandatory for clock in
-      _showLocationRequiredDialog(e.toString());
+      // Show option to proceed without location instead of requiring it
+      _showLocationOptionalDialog();
     }
   }
 
@@ -1207,6 +1207,208 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         ],
       ),
     );
+  }
+
+  void _showLocationOptionalDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.location_searching,
+              color: Colors.orange,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Location Unavailable',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'We couldn\'t determine your location. You can still clock in without location data.',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff475569),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.info, color: Colors.orange, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Location tracking helps with attendance verification.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You can try again to enable location, or proceed without it.',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: Colors.orange.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _startTeachingSession(); // Retry getting location
+                  },
+                  child: Text(
+                    'Try Again',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xff0386FF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Proceed with clock-in without location
+                    _proceedWithClockInWithoutLocation();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff10B981),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(
+                    'Clock In',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _proceedWithClockInWithoutLocation() async {
+    if (!mounted) return;
+
+    if (_currentShift == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No valid shift found for clock-in'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Create a default location for clock-in without location data
+      final defaultLocation = LocationData(
+        latitude: 0.0,
+        longitude: 0.0,
+        address: 'Location unavailable',
+        neighborhood: 'Clock-in without location',
+      );
+
+      // Use the shift-based clock-in service with default location
+      final result = await ShiftTimesheetService.clockInToShift(
+        user.uid,
+        _currentShift!.id,
+        location: defaultLocation,
+      );
+
+      if (!mounted) return;
+
+      if (result['success']) {
+        setState(() {
+          _isClockingIn = true;
+          _selectedStudentName = _currentShift!
+              .displayName; // Use shift name instead of student name
+          _clockInTime = DateTime.now();
+          _clockInLocation = defaultLocation;
+          _totalHoursWorked = "00:00:00";
+          _stopwatch.reset();
+          _stopwatch.start();
+          _startTimer();
+          _startAutoLogoutTimer();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${result['message']} (without location tracking)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error during clock-in: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showClockOutConfirmation(Map<String, dynamic> entry) {
