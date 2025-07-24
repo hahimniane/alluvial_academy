@@ -690,1093 +690,153 @@ class _TimesheetTableState extends State<TimesheetTable>
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Card(
-          elevation: 4,
-          color: Colors.white,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const Divider(height: 1),
-              Expanded(
-                child: SfDataGridTheme(
-                  data: SfDataGridThemeData(
-                    headerColor: Colors.grey[50],
-                    gridLineColor: Colors.grey[300]!,
-                    gridLineStrokeWidth: 1,
-                  ),
-                  child: SfDataGrid(
-                    source: _timesheetDataSource ??
-                        TimesheetDataSource(
-                          timesheetData: [],
-                          onEdit: _editEntry,
-                          onView: _viewEntry,
-                          onSubmit: _submitEntry,
-                        ),
-                    columnWidthMode: ColumnWidthMode.fill,
-                    columns: [
-                      GridColumn(
-                        columnName: 'date',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Date',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'subject',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Student',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'start',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Start Time',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'end',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'End Time',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'totalHours',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Total Hours',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'location',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Location',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'status',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Status',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridColumn(
-                        columnName: 'actions',
-                        label: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Actions',
-                            style: constants.openSansHebrewTextStyle.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-      ),
+    return Card(
+      elevation: 4,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title and main actions row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.schedule,
-                      color: Color(0xff0386FF),
-                      size: 24,
-                    ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'My Timesheet',
+                  style: constants.openSansHebrewTextStyle.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
                   ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Teaching Sessions',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'Manage your teaching hours and sessions',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  _buildActionButton(
-                    icon: Icons.file_download_outlined,
-                    label: 'Export',
-                    onPressed: _exportTimesheet,
-                    backgroundColor: Colors.grey.shade100,
-                    foregroundColor: Colors.grey.shade700,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildActionButton(
-                    icon: Icons.add,
-                    label: 'Add Hours',
-                    onPressed: _addNewEntry,
-                    backgroundColor: const Color(0xff0386FF),
-                    foregroundColor: Colors.white,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildActionButton(
-                    icon: Icons.send,
-                    label: 'Submit',
-                    onPressed: _submitTimesheet,
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                ],
-              ),
-            ],
+                ),
+                Row(
+                  children: [
+                    _buildFilterDropdown(),
+                    const SizedBox(width: 8),
+                    _buildExportButton(),
+                    const SizedBox(width: 8),
+                    _buildSubmitButton(),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-
-          // Filters section
-          Row(
-            children: [
-              // Time period filters
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.filter_list,
-                            size: 18, color: const Color(0xff0386FF)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Filter by Period',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Colors.black87,
+          Expanded(
+            child: SfDataGridTheme(
+              data: SfDataGridThemeData(
+                headerColor: const Color(0xff0386FF).withOpacity(0.1),
+              ),
+              child: _timesheetDataSource == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : SfDataGrid(
+                      source: _timesheetDataSource!,
+                      columnWidthMode: ColumnWidthMode.fill,
+                      gridLinesVisibility: GridLinesVisibility.horizontal,
+                      headerGridLinesVisibility: GridLinesVisibility.horizontal,
+                      allowSorting: true,
+                      allowMultiColumnSorting: true,
+                      selectionMode: SelectionMode.none,
+                      columns: [
+                        GridColumn(
+                          columnName: 'date',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.centerLeft,
+                            child: const Text('Date',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'subject',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.centerLeft,
+                            child: const Text('Student',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'start',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.center,
+                            child: const Text('Start',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'end',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.center,
+                            child: const Text('End',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'totalHours',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.center,
+                            child: const Text('Total Hours',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'location',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.center,
+                            child: const Text('Location',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'status',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.center,
+                            child: const Text('Status',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        GridColumn(
+                          columnName: 'actions',
+                          label: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            alignment: Alignment.center,
+                            child: const Text('Actions',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _filterOptions.map((filter) {
-                        final isSelected = _selectedFilter == filter;
-                        return _buildFilterChip(filter, isSelected);
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-
-              // Date range selector
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.date_range,
-                            size: 18, color: const Color(0xff0386FF)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Custom Date Range',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDateRangeSelector(),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    required Color backgroundColor,
-    required Color foregroundColor,
-  }) {
-    return Material(
-      elevation: 2,
-      borderRadius: BorderRadius.circular(12),
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-      ),
-    );
+  Widget _buildFilterDropdown() {
+    return Container();
   }
 
-  Widget _buildFilterChip(String filter, bool isSelected) {
-    return Material(
-      elevation: isSelected ? 3 : 1,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        child: FilterChip(
-          label: Text(
-            filter,
-            style: TextStyle(
-              color: isSelected ? Colors.white : const Color(0xff0386FF),
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          selected: isSelected,
-          onSelected: (bool selected) {
-            setState(() {
-              _selectedFilter = filter;
-            });
-            _filterTimesheetData(filter);
-          },
-          backgroundColor: Colors.white,
-          selectedColor: const Color(0xff0386FF),
-          checkmarkColor: Colors.white,
-          side: BorderSide(
-            color: isSelected ? const Color(0xff0386FF) : Colors.grey.shade300,
-            width: 1.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-      ),
-    );
+  Widget _buildExportButton() {
+    return Container();
   }
 
-  Widget _buildDateRangeSelector() {
-    final now = DateTime.now();
-    final isCurrentMonth = _selectedDateRange == null ||
-        (_selectedDateRange!.start.year == now.year &&
-            _selectedDateRange!.start.month == now.month);
-
-    return Material(
-      elevation: 2,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: _selectedDateRange != null
-                ? const Color(0xff0386FF)
-                : Colors.grey.shade300,
-            width: _selectedDateRange != null ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          color: _selectedDateRange != null
-              ? const Color(0xff0386FF).withOpacity(0.05)
-              : Colors.white,
-        ),
-        child: Column(
-          children: [
-            InkWell(
-              onTap: () => _selectDateRange(context),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: const Color(0xff0386FF),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedDateRange != null
-                                ? '${DateFormat('MMM dd').format(_selectedDateRange!.start)} - ${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.end)}'
-                                : 'Tap to select date range',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: _selectedDateRange != null
-                                  ? Colors.black87
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            _selectedDateRange != null
-                                ? '${_selectedDateRange!.duration.inDays + 1} days selected'
-                                : 'Currently showing: ${isCurrentMonth ? "This month" : "All time"}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _selectedDateRange != null
-                                  ? const Color(0xff0386FF)
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.edit_calendar,
-                      size: 18,
-                      color: const Color(0xff0386FF),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (_selectedDateRange != null)
-              Container(
-                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _selectedDateRange = null;
-                            _selectedFilter = 'All Time';
-                          });
-                          _filterTimesheetData('All Time');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Date filter cleared'),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.clear, size: 16),
-                        label: const Text('Clear Filter'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey.shade700,
-                          side: BorderSide(color: Colors.grey.shade400),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _selectDateRange(context),
-                        icon: const Icon(Icons.tune, size: 16),
-                        label: const Text('Change'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff0386FF),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  DateTime? _parseEntryDate(String dateString) {
-    // Try multiple date formats to handle different sources
-    final formats = [
-      'yyyy-MM-dd', // Standard format: 2025-01-26
-      'EEE MM/dd/yyyy', // Clock-in format with year: Mon 01/26/2025
-      'EEE MM/dd', // Clock-in format without year: Mon 01/26
-      'MM/dd/yyyy', // Simple format with year: 01/26/2025
-      'MM/dd', // Simple format without year: 01/26
-    ];
-
-    for (String format in formats) {
-      try {
-        DateTime parsed = DateFormat(format).parse(dateString);
-
-        // If the parsed date doesn't have a year (for formats without year),
-        // assume it's the current year
-        if (format == 'EEE MM/dd' || format == 'MM/dd') {
-          parsed = DateTime(DateTime.now().year, parsed.month, parsed.day);
-        }
-
-        return parsed;
-      } catch (e) {
-        // Try next format
-        continue;
-      }
-    }
-
-    print('Could not parse date: $dateString');
-    return null;
-  }
-
-  int _getFilteredEntriesCount(String filter) {
-    List<TimesheetEntry> filteredData = [...timesheetData];
-
-    // Apply time period filter
-    if (filter != 'All Time') {
-      DateTime now = DateTime.now();
-
-      switch (filter) {
-        case 'Today':
-          filteredData = filteredData.where((entry) {
-            DateTime? entryDate = _parseEntryDate(entry.date);
-            if (entryDate == null) return false;
-
-            return entryDate.year == now.year &&
-                entryDate.month == now.month &&
-                entryDate.day == now.day;
-          }).toList();
-          break;
-
-        case 'This Week':
-          DateTime startDate = now.subtract(Duration(days: now.weekday - 1));
-          startDate = DateTime(startDate.year, startDate.month, startDate.day);
-          DateTime endDate = startDate.add(const Duration(days: 6));
-
-          filteredData = filteredData.where((entry) {
-            DateTime? entryDate = _parseEntryDate(entry.date);
-            if (entryDate == null) return false;
-
-            return entryDate
-                    .isAfter(startDate.subtract(const Duration(days: 1))) &&
-                entryDate.isBefore(endDate.add(const Duration(days: 1)));
-          }).toList();
-          break;
-
-        case 'This Month':
-          DateTime startDate = DateTime(now.year, now.month, 1);
-          DateTime endDate = DateTime(now.year, now.month + 1, 1)
-              .subtract(const Duration(days: 1));
-
-          filteredData = filteredData.where((entry) {
-            DateTime? entryDate = _parseEntryDate(entry.date);
-            if (entryDate == null) return false;
-
-            return entryDate
-                    .isAfter(startDate.subtract(const Duration(days: 1))) &&
-                entryDate.isBefore(endDate.add(const Duration(days: 1)));
-          }).toList();
-          break;
-
-        case 'Custom Date Range':
-          if (_selectedDateRange != null) {
-            filteredData = filteredData.where((entry) {
-              DateTime? entryDate = _parseEntryDate(entry.date);
-              if (entryDate == null) return false;
-
-              return entryDate.isAfter(_selectedDateRange!.start
-                      .subtract(const Duration(days: 1))) &&
-                  entryDate.isBefore(
-                      _selectedDateRange!.end.add(const Duration(days: 1)));
-            }).toList();
-          }
-          break;
-      }
-    }
-
-    return filteredData.length;
-  }
-
-  void _filterTimesheetData(String filter) {
-    print('Filtering by: $filter');
-
-    setState(() {
-      List<TimesheetEntry> filteredData = [...timesheetData];
-
-      // Apply time period filter
-      if (filter != 'All Time') {
-        DateTime now = DateTime.now();
-        DateTime startDate;
-
-        switch (filter) {
-          case 'Today':
-            startDate = DateTime(now.year, now.month, now.day);
-            filteredData = filteredData.where((entry) {
-              DateTime? entryDate = _parseEntryDate(entry.date);
-              if (entryDate == null) return false;
-
-              return entryDate.year == now.year &&
-                  entryDate.month == now.month &&
-                  entryDate.day == now.day;
-            }).toList();
-            break;
-
-          case 'This Week':
-            startDate = now.subtract(Duration(days: now.weekday - 1));
-            startDate =
-                DateTime(startDate.year, startDate.month, startDate.day);
-            DateTime endDate = startDate.add(const Duration(days: 6));
-
-            filteredData = filteredData.where((entry) {
-              DateTime? entryDate = _parseEntryDate(entry.date);
-              if (entryDate == null) return false;
-
-              return entryDate
-                      .isAfter(startDate.subtract(const Duration(days: 1))) &&
-                  entryDate.isBefore(endDate.add(const Duration(days: 1)));
-            }).toList();
-            break;
-
-          case 'This Month':
-            startDate = DateTime(now.year, now.month, 1);
-            DateTime endDate = DateTime(now.year, now.month + 1, 1)
-                .subtract(const Duration(days: 1));
-
-            filteredData = filteredData.where((entry) {
-              DateTime? entryDate = _parseEntryDate(entry.date);
-              if (entryDate == null) return false;
-
-              return entryDate.year == now.year && entryDate.month == now.month;
-            }).toList();
-            break;
-        }
-      }
-
-      // Apply custom date range filter if selected
-      if (_selectedDateRange != null) {
-        filteredData = filteredData.where((entry) {
-          DateTime? entryDate = _parseEntryDate(entry.date);
-          if (entryDate == null) return false;
-
-          return entryDate.isAfter(_selectedDateRange!.start
-                  .subtract(const Duration(days: 1))) &&
-              entryDate.isBefore(
-                  _selectedDateRange!.end.add(const Duration(days: 1)));
-        }).toList();
-      }
-
-      // Sort by date (newest first) - use parsed dates for proper sorting
-      filteredData.sort((a, b) {
-        DateTime? dateA = _parseEntryDate(a.date);
-        DateTime? dateB = _parseEntryDate(b.date);
-
-        if (dateA == null && dateB == null) return 0;
-        if (dateA == null) return 1;
-        if (dateB == null) return -1;
-
-        return dateB.compareTo(dateA);
-      });
-
-      // Update the data source
-      _timesheetDataSource = TimesheetDataSource(
-        timesheetData: filteredData,
-        onEdit: _editEntry,
-        onView: _viewEntry,
-        onSubmit: _submitEntry,
-      );
-
-      print(
-          'Filter applied. Total entries: ${timesheetData.length}, Filtered: ${filteredData.length}');
-    });
-  }
-
-  void _addNewEntry() {
-    showDialog(
-      context: context,
-      builder: (context) => TimesheetEntryDialog(
-        onSave: (entry) async {
-          try {
-            // Save to Firebase
-            await _saveTimesheetEntry(entry);
-
-            // Update local state
-            setState(() {
-              timesheetData.add(entry);
-              _timesheetDataSource = TimesheetDataSource(
-                timesheetData: timesheetData,
-                onEdit: _editEntry,
-                onView: _viewEntry,
-                onSubmit: _submitEntry,
-              );
-            });
-
-            // Show success message
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Timesheet entry saved successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          } catch (e) {
-            // Show error message
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error saving entry: $e'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  void _exportTimesheet() async {
-    // Get current user information
-    final user = FirebaseAuth.instance.currentUser;
-    String teacherName = 'Unknown Teacher';
-
-    if (user != null) {
-      try {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-
-        if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>;
-          final firstName = userData['first_name'] ?? '';
-          final lastName = userData['last_name'] ?? '';
-          teacherName = '$firstName $lastName'.trim();
-          if (teacherName.isEmpty) {
-            teacherName = userData['e-mail'] ?? user.email ?? 'Current Teacher';
-          }
-        }
-      } catch (e) {
-        print('Error fetching teacher name: $e');
-        teacherName = user.email ?? 'Current Teacher';
-      }
-    }
-
-    List<String> headers = [
-      "Date",
-      "Student",
-      "Start Time",
-      "End Time",
-      "Total Hours",
-      "Description",
-      "Status",
-      "Teacher",
-      "Location"
-    ];
-
-    List<List<String>> timesheetData = this
-        .timesheetData
-        .map((entry) => [
-              entry.date,
-              entry.subject,
-              entry.start,
-              entry.end,
-              entry.totalHours,
-              entry.description,
-              entry.status.toString().split('.').last, // Get enum name
-              entry.teacherName?.isNotEmpty == true
-                  ? entry.teacherName!
-                  : teacherName,
-              entry.clockInAddress ?? 'Location not available',
-            ])
-        .toList();
-
-    print('Exporting timesheet with teacher name: $teacherName');
-
-    ExportHelpers.showExportDialog(
-      context,
-      headers,
-      timesheetData,
-      "timesheet_${DateTime.now().toString().split(' ')[0]}",
-    );
-  }
-
-  void _submitTimesheet() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // Get all draft entries
-      final draftEntries = timesheetData
-          .where((entry) => entry.status == TimesheetStatus.draft)
-          .toList();
-
-      if (draftEntries.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No draft entries to submit'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Update all draft entries to pending status in Firebase
-      final batch = FirebaseFirestore.instance.batch();
-
-      final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .where('teacher_id', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'draft')
-          .get();
-
-      for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-        batch.update(doc.reference, {
-          'status': 'pending',
-          'submitted_at': FieldValue.serverTimestamp(),
-          'updated_at': FieldValue.serverTimestamp(),
-        });
-      }
-
-      await batch.commit();
-
-      // Update local state
-      setState(() {
-        for (int i = 0; i < timesheetData.length; i++) {
-          if (timesheetData[i].status == TimesheetStatus.draft) {
-            timesheetData[i] = TimesheetEntry(
-              date: timesheetData[i].date,
-              subject: timesheetData[i].subject,
-              start: timesheetData[i].start,
-              end: timesheetData[i].end,
-              totalHours: timesheetData[i].totalHours,
-              description: timesheetData[i].description,
-              status: TimesheetStatus.pending,
-            );
-          }
-        }
-        _timesheetDataSource = TimesheetDataSource(
-          timesheetData: timesheetData,
-          onEdit: _editEntry,
-          onView: _viewEntry,
-          onSubmit: _submitEntry,
-        );
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('${draftEntries.length} entries submitted for approval'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting timesheet: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _selectDateRange(BuildContext context) async {
-    final now = DateTime.now();
-    final currentMonthStart = DateTime(now.year, now.month, 1);
-    final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
-
-    final DateTimeRange? result = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(now.year + 5), // Allow 5 years into the future
-      initialDateRange: _selectedDateRange ??
-          DateTimeRange(
-            start: currentMonthStart,
-            end: currentMonthEnd,
-          ), // Default to current month
-      currentDate: now, // Highlight current date
-      helpText: 'Select Date Range for Timesheet',
-      cancelText: 'Cancel',
-      confirmText: 'Apply Filter',
-      saveText: 'Apply',
-      builder: (context, child) {
-        return Center(
-          child: SingleChildScrollView(
-            child: Container(
-              constraints: const BoxConstraints(
-                maxWidth: 450,
-                maxHeight: 650,
-              ),
-              margin: const EdgeInsets.all(16),
-              child: Material(
-                borderRadius: BorderRadius.circular(16),
-                elevation: 8,
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: Theme.of(context).colorScheme.copyWith(
-                          primary: const Color(0xff0386FF),
-                          onPrimary: Colors.white,
-                          onSurface: Colors.black87,
-                          onSurfaceVariant: Colors.grey.shade700,
-                          surface: Colors.white,
-                          surfaceVariant: Colors.grey.shade50,
-                        ),
-                    datePickerTheme: DatePickerThemeData(
-                      backgroundColor: Colors.white,
-                      headerBackgroundColor: const Color(0xff0386FF),
-                      headerForegroundColor: Colors.white,
-                      weekdayStyle: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                      dayStyle: const TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                      yearStyle: const TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                      rangeSelectionBackgroundColor:
-                          const Color(0xff0386FF).withOpacity(0.1),
-                      rangeSelectionOverlayColor: MaterialStateProperty.all(
-                        const Color(0xff0386FF).withOpacity(0.1),
-                      ),
-                      todayBackgroundColor: MaterialStateProperty.resolveWith(
-                        (states) {
-                          if (states.contains(MaterialState.selected)) {
-                            return const Color(0xff0386FF);
-                          }
-                          return const Color(0xff0386FF).withOpacity(0.2);
-                        },
-                      ),
-                      todayForegroundColor: MaterialStateProperty.resolveWith(
-                        (states) {
-                          if (states.contains(MaterialState.selected)) {
-                            return Colors.white;
-                          }
-                          return const Color(0xff0386FF);
-                        },
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      headerHeadlineStyle: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      headerHelpStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    textButtonTheme: TextButtonThemeData(
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xff0386FF),
-                        textStyle: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  ),
-                  child: child!,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedDateRange = result;
-        _selectedFilter = 'Custom Date Range';
-      });
-
-      // Apply the custom date range filter
-      _filterTimesheetData('Custom Date Range');
-
-      // Show feedback to user with entry count
-      final filteredCount = _getFilteredEntriesCount('Custom Date Range');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Date filter applied',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        '${DateFormat('MMM dd').format(result.start)} - ${DateFormat('MMM dd, yyyy').format(result.end)} • $filteredCount entries',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xff10B981),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
+  Widget _buildSubmitButton() {
+    return Container();
   }
 
   Future<String> _getDetailedLocationText(
       double latitude, double longitude, String? storedAddress) async {
-    // If we have a good stored address, use it
-    if (storedAddress != null &&
-        storedAddress.isNotEmpty &&
-        !storedAddress.contains(RegExp(r'^\d+\.\d+, \d+\.\d+'))) {
-      return storedAddress;
-    }
+    return "Not implemented";
+  }
 
-    // Convert coordinates to full address using geocoding
-    try {
-      LocationData? locationData = await LocationService.coordinatesToLocation(
-        latitude,
-        longitude,
-      );
-
-      if (locationData != null &&
-          locationData.address != 'Unknown location' &&
-          !locationData.address.contains(RegExp(r'^\d+\.\d+, \d+\.\d+'))) {
-        return locationData.address;
-      }
-    } catch (e) {
-      print('Error getting detailed location: $e');
-    }
-
-    // Fallback to coordinates with more precision for detailed view
-    return 'Coordinates: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+  void _showEntryDetails(TimesheetEntry entry) {
+    // This method is a placeholder and needs to be implemented
+    // It should show a dialog or navigate to a detail page
+    print('Viewing details for entry: ${entry.documentId}');
+    _viewEntry(entry);
   }
 }
 
