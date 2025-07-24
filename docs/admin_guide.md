@@ -1,101 +1,110 @@
-# Alluwal Education Hub – Administrator Guide
+# Alluwal Education Hub – Administrator Guide (v1.0)
 
-## 1. Introduction
-This document explains how administrators can manage users, shifts, and reports within Alluwal Education Hub.
-
----
-
-## 2. Signing In
-1. Navigate to the web application.
-2. Click **Sign In** using your administrator credentials.
-3. After login, ensure the **Administrator** badge shows in the top-right corner.
+> Generated from live codebase; covers features available to users with the `admin` role (`UserRoleService.getAvailableFeatures('admin')`).
 
 ---
 
-## 3. Admin Dashboard
-Upon login you see the **Dashboard** with quick metrics:
-- **Total Shifts**
-- **Upcoming / Active / Completed**
-- **Auto-Logout Pending** shifts
-- **User stats** and recent activity
+## 1. Logging In
+1. Navigate to the web URL.
+2. Sign in with your administrator credentials.
+3. A gray **Administrator** badge appears top-right after login.
 
 ---
 
-## 4. User Management
-### 4.1 View & Search Users
-1. Click **User Management** → **User List**.
-2. Use the search bar or filters (role, status) to locate users.
+## 2. Main Navigation
+Admins have access to seven features:
 
-### 4.2 Add a User
-1. Click **Add User**.
-2. Fill first name, last name, email, role (Teacher / Student / Admin), hourly rate, timezone.
-3. Click **Save** – an invitation email is automatically sent.
+| Menu Label | Material Icon | Module |
+|------------|---------------|---------|
+| Dashboard | `Icons.dashboard` | Overall statistics & quick actions |
+| User Management | `Icons.people` | Create / edit / deactivate users |
+| Shift Management | `Icons.schedule` | Create, monitor & edit teaching shifts |
+| Chat | `Icons.chat` | School-wide messaging (all rooms) |
+| Time Clock Review | `Icons.access_time` | Approve / reject teacher timesheets (`AdminTimesheetReview`) |
+| Forms / Form Builder | `Icons.description` / builder icon | Publish forms and collect responses |
+| Tasks | `Icons.check_box` | Assign tasks to staff / students |
+| Reports | `Icons.bar_chart` | Export CSV / PDF datasets |
 
-### 4.3 Edit / Deactivate
-* Click the **edit** icon (pencil) to modify a user.
-* Toggle **Active** to deactivate a user without deleting their history.
-
----
-
-## 5. Shift Management
-### 5.1 Create Shifts
-1. Navigate to **Shift Management**.
-2. Click **Create Shift**.
-3. Select teacher, students, subject, date/time, recurrence & notes.
-4. Click **Save** – teachers and students receive notifications.
-
-### 5.2 Monitor Shifts
-* Tabs show **Scheduled**, **Active**, **Completed**, **Missed**.
-* Active shifts highlight if **Auto-Logout Pending** (teacher forgot to clock-out).
-
-### 5.3 Manual Overrides
-* Click a shift and choose **Force Clock-Out** or **Mark Completed** if necessary.
+The sidebar auto-collapses — preference saved in `SharedPreferences` (`sidebar_collapsed`).
 
 ---
 
-## 6. Time Clock Review
-1. Go to **Time Clock** → **Admin Review**.
-2. Filter by teacher, date range, status.
-3. Approve or reject timesheet entries.
-4. Export to CSV/PDF for payroll.
+## 3. User Management
+Implemented in `features/user_management`.
+
+1. **User List Screen** – Search and filter by role/status.
+2. **Add User Screen** – Fields: name, e-mail, role, hourly rate, timezone.
+3. **Edit User** – Click the **edit** pencil; toggle **Active** to deactivate.
+
+Data source: Firestore collection `users`.
 
 ---
 
-## 7. Tasks & Forms
-- **Tasks:** Assign tasks to teachers or students, set deadlines, attach files.
-- **Forms:** Publish school forms, collect responses, export data.
+## 4. Shift Management
+Screens under `features/shift_management`.
+
+### 4.1 Create Shift
+1. Click **Shift Management** → **Create Shift**.
+2. Select teacher, students (multi-select), subject, date/time.
+3. Optional recurrence (daily / weekly / monthly) – handled by `ShiftService._createRecurringShifts`.
+4. Save → Notifications go to teacher & students.
+
+### 4.2 Monitor Shifts
+* Tabs: **Scheduled**, **Active**, **Completed**, **Missed**.
+* “Auto-Logout Pending” tag appears for shifts stuck active after deadline.
+
+### 4.3 Manual Overrides
+From shift detail dialog:
+* **Force Clock-Out** – calls `ShiftService.clockOut`.
+* **Mark Completed / Cancelled** – updates status.
 
 ---
 
-## 8. Chat Oversight
-Administrators can join any chat room to monitor communication or make announcements.
+## 5. Time Clock Review
+Located at `features/time_clock/screens/admin_timesheet_review.dart`.
+
+1. Filter by teacher & date range.
+2. Review each entry → Approve (locks record) or Reject (sends back to teacher).
+3. Export table to CSV/PDF.
 
 ---
 
-## 9. Reports & Exports
-1. Click **Dashboard** → **Export**.
-2. Choose data type: Shifts, Timesheets, Attendance, Users.
-3. Select format: CSV or PDF.
+## 6. Chat Oversight
+Admins can enter any chat thread via **Chat Page** and pin announcements.
 
 ---
 
-## 10. Settings
-- **School Info:** Update logo, contact details.
-- **Authentication:** Manage password rules & SSO.
-- **Notifications:** Configure email & push settings.
+## 7. Forms & Form Builder
+* **Forms** – View submissions.
+* **Form Builder** – Create new Google-Forms-style forms (Flutter package `form_builder`).
 
 ---
 
-## 11. Troubleshooting & FAQ
-| Issue | Solution |
-|-------|----------|
-| Teacher can’t clock-in | Check their shift status (Active vs. Scheduled) and location permissions |
-| Duplicate shifts | Use **Shift Management → Clean Duplicates** |
-| Forgot admin password | Use password reset email or ask another admin to reset |
+## 8. Tasks
+Located in `features/tasks`.
+
+1. Click **Tasks**.
+2. **Quick Tasks Screen** lists all tasks.
+3. Assign task → select assignees, due date, attach files.
 
 ---
 
-## 12. Support
-Email: admin-support@alluwal.edu | Phone: +XX-XXX-XXXX
+## 9. Reports
+* Export CSV/PDF via the **Export Widget** (`shared/widgets/export_widget.dart`).
+* Available datasets: Shifts, Timesheets, Users, Attendance.
 
-> Empower your educators by keeping schedules accurate and data up-to-date.  Happy administering! 
+---
+
+## 10. Troubleshooting
+| Scenario | Resolution |
+|----------|-----------|
+| Teacher stuck clocked-in | Click **Force Clock-Out** in Shift Management |
+| Duplicate shifts | Use **Clean Duplicates** button (calls `ShiftService.cleanupDuplicateShifts`) |
+| User can’t sign in | Verify user document exists & role assigned |
+
+---
+
+## 11. Support & Contact
+E-mail: admin-support@alluwal.edu | Phone: +XX-XXX-XXXX
+
+Thank you for keeping the academy running smoothly! 
