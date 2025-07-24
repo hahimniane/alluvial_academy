@@ -139,16 +139,40 @@ class _TimesheetTableState extends State<TimesheetTable>
   Future<List<TimesheetEntry>> _loadSavedTimesheetEntries() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return [];
+      if (user == null) {
+        print('TimesheetTable: ❌ No authenticated user found');
+        return [];
+      }
+
+      print('TimesheetTable: 🔍 Loading timesheets for user: ${user.uid}');
+      print('TimesheetTable: 📧 User email: ${user.email}');
 
       final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection('timesheet_entries')
           .where('teacher_id', isEqualTo: user.uid)
           .get();
 
+      print('TimesheetTable: 📊 Found ${querySnapshot.docs.length} timesheet documents');
+
+      if (querySnapshot.docs.isEmpty) {
+        print('TimesheetTable: ⚠️ No timesheet entries found for this teacher');
+        print('TimesheetTable: 💡 This could mean:');
+        print('  - Teacher hasn\'t clocked in/out yet');
+        print('  - Firestore security rules are blocking access');
+        print('  - teacher_id field doesn\'t match user.uid');
+        return [];
+      }
+
       List<TimesheetEntry> entries = [];
       for (QueryDocumentSnapshot doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        
+        print('TimesheetTable: 📝 Processing document ${doc.id}:');
+        print('  - Date: ${data['date']}');
+        print('  - Student: ${data['student_name']}');
+        print('  - Start: ${data['start_time']}');
+        print('  - End: ${data['end_time']}');
+        print('  - Status: ${data['status']}');
 
         entries.add(TimesheetEntry(
           documentId: doc.id, // Include the document ID
@@ -179,9 +203,23 @@ class _TimesheetTableState extends State<TimesheetTable>
         }
       });
 
+      print('TimesheetTable: ✅ Successfully loaded ${entries.length} timesheet entries');
       return entries;
     } catch (e) {
-      print('Error loading timesheet entries: $e');
+      print('TimesheetTable: ❌ Error loading timesheet entries: $e');
+      print('TimesheetTable: 🔧 Stack trace: ${StackTrace.current}');
+      
+      // Show user-friendly error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading timesheet data: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      
       return [];
     }
   }
