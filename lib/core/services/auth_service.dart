@@ -17,6 +17,18 @@ class AuthService {
       User? user = result.user;
 
       if (user != null) {
+        // Check if the user is active before proceeding
+        final isActive = await UserRoleService.isUserActive(user.email!);
+        if (!isActive) {
+          // If the user is not active, sign them out immediately
+          await _auth.signOut();
+          // Throw a specific exception to be caught in the UI
+          throw FirebaseAuthException(
+            code: 'user-deactivated',
+            message: 'This user account has been deactivated.',
+          );
+        }
+
         // Initialize location and prayer times for teachers (non-blocking)
         _initializeTeacherServices(user).catchError((e) {
           print('AuthService: Background teacher initialization failed: $e');

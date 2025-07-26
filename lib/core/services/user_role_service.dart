@@ -327,4 +327,82 @@ class UserRoleService {
       return false;
     }
   }
+
+  /// Deactivate a user account
+  static Future<bool> deactivateUser(String userEmail) async {
+    try {
+      final QuerySnapshot userQuery = await _firestore
+          .collection('users')
+          .where('e-mail', isEqualTo: userEmail.toLowerCase())
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) {
+        print('User not found: $userEmail');
+        return false;
+      }
+
+      final docRef = userQuery.docs.first.reference;
+      await docRef.update({
+        'is_active': false,
+        'deactivated_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      print('Successfully deactivated user: $userEmail');
+      return true;
+    } catch (e) {
+      print('Error deactivating user: $e');
+      return false;
+    }
+  }
+
+  /// Activate a user account
+  static Future<bool> activateUser(String userEmail) async {
+    try {
+      final QuerySnapshot userQuery = await _firestore
+          .collection('users')
+          .where('e-mail', isEqualTo: userEmail.toLowerCase())
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) {
+        print('User not found: $userEmail');
+        return false;
+      }
+
+      final docRef = userQuery.docs.first.reference;
+      await docRef.update({
+        'is_active': true,
+        'activated_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'deactivated_at': FieldValue.delete(), // Remove deactivation timestamp
+      });
+
+      print('Successfully activated user: $userEmail');
+      return true;
+    } catch (e) {
+      print('Error activating user: $e');
+      return false;
+    }
+  }
+
+  /// Check if user is active
+  static Future<bool> isUserActive(String userEmail) async {
+    try {
+      final QuerySnapshot userQuery = await _firestore
+          .collection('users')
+          .where('e-mail', isEqualTo: userEmail.toLowerCase())
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) return false;
+
+      final userData = userQuery.docs.first.data() as Map<String, dynamic>;
+      return userData['is_active'] as bool? ?? true; // Default to active if field doesn't exist
+    } catch (e) {
+      print('Error checking user active status: $e');
+      return true; // Default to active on error
+    }
+  }
 }
