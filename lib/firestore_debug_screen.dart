@@ -47,14 +47,18 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
         print('No Users collection found: $e');
       }
 
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -72,12 +76,14 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              setState(() {
-                isLoading = true;
-                userDocuments.clear();
-                capitalUserDocuments.clear();
-              });
-              _checkFirestoreData();
+              if (mounted) {
+                setState(() {
+                  isLoading = true;
+                  userDocuments.clear();
+                  capitalUserDocuments.clear();
+                });
+                _checkFirestoreData();
+              }
             },
           ),
         ],

@@ -412,19 +412,30 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
   // Handle sign-in process
   Future<void> _handleSignIn() async {
     AuthService authService = AuthService();
-    User? user = await authService.signInWithEmailAndPassword(
-      emailAddressController.text,
-      passwordController.text,
-    );
-    if (user != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const DashboardPage(),
-        ),
+    try {
+      User? user = await authService.signInWithEmailAndPassword(
+        emailAddressController.text,
+        passwordController.text,
       );
-    } else {
-      _showErrorDialog('Invalid email or password. Please try again.');
+
+      if (user != null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const RoleBasedDashboard(),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-deactivated') {
+        _showErrorDialog(
+          'Your account has been deactivated. Please contact an administrator for assistance.',
+        );
+      } else {
+        _showErrorDialog('Invalid email or password. Please try again.');
+      }
+    } catch (e) {
+      _showErrorDialog('An unexpected error occurred. Please try again later.');
     }
   }
 

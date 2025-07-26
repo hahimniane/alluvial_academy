@@ -16,6 +16,7 @@ class Employee {
     required this.dateAdded,
     required this.lastLogin,
     this.isAdminTeacher = false,
+    this.isActive = true,
   });
 
   final String firstName;
@@ -30,6 +31,7 @@ class Employee {
   final String dateAdded;
   final String lastLogin;
   final bool isAdminTeacher;
+  final bool isActive;
 }
 
 class EmployeeDataSource extends DataGridSource {
@@ -116,6 +118,7 @@ class EmployeeDataSource extends DataGridSource {
         dateAdded: formatTimestamp(data['date_added']),
         lastLogin: formatTimestamp(data['last_login']),
         isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
+        isActive: data['is_active'] as bool? ?? true, // Default to active if field doesn't exist
       );
     }).toList();
   }

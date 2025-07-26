@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../features/auth/screens/login_screen.dart';
 import '../main.dart';
 import 'islamic_courses_page.dart';
 import 'teachers_page.dart';
