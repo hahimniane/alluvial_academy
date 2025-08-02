@@ -25,7 +25,8 @@ class AuthService {
           // Throw a specific exception to be caught in the UI
           throw FirebaseAuthException(
             code: 'user-deactivated',
-            message: 'This user account has been deactivated.',
+            message:
+                'Your account has been archived. Please contact an administrator for assistance.',
           );
         }
 
@@ -36,9 +37,16 @@ class AuthService {
       }
 
       return user;
+    } on FirebaseAuthException {
+      // Re-throw FirebaseAuthException to preserve error codes
+      rethrow;
     } catch (e) {
-      print(e.toString());
-      return null;
+      print('AuthService error: $e');
+      // Throw a generic FirebaseAuthException for other errors
+      throw FirebaseAuthException(
+        code: 'unknown-error',
+        message: 'An unexpected error occurred. Please try again later.',
+      );
     }
   }
 

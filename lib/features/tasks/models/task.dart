@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/models/enhanced_recurrence.dart';
 
 enum TaskPriority { low, medium, high }
 
 enum TaskStatus { todo, inProgress, done }
 
+// Keep old enum for backward compatibility
 enum RecurrenceType { none, daily, weekly, monthly }
 
 class TaskAttachment {
@@ -66,7 +68,8 @@ class Task {
   final TaskPriority priority;
   final TaskStatus status;
   final bool isRecurring;
-  final RecurrenceType recurrenceType;
+  final RecurrenceType recurrenceType; // Keep for backward compatibility
+  final EnhancedRecurrence enhancedRecurrence; // New enhanced recurrence
   final Timestamp createdAt;
   final List<TaskAttachment> attachments;
 
@@ -81,6 +84,7 @@ class Task {
     this.status = TaskStatus.todo,
     this.isRecurring = false,
     this.recurrenceType = RecurrenceType.none,
+    this.enhancedRecurrence = const EnhancedRecurrence(),
     required this.createdAt,
     this.attachments = const [],
   });
@@ -109,6 +113,20 @@ class Task {
           .toList();
     }
 
+    // Handle enhanced recurrence (new format) or fallback to old format
+    EnhancedRecurrence enhancedRecurrence;
+    if (data['enhancedRecurrence'] != null) {
+      enhancedRecurrence = EnhancedRecurrence.fromFirestore(
+          Map<String, dynamic>.from(data['enhancedRecurrence']));
+    } else {
+      // Convert old recurrence format to enhanced format for backward compatibility
+      final oldRecurrenceType = RecurrenceType.values.firstWhere(
+        (e) => e.toString() == data['recurrenceType'],
+        orElse: () => RecurrenceType.none,
+      );
+      enhancedRecurrence = _convertOldRecurrenceToEnhanced(oldRecurrenceType);
+    }
+
     return Task(
       id: doc.id,
       title: data['title'] ?? '',
@@ -126,6 +144,7 @@ class Task {
       recurrenceType: RecurrenceType.values.firstWhere(
           (e) => e.toString() == data['recurrenceType'],
           orElse: () => RecurrenceType.none),
+      enhancedRecurrence: enhancedRecurrence,
       createdAt: data['createdAt'] ?? Timestamp.now(),
       attachments: attachmentsList,
     );
@@ -141,10 +160,42 @@ class Task {
       'priority': priority.toString(),
       'status': status.toString(),
       'isRecurring': isRecurring,
-      'recurrenceType': recurrenceType.toString(),
+      'recurrenceType':
+          recurrenceType.toString(), // Keep for backward compatibility
+      'enhancedRecurrence':
+          enhancedRecurrence.toFirestore(), // New enhanced recurrence
       'createdAt': createdAt,
       'attachments':
           attachments.map((attachment) => attachment.toMap()).toList(),
     };
+  }
+
+  /// Convert old RecurrenceType to EnhancedRecurrence for backward compatibility
+  static EnhancedRecurrence _convertOldRecurrenceToEnhanced(
+      RecurrenceType oldType) {
+    switch (oldType) {
+      case RecurrenceType.none:
+        return const EnhancedRecurrence(type: EnhancedRecurrenceType.none);
+      case RecurrenceType.daily:
+        return const EnhancedRecurrence(type: EnhancedRecurrenceType.daily);
+      case RecurrenceType.weekly:
+        // Default to weekdays for weekly old format
+        return EnhancedRecurrence(
+          type: EnhancedRecurrenceType.weekly,
+          selectedWeekdays: [
+            WeekDay.monday,
+            WeekDay.tuesday,
+            WeekDay.wednesday,
+            WeekDay.thursday,
+            WeekDay.friday
+          ],
+        );
+      case RecurrenceType.monthly:
+        // Default to 1st of the month for monthly old format
+        return const EnhancedRecurrence(
+          type: EnhancedRecurrenceType.monthly,
+          selectedMonthDays: [1],
+        );
+    }
   }
 }

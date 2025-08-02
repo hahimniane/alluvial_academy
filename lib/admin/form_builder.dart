@@ -1119,17 +1119,25 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                       right: BorderSide(color: Color(0xffE2E8F0), width: 1),
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      _buildFormSettings(),
-                      const Divider(height: 1, color: Color(0xffE2E8F0)),
-                      _buildFieldPalette(),
-                    ],
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildFormSettings(),
+                        const Divider(height: 1, color: Color(0xffE2E8F0)),
+                        _buildFieldPalette(),
+                      ],
+                    ),
                   ),
                 ),
                 // Right Panel - Form Builder & Preview
                 Expanded(
-                  child: _showPreview ? _buildPreview() : _buildFormBuilder(),
+                  child: SingleChildScrollView(
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height - 160, // Adjust for header height
+                      child: _showPreview ? _buildPreview() : _buildFormBuilder(),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1361,38 +1369,38 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   }
 
   Widget _buildFieldPalette() {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Field Types',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff111827),
-              ),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Field Types',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.3,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: fieldTemplates.length,
-                itemBuilder: (context, index) {
-                  final template = fieldTemplates[index];
-                  return _buildFieldTemplateCard(template);
-                },
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 400, // Fixed height for the grid
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 1.3,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
               ),
+              itemCount: fieldTemplates.length,
+              itemBuilder: (context, index) {
+                final template = fieldTemplates[index];
+                return _buildFieldTemplateCard(template);
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

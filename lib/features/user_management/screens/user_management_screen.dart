@@ -40,6 +40,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   String _currentSearchTerm = '';
   String? _currentFilterType;
+  String? _currentStatusFilter;
 
   int numberOfUsers = 0;
   int numberOfAdmins = 0;
@@ -110,15 +111,25 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     });
   }
 
-  void _filterByUserType(String? userType) {
+  void _filterByUserType(String? filterValue) {
     setState(() {
-      _currentFilterType = userType;
+      // Reset both filters
+      _currentFilterType = null;
+      _currentStatusFilter = null;
+      
+      // Determine if it's a user type or status filter
+      if (filterValue == 'active' || filterValue == 'archived' || filterValue == 'never_logged_in') {
+        _currentStatusFilter = filterValue;
+      } else {
+        _currentFilterType = filterValue;
+      }
+      
       _applyFilters();
     });
   }
 
   void _applyFilters() {
-    // Start with the full list from the snapshot
+    // Start with the full list from the snapshot (including archived users)
     List<Employee> allUsersFromSnapshot = List.from(_snapshotEmployees);
     List<Employee> regularUsers = allUsersFromSnapshot
         .where((emp) => emp.userType != 'admin' && !emp.isAdminTeacher)
@@ -133,6 +144,24 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           .where((employee) =>
               employee.userType.toLowerCase() == _currentFilterType!.toLowerCase())
           .toList();
+    }
+
+    // Apply status filter to both lists
+    if (_currentStatusFilter != null) {
+      switch (_currentStatusFilter) {
+        case 'active':
+          regularUsers = regularUsers.where((emp) => emp.isActive).toList();
+          adminUsers = adminUsers.where((emp) => emp.isActive).toList();
+          break;
+        case 'archived':
+          regularUsers = regularUsers.where((emp) => !emp.isActive).toList();
+          adminUsers = adminUsers.where((emp) => !emp.isActive).toList();
+          break;
+        case 'never_logged_in':
+          regularUsers = regularUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
+          adminUsers = adminUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
+          break;
+      }
     }
 
     // Apply search filter to both lists
@@ -157,6 +186,22 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _employeeDataSource?.updateDataSource(_allEmployees);
       _adminDataSource?.updateDataSource(_adminUsers);
     });
+  }
+
+  bool _hasNeverLoggedIn(Employee employee) {
+    // Check if last login is empty, null, or a default placeholder value
+    final lastLogin = employee.lastLogin.trim().toLowerCase();
+    return lastLogin.isEmpty || 
+           lastLogin == 'never' || 
+           lastLogin == 'n/a' || 
+           lastLogin == '-' ||
+           lastLogin == 'null' ||
+           lastLogin == 'none' ||
+           // Handle Firestore null values that get converted to string representations
+           lastLogin.contains('null') ||
+           lastLogin.contains('1970-01-01') || // Unix epoch default
+           // Handle cases where date conversion fails
+           lastLogin.startsWith('instance of');
   }
 
   Future<void> _promoteToAdminTeacher(Employee employee) async {
@@ -209,10 +254,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
       if (success) {
         _showSuccessSnackBar(
-            '${employee.firstName} ${employee.lastName} has been deactivated');
+            '${employee.firstName} ${employee.lastName} has been archived');
         _refreshData();
       } else {
-        _showErrorSnackBar('Failed to deactivate user.');
+        _showErrorSnackBar('Failed to archive user.');
       }
     } catch (e) {
       _showErrorSnackBar('Error deactivating user: $e');
@@ -228,10 +273,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
       if (success) {
         _showSuccessSnackBar(
-            '${employee.firstName} ${employee.lastName} has been activated');
+            '${employee.firstName} ${employee.lastName} has been restored');
         _refreshData();
       } else {
-        _showErrorSnackBar('Failed to activate user.');
+        _showErrorSnackBar('Failed to restore user.');
       }
     } catch (e) {
       _showErrorSnackBar('Error activating user: $e');
@@ -369,9 +414,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           builder: (context) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.block, color: Colors.red),
+                const Icon(Icons.delete_outline, color: Colors.red),
                 const SizedBox(width: 8),
-                Text('Deactivate User',
+                Text('Archive User',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
@@ -380,7 +425,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Are you sure you want to deactivate ${employee.firstName} ${employee.lastName}?',
+                  'Are you sure you want to archive ${employee.firstName} ${employee.lastName}?',
                   style: GoogleFonts.inter(),
                 ),
                 const SizedBox(height: 12),
@@ -397,12 +442,39 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('• Disable their account',
+                      Text('• Archive their account (not permanently delete)',
                           style: GoogleFonts.inter(fontSize: 12)),
                       Text('• Remove access to the system',
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Keep their data for future reference',
+                      Text('• Preserve all their data safely',
                           style: GoogleFonts.inter(fontSize: 12)),
+                      Text('• Allow restoration at any time',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue.shade600, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'No data will be permanently lost. You can restore this user later.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -417,7 +489,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 child:
-                    const Text('Deactivate', style: TextStyle(color: Colors.white)),
+                    const Text('Archive User', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -431,9 +503,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           builder: (context) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.green),
+                const Icon(Icons.restore, color: Colors.green),
                 const SizedBox(width: 8),
-                Text('Activate User',
+                Text('Restore User',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
@@ -442,7 +514,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Are you sure you want to activate ${employee.firstName} ${employee.lastName}?',
+                  'Are you sure you want to restore ${employee.firstName} ${employee.lastName}?',
                   style: GoogleFonts.inter(),
                 ),
                 const SizedBox(height: 12),
@@ -459,11 +531,13 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('• Re-enable their account',
+                      Text('• Restore their account from archive',
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Restore access to the system',
+                      Text('• Re-enable access to the system',
                           style: GoogleFonts.inter(fontSize: 12)),
                       Text('• Allow them to log in again',
+                          style: GoogleFonts.inter(fontSize: 12)),
+                      Text('• Restore all their previous data',
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -479,7 +553,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 child:
-                    const Text('Activate', style: TextStyle(color: Colors.white)),
+                    const Text('Restore User', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -693,6 +767,13 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             onSearchChanged: _filterEmployees,
             onExport: _exportData,
             onFilterChanged: _filterByUserType,
+            onShowNeverLoggedIn: () {
+              setState(() {
+                _currentFilterType = null;
+                _currentStatusFilter = 'never_logged_in';
+                _applyFilters();
+              });
+            },
           ),
           Expanded(
             flex: 11,

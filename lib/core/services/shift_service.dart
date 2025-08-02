@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/teaching_shift.dart';
 import '../models/employee_model.dart';
+import '../models/enhanced_recurrence.dart';
 
 class ShiftService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -22,6 +23,7 @@ class ShiftService {
     String? customName,
     String? notes,
     RecurrencePattern recurrence = RecurrencePattern.none,
+    EnhancedRecurrence? enhancedRecurrence,
     DateTime? recurrenceEndDate,
     Map<String, dynamic>? recurrenceSettings,
   }) async {
@@ -79,6 +81,7 @@ class ShiftService {
         createdByAdminId: currentUser.uid,
         createdAt: DateTime.now(),
         recurrence: recurrence,
+        enhancedRecurrence: enhancedRecurrence ?? const EnhancedRecurrence(),
         recurrenceEndDate: recurrenceEndDate,
         recurrenceSettings: recurrenceSettings,
         notes: notes,
@@ -87,8 +90,13 @@ class ShiftService {
       await shiftDoc.set(shift.toFirestore());
 
       // Create recurring shifts if specified
-      if (recurrence != RecurrencePattern.none && recurrenceEndDate != null) {
-        await _createRecurringShifts(shift, recurrenceEndDate);
+      final effectiveRecurrence =
+          enhancedRecurrence ?? const EnhancedRecurrence();
+      if ((recurrence != RecurrencePattern.none ||
+              effectiveRecurrence.type != EnhancedRecurrenceType.none) &&
+          (recurrenceEndDate != null || effectiveRecurrence.endDate != null)) {
+        final endDate = effectiveRecurrence.endDate ?? recurrenceEndDate!;
+        await _createRecurringShifts(shift, endDate);
       }
 
       print('Shift created successfully: ${shift.displayName}');
@@ -99,59 +107,99 @@ class ShiftService {
     }
   }
 
-  /// Create recurring shifts based on pattern
+  /// Create recurring shifts based on enhanced recurrence pattern
   static Future<void> _createRecurringShifts(
     TeachingShift baseShift,
     DateTime endDate,
   ) async {
     try {
       final List<TeachingShift> recurringShifts = [];
-      DateTime currentDate = baseShift.shiftStart;
-      int maxRecurringShifts = 50; // Limit to prevent too many shifts
-      int createdCount = 0;
+      final enhancedRecurrence = baseShift.enhancedRecurrence;
+      final shiftDuration = baseShift.shiftEnd.difference(baseShift.shiftStart);
 
-      while (
-          currentDate.isBefore(endDate) && createdCount < maxRecurringShifts) {
-        DateTime nextDate;
-
-        switch (baseShift.recurrence) {
-          case RecurrencePattern.daily:
-            nextDate = currentDate.add(const Duration(days: 1));
-            break;
-          case RecurrencePattern.weekly:
-            nextDate = currentDate.add(const Duration(days: 7));
-            break;
-          case RecurrencePattern.monthly:
-            nextDate = DateTime(
-              currentDate.year,
-              currentDate.month + 1,
-              currentDate.day,
-              currentDate.hour,
-              currentDate.minute,
-            );
-            break;
-          default:
-            return;
-        }
-
-        if (nextDate.isAfter(endDate)) break;
-
-        // Calculate shift end based on duration
-        final shiftDuration =
-            baseShift.shiftEnd.difference(baseShift.shiftStart);
-        final nextShiftEnd = nextDate.add(shiftDuration);
-
-        // Create recurring shift
-        final recurringShift = baseShift.copyWith(
-          id: _shiftsCollection.doc().id,
-          shiftStart: nextDate,
-          shiftEnd: nextShiftEnd,
-          createdAt: DateTime.now(),
+      // Use enhanced recurrence if available, otherwise fall back to old pattern
+      if (enhancedRecurrence.type != EnhancedRecurrenceType.none) {
+        // Generate occurrences using enhanced recurrence
+        final occurrences = enhancedRecurrence.generateOccurrences(
+          baseShift.shiftStart
+              .add(const Duration(days: 1)), // Start from next day
+          100, // Max occurrences
         );
 
-        recurringShifts.add(recurringShift);
-        currentDate = nextDate;
-        createdCount++;
+        for (final occurrence in occurrences) {
+          if (occurrence.isAfter(endDate)) break;
+
+          // Skip if date is excluded
+          if (enhancedRecurrence.isDateExcluded(occurrence)) {
+            continue;
+          }
+
+          // Create shift start and end times for this occurrence
+          final shiftStart = DateTime(
+            occurrence.year,
+            occurrence.month,
+            occurrence.day,
+            baseShift.shiftStart.hour,
+            baseShift.shiftStart.minute,
+            baseShift.shiftStart.second,
+          );
+          final shiftEnd = shiftStart.add(shiftDuration);
+
+          // Create recurring shift
+          final recurringShift = baseShift.copyWith(
+            id: _shiftsCollection.doc().id,
+            shiftStart: shiftStart,
+            shiftEnd: shiftEnd,
+            createdAt: DateTime.now(),
+          );
+
+          recurringShifts.add(recurringShift);
+        }
+      } else {
+        // Fall back to old recurrence pattern logic
+        DateTime currentDate = baseShift.shiftStart;
+        int maxRecurringShifts = 50;
+        int createdCount = 0;
+
+        while (currentDate.isBefore(endDate) &&
+            createdCount < maxRecurringShifts) {
+          DateTime nextDate;
+
+          switch (baseShift.recurrence) {
+            case RecurrencePattern.daily:
+              nextDate = currentDate.add(const Duration(days: 1));
+              break;
+            case RecurrencePattern.weekly:
+              nextDate = currentDate.add(const Duration(days: 7));
+              break;
+            case RecurrencePattern.monthly:
+              nextDate = DateTime(
+                currentDate.year,
+                currentDate.month + 1,
+                currentDate.day,
+                currentDate.hour,
+                currentDate.minute,
+              );
+              break;
+            default:
+              return;
+          }
+
+          if (nextDate.isAfter(endDate)) break;
+
+          final nextShiftEnd = nextDate.add(shiftDuration);
+
+          final recurringShift = baseShift.copyWith(
+            id: _shiftsCollection.doc().id,
+            shiftStart: nextDate,
+            shiftEnd: nextShiftEnd,
+            createdAt: DateTime.now(),
+          );
+
+          recurringShifts.add(recurringShift);
+          currentDate = nextDate;
+          createdCount++;
+        }
       }
 
       // Batch write all recurring shifts
@@ -162,7 +210,8 @@ class ShiftService {
           batch.set(docRef, shift.toFirestore());
         }
         await batch.commit();
-        print('Created ${recurringShifts.length} recurring shifts');
+        print(
+            'Created ${recurringShifts.length} recurring shifts using ${enhancedRecurrence.type != EnhancedRecurrenceType.none ? "enhanced" : "legacy"} recurrence');
       }
     } catch (e) {
       print('Error creating recurring shifts: $e');

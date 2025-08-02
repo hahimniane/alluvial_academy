@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/user.dart';
+import '../../../core/models/enhanced_recurrence.dart';
+import '../../../shared/widgets/enhanced_recurrence_picker.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
@@ -31,6 +33,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
   List<String> _assignedTo = [];
   bool _isRecurring = false;
   RecurrenceType _recurrenceType = RecurrenceType.none;
+  EnhancedRecurrence _enhancedRecurrence = const EnhancedRecurrence();
   List<AppUser> _users = [];
   bool _isLoading = true;
   bool _isSaving = false;
@@ -83,6 +86,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     _assignedTo = List<String>.from(widget.task?.assignedTo ?? []);
     _isRecurring = widget.task?.isRecurring ?? false;
     _recurrenceType = widget.task?.recurrenceType ?? RecurrenceType.none;
+    _enhancedRecurrence = widget.task?.enhancedRecurrence ?? const EnhancedRecurrence();
     _attachments = List<TaskAttachment>.from(widget.task?.attachments ?? []);
   }
 
@@ -659,42 +663,24 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
         ),
         if (_isRecurring) ...[
           const SizedBox(height: 16),
-          DropdownButtonFormField<RecurrenceType>(
-            value: _recurrenceType == RecurrenceType.none
-                ? RecurrenceType.daily
-                : _recurrenceType,
-            decoration: InputDecoration(
-              labelText: 'Repeat Frequency',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: Color(0xff0386FF), width: 2),
-              ),
-              filled: true,
-              fillColor: Colors.grey[50],
-              contentPadding: const EdgeInsets.all(16),
-              prefixIcon: const Icon(Icons.repeat, color: Color(0xff0386FF)),
-            ),
-            items: RecurrenceType.values
-                .where((t) => t != RecurrenceType.none)
-                .map((type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(_getRecurrenceLabel(type)),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _recurrenceType = value);
-              }
+          EnhancedRecurrencePicker(
+            initialRecurrence: _enhancedRecurrence,
+            onRecurrenceChanged: (newRecurrence) {
+              setState(() {
+                _enhancedRecurrence = newRecurrence;
+                // Update old recurrence type for backward compatibility
+                if (newRecurrence.type == EnhancedRecurrenceType.none) {
+                  _recurrenceType = RecurrenceType.none;
+                } else if (newRecurrence.type == EnhancedRecurrenceType.daily) {
+                  _recurrenceType = RecurrenceType.daily;
+                } else if (newRecurrence.type == EnhancedRecurrenceType.weekly) {
+                  _recurrenceType = RecurrenceType.weekly;
+                } else if (newRecurrence.type == EnhancedRecurrenceType.monthly) {
+                  _recurrenceType = RecurrenceType.monthly;
+                }
+              });
             },
+            showEndDate: true,
           ),
         ],
       ],
@@ -1146,6 +1132,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
         status: widget.task?.status ?? TaskStatus.todo,
         isRecurring: _isRecurring,
         recurrenceType: _isRecurring ? _recurrenceType : RecurrenceType.none,
+        enhancedRecurrence: _isRecurring ? _enhancedRecurrence : const EnhancedRecurrence(),
         createdAt: widget.task?.createdAt ?? Timestamp.now(),
         attachments: _attachments,
       );

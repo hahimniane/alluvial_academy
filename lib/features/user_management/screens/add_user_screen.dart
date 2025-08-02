@@ -220,7 +220,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'kiosk_code': rowState.kioskCodeController.text.trim(),
           'hourly_rate': hourlyRate,
           'date_added': FieldValue.serverTimestamp(),
-          'last_login': FieldValue.serverTimestamp(),
+          'last_login': null, // Set to null for new users who haven't logged in yet
           'is_active': true,
         });
       } else {

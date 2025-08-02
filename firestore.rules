@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read access to landing page content for website visitors
+    match /landing_page_content/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin();
+    }
+    
+    // Users can access their own documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && isAdmin();
+    }
+    
+    // All other documents require authentication
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Helper function for admin check
+    function isAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type == 'admin';
+    }
+  }
+} 

@@ -7,12 +7,15 @@ class HeaderWidget extends StatelessWidget {
   final Function(String) onSearchChanged;
   final Function(String?) onFilterChanged;
   final VoidCallback onExport;
+  final VoidCallback? onShowNeverLoggedIn;
 
-  const HeaderWidget(
-      {super.key,
-      required this.onSearchChanged,
-      required this.onFilterChanged,
-      required this.onExport});
+  const HeaderWidget({
+    super.key,
+    required this.onSearchChanged,
+    required this.onFilterChanged,
+    required this.onExport,
+    this.onShowNeverLoggedIn,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +41,7 @@ class HeaderWidget extends StatelessWidget {
                   onFilterChanged(value);
                 },
                 itemBuilder: (BuildContext context) => [
+                  // User Type Filters
                   const PopupMenuItem<String>(
                     value: 'all',
                     child: Row(
@@ -79,6 +83,42 @@ class HeaderWidget extends StatelessWidget {
                             color: Color(0xffFF9A6C), size: 20),
                         SizedBox(width: 8),
                         Text('Admins',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  // Divider
+                  const PopupMenuDivider(),
+                  // Status Filters
+                  const PopupMenuItem<String>(
+                    value: 'active',
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 20),
+                        SizedBox(width: 8),
+                        Text('Active Users',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'archived',
+                    child: Row(
+                      children: [
+                        Icon(Icons.archive, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Text('Archived Users',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'never_logged_in',
+                    child: Row(
+                      children: [
+                        Icon(Icons.login, color: Colors.orange, size: 20),
+                        SizedBox(width: 8),
+                        Text('Never Logged In',
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -127,20 +167,20 @@ class HeaderWidget extends StatelessWidget {
             ),
             // Export Button
             ExportWidget(onExport: onExport),
-            // Notification Button
+            // Never Logged In Button
             ElevatedButton(
-              onPressed: () {
-                // Handle notification button press
+              onPressed: onShowNeverLoggedIn ?? () {
+                onFilterChanged('never_logged_in');
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.orange,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.error, color: Colors.white),
+                  Icon(Icons.login, color: Colors.white),
                   SizedBox(width: 5),
                   Text('Users didn\'t log in yet',
                       style: TextStyle(color: Colors.white)),
