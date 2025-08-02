@@ -473,6 +473,18 @@ exports.createUser = functions.https.onCall(async (data, context) => {
  * Adds Access-Control-Allow-Origin header ("*") so any site can fetch.
  */
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
+  // Set CORS headers for preflight requests
+  res.set('Access-Control-Allow-Origin', '*');
+
+  if (req.method === 'OPTIONS') {
+    // Send response to OPTIONS requests
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '3600');
+    res.status(204).send('');
+    return;
+  }
+  
   // Allow only GET
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -492,8 +504,6 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
 
     // Cache for 5 minutes (public) to minimise function invocations
     res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
-    // CORS - allow any origin (adjust if you have specific domains)
-    res.set('Access-Control-Allow-Origin', '*');
 
     return res.status(200).json(data);
   } catch (err) {
