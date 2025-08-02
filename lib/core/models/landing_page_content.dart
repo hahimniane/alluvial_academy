@@ -69,6 +69,32 @@ class LandingPageContent {
     );
   }
 
+  /// Convert from a raw map (e.g., from JSON)
+  factory LandingPageContent.fromMap(Map<String, dynamic> data) {
+    return LandingPageContent(
+      id: data['id'] ?? 'main',
+      heroSection: HeroSectionContent.fromMap(data['hero_section'] ?? {}),
+      features: (data['features'] as List<dynamic>? ?? [])
+          .map((item) => FeatureContent.fromMap(item as Map<String, dynamic>))
+          .toList(),
+      stats: StatsContent.fromMap(data['stats'] ?? {}),
+      courses: (data['courses'] as List<dynamic>? ?? [])
+          .map((item) => CourseContent.fromMap(item as Map<String, dynamic>))
+          .toList(),
+      testimonials: (data['testimonials'] as List<dynamic>? ?? [])
+          .map((item) =>
+              TestimonialContent.fromMap(item as Map<String, dynamic>))
+          .toList(),
+      ctaSection: CTASectionContent.fromMap(data['cta_section'] ?? {}),
+      footer: FooterContent.fromMap(data['footer'] ?? {}),
+      lastModified: data['last_modified'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (data['last_modified']['_seconds'] as int) * 1000)
+          : DateTime.now(),
+      lastModifiedBy: data['last_modified_by'] ?? 'unknown',
+    );
+  }
+
   /// Convert to Firestore document
   Map<String, dynamic> toFirestore() {
     return {
