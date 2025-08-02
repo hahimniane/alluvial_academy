@@ -30,8 +30,6 @@ class _LandingPageState extends State<LandingPage>
   // Dynamic content state
   LandingPageContent? _content;
   bool _isLoadingContent = true;
-  DateTime? _lastContentUpdate;
-  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -68,101 +66,29 @@ class _LandingPageState extends State<LandingPage>
 
     // Load dynamic content
     _loadContent();
-    
-    // Start periodic refresh to check for updates every 30 seconds
-    _startPeriodicRefresh();
-  }
-  
-  void _startPeriodicRefresh() {
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (mounted) {
-        _checkForContentUpdates();
-      }
-    });
-  }
-  
-  Future<void> _checkForContentUpdates() async {
-    try {
-      // Only check if we have existing content and it's not loading
-      if (_content == null || _isLoadingContent) return;
-      
-      final newContent = await LandingPageService.getLandingPageContent();
-      
-      // Compare timestamps to see if content was updated
-      final currentTimestamp = _content!.lastModified;
-      final newTimestamp = newContent.lastModified;
-      
-      if (newTimestamp.isAfter(currentTimestamp)) {
-        print('Landing page: New content detected, updating...');
-        if (mounted) {
-          setState(() {
-            _content = newContent;
-            _lastContentUpdate = DateTime.now();
-          });
-          print('Landing page: Content updated successfully');
-        }
-      }
-    } catch (e) {
-      // Silently handle errors in background refresh
-      print('Background content refresh failed: $e');
-    }
   }
 
   Future<void> _loadContent() async {
-    // Retry logic for web Firebase JavaScript conversion issues
-    int retryCount = 0;
-    const maxRetries = 3;
-    const retryDelay = Duration(milliseconds: 500);
-    
-    while (retryCount < maxRetries) {
-      try {
-        print('Loading landing page content... (attempt ${retryCount + 1})');
-        
-        // Add a small delay for subsequent attempts to let Firebase Web SDK stabilize
-        if (retryCount > 0) {
-          await Future<void>.delayed(Duration(milliseconds: retryCount * 200));
-        }
-        
-        final content = await LandingPageService.getLandingPageContent();
-        print('Landing page content loaded successfully');
-        print('Hero section badge: ${content.heroSection.badgeText}');
-        print('Hero section headline: ${content.heroSection.mainHeadline}');
-        
-        if (mounted) {
-          setState(() {
-            _content = content;
-            _isLoadingContent = false;
-          });
-          print('Landing page state updated with dynamic content');
-        }
-        return; // Success, exit retry loop
-        
-      } catch (e) {
-        retryCount++;
-        print('Error loading landing page content (attempt $retryCount): $e');
-        
-        // Check if it's the specific JavaScript conversion error
-        final isJavaScriptError = e.toString().contains('JavaScriptObject') || 
-                                  e.toString().contains('FirebaseException');
-        
-        if (isJavaScriptError && retryCount < maxRetries) {
-          print('Detected JavaScript conversion error, retrying in ${retryDelay.inMilliseconds}ms...');
-                     await Future<void>.delayed(retryDelay);
-          continue; // Retry
-        }
-        
-        // If max retries reached or different error, fall back to default content
-        print('Max retries reached or unrecoverable error, using default content');
-        print('Stack trace: ${StackTrace.current}');
-        
-        if (mounted) {
-          setState(() {
-            _content = LandingPageContent.defaultContent();
-            _isLoadingContent = false;
-          });
-          print('Landing page fallback to default content');
-        }
-        break; // Exit retry loop
+    try {
+      print('Loading landing page content...');
+      final content = await LandingPageService.getLandingPageContent();
+      print('Landing page content loaded successfully');
+      
+      if (mounted) {
+        setState(() {
+          _content = content;
+          _isLoadingContent = false;
+        });
+        print('Landing page state updated with dynamic content');
+      }
+    } catch (e) {
+      print('Error loading landing page content: $e');
+      if (mounted) {
+        setState(() {
+          _content = LandingPageContent.defaultContent();
+          _isLoadingContent = false;
+        });
+        print('Landing page fallback to default content');
       }
     }
   }
@@ -172,7 +98,6 @@ class _LandingPageState extends State<LandingPage>
     _heroAnimationController.dispose();
     _scrollAnimationController.dispose();
     _scrollController.dispose();
-    _refreshTimer?.cancel();
     super.dispose();
   }
 

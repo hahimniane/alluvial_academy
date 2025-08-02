@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../models/landing_page_content.dart';
 
 class LandingPageService {
@@ -8,36 +10,31 @@ class LandingPageService {
 
   static const String _collectionName = 'landing_page_content';
   static const String _documentId = 'main';
+  static const String _cloudFunctionUrl =
+      'https://us-central1-alluwal-academy.cloudfunctions.net/getLandingPageContent';
 
   /// Get the current landing page content
   static Future<LandingPageContent> getLandingPageContent() async {
     try {
-      print('LandingPageService: Attempting to load content from Firestore...');
+      print(
+          'LandingPageService: Attempting to load content from Cloud Function...');
 
-      final doc =
-          await _firestore.collection(_collectionName).doc(_documentId).get();
+      final response = await http.get(Uri.parse(_cloudFunctionUrl));
 
-      print('LandingPageService: Document exists: ${doc.exists}');
-
-      if (doc.exists && doc.data() != null) {
-        print('LandingPageService: Document data found, parsing...');
-        final content = LandingPageContent.fromFirestore(doc);
-        print('LandingPageService: Content loaded successfully');
-        return content;
+      if (response.statusCode == 200) {
+        print(
+            'LandingPageService: Content loaded successfully from Cloud Function');
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        return LandingPageContent.fromMap(data);
       } else {
-        print('LandingPageService: No content found, creating default...');
-        // If no content exists, create default content
-        final defaultContent = LandingPageContent.defaultContent();
-        await _saveLandingPageContent(defaultContent);
-        print('LandingPageService: Default content created and saved');
-        return defaultContent;
+        print(
+            'LandingPageService: Cloud Function returned error ${response.statusCode}: ${response.body}');
+        // Fallback to default content on error
+        return LandingPageContent.defaultContent();
       }
-    } on FirebaseException catch (e) {
-      print('LandingPageService: Firebase error: ${e.code} - ${e.message}');
-      return LandingPageContent.defaultContent();
-    } catch (e, stackTrace) {
-      print('LandingPageService: General error: $e');
-      print('LandingPageService: Stack trace: $stackTrace');
+    } catch (e) {
+      print(
+          'LandingPageService: General error fetching from Cloud Function: $e');
       // Return default content if there's an error
       return LandingPageContent.defaultContent();
     }
