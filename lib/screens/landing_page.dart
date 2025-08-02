@@ -8,6 +8,9 @@ import 'teachers_page.dart';
 import 'about_page.dart';
 import 'contact_page.dart';
 import '../shared/widgets/persistent_app_bar.dart';
+// Removed dynamic content imports to fix Firebase Web JS type conversion error
+// import '../core/models/landing_page_content.dart';
+// import '../core/services/landing_page_service.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -54,7 +57,7 @@ class _LandingPageState extends State<LandingPage>
       curve: Curves.easeOutCubic,
     ));
 
-    // Start hero animation
+        // Start hero animation
     _heroAnimationController.forward();
   }
 

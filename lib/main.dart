@@ -1,4 +1,5 @@
 import 'core/services/auth_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -123,7 +124,18 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
 
       // Additional delay for web Firebase services to fully initialize
       if (kIsWeb) {
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Initialize Firestore with error handling
+        try {
+          final firestore = FirebaseFirestore.instance;
+          // Test connection
+          await firestore.disableNetwork();
+          await firestore.enableNetwork();
+        } catch (firestoreError) {
+          print('Firestore initialization error: $firestoreError');
+          // Continue anyway - might be a temporary issue
+        }
       }
 
       setState(() {
@@ -427,13 +439,36 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-deactivated') {
-        _showErrorDialog(
-          'Your account has been deactivated. Please contact an administrator for assistance.',
-        );
-      } else {
-        _showErrorDialog('Invalid email or password. Please try again.');
+      String errorMessage;
+      switch (e.code) {
+        case 'user-deactivated':
+          errorMessage = 'Your account has been archived. Please contact an administrator for assistance.';
+          break;
+        case 'user-not-found':
+          errorMessage = 'No account found with this email address. Please check your email or contact an administrator.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect password. Please try again or use "Forgot Password" if needed.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This account has been disabled. Please contact an administrator for assistance.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many failed login attempts. Please wait a few minutes before trying again.';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+          break;
+        case 'unknown-error':
+          errorMessage = e.message ?? 'An unexpected error occurred. Please try again later.';
+          break;
+        default:
+          errorMessage = 'Login failed. Please check your credentials and try again.';
       }
+      _showErrorDialog(errorMessage);
     } catch (e) {
       _showErrorDialog('An unexpected error occurred. Please try again later.');
     }

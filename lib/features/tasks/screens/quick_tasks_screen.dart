@@ -366,9 +366,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: _isAdmin
-              ? () => _showAddEditTaskDialog(task: task)
-              : () => _showTaskDetailsDialog(task),
+          onTap: () => _showTaskDetailsDialog(task),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(

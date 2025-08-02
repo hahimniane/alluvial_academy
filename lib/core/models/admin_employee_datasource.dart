@@ -74,17 +74,18 @@ class AdminEmployeeDataSource extends DataGridSource {
                   ),
                 if (employee.isActive)
                   _buildActionButton(
-                    icon: Icons.block,
+                    icon: Icons.delete_outline,
                     color: Colors.red,
                     onTap: () => onDeactivateUser(employee),
-                    tooltip: 'Deactivate User',
+                    tooltip: 'Archive User',
+                    isDestructive: true,
                   ),
                 if (!employee.isActive)
                   _buildActionButton(
-                    icon: Icons.check_circle,
+                    icon: Icons.restore,
                     color: Colors.green,
                     onTap: () => onActivateUser(employee),
-                    tooltip: 'Activate User',
+                    tooltip: 'Restore User',
                   ),
                 if (!employee.isAdminTeacher)
                   _buildActionButton(
@@ -145,25 +146,33 @@ class AdminEmployeeDataSource extends DataGridSource {
     required Color color,
     required VoidCallback onTap,
     required String tooltip,
+    bool isDestructive = false,
   }) {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: isDestructive
+            ? Colors.red.withOpacity(0.05)
+            : color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           child: Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: color.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDestructive
+                    ? Colors.red.withOpacity(0.4)
+                    : color.withOpacity(0.3),
+                width: isDestructive ? 1.5 : 1,
+              ),
             ),
             child: Icon(
               icon,
-              size: 18,
-              color: color,
+              size: isDestructive ? 20 : 18,
+              color: isDestructive ? Colors.red.shade600 : color,
             ),
           ),
         ),

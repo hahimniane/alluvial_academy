@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'enhanced_recurrence.dart';
 
 enum ShiftStatus {
   scheduled,
@@ -44,9 +45,10 @@ class TeachingShift {
   final String createdByAdminId;
   final DateTime createdAt;
   final DateTime? lastModified;
-  final RecurrencePattern recurrence;
+  final RecurrencePattern recurrence; // Keep for backward compatibility
   final DateTime? recurrenceEndDate;
   final Map<String, dynamic>? recurrenceSettings;
+  final EnhancedRecurrence enhancedRecurrence; // New enhanced recurrence
   final String? notes;
 
   // Clock-in/out tracking fields
@@ -75,6 +77,7 @@ class TeachingShift {
     this.recurrence = RecurrencePattern.none,
     this.recurrenceEndDate,
     this.recurrenceSettings,
+    this.enhancedRecurrence = const EnhancedRecurrence(),
     this.notes,
     this.clockInTime,
     this.clockOutTime,
@@ -252,6 +255,7 @@ class TeachingShift {
       'last_modified':
           lastModified != null ? Timestamp.fromDate(lastModified!) : null,
       'recurrence': recurrence.name,
+      'enhanced_recurrence': enhancedRecurrence.toFirestore(),
       'recurrence_end_date': recurrenceEndDate != null
           ? Timestamp.fromDate(recurrenceEndDate!)
           : null,
@@ -299,6 +303,10 @@ class TeachingShift {
         (e) => e.name == data['recurrence'],
         orElse: () => RecurrencePattern.none,
       ),
+      enhancedRecurrence: data['enhanced_recurrence'] != null
+          ? EnhancedRecurrence.fromFirestore(
+              Map<String, dynamic>.from(data['enhanced_recurrence']))
+          : const EnhancedRecurrence(),
       recurrenceEndDate: data['recurrence_end_date'] != null
           ? (data['recurrence_end_date'] as Timestamp).toDate()
           : null,
@@ -334,6 +342,7 @@ class TeachingShift {
     DateTime? createdAt,
     DateTime? lastModified,
     RecurrencePattern? recurrence,
+    EnhancedRecurrence? enhancedRecurrence,
     DateTime? recurrenceEndDate,
     Map<String, dynamic>? recurrenceSettings,
     String? notes,
@@ -360,6 +369,7 @@ class TeachingShift {
       createdAt: createdAt ?? this.createdAt,
       lastModified: lastModified ?? DateTime.now(),
       recurrence: recurrence ?? this.recurrence,
+      enhancedRecurrence: enhancedRecurrence ?? this.enhancedRecurrence,
       recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
       recurrenceSettings: recurrenceSettings ?? this.recurrenceSettings,
       notes: notes ?? this.notes,

@@ -83,17 +83,18 @@ class UserEmployeeDataSource extends DataGridSource {
                   ),
                 if (employee.isActive)
                   _buildActionButton(
-                    icon: Icons.block,
+                    icon: Icons.delete_outline,
                     color: Colors.red,
                     onTap: () => onDeactivateUser(employee),
-                    tooltip: 'Deactivate User',
+                    tooltip: 'Archive User',
+                    isDestructive: true,
                   ),
                 if (!employee.isActive)
                   _buildActionButton(
-                    icon: Icons.check_circle,
+                    icon: Icons.restore,
                     color: Colors.green,
                     onTap: () => onActivateUser(employee),
-                    tooltip: 'Activate User',
+                    tooltip: 'Restore User',
                   ),
                 if (employee.userType.toLowerCase() == 'teacher' &&
                     employee.isAdminTeacher)
@@ -149,15 +150,52 @@ class UserEmployeeDataSource extends DataGridSource {
             ),
           );
         } else {
+          final employee = row
+              .getCells()
+              .firstWhere((cell) => cell.columnName == 'Actions')
+              .value as Employee;
+          final isArchived = !employee.isActive;
+
           return Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.all(8.0),
-            child: Text(
-              dataGridCell.value.toString(),
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: const Color(0xff374151),
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isArchived)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      'ARCHIVED',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    dataGridCell.value.toString(),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: isArchived
+                          ? const Color(0xff9CA3AF)
+                          : const Color(0xff374151),
+                      decoration:
+                          isArchived ? TextDecoration.lineThrough : null,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           );
         }
@@ -170,25 +208,33 @@ class UserEmployeeDataSource extends DataGridSource {
     required Color color,
     required VoidCallback onTap,
     required String tooltip,
+    bool isDestructive = false,
   }) {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: isDestructive
+            ? Colors.red.withOpacity(0.05)
+            : color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           child: Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: color.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDestructive
+                    ? Colors.red.withOpacity(0.4)
+                    : color.withOpacity(0.3),
+                width: isDestructive ? 1.5 : 1,
+              ),
             ),
             child: Icon(
               icon,
-              size: 18,
-              color: color,
+              size: isDestructive ? 20 : 18,
+              color: isDestructive ? Colors.red.shade600 : color,
             ),
           ),
         ),

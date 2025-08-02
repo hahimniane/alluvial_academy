@@ -21,6 +21,7 @@ import 'firestore_debug_screen.dart';
 import 'features/tasks/screens/quick_tasks_screen.dart';
 import 'features/shift_management/screens/shift_management_screen.dart';
 import 'features/shift_management/screens/teacher_shift_screen.dart';
+import 'features/website_management/screens/website_management_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
@@ -109,6 +110,7 @@ class _DashboardPageState extends State<DashboardPage> {
   List<Widget> get _screens => [
         AdminDashboard(refreshTrigger: _refreshTrigger),
         const UserManagementScreen(),
+        const WebsiteManagementScreen(),
         const ShiftManagementScreen(),
         const TeacherShiftScreen(),
         const ChatPage(),
@@ -1041,52 +1043,58 @@ class _DashboardPageState extends State<DashboardPage> {
                       index: 1,
                     ),
                     _buildSideMenuItem(
+                      icon: const Icon(Icons.web),
+                      text: 'Website Management',
+                      index: 2,
+                      color: const Color(0xff7C3AED),
+                    ),
+                    _buildSideMenuItem(
                       icon: const Icon(Icons.schedule),
                       text: 'Shift Management',
-                      index: 2,
+                      index: 3,
                       color: const Color(0xff059669),
                     ),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_chat.png'),
                       text: 'Chat',
-                      index: 3,
+                      index: 4,
                       color: const Color(0xffA646F2),
                     ),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_Scheduler.png'),
                       text: 'Timesheet Review',
-                      index: 6,
+                      index: 7,
                       color: const Color(0xffF28B46),
                     ),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_forms.png'),
                       text: 'Forms',
-                      index: 7,
+                      index: 8,
                       color: const Color(0xffBA39A9),
                     ),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_task_manage.png'),
                       text: 'Quick Tasks',
-                      index: 9,
+                      index: 10,
                       color: const Color(0xff4CAF50),
                     ),
                     const Divider(),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.build),
                       text: 'Form Builder',
-                      index: 8,
+                      index: 9,
                     ),
                     // Debug features - only show in debug mode
                     if (kDebugMode) ...[
                       _buildSideMenuItem(
                         icon: const Icon(Icons.bug_report),
                         text: 'Test Role System',
-                        index: 10,
+                        index: 11,
                       ),
                       _buildSideMenuItem(
                         icon: const Icon(Icons.storage),
                         text: 'Firestore Debug',
-                        index: 11,
+                        index: 12,
                       ),
                     ],
                   ] else ...[

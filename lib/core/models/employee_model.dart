@@ -102,7 +102,10 @@ class EmployeeDataSource extends DataGridSource {
         if (timestamp is Timestamp) {
           return timestamp.toDate().toString();
         }
-        return timestamp?.toString() ?? '';
+        if (timestamp == null) {
+          return 'Never'; // Explicit indicator for users who never logged in
+        }
+        return timestamp.toString();
       }
 
       return Employee(
@@ -118,7 +121,8 @@ class EmployeeDataSource extends DataGridSource {
         dateAdded: formatTimestamp(data['date_added']),
         lastLogin: formatTimestamp(data['last_login']),
         isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
-        isActive: data['is_active'] as bool? ?? true, // Default to active if field doesn't exist
+        isActive: data['is_active'] as bool? ??
+            true, // Default to active if field doesn't exist
       );
     }).toList();
   }

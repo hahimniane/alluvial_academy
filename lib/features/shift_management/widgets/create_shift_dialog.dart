@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/models/employee_model.dart';
+import '../../../core/models/enhanced_recurrence.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../shared/widgets/enhanced_recurrence_picker.dart';
 
 class CreateShiftDialog extends StatefulWidget {
   final TeachingShift? shift; // For editing existing shift
@@ -35,6 +37,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   TimeOfDay _endTime = const TimeOfDay(hour: 16, minute: 0);
   IslamicSubject _selectedSubject = IslamicSubject.quranStudies;
   RecurrencePattern _recurrence = RecurrencePattern.none;
+  EnhancedRecurrence _enhancedRecurrence = const EnhancedRecurrence();
   DateTime? _recurrenceEndDate;
 
   // Data lists
@@ -721,90 +724,34 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recurrence',
+          'Recurrence Settings',
           style: GoogleFonts.inter(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: const Color(0xff374151),
           ),
         ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<RecurrencePattern>(
-          value: _recurrence,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xff0386FF)),
-            ),
-          ),
-          items: RecurrencePattern.values.map((pattern) {
-            return DropdownMenuItem<RecurrencePattern>(
-              value: pattern,
-              child: Text(
-                _getRecurrenceDisplayName(pattern),
-                style: GoogleFonts.inter(),
-              ),
-            );
-          }).toList(),
-          onChanged: (value) {
+        const SizedBox(height: 16),
+        EnhancedRecurrencePicker(
+          initialRecurrence: _enhancedRecurrence,
+          onRecurrenceChanged: (newRecurrence) {
             setState(() {
-              _recurrence = value!;
-              if (_recurrence == RecurrencePattern.none) {
-                _recurrenceEndDate = null;
+              _enhancedRecurrence = newRecurrence;
+              _recurrenceEndDate = newRecurrence.endDate;
+              // Update old recurrence type for backward compatibility
+              if (newRecurrence.type == EnhancedRecurrenceType.none) {
+                _recurrence = RecurrencePattern.none;
+              } else if (newRecurrence.type == EnhancedRecurrenceType.daily) {
+                _recurrence = RecurrencePattern.daily;
+              } else if (newRecurrence.type == EnhancedRecurrenceType.weekly) {
+                _recurrence = RecurrencePattern.weekly;
+              } else if (newRecurrence.type == EnhancedRecurrenceType.monthly) {
+                _recurrence = RecurrencePattern.monthly;
               }
             });
           },
+          showEndDate: true,
         ),
-        if (_recurrence != RecurrencePattern.none) ...[
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _recurrenceEndDate ??
-                    DateTime.now().add(const Duration(days: 30)),
-                firstDate: _shiftDate.add(const Duration(days: 1)),
-                lastDate: DateTime.now().add(const Duration(days: 365)),
-              );
-              if (date != null) {
-                setState(() {
-                  _recurrenceEndDate = date;
-                });
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xffD1D5DB)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.event, size: 20, color: Color(0xff6B7280)),
-                  const SizedBox(width: 8),
-                  Text(
-                    _recurrenceEndDate != null
-                        ? 'Repeat until ${_recurrenceEndDate!.day}/${_recurrenceEndDate!.month}/${_recurrenceEndDate!.year}'
-                        : 'Select end date for recurrence',
-                    style: GoogleFonts.inter(
-                      color: _recurrenceEndDate != null
-                          ? const Color(0xff374151)
-                          : const Color(0xff9CA3AF),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -1024,6 +971,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               ? _notesController.text.trim()
               : null,
           recurrence: _recurrence,
+          enhancedRecurrence: _enhancedRecurrence.type != EnhancedRecurrenceType.none ? _enhancedRecurrence : null,
           recurrenceEndDate: _recurrenceEndDate,
         );
       } else {

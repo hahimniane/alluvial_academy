@@ -177,7 +177,7 @@ exports.createUserWithEmail = functions.https.onCall(async (data, context) => {
       title: title || 'Teacher',
       kiosk_code: kioskCode || '123',
       date_added: admin.firestore.FieldValue.serverTimestamp(),
-      last_login: admin.firestore.FieldValue.serverTimestamp(),
+      last_login: null, // Set to null for new users who haven't logged in yet
       employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
       is_active: true,
       email_verified: false,
@@ -275,7 +275,7 @@ exports.createMultipleUsers = functions.https.onCall(async (data, context) => {
           title: title || 'Teacher',
           kiosk_code: kioskCode || '123',
           date_added: admin.firestore.FieldValue.serverTimestamp(),
-          last_login: admin.firestore.FieldValue.serverTimestamp(),
+          last_login: null, // Set to null for new users who haven't logged in yet
           employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
           is_active: true,
           email_verified: false,
@@ -410,7 +410,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       employment_start_date: String(data.employmentStartDate || new Date().toISOString()),
       first_name: firstName,
       kiosk_code: String(data.kioskCode || "123"),
-      last_login: String(data.lastLogin || new Date().toISOString()),
+      last_login: null, // Set to null for new users who haven't logged in yet
       last_name: lastName,
       phone_number: String(data.phoneNumber || ""),
       title: String(data.title || "Teacher"),
@@ -459,5 +459,45 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       'internal',
       'An unexpected error occurred'
     );
+  }
+});
+
+// ===== Landing Page Content API =====
+/**
+ * HTTP Function: getLandingPageContent
+ * Path: https://<REGION>-<PROJECT_ID>.cloudfunctions.net/getLandingPageContent
+ * Method: GET
+ *
+ * Returns the landing page content stored at collection "landing_page_content" doc "main".
+ * Adds Cache-Control header so browsers / CDNs cache for 5 minutes.
+ * Adds Access-Control-Allow-Origin header ("*") so any site can fetch.
+ */
+exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
+  // Allow only GET
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  try {
+    const snapshot = await admin.firestore()
+      .collection('landing_page_content')
+      .doc('main')
+      .get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Landing page content not found' });
+    }
+
+    const data = snapshot.data();
+
+    // Cache for 5 minutes (public) to minimise function invocations
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+    // CORS - allow any origin (adjust if you have specific domains)
+    res.set('Access-Control-Allow-Origin', '*');
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('getLandingPageContent error:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
