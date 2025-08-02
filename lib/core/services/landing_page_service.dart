@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/landing_page_content.dart';
 
 class LandingPageService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   static const String _collectionName = 'landing_page_content';
   static const String _documentId = 'main';
 

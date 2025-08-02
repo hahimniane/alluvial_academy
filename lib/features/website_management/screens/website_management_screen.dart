@@ -82,10 +82,26 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Website content saved successfully!'),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Website content saved successfully! Changes will appear on the landing page within 30 seconds.'),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'View Site',
+              textColor: Colors.white,
+              onPressed: () {
+                // Navigate to landing page to see changes
+                Navigator.of(context).pushReplacementNamed('/');
+              },
+            ),
           ),
         );
       }
