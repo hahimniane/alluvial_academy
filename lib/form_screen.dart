@@ -387,6 +387,27 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     FirebaseAuth.instance.currentUser?.uid)
                             .snapshots(),
                         builder: (context, responsesSnapshot) {
+                          // Check auth state before processing
+                          if (FirebaseAuth.instance.currentUser == null) {
+                            return const Center(
+                              child: Text('Please sign in to view forms'),
+                            );
+                          }
+
+                          if (responsesSnapshot.hasError) {
+                            // Handle permission errors gracefully
+                            if (responsesSnapshot.error
+                                .toString()
+                                .contains('permission-denied')) {
+                              return const Center(
+                                child: Text('Please sign in to access forms'),
+                              );
+                            }
+                            return Center(
+                              child: Text('Error: ${responsesSnapshot.error}'),
+                            );
+                          }
+
                           return ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: forms.length,

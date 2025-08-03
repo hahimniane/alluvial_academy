@@ -220,7 +220,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'kiosk_code': rowState.kioskCodeController.text.trim(),
           'hourly_rate': hourlyRate,
           'date_added': FieldValue.serverTimestamp(),
-          'last_login': null, // Set to null for new users who haven't logged in yet
+          'last_login':
+              null, // Set to null for new users who haven't logged in yet
           'is_active': true,
         });
       } else {
@@ -337,6 +338,22 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         final result = await callable.call(transformedUsers.first);
 
         print('Single user creation result: ${result.data}');
+
+        // Send welcome email
+        try {
+          final welcomeCallable = functions.httpsCallable('sendWelcomeEmail');
+          final user = transformedUsers.first;
+          await welcomeCallable.call({
+            'email': user['e-mail'], // Use correct field name from Firestore
+            'firstName': user['first_name'],
+            'lastName': user['last_name'],
+            'role': user['user_type'], // Use correct field name
+          });
+          print('Welcome email sent successfully');
+        } catch (emailError) {
+          print('Failed to send welcome email: $emailError');
+          // Don't fail the entire operation if email fails
+        }
       } else {
         // Use createMultipleUsers function for multiple users
         final functions = FirebaseFunctions.instance;
@@ -347,6 +364,28 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         });
 
         print('Multiple users creation result: ${result.data}');
+
+        // Send welcome emails to all users
+        try {
+          final welcomeCallable = functions.httpsCallable('sendWelcomeEmail');
+          for (final user in transformedUsers) {
+            try {
+              await welcomeCallable.call({
+                'email':
+                    user['e-mail'], // Use correct field name from Firestore
+                'firstName': user['first_name'],
+                'lastName': user['last_name'],
+                'role': user['user_type'], // Use correct field name
+              });
+              print('Welcome email sent to ${user['e-mail']}');
+            } catch (emailError) {
+              print(
+                  'Failed to send welcome email to ${user['e-mail']}: $emailError');
+            }
+          }
+        } catch (e) {
+          print('Failed to send welcome emails: $e');
+        }
       }
 
       // Show detailed success message

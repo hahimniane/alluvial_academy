@@ -125,7 +125,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       // Additional delay for web Firebase services to fully initialize
       if (kIsWeb) {
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         // Initialize Firestore with error handling
         try {
           final firestore = FirebaseFirestore.instance;
@@ -272,6 +272,11 @@ class AuthenticationWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
+        // Handle errors gracefully during auth state changes
+        if (snapshot.hasError) {
+          print('Auth state error: ${snapshot.error}');
+          return const EmployeeHubApp(); // Fallback to landing page
+        }
         // Handle connection states properly
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -442,31 +447,39 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       String errorMessage;
       switch (e.code) {
         case 'user-deactivated':
-          errorMessage = 'Your account has been archived. Please contact an administrator for assistance.';
+          errorMessage =
+              'Your account has been archived. Please contact an administrator for assistance.';
           break;
         case 'user-not-found':
-          errorMessage = 'No account found with this email address. Please check your email or contact an administrator.';
+          errorMessage =
+              'No account found with this email address. Please check your email or contact an administrator.';
           break;
         case 'wrong-password':
-          errorMessage = 'Incorrect password. Please try again or use "Forgot Password" if needed.';
+          errorMessage =
+              'Incorrect password. Please try again or use "Forgot Password" if needed.';
           break;
         case 'invalid-email':
           errorMessage = 'Please enter a valid email address.';
           break;
         case 'user-disabled':
-          errorMessage = 'This account has been disabled. Please contact an administrator for assistance.';
+          errorMessage =
+              'This account has been disabled. Please contact an administrator for assistance.';
           break;
         case 'too-many-requests':
-          errorMessage = 'Too many failed login attempts. Please wait a few minutes before trying again.';
+          errorMessage =
+              'Too many failed login attempts. Please wait a few minutes before trying again.';
           break;
         case 'network-request-failed':
-          errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+          errorMessage =
+              'Network connection failed. Please check your internet connection and try again.';
           break;
         case 'unknown-error':
-          errorMessage = e.message ?? 'An unexpected error occurred. Please try again later.';
+          errorMessage = e.message ??
+              'An unexpected error occurred. Please try again later.';
           break;
         default:
-          errorMessage = 'Login failed. Please check your credentials and try again.';
+          errorMessage =
+              'Login failed. Please check your credentials and try again.';
       }
       _showErrorDialog(errorMessage);
     } catch (e) {

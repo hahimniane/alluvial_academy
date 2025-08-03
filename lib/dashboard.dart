@@ -209,68 +209,33 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Handles user sign out
   Future<void> _handleSignOut() async {
     try {
-      await FirebaseAuth.instance.signOut();
+      // Clear user role cache
+      UserRoleService.clearCache();
 
-      // Clear the navigation stack and navigate to landing page
+      // Navigate immediately to prevent further stream access
       if (mounted) {
-        // Navigate to root and remove all previous routes
-        // This ensures the user goes back to the landing page with login option
+        // Navigate to root and remove all previous routes BEFORE signing out
+        // This closes all dashboard screens and their streams
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LandingPage()),
           (route) => false,
         );
       }
+
+      // Wait for navigation to complete and streams to close
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Now sign out from Firebase Auth
+      await FirebaseAuth.instance.signOut();
+
+      print('Sign out completed successfully');
     } catch (e) {
-      // Show error dialog if sign out fails
+      print('Sign out error: $e');
+      // Even if there's an error, ensure we're on the landing page
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Error',
-                  style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff111827),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'Failed to sign out: ${e.toString()}',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                color: const Color(0xff6B7280),
-              ),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff0386FF),
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(
-                  'OK',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LandingPage()),
+          (route) => false,
         );
       }
     }
@@ -1057,7 +1022,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_chat.png'),
                       text: 'Chat',
-                      index: 4,
+                      index: 5,
                       color: const Color(0xffA646F2),
                     ),
                     _buildSideMenuItem(
@@ -1114,25 +1079,25 @@ class _DashboardPageState extends State<DashboardPage> {
                     _buildSideMenuItem(
                       icon: const Icon(Icons.chat),
                       text: 'Chat',
-                      index: 4,
+                      index: 5,
                       color: DashboardConstants.chatIconColor,
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.timer),
                       text: 'Time Clock',
-                      index: 5,
+                      index: 6,
                       color: DashboardConstants.timeClockIconColor,
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.assignment),
                       text: 'Forms',
-                      index: 7,
+                      index: 8,
                       color: DashboardConstants.formsIconColor,
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.task_alt),
                       text: 'Tasks',
-                      index: 9,
+                      index: 10,
                       color: DashboardConstants.jobSchedulingIconColor,
                     ),
                   ],

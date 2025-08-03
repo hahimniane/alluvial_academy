@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat_message.dart';
 import '../models/chat_user.dart';
+import '../../../core/services/user_role_service.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -36,102 +37,113 @@ class ChatService {
   Stream<List<ChatUser>> getUserChats() {
     if (currentUserId == null) return Stream.value([]);
 
-    // Remove orderBy to avoid compound index requirement, sort in client instead
     return _firestore
         .collection('chats')
         .where('participants', arrayContains: currentUserId)
         .snapshots()
         .asyncMap((chatSnapshot) async {
-      List<ChatUser> chatUsers = [];
-
       try {
+        final allUserIds = <String>{};
+        final chatFutures = <Future<ChatUser>>[];
+
         for (var chatDoc in chatSnapshot.docs) {
-          try {
-            final chatData = chatDoc.data();
-            final participants =
-                List<String>.from(chatData['participants'] ?? []);
-            final lastMessage =
-                chatData['last_message'] as Map<String, dynamic>?;
+          final chatData = chatDoc.data();
+          final participants =
+              List<String>.from(chatData['participants'] ?? []);
 
-            // Handle group chats
-            if (chatData['chat_type'] == 'group') {
-              final groupName = chatData['group_name'] ?? 'Unnamed Group';
-              final groupDescription = chatData['group_description'] ?? '';
-
-              chatUsers.add(ChatUser(
-                id: chatDoc.id, // Use chat document ID for groups
-                name: groupName,
-                email: groupDescription.isNotEmpty
-                    ? groupDescription
-                    : 'Group chat',
-                profilePicture: null, // Groups don't have profile pictures
-                role: 'group', // Special role for groups
-                isOnline: false, // Groups don't have online status
-                lastSeen: null,
-                lastMessage: lastMessage?['content'] ?? '',
-                lastMessageTime: lastMessage?['timestamp'] != null
-                    ? (lastMessage!['timestamp'] as Timestamp).toDate()
-                    : chatData['created_at'] != null
-                        ? (chatData['created_at'] as Timestamp).toDate()
-                        : DateTime.now(),
-                unreadCount: await _getUnreadCount(chatDoc.id),
-              ));
-              continue;
+          if (chatData['chat_type'] == 'group') {
+            chatFutures
+                .add(Future.value(_createGroupChatUser(chatDoc, chatData)));
+          } else {
+            final otherUserId = participants
+                .firstWhere((id) => id != currentUserId, orElse: () => '');
+            if (otherUserId.isNotEmpty) {
+              allUserIds.add(otherUserId);
             }
-
-            // Handle individual chats
-            final otherUserId = participants.firstWhere(
-              (id) => id != currentUserId,
-              orElse: () => '',
-            );
-
-            if (otherUserId.isEmpty) continue;
-
-            // Get user details
-            final userDoc =
-                await _firestore.collection('users').doc(otherUserId).get();
-            if (!userDoc.exists) continue;
-
-            final userData = userDoc.data()!;
-
-            chatUsers.add(ChatUser(
-              id: otherUserId,
-              name:
-                  '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
-                      .trim(),
-              email: userData['email'] ?? userData['e-mail'] ?? '',
-              profilePicture: userData['profile_picture'],
-              role: userData['user_type'],
-              isOnline: _isUserOnline(userData['last_login']),
-              lastSeen: userData['last_login'] != null
-                  ? (userData['last_login'] as Timestamp?)?.toDate()
-                  : null,
-              lastMessage: lastMessage?['content'] ?? '',
-              lastMessageTime: lastMessage?['timestamp'] != null
-                  ? (lastMessage!['timestamp'] as Timestamp).toDate()
-                  : null,
-              unreadCount: await _getUnreadCount(chatDoc.id),
-            ));
-          } catch (e) {
-            // Skip this chat if there's an error processing it
-            continue;
           }
         }
 
-        // Sort by last message time in client to avoid compound index
-        chatUsers.sort((a, b) {
-          if (a.lastMessageTime == null && b.lastMessageTime == null) return 0;
-          if (a.lastMessageTime == null) return 1;
-          if (b.lastMessageTime == null) return -1;
-          return b.lastMessageTime!.compareTo(a.lastMessageTime!);
-        });
+        final usersData = await _fetchUsersDataInBatch(allUserIds);
+
+        for (var chatDoc in chatSnapshot.docs) {
+          final chatData = chatDoc.data();
+          if (chatData['chat_type'] != 'group') {
+            final participants =
+                List<String>.from(chatData['participants'] ?? []);
+            final otherUserId = participants
+                .firstWhere((id) => id != currentUserId, orElse: () => '');
+            if (otherUserId.isNotEmpty && usersData.containsKey(otherUserId)) {
+              chatFutures.add(Future.value(_createIndividualChatUser(
+                  chatDoc, otherUserId, usersData[otherUserId]!)));
+            }
+          }
+        }
+
+        final chatUsers = await Future.wait(chatFutures);
+        chatUsers.sort((a, b) => (b.lastMessageTime ?? DateTime(0))
+            .compareTo(a.lastMessageTime ?? DateTime(0)));
 
         return chatUsers;
       } catch (e) {
-        // Return empty list if there's a general error
+        print('Error in getUserChats: $e');
         return <ChatUser>[];
       }
     });
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _fetchUsersDataInBatch(
+      Set<String> userIds) async {
+    if (userIds.isEmpty) return {};
+    final usersData = <String, Map<String, dynamic>>{};
+    final userDocs = await _firestore
+        .collection('users')
+        .where(FieldPath.documentId, whereIn: userIds.toList())
+        .get();
+    for (var doc in userDocs.docs) {
+      usersData[doc.id] = doc.data();
+    }
+    return usersData;
+  }
+
+  ChatUser _createGroupChatUser(
+      DocumentSnapshot chatDoc, Map<String, dynamic> chatData) {
+    final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
+    final participants = List<String>.from(chatData['participants'] ?? []);
+
+    return ChatUser(
+      id: chatDoc.id,
+      name: chatData['group_name'] ?? 'Unnamed Group',
+      email: chatData['group_description'] ?? 'Group chat',
+      isGroup: true,
+      participants: participants,
+      createdBy: chatData['created_by'],
+      participantCount: participants.length,
+      lastMessage: lastMessage?['content'] ?? '',
+      lastMessageTime: (lastMessage?['timestamp'] as Timestamp?)?.toDate() ??
+          (chatData['created_at'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  ChatUser _createIndividualChatUser(
+      DocumentSnapshot chatDoc, String userId, Map<String, dynamic> userData) {
+    final chatData = chatDoc.data() as Map<String, dynamic>;
+    final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
+
+    return ChatUser(
+      id: userId,
+      name: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
+          .trim(),
+      email: userData['email'] ?? userData['e-mail'] ?? '',
+      profilePicture: userData['profile_picture'],
+      role: userData['user_type'],
+      isOnline: _isUserOnline(userData['last_login']),
+      lastSeen: (userData['last_login'] as Timestamp?)?.toDate(),
+      lastMessage: lastMessage?['content'] ?? '',
+      lastMessageTime: lastMessage != null
+          ? (lastMessage['timestamp'] as Timestamp?)?.toDate()
+          : (chatData['created_at'] as Timestamp?)
+              ?.toDate(), // Use creation time if no messages yet
+    );
   }
 
   // Get messages for a specific chat (handles both individual and group chats)
@@ -163,6 +175,28 @@ class ChatService {
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
             .toList());
+  }
+
+  // Create or get a chat conversation (ensures chat appears in Recent Chats immediately)
+  Future<String> getOrCreateIndividualChat(String otherUserId) async {
+    if (currentUserId == null) throw Exception('User not authenticated');
+
+    final chatId = _generateChatId(currentUserId!, otherUserId);
+    final chatDocRef = _firestore.collection('chats').doc(chatId);
+    final chatDoc = await chatDocRef.get();
+
+    if (!chatDoc.exists) {
+      // Create the chat document so it appears in Recent Chats
+      await chatDocRef.set({
+        'participants': [currentUserId, otherUserId],
+        'chat_type': 'individual',
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        // Don't add last_message yet - it will be added when first message is sent
+      });
+    }
+
+    return chatId;
   }
 
   // Send a message (handles both individual and group chats)
@@ -239,23 +273,44 @@ class ChatService {
   // Create a group chat (admin only)
   Future<String?> createGroupChat(
       String groupName, List<String> participantIds, String description) async {
-    if (currentUserId == null) return null;
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
 
     try {
+      print(
+          'ChatService: Creating group chat - Name: $groupName, Participants: ${participantIds.length}');
+
+      // Use UserRoleService to get the current active role (respects role switching)
+      final userRole = await UserRoleService.getCurrentUserRole();
+
+      print('ChatService: Current user active role: $userRole');
+
+      // Also check the actual Firestore document for debugging
       final currentUserDoc =
           await _firestore.collection('users').doc(currentUserId).get();
-      final currentUserData = currentUserDoc.data() ?? {};
-      final userRole = currentUserData['user_type'];
+      if (currentUserDoc.exists) {
+        final userData = currentUserDoc.data() ?? {};
+        print(
+            'ChatService: User document data - user_type: ${userData['user_type']}, is_admin_teacher: ${userData['is_admin_teacher']}');
+        print('ChatService: User UID: $currentUserId');
+      } else {
+        print(
+            'ChatService: ERROR - User document does not exist for UID: $currentUserId');
+      }
 
       // Check if user is admin
       if (userRole?.toLowerCase() != 'admin') {
-        throw Exception('Only administrators can create group chats');
+        throw Exception(
+            'Only administrators can create group chats. Current role: $userRole');
       }
 
       // Add current user to participants if not already included
       if (!participantIds.contains(currentUserId)) {
         participantIds.add(currentUserId!);
       }
+
+      print('ChatService: Final participants list: $participantIds');
 
       final groupDoc = await _firestore.collection('chats').add({
         'chat_type': 'group',
@@ -268,10 +323,12 @@ class ChatService {
         'created_by': currentUserId,
       });
 
+      print('ChatService: Group created successfully with ID: ${groupDoc.id}');
       return groupDoc.id;
     } catch (e) {
-      // Handle error silently or throw
-      return null;
+      print('ChatService: Error creating group chat: $e');
+      // Re-throw the exception instead of silently returning null
+      rethrow;
     }
   }
 
@@ -426,6 +483,44 @@ class ChatService {
       return DateTime.now().difference(lastLoginTime).inMinutes < 5;
     } catch (e) {
       return false;
+    }
+  }
+
+  // Helper method to get user names by IDs
+  Future<Map<String, String>> getUserNames(List<String> userIds) async {
+    if (userIds.isEmpty) return {};
+
+    try {
+      print('ChatService: getUserNames called with IDs: $userIds');
+
+      final userDocs = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIds)
+          .get();
+
+      print('ChatService: Found ${userDocs.docs.length} user documents');
+
+      final userNames = <String, String>{};
+      for (var doc in userDocs.docs) {
+        final data = doc.data();
+        final firstName = data['first_name'] ?? '';
+        final lastName = data['last_name'] ?? '';
+        final email = data['email'] ?? data['e-mail'] ?? '';
+        final fullName = '$firstName $lastName'.trim();
+        final displayName = fullName.isNotEmpty
+            ? fullName
+            : (email.isNotEmpty ? email : 'Unknown User');
+
+        userNames[doc.id] = displayName;
+        print(
+            'ChatService: User ${doc.id} -> $displayName (firstName: $firstName, lastName: $lastName, email: $email)');
+      }
+
+      print('ChatService: Final userNames map: $userNames');
+      return userNames;
+    } catch (e) {
+      print('Error fetching user names: $e');
+      return {};
     }
   }
 }

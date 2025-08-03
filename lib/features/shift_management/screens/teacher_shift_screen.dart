@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async'; // Added for StreamSubscription
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
@@ -22,10 +23,18 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   final String _teacherTimezone =
       'America/New_York'; // Get from user preferences
 
+  StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
+
   @override
   void initState() {
     super.initState();
     _setupShiftStream();
+  }
+
+  @override
+  void dispose() {
+    _shiftsSubscription?.cancel();
+    super.dispose();
   }
 
   void _setupShiftStream() {
@@ -41,7 +50,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     print('TeacherShiftScreen: User email: ${user.email}');
 
     // Listen to real-time shifts stream
-    ShiftService.getTeacherShifts(user.uid).listen(
+    _shiftsSubscription = ShiftService.getTeacherShifts(user.uid).listen(
       (shifts) {
         print(
             'TeacherShiftScreen: Stream update - received ${shifts.length} shifts');

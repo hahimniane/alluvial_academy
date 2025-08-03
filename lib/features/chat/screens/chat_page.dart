@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/chat_service.dart';
 import '../models/chat_user.dart';
 import '../widgets/chat_user_list_item.dart';
-import 'chat_screen.dart';
-import 'group_creation_screen.dart';
+import '../widgets/group_info_dialog.dart';
+import '../screens/chat_screen.dart';
+import '../screens/group_creation_screen.dart';
 import '../../../core/services/user_role_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -54,61 +56,107 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       backgroundColor: const Color(0xffF8FAFC),
       body: Column(
         children: [
-          // Header
-          _buildHeader(),
+          // Modern Header with enhanced design
+          _buildModernHeader(),
 
-          // Tab bar
-          _buildTabBar(),
-
-          // Search bar
-          _buildSearchBar(),
-
-          // Content
+          // Chat Content Container
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRecentChats(),
-                _buildAllUsers(),
-              ],
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 8,
+                    offset: const Offset(0, 1),
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Enhanced Tab bar
+                  _buildModernTabBar(),
+
+                  // Enhanced Search bar
+                  _buildModernSearchBar(),
+
+                  // Content with proper padding
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildRecentChats(),
+                        _buildAllUsers(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
 
-      // Floating action button for group creation (admin only)
-      floatingActionButton: _isAdmin ? _buildCreateGroupFAB() : null,
+      // Modern floating action button
+      floatingActionButton: _isAdmin ? _buildModernCreateGroupFAB() : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildModernHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 16,
             offset: const Offset(0, 2),
+            spreadRadius: 0,
           ),
         ],
       ),
       child: Row(
         children: [
+          // Modern Icon Container
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xff0386FF).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xff0386FF),
+                  const Color(0xff0386FF).withOpacity(0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xff0386FF).withOpacity(0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: const Icon(
               Icons.chat_bubble_outline,
-              color: Color(0xff0386FF),
-              size: 24,
+              color: Colors.white,
+              size: 28,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,16 +164,19 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 Text(
                   'Messages',
                   style: GoogleFonts.inter(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xff111827),
+                    height: 1.2,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'Connect with your team',
+                  'Connect and collaborate with your team',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 15,
                     color: const Color(0xff6B7280),
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
@@ -136,36 +187,56 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildModernTabBar() {
     return Container(
-      color: Colors.white,
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xffF1F5F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: TabBar(
         controller: _tabController,
         labelColor: const Color(0xff0386FF),
-        unselectedLabelColor: const Color(0xff6B7280),
+        unselectedLabelColor: const Color(0xff64748B),
         labelStyle: GoogleFonts.inter(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: GoogleFonts.inter(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w500,
         ),
-        indicatorColor: const Color(0xff0386FF),
-        indicatorWeight: 3,
-        indicatorSize: TabBarIndicatorSize.label,
+        indicator: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
         tabs: const [
-          Tab(text: 'Recent'),
-          Tab(text: 'All Users'),
+          Tab(
+            height: 44,
+            text: 'Recent Chats',
+          ),
+          Tab(
+            height: 44,
+            text: 'All Users',
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildModernSearchBar() {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: TextField(
         controller: _searchController,
         style: GoogleFonts.inter(
@@ -173,29 +244,48 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           color: const Color(0xff111827),
         ),
         decoration: InputDecoration(
-          hintText: 'Search users...',
+          hintText: 'Search conversations and users...',
           hintStyle: GoogleFonts.inter(
             color: const Color(0xff9CA3AF),
             fontSize: 16,
+            fontWeight: FontWeight.w400,
           ),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: Color(0xff6B7280),
-            size: 20,
+          prefixIcon: Container(
+            margin: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.search,
+              color: const Color(0xff6B7280),
+              size: 20,
+            ),
           ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.clear,
+                    color: Color(0xff9CA3AF),
+                    size: 18,
+                  ),
+                )
+              : null,
           filled: true,
-          fillColor: const Color(0xffF9FAFB),
+          fillColor: const Color(0xffF8FAFC),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(
-              color: Color(0xffE5E7EB),
+              color: Color(0xffE2E8F0),
               width: 1,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(
-              color: Color(0xffE5E7EB),
+              color: Color(0xffE2E8F0),
               width: 1,
             ),
           ),
@@ -207,7 +297,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
           ),
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
@@ -217,15 +307,28 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return StreamBuilder<List<ChatUser>>(
       stream: _chatService.getUserChats(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
-            ),
+        // Check auth state before processing
+        if (FirebaseAuth.instance.currentUser == null) {
+          return _buildEmptyState(
+            'Please sign in',
+            'Authentication required to view chats',
+            Icons.login,
           );
         }
 
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingState();
+        }
+
         if (snapshot.hasError) {
+          // Handle permission errors gracefully
+          if (snapshot.error.toString().contains('permission-denied')) {
+            return _buildEmptyState(
+              'Access denied',
+              'Please sign in to view chats',
+              Icons.lock,
+            );
+          }
           return _buildErrorState('Error loading chats');
         }
 
@@ -249,13 +352,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
           itemCount: filteredChats.length,
           itemBuilder: (context, index) {
             final chat = filteredChats[index];
             return ChatUserListItem(
               user: chat,
               onTap: () => _openChat(chat),
+              onLongPress: chat.isGroup ? () => _showGroupInfo(chat) : null,
               showLastMessage: true,
             );
           },
@@ -268,15 +372,28 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return StreamBuilder<List<ChatUser>>(
       stream: _chatService.getAllUsers(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
-            ),
+        // Check auth state before processing
+        if (FirebaseAuth.instance.currentUser == null) {
+          return _buildEmptyState(
+            'Please sign in',
+            'Authentication required to view users',
+            Icons.login,
           );
         }
 
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingState();
+        }
+
         if (snapshot.hasError) {
+          // Handle permission errors gracefully
+          if (snapshot.error.toString().contains('permission-denied')) {
+            return _buildEmptyState(
+              'Access denied',
+              'Please sign in to view users',
+              Icons.lock,
+            );
+          }
           return _buildErrorState('Error loading users');
         }
 
@@ -303,13 +420,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
           itemCount: filteredUsers.length,
           itemBuilder: (context, index) {
             final user = filteredUsers[index];
             return ChatUserListItem(
               user: user,
               onTap: () => _openChat(user),
+              onLongPress: user.isGroup ? () => _showGroupInfo(user) : null,
               showLastMessage: false,
             );
           },
@@ -318,116 +436,212 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildEmptyState(String title, String subtitle, IconData icon) {
+  Widget _buildLoadingState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: const Color(0xff0386FF).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(60),
+              borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(
-              icon,
-              size: 48,
-              color: const Color(0xff0386FF),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff111827),
+            child: const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+              strokeWidth: 3,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
-            subtitle,
+            'Loading messages...',
             style: GoogleFonts.inter(
-              fontSize: 14,
-              color: const Color(0xff6B7280),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff64748B),
             ),
-            textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String title, String subtitle, IconData icon) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xff0386FF).withOpacity(0.1),
+                    const Color(0xff0386FF).withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(60),
+                border: Border.all(
+                  color: const Color(0xff0386FF).withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 48,
+                color: const Color(0xff0386FF),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              subtitle,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: const Color(0xff6B7280),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorState(String message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(60),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(60),
+                border: Border.all(
+                  color: Colors.red.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red,
+              ),
             ),
-            child: const Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.red,
+            const SizedBox(height: 32),
+            Text(
+              'Something went wrong',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Something went wrong',
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff111827),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: const Color(0xff6B7280),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: const Color(0xff6B7280),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCreateGroupFAB() {
-    return FloatingActionButton.extended(
-      heroTag: "createGroupFAB", // Unique hero tag to avoid conflicts
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const GroupCreationScreen(),
-          ),
-        );
-      },
-      backgroundColor: const Color(0xff0386FF),
-      foregroundColor: Colors.white,
-      elevation: 8,
-      icon: const Icon(Icons.group_add),
-      label: Text(
-        'Create Group',
-        style: GoogleFonts.inter(
-          fontWeight: FontWeight.w600,
+          ],
         ),
       ),
     );
   }
 
-  void _openChat(ChatUser user) {
+  Widget _buildModernCreateGroupFAB() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff0386FF).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: const Color(0xff0386FF).withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        heroTag: "createGroupFAB",
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const GroupCreationScreen(),
+            ),
+          );
+        },
+        backgroundColor: const Color(0xff0386FF),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        highlightElevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        icon: const Icon(Icons.group_add, size: 22),
+        label: Text(
+          'Create Group',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openChat(ChatUser user) async {
+    // For individual chats, ensure the conversation is created so it appears in Recent Chats
+    if (!user.isGroup) {
+      try {
+        await _chatService.getOrCreateIndividualChat(user.id);
+      } catch (e) {
+        print('Error creating chat: $e');
+      }
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ChatScreen(chatUser: user),
       ),
+    );
+  }
+
+  void _showGroupInfo(ChatUser groupChat) {
+    showDialog(
+      context: context,
+      builder: (context) => GroupInfoDialog(groupChat: groupChat),
     );
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class FirestoreDebugScreen extends StatefulWidget {
   const FirestoreDebugScreen({super.key});
@@ -14,6 +17,10 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
   List<Map<String, dynamic>> capitalUserDocuments = [];
   bool isLoading = true;
   String? error;
+
+  // Email test variables
+  bool _isEmailTesting = false;
+  String _emailTestResult = '';
 
   @override
   void initState() {
@@ -62,6 +69,296 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
     }
   }
 
+  Future<void> _sendTestEmail() async {
+    setState(() {
+      _isEmailTesting = true;
+      _emailTestResult = '';
+    });
+
+    try {
+      if (kIsWeb) {
+        // For web, use Cloud Functions (works across all platforms)
+        final HttpsCallable callable =
+            FirebaseFunctions.instance.httpsCallable('sendTestEmail');
+        final result = await callable.call({
+          'to': 'hassimiou.niane@maine.edu',
+          'subject': 'Test Email from Alluwal Academy Debug (Web)',
+          'message':
+              'This test email was sent from the web version of Alluwal Academy.\n\nSent at: ${DateTime.now().toIso8601String()}'
+        });
+
+        setState(() {
+          _emailTestResult = '''✅ Email Sent Successfully via Cloud Function!
+
+From: support@alluwaleducationhub.org
+To: hassimiou.niane@maine.edu
+Subject: Test Email from Alluwal Academy Debug (Web)
+
+Method: Firebase Cloud Function
+Platform: Web Browser
+Status: ${result.data}
+Timestamp: ${DateTime.now().toIso8601String()}
+
+✉️ Check your inbox at hassimiou.niane@maine.edu''';
+        });
+      } else {
+        // For mobile/desktop, could use direct SMTP if needed
+        setState(() {
+          _emailTestResult = '''ℹ️ Platform: ${defaultTargetPlatform.name}
+
+For mobile/desktop platforms, direct SMTP is supported.
+Currently configured for web via Cloud Functions.
+
+To test on mobile/desktop:
+1. Deploy the app to a mobile device
+2. Or use the Cloud Function approach (recommended)''';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _emailTestResult = '''❌ Email sending failed: 
+
+Error: $e
+
+Troubleshooting:
+${kIsWeb ? '''
+🌐 Web Platform Detected:
+- Direct SMTP not supported in browsers
+- Using Cloud Functions instead
+- Make sure sendTestEmail function is deployed
+
+Solutions:
+1. Deploy Cloud Functions: firebase deploy --only functions
+2. Check Firebase Console for function logs
+3. Verify function permissions
+''' : '''
+📱 Mobile/Desktop Platform:
+- Direct SMTP should work
+- Check internet connection
+- Verify SMTP credentials
+'''}''';
+      });
+    } finally {
+      setState(() {
+        _isEmailTesting = false;
+      });
+    }
+  }
+
+  /// Send test task assignment notification
+  Future<void> _sendTestTaskNotification() async {
+    setState(() {
+      _isEmailTesting = true;
+      _emailTestResult = '';
+    });
+
+    try {
+      final HttpsCallable callable = FirebaseFunctions.instance
+          .httpsCallable('sendTaskAssignmentNotification');
+      final result = await callable.call({
+        'taskId': 'test-task-123',
+        'taskTitle': 'Test Task Assignment',
+        'taskDescription':
+            'This is a test task to verify the assignment notification system.',
+        'dueDate':
+            DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+        'assignedUserIds': [
+          'test-user-id'
+        ], // This would normally be real user IDs
+        'assignedByName': 'Debug System',
+      });
+
+      setState(() {
+        _emailTestResult = '''✅ Task Assignment Notification Sent!
+
+Test Data:
+- Task: Test Task Assignment  
+- Due: ${DateTime.now().add(const Duration(days: 7)).toLocal().toString().split('.')[0]}
+- Assigned To: test-user-id
+- Assigned By: Debug System
+
+Function Result: ${result.data}
+Status: Success''';
+      });
+    } catch (e) {
+      setState(() {
+        _emailTestResult = '''❌ Task Assignment Test Failed!
+        
+Error: $e
+
+This helps us debug the data format issue.''';
+      });
+    } finally {
+      setState(() {
+        _isEmailTesting = false;
+      });
+    }
+  }
+
+  /// Send test welcome email notification
+  Future<void> _sendTestWelcomeEmail() async {
+    setState(() {
+      _isEmailTesting = true;
+      _emailTestResult = '';
+    });
+
+    try {
+      final HttpsCallable callable =
+          FirebaseFunctions.instance.httpsCallable('sendWelcomeEmail');
+      final result = await callable.call({
+        'email': 'hassimiou.niane@maine.edu',
+        'firstName': 'Test',
+        'lastName': 'User',
+        'role': 'teacher',
+      });
+
+      setState(() {
+        _emailTestResult = '''✅ Welcome Email Sent Successfully!
+
+Test Data:
+- To: hassimiou.niane@maine.edu
+- Name: Test User
+- Role: teacher
+- Password: 123456
+
+Function Result: ${result.data}
+Status: Success''';
+      });
+    } catch (e) {
+      setState(() {
+        _emailTestResult = '''❌ Welcome Email Test Failed!
+        
+Error: $e
+
+This helps us debug the welcome email system.''';
+      });
+    } finally {
+      setState(() {
+        _isEmailTesting = false;
+      });
+    }
+  }
+
+  /// Send test task status update notification
+  Future<void> _sendTestStatusUpdate() async {
+    setState(() {
+      _isEmailTesting = true;
+      _emailTestResult = '';
+    });
+
+    try {
+      // Try to use a real user ID if we have users in the database
+      String createdByUserId = 'test-creator-id'; // Default fallback
+
+      // Check if we have any real users
+      if (userDocuments.isNotEmpty) {
+        // Use the first user as the task creator for testing
+        createdByUserId = userDocuments.first['id'] ?? 'test-creator-id';
+      }
+
+      final HttpsCallable callable = FirebaseFunctions.instance
+          .httpsCallable('sendTaskStatusUpdateNotification');
+      final result = await callable.call({
+        'taskId': 'test-task-status-123',
+        'taskTitle': 'Test Status Update Task',
+        'oldStatus': 'todo',
+        'newStatus': 'completed',
+        'updatedByName': 'Debug Tester',
+        'createdBy': createdByUserId,
+      });
+
+      setState(() {
+        _emailTestResult = '''✅ Status Update Email Sent!
+
+Test Data:
+- Task: Test Status Update Task
+- Status: todo → completed  
+- Updated By: Debug Tester
+- Created By: ${createdByUserId}
+- Notification sent to task creator
+
+Function Result: ${result.data}
+Status: Success''';
+      });
+    } catch (e) {
+      setState(() {
+        _emailTestResult = '''❌ Status Update Test Failed!
+        
+Error: $e
+
+This helps us debug the status update notification system.''';
+      });
+    } finally {
+      setState(() {
+        _isEmailTesting = false;
+      });
+    }
+  }
+
+  /// Test updating last login time for current user
+  Future<void> _testUpdateLastLogin() async {
+    setState(() {
+      _isEmailTesting = true;
+      _emailTestResult = '';
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _emailTestResult = '''❌ No User Logged In!
+          
+Please sign in first to test last login update.''';
+        });
+        return;
+      }
+
+      // Update last login time manually for testing
+      final QuerySnapshot userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('e-mail', isEqualTo: user.email?.toLowerCase())
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        final userDoc = userQuery.docs.first;
+        await userDoc.reference.update({
+          'last_login': FieldValue.serverTimestamp(),
+        });
+
+        setState(() {
+          _emailTestResult = '''✅ Last Login Updated Successfully!
+
+User: ${user.email}
+Updated: last_login field set to current timestamp
+Document ID: ${userDoc.id}
+
+This user should now be removed from the "never logged in" category.
+Check the User Management screen to verify.''';
+        });
+      } else {
+        setState(() {
+          _emailTestResult = '''❌ User Document Not Found!
+          
+User email: ${user.email}
+The user document might not exist in Firestore.''';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _emailTestResult = '''❌ Last Login Update Failed!
+        
+Error: $e
+
+This helps us debug the login tracking system.''';
+      });
+    } finally {
+      setState(() {
+        _isEmailTesting = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,6 +403,9 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Email Test Section
+                      _buildEmailTestSection(),
+                      const SizedBox(height: 32),
                       _buildCollectionSection(
                         'users (lowercase)',
                         userDocuments,
@@ -120,6 +420,255 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildEmailTestSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.purple,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Email Test',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Email credentials info
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Email System (Web Compatible):',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '🌐 Method: Firebase Cloud Function → Hostinger SMTP',
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: Colors.grey[600]),
+                  ),
+                  Text(
+                    '📧 From: support@alluwaleducationhub.org',
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: Colors.grey[600]),
+                  ),
+                  Text(
+                    '📨 To: hassimiou.niane@maine.edu',
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Available Functions:',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  Text(
+                    '• Purple: Basic email test',
+                    style:
+                        GoogleFonts.inter(fontSize: 10, color: Colors.purple),
+                  ),
+                  Text(
+                    '• Orange: Task assignment notification',
+                    style:
+                        GoogleFonts.inter(fontSize: 10, color: Colors.orange),
+                  ),
+                  Text(
+                    '• Green: Welcome email for new users',
+                    style: GoogleFonts.inter(fontSize: 10, color: Colors.green),
+                  ),
+                  Text(
+                    '• Blue: Task status update notification',
+                    style: GoogleFonts.inter(fontSize: 10, color: Colors.blue),
+                  ),
+                  Text(
+                    '• Teal: Test last login update tracking',
+                    style: GoogleFonts.inter(fontSize: 10, color: Colors.teal),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Email test buttons
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isEmailTesting ? null : _sendTestEmail,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: _isEmailTesting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Send Test Email'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed:
+                        _isEmailTesting ? null : _sendTestTaskNotification,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: _isEmailTesting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Test Task Assignment'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isEmailTesting ? null : _sendTestWelcomeEmail,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: _isEmailTesting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Test Welcome Email'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isEmailTesting ? null : _sendTestStatusUpdate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: _isEmailTesting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Test Status Update'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isEmailTesting ? null : _testUpdateLastLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: _isEmailTesting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Test Login Tracking'),
+                  ),
+                ),
+              ],
+            ),
+
+            // Result display
+            if (_emailTestResult.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _emailTestResult.startsWith('✅')
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _emailTestResult.startsWith('✅')
+                        ? Colors.green.withOpacity(0.3)
+                        : Colors.red.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  _emailTestResult,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: _emailTestResult.startsWith('✅')
+                        ? Colors.green[800]
+                        : Colors.red[800],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

@@ -5,6 +5,7 @@ import '../services/task_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
 import '../widgets/task_details_view.dart';
 import '../../../core/services/user_role_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
@@ -22,6 +23,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   late AnimationController _fabAnimationController;
   bool _isAdmin = false;
   Stream<List<Task>>? _taskStream;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -35,14 +37,27 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Future<void> _loadUserRoleAndTasks() async {
-    final isAdmin = await UserRoleService.isAdmin();
-    final taskStream = await _taskService.getRoleBasedTasks();
+    try {
+      // Ensure Firebase Auth is ready
+      await FirebaseAuth.instance.authStateChanges().first;
 
-    if (mounted) {
-      setState(() {
-        _isAdmin = isAdmin;
-        _taskStream = taskStream;
-      });
+      final isAdmin = await UserRoleService.isAdmin();
+      final taskStream = await _taskService.getRoleBasedTasks();
+
+      if (mounted) {
+        setState(() {
+          _isAdmin = isAdmin;
+          _taskStream = taskStream;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading user role and tasks: $e');
+      // Retry after a short delay if there's an error
+      if (mounted) {
+        await Future.delayed(const Duration(milliseconds: 1000));
+        _loadUserRoleAndTasks();
+      }
     }
   }
 
@@ -251,13 +266,35 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildTaskGrid() {
-    // Return loading if task stream is not ready yet
-    if (_taskStream == null) {
-      return const SliverToBoxAdapter(
+    // Return loading if task stream is not ready yet or still loading user role
+    if (_taskStream == null || _isLoading) {
+      return SliverToBoxAdapter(
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(32.0),
-            child: CircularProgressIndicator(),
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading tasks...',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                    });
+                    _loadUserRoleAndTasks();
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
       );

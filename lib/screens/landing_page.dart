@@ -10,7 +10,7 @@ import 'about_page.dart';
 import 'contact_page.dart';
 import '../shared/widgets/persistent_app_bar.dart';
 import '../core/models/landing_page_content.dart';
-import '../core/services/landing_page_service.dart';
+// Removed dynamic fetching of landing page content – using static default
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -26,14 +26,16 @@ class _LandingPageState extends State<LandingPage>
   late Animation<double> _heroFadeAnimation;
   late Animation<Offset> _heroSlideAnimation;
   final ScrollController _scrollController = ScrollController();
-  
+
   // Dynamic content state
   LandingPageContent? _content;
-  bool _isLoadingContent = true;
+  bool _isLoadingContent = false;
 
   @override
   void initState() {
     super.initState();
+    // Immediately use static default content without fetching from Firestore/Cloud Function
+    _content = LandingPageContent.defaultContent();
 
     _heroAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1200),
@@ -61,37 +63,11 @@ class _LandingPageState extends State<LandingPage>
       curve: Curves.easeOutCubic,
     ));
 
-        // Start hero animation
+    // Start hero animation
     _heroAnimationController.forward();
-
-    // Load dynamic content
-    _loadContent();
   }
 
-  Future<void> _loadContent() async {
-    try {
-      print('Loading landing page content...');
-      final content = await LandingPageService.getLandingPageContent();
-      print('Landing page content loaded successfully');
-      
-      if (mounted) {
-        setState(() {
-          _content = content;
-          _isLoadingContent = false;
-        });
-        print('Landing page state updated with dynamic content');
-      }
-    } catch (e) {
-      print('Error loading landing page content: $e');
-      if (mounted) {
-        setState(() {
-          _content = LandingPageContent.defaultContent();
-          _isLoadingContent = false;
-        });
-        print('Landing page fallback to default content');
-      }
-    }
-  }
+  // Removed _loadContent – no external fetch required
 
   @override
   void dispose() {
@@ -351,9 +327,10 @@ class _LandingPageState extends State<LandingPage>
                           ),
                         ),
                         child: Text(
-                          _isLoadingContent 
-                            ? '🕌 Nurturing Young Hearts Through Islamic Education' 
-                            : (_content?.heroSection.badgeText ?? '🕌 Nurturing Young Hearts Through Islamic Education'),
+                          _isLoadingContent
+                              ? '🕌 Nurturing Young Hearts Through Islamic Education'
+                              : (_content?.heroSection.badgeText ??
+                                  '🕌 Nurturing Young Hearts Through Islamic Education'),
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -365,9 +342,10 @@ class _LandingPageState extends State<LandingPage>
 
                       // Main Headline
                       Text(
-                        _isLoadingContent 
-                          ? 'Quality Islamic Education\nfor Your Children' 
-                          : (_content?.heroSection.mainHeadline ?? 'Quality Islamic Education\nfor Your Children'),
+                        _isLoadingContent
+                            ? 'Quality Islamic Education\nfor Your Children'
+                            : (_content?.heroSection.mainHeadline ??
+                                'Quality Islamic Education\nfor Your Children'),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize:
@@ -382,9 +360,10 @@ class _LandingPageState extends State<LandingPage>
 
                       // Subtitle
                       Text(
-                        _isLoadingContent 
-                          ? 'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.' 
-                          : (_content?.heroSection.subtitle ?? 'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.'),
+                        _isLoadingContent
+                            ? 'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.'
+                            : (_content?.heroSection.subtitle ??
+                                'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.'),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 18,

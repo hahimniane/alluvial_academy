@@ -4,16 +4,17 @@ const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
-// Configure email transporter (you'll need to set these in Firebase Functions config)
-const createTransporter = () => {
-  return nodemailer.createTransporter({
-    service: 'gmail', // or your email service
+// Configure email transporter
+const createTransporter = () =>
+  nodemailer.createTransport({
+    host: 'smtp.hostinger.com',
+    port: 465,
+    secure: true, // SSL
     auth: {
-      user: functions.config().email?.user || 'your-email@gmail.com',
-      pass: functions.config().email?.password || 'your-app-password'
-    }
+      user: 'support@alluwaleducationhub.org',
+      pass: 'Kilopatra2025.',
+    },
   });
-};
 
 // Generate random password
 const generateRandomPassword = (length = 12) => {
@@ -41,7 +42,7 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType) 
     const transporter = createTransporter();
     
     const mailOptions = {
-      from: functions.config().email?.user || 'noreply@alluwalacademy.com',
+      from: 'support@alluwaleducationhub.org',
       to: email,
       subject: 'Welcome to Alluwal Academy - Your Account Details',
       html: `
@@ -102,6 +103,354 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType) 
     return false;
   }
 };
+
+// Send task assignment email notification
+const sendTaskAssignmentEmail = async (
+  assigneeEmail,
+  assigneeName,
+  taskTitle,
+  taskDescription,
+  dueDate,
+  assignedByName
+) => {
+  try {
+    const transporter = createTransporter();
+
+    const formattedDueDate = dueDate
+      ? new Date(dueDate).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : 'No due date';
+
+    const mailOptions = {
+      from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+      to: assigneeEmail,
+      subject: `📋 New Task Assigned: ${taskTitle}`,
+      html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>New Task Assigned</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 0;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background-color: #0386ff;
+            color: #ffffff;
+            padding: 24px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 0.5px;
+          }
+          .content {
+            padding: 24px;
+          }
+          .task-card {
+            background-color: #f9fbff;
+            border-left: 4px solid #0386ff;
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 4px;
+          }
+          .task-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0386ff;
+            margin-bottom: 8px;
+          }
+          .task-detail {
+            margin: 4px 0;
+          }
+          .btn {
+            display: inline-block;
+            background-color: #0386ff;
+            color: #ffffff !important;
+            padding: 12px 24px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-top: 16px;
+            font-weight: bold;
+          }
+          .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888888;
+            padding: 16px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Alluwal Education Hub</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${assigneeName},</p>
+            <p>You have been assigned a new task by <strong>${assignedByName}</strong>.</p>
+
+            <div class="task-card">
+              <div class="task-title">${taskTitle}</div>
+              <p class="task-detail"><strong>Description:</strong> ${
+                taskDescription || 'No description provided.'
+              }</p>
+              <p class="task-detail"><strong>Due Date:</strong> ${formattedDueDate}</p>
+            </div>
+
+            <p>Please login to the Alluwal Education Hub portal to view more details and update your progress.</p>
+
+            <a href="#" class="btn">Go to Tasks →</a>
+
+            <p style="margin-top:24px;">Best regards,<br/>Alluwal Education Hub Team</p>
+          </div>
+          <div class="footer">
+            This is an automated message. Please do not reply to this email.
+          </div>
+        </div>
+      </body>
+      </html>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Task assignment email sent to ${assigneeEmail} for task: ${taskTitle}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending task assignment email:', error);
+    return false;
+  }
+};
+
+// Cloud Function to handle task assignment notifications
+exports.sendTaskAssignmentNotification = functions.https.onCall(async (data, context) => {
+  console.log("--- TASK ASSIGNMENT NOTIFICATION ---");
+  console.log("Raw data received:", data);
+  console.log("Data type:", typeof data);
+  console.log("Data keys:", data ? Object.keys(data) : 'data is null/undefined');
+  
+  try {
+    // The data is nested under data.data for callable functions
+    const { taskId, taskTitle, taskDescription, dueDate, assignedUserIds, assignedByName } = data.data || {};
+    
+    console.log("Extracted fields:", {
+      taskId,
+      taskTitle, 
+      taskDescription,
+      dueDate,
+      assignedUserIds,
+      assignedByName
+    });
+
+    // Validate required fields
+    if (!taskId || !taskTitle || !Array.isArray(assignedUserIds) || assignedUserIds.length === 0) {
+      console.error('Invalid or missing fields:', { taskId, taskTitle, assignedUserIds });
+      throw new functions.https.HttpsError('invalid-argument', 'Missing or invalid required fields: taskId, taskTitle, or assignedUserIds must be a non-empty array.');
+    }
+
+    console.log(`Processing task assignment notification for task: ${taskTitle}`);
+    console.log(`Assigned to ${assignedUserIds.length} users`);
+
+    const results = [];
+    const errors = [];
+
+    // Get user details from Firestore and send emails
+    for (const userId of assignedUserIds) {
+      try {
+        // Get user document from Firestore
+        const userDoc = await admin.firestore()
+          .collection('users')
+          .doc(userId)
+          .get();
+
+        if (!userDoc.exists) {
+          console.error(`User not found: ${userId}`);
+          errors.push({
+            userId,
+            error: 'User not found'
+          });
+          continue;
+        }
+
+        const userData = userDoc.data();
+        const userEmail = userData['e-mail'] || userData['email'];
+        const userName = `${userData['first_name'] || ''} ${userData['last_name'] || ''}`.trim() || 'User';
+
+        if (!userEmail) {
+          console.error(`No email found for user: ${userId}`);
+          errors.push({
+            userId,
+            error: 'No email address found'
+          });
+          continue;
+        }
+
+        // Send email notification
+        const emailSent = await sendTaskAssignmentEmail(
+          userEmail,
+          userName,
+          taskTitle,
+          taskDescription,
+          dueDate,
+          assignedByName || 'System Administrator'
+        );
+
+        results.push({
+          userId,
+          email: userEmail,
+          name: userName,
+          emailSent
+        });
+
+        console.log(`Email notification processed for ${userName} (${userEmail}): ${emailSent ? 'SUCCESS' : 'FAILED'}`);
+
+      } catch (error) {
+        console.error(`Error processing notification for user ${userId}:`, error);
+        errors.push({
+          userId,
+          error: error.message
+        });
+      }
+    }
+
+    return {
+      success: true,
+      taskId,
+      taskTitle,
+      totalAssignees: assignedUserIds.length,
+      emailsSent: results.filter(r => r.emailSent).length,
+      emailsFailed: results.filter(r => !r.emailSent).length,
+      results,
+      errors
+    };
+
+  } catch (error) {
+    console.error("Error in sendTaskAssignmentNotification:", error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+// Welcome email function for new users
+exports.sendWelcomeEmail = functions.https.onCall(async (data, context) => {
+  console.log("--- WELCOME EMAIL FUNCTION ---");
+  
+  try {
+    const { email, firstName, lastName, role } = data.data || {};
+    
+    if (!email || !firstName) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: email and firstName are required.');
+    }
+    
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+      to: email,
+      subject: `🎉 Welcome to Alluwal Education Hub, ${firstName}!`,
+      html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Welcome to Alluwal Education Hub</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+          .container { max-width: 600px; margin: 0 auto; background-color: white; }
+          .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 30px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+          .content { padding: 30px 20px; }
+          .welcome-box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+          .credentials-box { background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px; }
+          .credentials-box h3 { margin-top: 0; color: #92400e; }
+          .login-info { background-color: #ecfdf5; border: 1px solid #10b981; padding: 15px; margin: 15px 0; border-radius: 6px; }
+          .cta-button { display: inline-block; background-color: #0386FF; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+          .important { color: #dc2626; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to Alluwal Education Hub!</h1>
+            <p>Your account has been successfully created</p>
+          </div>
+          
+          <div class="content">
+            <div class="welcome-box">
+              <h2>Hello ${firstName}${lastName ? ' ' + lastName : ''}! 👋</h2>
+              <p>We're excited to have you join the Alluwal Education Hub team${role ? ' as a ' + role : ''}. Your account has been set up and you're ready to get started!</p>
+            </div>
+            
+            <div class="credentials-box">
+              <h3>🔐 Your Login Credentials</h3>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Temporary Password:</strong> <span class="important">123456</span></p>
+              <p class="important">⚠️ Please change your password immediately after your first login for security purposes.</p>
+            </div>
+            
+            <div class="login-info">
+              <h3>🚀 Getting Started</h3>
+              <ol>
+                <li><strong>Login:</strong> Visit the Alluwal Education Hub portal</li>
+                <li><strong>Use your credentials:</strong> Email and password above</li>
+                <li><strong>Change password:</strong> Go to your profile settings immediately</li>
+                <li><strong>Explore:</strong> Familiarize yourself with the dashboard and features</li>
+              </ol>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="https://alluwaleducationhub.org" class="cta-button">Access Your Account</a>
+            </div>
+            
+            <div style="margin-top: 30px;">
+              <h3>Need Help?</h3>
+              <p>If you have any questions or need assistance:</p>
+              <ul>
+                <li>📧 Email us at: <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a></li>
+                <li>📱 Contact your administrator</li>
+                <li>💬 Use the chat feature in the portal</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Alluwal Education Hub. All rights reserved.</p>
+            <p>This email was sent to ${email}. Please do not reply to this automated message.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    console.log(`Welcome email sent successfully to ${email}`);
+    
+    return { success: true, message: `Welcome email sent to ${email}` };
+    
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send welcome email: ${error.message}`);
+  }
+});
 
 exports.createUserWithEmail = functions.https.onCall(async (data, context) => {
   console.log("--- NEW INVOCATION (v4) ---");
@@ -509,5 +858,227 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   } catch (err) {
     console.error('getLandingPageContent error:', err);
     return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Test email function
+exports.sendTestEmail = functions.https.onCall(async (data, context) => {
+  console.log("--- TEST EMAIL FUNCTION ---");
+  
+  try {
+    const { to, subject, message } = data;
+    const recipient = to || 'hassimiou.niane@maine.edu';
+    const emailSubject = subject || 'Test Email from Alluwal Academy';
+    const emailMessage = message || 'This is a test email from Alluwal Academy system.';
+    
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: 'support@alluwaleducationhub.org',
+      to: recipient,
+      subject: emailSubject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #0386FF; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🧪 Test Email from Alluwal Academy</h1>
+            </div>
+            <div class="content">
+              <h2>Email Test Successful!</h2>
+              <p>${emailMessage}</p>
+              <hr>
+              <p><strong>From:</strong> Alluwal Academy Debug System</p>
+              <p><strong>Method:</strong> Firebase Cloud Function → Hostinger SMTP</p>
+              <p><strong>Server:</strong> smtp.hostinger.com:465 (SSL)</p>
+              <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Test email sent successfully to ${recipient}`);
+    
+    return {
+      success: true,
+      message: 'Test email sent successfully',
+      recipient: recipient,
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send test email: ${error.message}`);
+  }
+});
+
+// Task status update notification function
+exports.sendTaskStatusUpdateNotification = functions.https.onCall(async (data, context) => {
+  console.log("--- TASK STATUS UPDATE NOTIFICATION ---");
+  
+  try {
+    const { taskId, taskTitle, oldStatus, newStatus, updatedByName, createdBy } = data.data || {};
+    
+    if (!taskId || !taskTitle || !newStatus || !createdBy) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: taskId, taskTitle, newStatus, and createdBy are required.');
+    }
+    
+    // Get the task creator's email from Firestore
+    const admin = require('firebase-admin');
+    const db = admin.firestore();
+    
+    let assignedByEmail;
+    let assignedByName;
+    
+    // Handle test scenario
+    if (createdBy === 'test-creator-id') {
+      assignedByEmail = 'hassimiou.niane@maine.edu';
+      assignedByName = 'Test Creator';
+      console.log('Using test data for task status update notification');
+    } else {
+      // Real scenario - get creator from Firestore
+      const creatorDoc = await db.collection('users').doc(createdBy).get();
+      if (!creatorDoc.exists) {
+        console.log(`Task creator ${createdBy} not found in database`);
+        return { success: false, message: `Task creator ${createdBy} not found` };
+      }
+      
+      const creatorData = creatorDoc.data();
+      // Note: Email field is stored as 'e-mail' in Firestore user documents
+      assignedByEmail = creatorData['e-mail'] || creatorData.email; // Try both field names for compatibility
+      assignedByName = `${creatorData.first_name || ''} ${creatorData.last_name || ''}`.trim() || 'Task Creator';
+      
+      console.log('Creator data:', {
+        createdBy,
+        'e-mail': creatorData['e-mail'],
+        email: creatorData.email,
+        first_name: creatorData.first_name,
+        last_name: creatorData.last_name
+      });
+      
+      if (!assignedByEmail) {
+        console.log('Task creator email not found. Available fields:', Object.keys(creatorData));
+        return { success: false, message: 'Task creator email not found' };
+      }
+    }
+    
+    const transporter = createTransporter();
+    
+    const statusColors = {
+      'pending': '#f59e0b',
+      'in_progress': '#3b82f6', 
+      'completed': '#10b981',
+      'cancelled': '#ef4444',
+      'todo': '#6b7280',
+      'done': '#10b981'
+    };
+    
+    const statusEmojis = {
+      'pending': '⏳',
+      'in_progress': '🔄',
+      'completed': '✅',
+      'cancelled': '❌',
+      'todo': '📋',
+      'done': '✅'
+    };
+    
+    const statusColor = statusColors[newStatus] || '#6b7280';
+    const statusEmoji = statusEmojis[newStatus] || '📋';
+    
+    const mailOptions = {
+      from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+      to: assignedByEmail,
+      subject: `${statusEmoji} Task Status Updated: ${taskTitle}`,
+      html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Task Status Update</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+          .container { max-width: 600px; margin: 0 auto; background-color: white; }
+          .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 25px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+          .content { padding: 30px 20px; }
+          .status-update { background-color: #f8fafc; border: 2px solid ${statusColor}; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
+          .status-badge { display: inline-block; background-color: ${statusColor}; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; text-transform: uppercase; margin: 0 5px; }
+          .task-info { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+          .cta-button { display: inline-block; background-color: #0386FF; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+          .arrow { font-size: 24px; color: #6b7280; margin: 0 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${statusEmoji} Task Status Updated</h1>
+            <p>One of your assigned tasks has been updated</p>
+          </div>
+          
+          <div class="content">
+            <div class="task-info">
+              <h2>📋 Task Details</h2>
+              <p><strong>Task:</strong> ${taskTitle}</p>
+              <p><strong>Task ID:</strong> ${taskId}</p>
+              <p><strong>Updated by:</strong> ${updatedByName || 'Unknown User'}</p>
+              <p><strong>Updated:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            
+            <div class="status-update">
+              <h3>Status Change</h3>
+              <div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap;">
+                ${oldStatus ? `<span class="status-badge" style="background-color: #6b7280;">${oldStatus.replace('_', ' ')}</span>` : ''}
+                <span class="arrow">→</span>
+                <span class="status-badge">${newStatus.replace('_', ' ')}</span>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <p>You can view the complete task details and progress in your dashboard.</p>
+              <a href="https://alluwaleducationhub.org/tasks" class="cta-button">View Task Details</a>
+            </div>
+            
+            <div style="background-color: #ecfdf5; border: 1px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <h4 style="margin-top: 0;">💡 Quick Actions</h4>
+              <ul>
+                <li>Review task progress and details</li>
+                <li>Add comments or feedback</li>
+                <li>Update task priority if needed</li>
+                <li>Check other pending tasks</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Alluwal Education Hub. All rights reserved.</p>
+            <p>This notification was sent to ${assignedByEmail}. You're receiving this because you assigned this task.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    console.log(`Task status update email sent successfully to ${assignedByEmail}`);
+    
+    return { success: true, message: `Status update notification sent to ${assignedByEmail}` };
+    
+  } catch (error) {
+    console.error('Error sending task status update email:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send status update email: ${error.message}`);
   }
 });
