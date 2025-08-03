@@ -10,6 +10,11 @@ class UserRoleService {
   static const String _activeRoleKey = 'active_user_role';
   static const String _availableRolesKey = 'available_user_roles';
 
+  // In-memory cache to reduce repeated Firestore calls
+  static Map<String, dynamic>? _cachedUserData;
+  static String? _cachedUserEmail;
+  static DateTime? _cacheTimestamp;
+
   /// Get all available roles for the current user
   static Future<List<String>> getAvailableRoles() async {
     try {
@@ -143,11 +148,20 @@ class UserRoleService {
     return roles.length > 1;
   }
 
-  /// Get complete user data from Firestore
+  /// Get complete user data from Firestore with caching
   static Future<Map<String, dynamic>?> getCurrentUserData() async {
     try {
       final User? currentUser = _auth.currentUser;
       if (currentUser == null) return null;
+
+      // Check cache validity (5 minutes)
+      final now = DateTime.now();
+      if (_cachedUserData != null &&
+          _cachedUserEmail == currentUser.email?.toLowerCase() &&
+          _cacheTimestamp != null &&
+          now.difference(_cacheTimestamp!).inMinutes < 5) {
+        return _cachedUserData;
+      }
 
       final QuerySnapshot userQuery = await _firestore
           .collection('users')
@@ -157,7 +171,14 @@ class UserRoleService {
 
       if (userQuery.docs.isEmpty) return null;
 
-      return userQuery.docs.first.data() as Map<String, dynamic>;
+      final userData = userQuery.docs.first.data() as Map<String, dynamic>;
+
+      // Cache the result
+      _cachedUserData = userData;
+      _cachedUserEmail = currentUser.email?.toLowerCase();
+      _cacheTimestamp = now;
+
+      return userData;
     } catch (e) {
       print('Error getting user data: $e');
       return null;
@@ -180,6 +201,13 @@ class UserRoleService {
   static Future<bool> isStudent() async {
     final role = await getCurrentUserRole();
     return role?.toLowerCase() == 'student';
+  }
+
+  /// Clear cached user data (call on sign out)
+  static void clearCache() {
+    _cachedUserData = null;
+    _cachedUserEmail = null;
+    _cacheTimestamp = null;
   }
 
   /// Check if user is a parent
@@ -399,7 +427,8 @@ class UserRoleService {
       if (userQuery.docs.isEmpty) return false;
 
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
-      return userData['is_active'] as bool? ?? true; // Default to active if field doesn't exist
+      return userData['is_active'] as bool? ??
+          true; // Default to active if field doesn't exist
     } catch (e) {
       print('Error checking user active status: $e');
       return true; // Default to active on error

@@ -77,36 +77,55 @@ class _ChatScreenState extends State<ChatScreen> {
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
-      leading: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(
-          Icons.arrow_back,
-          color: Color(0xff374151),
+      leading: Container(
+        margin: const EdgeInsets.only(left: 16),
+        child: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xffF1F5F9),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: Color(0xff374151),
+            size: 20,
+          ),
         ),
       ),
       title: Row(
         children: [
-          // Avatar
+          // Enhanced Avatar
           Stack(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: widget.chatUser.role == 'group'
+                  color: widget.chatUser.isGroup
                       ? const Color(0xff059669).withOpacity(0.1)
                       : const Color(0xff0386FF).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: widget.chatUser.role == 'group'
-                        ? const Color(0xff059669).withOpacity(0.2)
-                        : const Color(0xff0386FF).withOpacity(0.2),
-                    width: 2,
+                    color: widget.chatUser.isGroup
+                        ? const Color(0xff059669).withOpacity(0.15)
+                        : const Color(0xff0386FF).withOpacity(0.15),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (widget.chatUser.isGroup 
+                          ? const Color(0xff059669) 
+                          : const Color(0xff0386FF)).withOpacity(0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: widget.chatUser.profilePicture != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(12),
                         child: Image.network(
                           widget.chatUser.profilePicture!,
                           fit: BoxFit.cover,
@@ -117,27 +136,34 @@ class _ChatScreenState extends State<ChatScreen> {
                     : _buildInitialsAvatar(),
               ),
 
-              // Online indicator (only for individual chats)
-              if (widget.chatUser.isOnline && widget.chatUser.role != 'group')
+              // Enhanced online indicator
+              if (widget.chatUser.isOnline && !widget.chatUser.isGroup)
                 Positioned(
-                  bottom: 2,
-                  right: 2,
+                  bottom: 0,
+                  right: 0,
                   child: Container(
-                    width: 12,
-                    height: 12,
+                    width: 14,
+                    height: 14,
                     decoration: BoxDecoration(
                       color: const Color(0xff10B981),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.white, width: 2),
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(color: Colors.white, width: 2.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xff10B981).withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
                   ),
                 ),
             ],
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
 
-          // User info
+          // Enhanced User info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,60 +171,43 @@ class _ChatScreenState extends State<ChatScreen> {
                 Text(
                   widget.chatUser.displayName,
                   style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                     color: const Color(0xff111827),
+                    height: 1.2,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  widget.chatUser.role == 'group'
-                      ? widget
-                          .chatUser.email // Group description or "Group chat"
-                      : widget.chatUser.isOnline
-                          ? 'Online'
-                          : widget.chatUser.lastSeen != null
-                              ? 'Last seen ${_formatLastSeen(widget.chatUser.lastSeen!)}'
-                              : widget.chatUser.role != null
-                                  ? _getRoleDisplayName(widget.chatUser.role!)
-                                  : 'Offline',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: widget.chatUser.role == 'group'
-                        ? const Color(0xff059669)
-                        : widget.chatUser.isOnline
-                            ? const Color(0xff10B981)
-                            : const Color(0xff6B7280),
-                  ),
-                ),
+                const SizedBox(height: 2),
+                _buildStatusIndicator(),
               ],
             ),
           ),
         ],
       ),
       actions: [
-        IconButton(
-          onPressed: () {
-            // TODO: Add call functionality
-          },
-          icon: const Icon(
-            Icons.call,
-            color: Color(0xff6B7280),
-          ),
-        ),
-        IconButton(
-          onPressed: () {
-            // TODO: Add video call functionality
-          },
-          icon: const Icon(
-            Icons.videocam,
-            color: Color(0xff6B7280),
-          ),
-        ),
+        _buildActionButton(Icons.call, () {
+          // TODO: Add call functionality
+        }),
+        _buildActionButton(Icons.videocam, () {
+          // TODO: Add video call functionality
+        }),
         PopupMenuButton<String>(
-          icon: const Icon(
-            Icons.more_vert,
-            color: Color(0xff6B7280),
+          icon: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xffF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.more_vert,
+              color: Color(0xff64748B),
+              size: 20,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
           onSelected: (value) {
             switch (value) {
@@ -218,23 +227,112 @@ class _ChatScreenState extends State<ChatScreen> {
           },
           itemBuilder: (context) => _buildMenuItems(),
         ),
+        const SizedBox(width: 16),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(
           height: 1,
-          color: const Color(0xffE5E7EB),
+          color: const Color(0xffF1F5F9),
         ),
       ),
     );
   }
 
+  Widget _buildActionButton(IconData icon, VoidCallback onPressed) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: IconButton(
+        onPressed: onPressed,
+        style: IconButton.styleFrom(
+          backgroundColor: const Color(0xffF1F5F9),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: Icon(
+          icon,
+          color: const Color(0xff64748B),
+          size: 20,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusIndicator() {
+    if (widget.chatUser.isGroup) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xff059669).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: const Color(0xff059669).withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          widget.chatUser.email, // Group description or "Group chat"
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            color: const Color(0xff059669),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    if (widget.chatUser.isOnline) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xff10B981).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: const Color(0xff10B981).withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          'Online',
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            color: const Color(0xff10B981),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    if (widget.chatUser.lastSeen != null) {
+      return Text(
+        'Last sent ${_formatLastSeen(widget.chatUser.lastSeen!)}',
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          color: const Color(0xff94A3B8),
+          fontWeight: FontWeight.w400,
+        ),
+      );
+    }
+
+    return Text(
+      widget.chatUser.role != null
+          ? _getRoleDisplayName(widget.chatUser.role!)
+          : 'Offline',
+      style: GoogleFonts.inter(
+        fontSize: 12,
+        color: const Color(0xff94A3B8),
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+
   Widget _buildInitialsAvatar() {
-    if (widget.chatUser.role == 'group') {
+    if (widget.chatUser.isGroup) {
       return const Center(
         child: Icon(
           Icons.group,
-          size: 20,
+          size: 22,
           color: Color(0xff059669),
         ),
       );
@@ -245,7 +343,7 @@ class _ChatScreenState extends State<ChatScreen> {
         widget.chatUser.initials,
         style: GoogleFonts.inter(
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: const Color(0xff0386FF),
         ),
       ),

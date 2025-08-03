@@ -34,7 +34,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   StreamSubscription<QuerySnapshot>? _userStreamSubscription;
   bool _isLoading = true;
 
-  List<Employee> _snapshotEmployees = []; // Holds the latest snapshot from Firestore
+  List<Employee> _snapshotEmployees =
+      []; // Holds the latest snapshot from Firestore
   List<Employee> _allEmployees = []; // Used for the 'Users' tab after filtering
   List<Employee> _adminUsers = []; // Used for the 'Admins' tab after filtering
 
@@ -116,14 +117,16 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       // Reset both filters
       _currentFilterType = null;
       _currentStatusFilter = null;
-      
+
       // Determine if it's a user type or status filter
-      if (filterValue == 'active' || filterValue == 'archived' || filterValue == 'never_logged_in') {
+      if (filterValue == 'active' ||
+          filterValue == 'archived' ||
+          filterValue == 'never_logged_in') {
         _currentStatusFilter = filterValue;
       } else {
         _currentFilterType = filterValue;
       }
-      
+
       _applyFilters();
     });
   }
@@ -142,7 +145,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     if (_currentFilterType != null && _currentFilterType != 'all') {
       regularUsers = regularUsers
           .where((employee) =>
-              employee.userType.toLowerCase() == _currentFilterType!.toLowerCase())
+              employee.userType.toLowerCase() ==
+              _currentFilterType!.toLowerCase())
           .toList();
     }
 
@@ -158,8 +162,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           adminUsers = adminUsers.where((emp) => !emp.isActive).toList();
           break;
         case 'never_logged_in':
-          regularUsers = regularUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
-          adminUsers = adminUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
+          regularUsers =
+              regularUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
+          adminUsers =
+              adminUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
           break;
       }
     }
@@ -191,17 +197,17 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   bool _hasNeverLoggedIn(Employee employee) {
     // Check if last login is empty, null, or a default placeholder value
     final lastLogin = employee.lastLogin.trim().toLowerCase();
-    return lastLogin.isEmpty || 
-           lastLogin == 'never' || 
-           lastLogin == 'n/a' || 
-           lastLogin == '-' ||
-           lastLogin == 'null' ||
-           lastLogin == 'none' ||
-           // Handle Firestore null values that get converted to string representations
-           lastLogin.contains('null') ||
-           lastLogin.contains('1970-01-01') || // Unix epoch default
-           // Handle cases where date conversion fails
-           lastLogin.startsWith('instance of');
+    return lastLogin.isEmpty ||
+        lastLogin == 'never' ||
+        lastLogin == 'n/a' ||
+        lastLogin == '-' ||
+        lastLogin == 'null' ||
+        lastLogin == 'none' ||
+        // Handle Firestore null values that get converted to string representations
+        lastLogin.contains('null') ||
+        lastLogin.contains('1970-01-01') || // Unix epoch default
+        // Handle cases where date conversion fails
+        lastLogin.startsWith('instance of');
   }
 
   Future<void> _promoteToAdminTeacher(Employee employee) async {
@@ -463,7 +469,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue.shade600, size: 16),
+                      Icon(Icons.info_outline,
+                          color: Colors.blue.shade600, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -488,8 +495,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child:
-                    const Text('Archive User', style: TextStyle(color: Colors.white)),
+                child: const Text('Archive User',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -552,8 +559,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child:
-                    const Text('Restore User', style: TextStyle(color: Colors.white)),
+                child: const Text('Restore User',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -797,8 +804,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: TabBar(
-                              labelStyle:
-                                  const TextStyle(color: Colors.orange),
+                              labelStyle: const TextStyle(color: Colors.orange),
                               indicatorSize: TabBarIndicatorSize.tab,
                               controller: _tabController,
                               labelColor: Colors.blue,
@@ -828,292 +834,298 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                       ? const Center(
                                           child: CircularProgressIndicator())
                                       : SfDataGrid(
-                                        source: _employeeDataSource!,
-                                        columnWidthMode: ColumnWidthMode.fill,
-                                        columns: <GridColumn>[
-                                          GridColumn(
-                                            columnName: 'FirstName',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                'First Name',
-                                                style: GoogleFonts.inter(
-                                                  color:
-                                                      const Color(0xff3f4648),
-                                                  fontWeight: FontWeight.w600,
+                                          source: _employeeDataSource!,
+                                          columnWidthMode: ColumnWidthMode.fill,
+                                          columns: <GridColumn>[
+                                            GridColumn(
+                                              columnName: 'FirstName',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  'First Name',
+                                                  style: GoogleFonts.inter(
+                                                    color:
+                                                        const Color(0xff3f4648),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'LastName',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                'Last Name',
-                                                style: openSansHebrewTextStyle
-                                                    .copyWith(
-                                                  color:
-                                                      const Color(0xff3f4648),
-                                                  fontWeight: FontWeight.w500,
+                                            GridColumn(
+                                              columnName: 'LastName',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  'Last Name',
+                                                  style: openSansHebrewTextStyle
+                                                      .copyWith(
+                                                    color:
+                                                        const Color(0xff3f4648),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'Email',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                'Email',
-                                                style: openSansHebrewTextStyle
-                                                    .copyWith(
-                                                  color:
-                                                      const Color(0xff3f4648),
-                                                  fontWeight: FontWeight.w500,
+                                            GridColumn(
+                                              columnName: 'Email',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  'Email',
+                                                  style: openSansHebrewTextStyle
+                                                      .copyWith(
+                                                    color:
+                                                        const Color(0xff3f4648),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'CountryCode',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Country Code',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'MobilePhone',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Mobile Phone',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'UserType',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'User Type',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'Title',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Title',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'EmploymentStartDate',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Start Date',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'KioskCode',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Kiosk Code',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'DateAdded',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Date Added',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'LastLogin',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: const Text(
-                                                'Last Login',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          GridColumn(
-                                            columnName: 'Actions',
-                                            label: Container(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                'Actions',
-                                                style: GoogleFonts.inter(
-                                                  fontWeight: FontWeight.w600,
-                                                  color:
-                                                      const Color(0xff3f4648),
+                                            GridColumn(
+                                              columnName: 'CountryCode',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Country Code',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                              // Admins Tab
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Header with role management info
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.info,
-                                              color: Colors.blue),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Admin Role Management',
+                                            GridColumn(
+                                              columnName: 'MobilePhone',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Mobile Phone',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'UserType',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'User Type',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'Title',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Title',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'EmploymentStartDate',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Start Date',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'KioskCode',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Kiosk Code',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'DateAdded',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Date Added',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'LastLogin',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  'Last Login',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                            GridColumn(
+                                              columnName: 'Actions',
+                                              label: Container(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  'Actions',
                                                   style: GoogleFonts.inter(
                                                     fontWeight: FontWeight.w600,
-                                                    color: Colors.blue.shade700,
+                                                    color:
+                                                        const Color(0xff3f4648),
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Promote teachers to admin-teacher (dual role) or revoke admin privileges. Admin-teachers can switch between roles.',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 12,
-                                                    color: Colors.blue.shade600,
-                                                  ),
-                                                ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-
-                                    // Admin users grid
-                                    Expanded(
-                                      child: _adminDataSource == null
-                                          ? const Center(
-                                              child:
-                                                  CircularProgressIndicator())
-                                          : _adminUsers.isEmpty
-                                              ? Center(
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons
-                                                            .admin_panel_settings_outlined,
-                                                        size: 64,
-                                                        color: Colors
-                                                            .grey.shade400,
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 16),
-                                                      Text(
-                                                        'No admin users found',
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                          fontSize: 18,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Colors
-                                                              .grey.shade600,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Text(
-                                                        'Promote teachers from the Users tab to create admin-teachers',
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                          fontSize: 14,
-                                                          color: Colors
-                                                              .grey.shade500,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                )
-                                              : _buildAdminGrid(),
-                                    ),
-                                  ],
+                                          ],
+                                        ),
                                 ),
-                              ),
-                            ],
+                                // Admins Tab
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Header with role management info
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.info,
+                                                color: Colors.blue),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Admin Role Management',
+                                                    style: GoogleFonts.inter(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          Colors.blue.shade700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Promote teachers to admin-teacher (dual role) or revoke admin privileges. Admin-teachers can switch between roles.',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 12,
+                                                      color:
+                                                          Colors.blue.shade600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+
+                                      // Admin users grid
+                                      Expanded(
+                                        child: _adminDataSource == null
+                                            ? const Center(
+                                                child:
+                                                    CircularProgressIndicator())
+                                            : _adminUsers.isEmpty
+                                                ? Center(
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .admin_panel_settings_outlined,
+                                                          size: 64,
+                                                          color: Colors
+                                                              .grey.shade400,
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 16),
+                                                        Text(
+                                                          'No admin users found',
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                            fontSize: 18,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: Colors
+                                                                .grey.shade600,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 8),
+                                                        Text(
+                                                          'Promote teachers from the Users tab to create admin-teachers',
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                            fontSize: 14,
+                                                            color: Colors
+                                                                .grey.shade500,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  )
+                                                : _buildAdminGrid(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
               ),
             ),
           ),

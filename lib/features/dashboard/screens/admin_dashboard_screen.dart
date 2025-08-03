@@ -4568,11 +4568,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
           .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
+        // Check if user is still authenticated
+        if (FirebaseAuth.instance.currentUser == null) {
+          return _buildNoRecentLessonsMessage('Authentication required');
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingRecentLessons();
         }
 
         if (snapshot.hasError) {
+          // Check if it's a permission error due to sign out
+          if (snapshot.error.toString().contains('permission-denied')) {
+            return _buildNoRecentLessonsMessage(
+                'Please sign in to view lessons');
+          }
           return _buildNoRecentLessonsMessage('Error loading recent lessons');
         }
 

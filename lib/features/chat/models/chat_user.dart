@@ -6,9 +6,14 @@ class ChatUser {
   final String? role;
   final bool isOnline;
   final DateTime? lastSeen;
-  final String? lastMessage;
+  final String lastMessage;
   final DateTime? lastMessageTime;
   final int unreadCount;
+  final bool isGroup;
+  final String? groupImageUrl;
+  final List<String>? participants; // For group chats
+  final String? createdBy; // For group chats
+  final int? participantCount; // For group chats
 
   ChatUser({
     required this.id,
@@ -18,9 +23,14 @@ class ChatUser {
     this.role,
     this.isOnline = false,
     this.lastSeen,
-    this.lastMessage,
+    this.lastMessage = '',
     this.lastMessageTime,
     this.unreadCount = 0,
+    this.isGroup = false,
+    this.groupImageUrl,
+    this.participants,
+    this.createdBy,
+    this.participantCount,
   });
 
   factory ChatUser.fromMap(Map<String, dynamic> map) {
@@ -33,15 +43,20 @@ class ChatUser {
       isOnline: map['is_online'] ?? false,
       lastSeen:
           map['last_seen'] != null ? DateTime.tryParse(map['last_seen']) : null,
-      lastMessage: map['last_message'],
+      lastMessage: map['last_message'] ?? '',
       lastMessageTime: map['last_message_time'] != null
           ? DateTime.tryParse(map['last_message_time'])
           : null,
       unreadCount: map['unread_count'] ?? 0,
+      isGroup: map['is_group'] ?? false,
+      groupImageUrl: map['group_image_url'],
+      participants: List<String>.from(map['participants'] ?? []),
+      createdBy: map['created_by'],
+      participantCount: map['participant_count'],
     );
   }
 
-  String get displayName => name.isEmpty ? email : name;
+  String get displayName => name.isNotEmpty ? name : email;
 
   String get initials {
     if (name.isEmpty) return email.isNotEmpty ? email[0].toUpperCase() : '?';

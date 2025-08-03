@@ -30,6 +30,9 @@ class AuthService {
           );
         }
 
+        // Update last login time in Firestore
+        await _updateLastLoginTime(user);
+
         // Initialize location and prayer times for teachers (non-blocking)
         _initializeTeacherServices(user).catchError((e) {
           print('AuthService: Background teacher initialization failed: $e');
@@ -143,6 +146,30 @@ class AuthService {
       print('AuthService: User location updated in Firestore');
     } catch (e) {
       print('AuthService: Error updating user location: $e');
+    }
+  }
+
+  // Update last login time in Firestore
+  Future<void> _updateLastLoginTime(User user) async {
+    try {
+      // Query user document by email since we store users by email, not UID
+      final QuerySnapshot userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('e-mail', isEqualTo: user.email?.toLowerCase())
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        final userDoc = userQuery.docs.first;
+        await userDoc.reference.update({
+          'last_login': FieldValue.serverTimestamp(),
+        });
+        print('AuthService: Last login time updated for ${user.email}');
+      } else {
+        print('AuthService: User document not found for ${user.email}');
+      }
+    } catch (e) {
+      print('AuthService: Error updating last login time: $e');
     }
   }
 

@@ -13,31 +13,10 @@ class LandingPageService {
   static const String _cloudFunctionUrl =
       'https://us-central1-alluwal-academy.cloudfunctions.net/getLandingPageContent';
 
-  /// Get the current landing page content
+  // Return static content without remote fetch – used for the public landing page.
   static Future<LandingPageContent> getLandingPageContent() async {
-    try {
-      print(
-          'LandingPageService: Attempting to load content from Cloud Function...');
-
-      final response = await http.get(Uri.parse(_cloudFunctionUrl));
-
-      if (response.statusCode == 200) {
-        print(
-            'LandingPageService: Content loaded successfully from Cloud Function');
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        return LandingPageContent.fromMap(data);
-      } else {
-        print(
-            'LandingPageService: Cloud Function returned error ${response.statusCode}: ${response.body}');
-        // Fallback to default content on error
-        return LandingPageContent.defaultContent();
-      }
-    } catch (e) {
-      print(
-          'LandingPageService: General error fetching from Cloud Function: $e');
-      // Return default content if there's an error
-      return LandingPageContent.defaultContent();
-    }
+    print('LandingPageService: Returning static default landing page content');
+    return LandingPageContent.defaultContent();
   }
 
   /// Save landing page content
