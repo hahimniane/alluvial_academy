@@ -426,6 +426,93 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     );
   }
 
+  void _showSuccessDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          title,
+          style: openSansHebrewTextStyle.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: const Color(0xff059669),
+          ),
+        ),
+        content: Text(
+          message,
+          style: openSansHebrewTextStyle,
+        ),
+        actions: <Widget>[
+          TextButton(
+            child: Text(
+              'Okay',
+              style: openSansHebrewTextStyle.copyWith(
+                color: const Color(0xff0386FF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Handle forgot password
+  Future<void> _handleForgotPassword() async {
+    String email = emailAddressController.text.trim();
+
+    // Check if email is provided
+    if (email.isEmpty) {
+      _showErrorDialog('Please enter your email address first.');
+      return;
+    }
+
+    // Basic email validation
+    if (!email.contains('@') || !email.contains('.')) {
+      _showErrorDialog('Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      AuthService authService = AuthService();
+      await authService.sendPasswordResetEmail(email);
+
+      // Show success message
+      _showSuccessDialog(
+        'Password Reset Email Sent',
+        'A password reset link has been sent to $email. Please check your inbox and follow the instructions to reset your password.',
+      );
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage =
+              'No account found with this email address. Please check your email or contact an administrator.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'too-many-requests':
+          errorMessage =
+              'Too many password reset requests. Please wait a few minutes before trying again.';
+          break;
+        case 'network-request-failed':
+          errorMessage =
+              'Network connection failed. Please check your internet connection and try again.';
+          break;
+        default:
+          errorMessage = e.message ??
+              'Unable to send password reset email. Please try again later.';
+      }
+      _showErrorDialog(errorMessage);
+    } catch (e) {
+      _showErrorDialog('An unexpected error occurred. Please try again later.');
+    }
+  }
+
   // Handle sign-in process
   Future<void> _handleSignIn() async {
     AuthService authService = AuthService();
@@ -694,7 +781,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: _handleForgotPassword,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
