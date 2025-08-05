@@ -36,6 +36,83 @@ const generateRandomPassword = (length = 12) => {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 };
 
+// Send custom password reset email
+const sendPasswordResetEmail = async (email, resetLink, displayName = '') => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: 'support@alluwaleducationhub.org',
+      to: email,
+      subject: 'Reset Your Alluwal Academy Password',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset - Alluwal Academy</title>
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Alluwal Academy</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Password Reset Request</p>
+          </div>
+          
+          <div style="background: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="color: #2D3748; margin: 0 0 20px 0; font-size: 24px;">Hello${displayName ? ' ' + displayName : ''},</h2>
+            
+            <p style="margin: 0 0 20px 0; font-size: 16px; color: #4A5568;">
+              You requested to reset your password for your Alluwal Academy account. Click the secure link below to create a new password:
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="display: inline-block; background: #0386FF; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 2px 4px rgba(3,134,255,0.3);">
+                Reset Password
+              </a>
+            </div>
+            
+            <div style="background: #F7FAFC; padding: 20px; border-radius: 8px; margin: 30px 0;">
+              <h3 style="color: #2D3748; margin: 0 0 10px 0; font-size: 18px;">Security Notice</h3>
+              <ul style="margin: 0; padding-left: 20px; color: #4A5568;">
+                <li>This link will expire in 1 hour for your security</li>
+                <li>If you didn't request this reset, please ignore this email</li>
+                <li>Your account will remain secure and unchanged</li>
+              </ul>
+            </div>
+            
+            <p style="margin: 20px 0; font-size: 14px; color: #718096;">
+              If the button above doesn't work, copy and paste this link into your browser:
+              <br><span style="word-break: break-all; color: #0386FF;">${resetLink}</span>
+            </p>
+            
+            <div style="border-top: 1px solid #E2E8F0; padding-top: 20px; margin-top: 30px;">
+              <p style="margin: 0; font-size: 14px; color: #718096;">
+                Need help? Contact our support team at 
+                <a href="mailto:support@alluwaleducationhub.org" style="color: #0386FF;">support@alluwaleducationhub.org</a>
+              </p>
+              <p style="margin: 10px 0 0 0; font-size: 14px; color: #718096;">
+                Best regards,<br>
+                <strong>The Alluwal Academy Team</strong>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    console.log(`Custom password reset email sent successfully to ${email}`);
+    
+    return { success: true, message: `Password reset email sent to ${email}` };
+    
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send password reset email: ${error.message}`);
+  }
+};
+
 // Send welcome email with credentials
 const sendWelcomeEmail = async (email, firstName, lastName, password, userType) => {
   try {
@@ -1080,5 +1157,60 @@ exports.sendTaskStatusUpdateNotification = functions.https.onCall(async (data, c
   } catch (error) {
     console.error('Error sending task status update email:', error);
     throw new functions.https.HttpsError('internal', `Failed to send status update email: ${error.message}`);
+  }
+});
+
+// Custom password reset email function
+exports.sendCustomPasswordResetEmail = functions.https.onCall(async (data, context) => {
+  console.log("--- CUSTOM PASSWORD RESET EMAIL ---");
+  console.log("Data type:", typeof data);
+  console.log("Data keys:", data ? Object.keys(data) : 'null');
+  
+  try {
+    // Validate input data
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid data received:', data);
+      throw new functions.https.HttpsError('invalid-argument', 'Data must be an object');
+    }
+
+    // Extract the actual data (handle both data.data and direct data formats)
+    const requestData = data.data || data;
+    console.log("RequestData type:", typeof requestData);
+    console.log("RequestData keys:", requestData ? Object.keys(requestData) : 'null');
+    
+    const { email, displayName } = requestData;
+
+    // Log extracted fields for debugging
+    console.log('Extracted fields:', {
+      email: email || 'MISSING',
+      displayName: displayName || 'MISSING'
+    });
+
+    // Validate required fields
+    if (!email || String(email).trim() === '') {
+      throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+    }
+
+    console.log(`Generating password reset link for: ${email}`);
+    
+    // Generate Firebase password reset link
+    // Note: Using default Firebase redirect URL to avoid domain allowlist issues
+    const resetLink = await admin.auth().generatePasswordResetLink(email);
+    console.log(`Password reset link generated: ${resetLink}`);
+
+    // Send custom email using our branded template
+    const result = await sendPasswordResetEmail(email, resetLink, displayName);
+    
+    console.log(`Custom password reset email sent successfully to ${email}`);
+    return result;
+    
+  } catch (error) {
+    console.error('Error in sendCustomPasswordResetEmail:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new functions.https.HttpsError('not-found', 'No user found with this email address');
+    }
+    
+    throw new functions.https.HttpsError('internal', `Failed to send password reset email: ${error.message}`);
   }
 });

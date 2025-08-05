@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'location_service.dart';
 import 'location_preference_service.dart';
 import 'prayer_time_service.dart';
@@ -184,6 +185,70 @@ class AuthService {
     } catch (e) {
       print(e.toString());
       return null;
+    }
+  }
+
+  // Send password reset email using custom branded template
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      // Use custom Cloud Function for branded email with better deliverability
+      final functions = FirebaseFunctions.instance;
+      final callable = functions.httpsCallable('sendCustomPasswordResetEmail');
+
+      // Get user's display name from Firestore if available
+      String displayName = '';
+      try {
+        final QuerySnapshot userQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('e-mail', isEqualTo: email.toLowerCase())
+            .limit(1)
+            .get();
+
+        if (userQuery.docs.isNotEmpty) {
+          final userData = userQuery.docs.first.data() as Map<String, dynamic>;
+          final firstName = userData['first-name'] ?? '';
+          final lastName = userData['last-name'] ?? '';
+          displayName = '$firstName $lastName'.trim();
+        }
+      } catch (e) {
+        print('AuthService: Could not fetch user display name: $e');
+        // Continue without display name
+      }
+
+      await callable.call({
+        'email': email,
+        'displayName': displayName,
+      });
+
+      print('AuthService: Custom password reset email sent to $email');
+    } on FirebaseFunctionsException catch (e) {
+      print(
+          'AuthService: Password reset function error: ${e.code} - ${e.message}');
+
+      // Convert function errors to auth errors for consistent handling
+      String errorCode;
+      switch (e.code) {
+        case 'not-found':
+          errorCode = 'user-not-found';
+          break;
+        case 'invalid-argument':
+          errorCode = 'invalid-email';
+          break;
+        default:
+          errorCode = 'unknown-error';
+      }
+
+      throw FirebaseAuthException(
+        code: errorCode,
+        message: e.message ??
+            'Unable to send password reset email. Please try again later.',
+      );
+    } catch (e) {
+      print('AuthService: Unexpected error in password reset: $e');
+      throw FirebaseAuthException(
+        code: 'unknown-error',
+        message: 'An unexpected error occurred. Please try again later.',
+      );
     }
   }
 
