@@ -2468,14 +2468,19 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(
-                field.label.isEmpty ? 'Untitled Field' : field.label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff374151),
+              Flexible(
+                child: Text(
+                  field.label.isEmpty ? 'Untitled Field' : field.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff374151),
+                  ),
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
                 ),
               ),
               if (field.required) ...[
@@ -2529,14 +2534,22 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         return DropdownButtonFormField<String>(
           decoration: _previewInputDecoration(field.placeholder),
           value: _previewValues[field.id] as String?,
+          isExpanded: true, // Allow dropdown to expand to full width
           items: field.options.isEmpty
               ? [
                   const DropdownMenuItem(
-                      value: 'Option 1', child: Text('Option 1'))
+                      value: 'Option 1', 
+                      child: Text('Option 1', softWrap: true, overflow: TextOverflow.visible))
                 ]
               : field.options
                   .map((option) =>
-                      DropdownMenuItem(value: option, child: Text(option)))
+                      DropdownMenuItem(
+                        value: option, 
+                        child: Text(
+                          option,
+                          softWrap: true,
+                          overflow: TextOverflow.visible,
+                        )))
                   .toList(),
           onChanged: (value) {
             setState(() {
@@ -2553,16 +2566,27 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       case 'description':
         return TextFormField(
           decoration: _previewInputDecoration(field.placeholder),
-          maxLines: 3,
+          maxLines: null,
+          minLines: 3,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            height: 1.5,
+          ),
+          textInputAction: TextInputAction.newline,
         );
       case 'number':
         return TextFormField(
           decoration: _previewInputDecoration(field.placeholder),
           keyboardType: TextInputType.number,
+          style: GoogleFonts.inter(fontSize: 14),
         );
       default:
         return TextFormField(
           decoration: _previewInputDecoration(field.placeholder),
+          maxLines: null,
+          minLines: 1,
+          style: GoogleFonts.inter(fontSize: 14),
+          textInputAction: TextInputAction.done,
         );
     }
   }
@@ -2585,7 +2609,12 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         children: availableOptions.map((option) {
           final isSelected = selectedValues.contains(option);
           return CheckboxListTile(
-            title: Text(option),
+            title: Text(
+              option,
+              style: GoogleFonts.inter(fontSize: 14),
+              softWrap: true,
+              overflow: TextOverflow.visible,
+            ),
             value: isSelected,
             onChanged: (value) {
               setState(() {

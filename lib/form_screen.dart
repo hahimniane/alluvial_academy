@@ -962,14 +962,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with required indicator
-        Row(
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff374151),
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff374151),
+                ),
+                softWrap: true,
+                overflow: TextOverflow.visible,
               ),
             ),
             if (required) ...[
@@ -1037,6 +1042,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   ) {
     return TextFormField(
       controller: controller,
+      maxLines: type == 'text' ? null : 1, // Allow text wrapping for text fields
+      minLines: 1,
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: GoogleFonts.inter(
@@ -1067,12 +1074,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         ),
         contentPadding: const EdgeInsets.all(16),
         prefixIcon: _getFieldIcon(type),
+        alignLabelWithHint: true,
       ),
       style: GoogleFonts.inter(
         fontSize: 14,
         color: const Color(0xff111827),
       ),
       keyboardType: _getKeyboardType(type),
+      textInputAction: TextInputAction.done,
       validator: (value) {
         if (required && (value == null || value.isEmpty)) {
           return 'Please enter $label';
@@ -1132,12 +1141,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         color: const Color(0xff111827),
       ),
       dropdownColor: Colors.white,
+      isExpanded: true, // Allow dropdown to expand to full width
       items: options
               ?.map((option) => DropdownMenuItem(
                     value: option,
                     child: Text(
                       option,
                       style: GoogleFonts.inter(fontSize: 14),
+                      softWrap: true,
+                      overflow: TextOverflow.visible,
                     ),
                   ))
               .toList() ??
@@ -1359,7 +1371,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   ) {
     return TextFormField(
       controller: controller,
-      maxLines: 4,
+      maxLines: null, // Allow unlimited lines
+      minLines: 3, // Start with 3 lines minimum
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: GoogleFonts.inter(
@@ -1380,13 +1393,23 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
+        ),
         contentPadding: const EdgeInsets.all(16),
         alignLabelWithHint: true,
       ),
       style: GoogleFonts.inter(
         fontSize: 14,
         color: const Color(0xff111827),
+        height: 1.5, // Better line spacing for readability
       ),
+      textInputAction: TextInputAction.newline,
       validator: required
           ? (value) {
               if (value == null || value.isEmpty) {
