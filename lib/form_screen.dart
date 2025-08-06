@@ -814,27 +814,71 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        ..._getVisibleFields().map((fieldEntry) => Padding(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: _buildModernFormField(
-                                fieldEntry.value['label'],
-                                fieldEntry.value['placeholder'] ??
-                                    'Enter value',
-                                fieldControllers[fieldEntry.key]!,
-                                fieldEntry.value['required'] ?? false,
-                                fieldEntry.value['type'] ?? 'text',
-                                fieldEntry.key,
-                                options:
-                                    (fieldEntry.value['type'] == 'select' ||
-                                            fieldEntry.value['type'] ==
-                                                'dropdown' ||
-                                            fieldEntry.value['type'] ==
-                                                'multi_select')
-                                        ? List<String>.from(
-                                            fieldEntry.value['options'] ?? [])
-                                        : null,
-                              ),
-                            )),
+                        // Debug: Check if fields exist
+                        if (_getVisibleFields().isEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xffFEF3C7),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xffF59E0B)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info, color: Color(0xffF59E0B)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'No form fields are currently visible. This form may not have any fields configured or there may be a loading issue.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: const Color(0xffB45309),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          ..._getVisibleFields().map((fieldEntry) {
+                            try {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 24),
+                                child: _buildModernFormField(
+                                  fieldEntry.value['label'] ?? 'Untitled Field',
+                                  fieldEntry.value['placeholder'] ?? 'Enter value',
+                                  fieldControllers[fieldEntry.key]!,
+                                  fieldEntry.value['required'] ?? false,
+                                  fieldEntry.value['type'] ?? 'text',
+                                  fieldEntry.key,
+                                  options: (fieldEntry.value['type'] == 'select' ||
+                                          fieldEntry.value['type'] == 'dropdown' ||
+                                          fieldEntry.value['type'] == 'multi_select')
+                                      ? List<String>.from(fieldEntry.value['options'] ?? [])
+                                      : null,
+                                ),
+                              );
+                            } catch (e) {
+                              // Fallback for any field rendering errors
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 24),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffFEF2F2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xffEF4444)),
+                                ),
+                                child: Text(
+                                  'Error rendering field: ${fieldEntry.key}. Error: $e',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: const Color(0xffDC2626),
+                                  ),
+                                ),
+                              );
+                            }
+                          }),
+                        ],
                       ],
                     ),
                   ),
@@ -2143,13 +2187,29 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
   // Get fields that should be visible based on conditional logic
   List<MapEntry<String, dynamic>> _getVisibleFields() {
-    if (selectedFormData == null) return [];
+    if (selectedFormData == null) {
+      print('FormScreen: No form data selected');
+      return [];
+    }
 
-    final fields = selectedFormData!['fields'] as Map<String, dynamic>;
+    final fields = selectedFormData!['fields'];
+    if (fields == null) {
+      print('FormScreen: No fields found in form data');
+      return [];
+    }
+
+    if (fields is! Map<String, dynamic>) {
+      print('FormScreen: Fields is not a Map<String, dynamic>, type: ${fields.runtimeType}');
+      return [];
+    }
+
+    final fieldsMap = fields as Map<String, dynamic>;
     final visibleFields = <MapEntry<String, dynamic>>[];
 
+    print('FormScreen: Found ${fieldsMap.length} total fields');
+
     // Sort fields by order first
-    final sortedEntries = fields.entries.toList()
+    final sortedEntries = fieldsMap.entries.toList()
       ..sort((a, b) {
         final aOrder = (a.value as Map<String, dynamic>)['order'] as int? ?? 0;
         final bOrder = (b.value as Map<String, dynamic>)['order'] as int? ?? 0;
@@ -2157,11 +2217,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       });
 
     for (var fieldEntry in sortedEntries) {
-      if (_shouldShowField(fieldEntry.key, fieldEntry.value)) {
-        visibleFields.add(fieldEntry);
+      try {
+        if (_shouldShowField(fieldEntry.key, fieldEntry.value)) {
+          visibleFields.add(fieldEntry);
+          print('FormScreen: Field ${fieldEntry.key} is visible');
+        } else {
+          print('FormScreen: Field ${fieldEntry.key} is hidden by conditional logic');
+        }
+      } catch (e) {
+        print('FormScreen: Error processing field ${fieldEntry.key}: $e');
       }
     }
 
+    print('FormScreen: ${visibleFields.length} fields are visible');
     return visibleFields;
   }
 
@@ -2170,7 +2238,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     final conditionalLogic = fieldData['conditionalLogic'];
 
     // If no conditional logic, always show
-    if (conditionalLogic == null) return true;
+    if (conditionalLogic == null) {
+      // print('FormScreen: Field $fieldId has no conditional logic, showing');
+      return true;
+    }
 
     final dependsOnFieldId = conditionalLogic['dependsOnFieldId'];
     final condition = conditionalLogic['condition'];
