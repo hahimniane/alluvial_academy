@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import '../core/services/form_draft_service.dart';
 import '../core/models/form_draft.dart';
-import 'draft_management_screen.dart';
 
 class FormBuilder extends StatefulWidget {
   const FormBuilder({super.key});
@@ -19,6 +18,7 @@ class _FormBuilderState extends State<FormBuilder>
   late TabController _tabController;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  FormDraft? _draftToRestore;
 
   @override
   void initState() {
@@ -41,6 +41,19 @@ class _FormBuilderState extends State<FormBuilder>
     super.dispose();
   }
 
+  /// Resume editing a draft by switching to the form builder tab and restoring state
+  void _resumeFromDraft(FormDraft draft) {
+    print(
+        'FormBuilder: Resuming draft ${draft.id} with ${draft.fields.length} fields');
+
+    setState(() {
+      _draftToRestore = draft;
+    });
+
+    // Switch to the "Create New Form" tab (index 1)
+    _tabController.animateTo(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,7 +68,14 @@ class _FormBuilderState extends State<FormBuilder>
                 controller: _tabController,
                 children: [
                   FormsListView(),
-                  FormBuilderView(),
+                  FormBuilderView(
+                    draftToRestore: _draftToRestore,
+                    onDraftRestored: () {
+                      setState(() {
+                        _draftToRestore = null;
+                      });
+                    },
+                  ),
                 ],
               ),
             ),
@@ -115,26 +135,6 @@ class _FormBuilderState extends State<FormBuilder>
                     ],
                   ),
                 ),
-                const Spacer(),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const DraftManagementScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.drafts, size: 18),
-                  label: const Text('View Drafts'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xff10B981),
-                    side: const BorderSide(color: Color(0xff10B981)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -181,8 +181,9 @@ class FormsListView extends StatefulWidget {
 
 class _FormsListViewState extends State<FormsListView> {
   String searchQuery = '';
-  String statusFilter = 'all'; // all, active, inactive
+  String statusFilter = 'all'; // all, active, inactive, drafts
   String sortBy = 'newest'; // newest, oldest, alphabetical
+  final FormDraftService _draftService = FormDraftService();
 
   @override
   Widget build(BuildContext context) {
@@ -254,11 +255,15 @@ class _FormsListViewState extends State<FormsListView> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: statusFilter,
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All Forms')),
-                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                      DropdownMenuItem(
+                    items: [
+                      const DropdownMenuItem(
+                          value: 'all', child: Text('All Forms')),
+                      const DropdownMenuItem(
+                          value: 'active', child: Text('Active')),
+                      const DropdownMenuItem(
                           value: 'inactive', child: Text('Inactive')),
+                      const DropdownMenuItem(
+                          value: 'drafts', child: Text('📝 Drafts')),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -377,6 +382,11 @@ class _FormsListViewState extends State<FormsListView> {
   }
 
   Widget _buildFormsList() {
+    // Show drafts when drafts filter is selected
+    if (statusFilter == 'drafts') {
+      return _buildDraftsList();
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('form').snapshots(),
       builder: (context, snapshot) {
@@ -720,6 +730,335 @@ class _FormsListViewState extends State<FormsListView> {
     );
   }
 
+  Widget _buildDraftsList() {
+    return StreamBuilder<List<FormDraft>>(
+      stream: _draftService.getUserDrafts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingState();
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading drafts',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff374151),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please try again later',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final drafts = snapshot.data ?? [];
+
+        // Filter drafts by search query
+        final filteredDrafts = drafts.where((draft) {
+          if (searchQuery.isEmpty) return true;
+          return draft.title
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()) ||
+              draft.description
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase());
+        }).toList();
+
+        if (filteredDrafts.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.drafts_outlined,
+                    size: 64, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                Text(
+                  searchQuery.isEmpty ? 'No saved drafts' : 'No drafts found',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff374151),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  searchQuery.isEmpty
+                      ? 'Start building a form to automatically save drafts'
+                      : 'Try adjusting your search terms',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff9CA3AF),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: filteredDrafts.length,
+          itemBuilder: (context, index) {
+            final draft = filteredDrafts[index];
+            return _buildDraftCard(draft);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDraftCard(FormDraft draft) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.drafts,
+                    color: Color(0xff10B981),
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        draft.title.isEmpty ? 'Untitled Form' : draft.title,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (draft.description.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          draft.description,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff6B7280),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'DRAFT',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff10B981),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  size: 16,
+                  color: Colors.grey[500],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Last modified ${draft.lastModifiedFormatted}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Icon(
+                  Icons.dynamic_form,
+                  size: 16,
+                  color: Colors.grey[500],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${draft.fields.length} fields',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _resumeDraft(draft),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Resume'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xff3B82F6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _deleteDraft(draft),
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xffEF4444),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _resumeDraft(FormDraft draft) {
+    // Find the parent FormBuilder widget to switch tabs and restore state
+    final formBuilderContext =
+        context.findAncestorStateOfType<_FormBuilderState>();
+    if (formBuilderContext != null) {
+      formBuilderContext._resumeFromDraft(draft);
+    }
+  }
+
+  void _deleteDraft(FormDraft draft) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(
+            'Delete Draft',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete this draft? This action cannot be undone.',
+            style: GoogleFonts.inter(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                try {
+                  await _draftService.deleteDraft(draft.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Draft deleted successfully',
+                          style: GoogleFonts.inter(color: Colors.white),
+                        ),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Failed to delete draft: $e',
+                          style: GoogleFonts.inter(color: Colors.white),
+                        ),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(
+                'Delete',
+                style: GoogleFonts.inter(
+                  color: const Color(0xffEF4444),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -928,11 +1267,15 @@ class _FormsListViewState extends State<FormsListView> {
 class FormBuilderView extends StatefulWidget {
   final String? editFormId;
   final Map<String, dynamic>? editFormData;
+  final FormDraft? draftToRestore;
+  final VoidCallback? onDraftRestored;
 
   const FormBuilderView({
     super.key,
     this.editFormId,
     this.editFormData,
+    this.draftToRestore,
+    this.onDraftRestored,
   });
 
   @override
@@ -1031,15 +1374,39 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     super.initState();
     _isEditMode = widget.editFormId != null;
 
-    if (_isEditMode && widget.editFormData != null) {
+    // Initialize autosave functionality first
+    _initializeAutosave();
+
+    // Use post-frame callback to handle restoration after build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleInitialization();
+    });
+  }
+
+  @override
+  void didUpdateWidget(FormBuilderView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Check if draftToRestore changed from null to a draft
+    if (oldWidget.draftToRestore == null && widget.draftToRestore != null) {
+      print(
+          'FormBuilderView: Draft parameter updated, restoring draft ${widget.draftToRestore!.id}');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreFromDraftDirectly(widget.draftToRestore!);
+      });
+    }
+  }
+
+  void _handleInitialization() {
+    // Check if we need to restore from a draft first
+    if (widget.draftToRestore != null) {
+      _restoreFromDraftDirectly(widget.draftToRestore!);
+    } else if (_isEditMode && widget.editFormData != null) {
       _populateFormForEditing();
     } else {
       _titleController.text = 'Untitled Form';
       _descriptionController.text = 'Enter a description for your form...';
     }
-
-    // Initialize autosave functionality
-    _initializeAutosave();
   }
 
   /// Initialize autosave timer and listeners
@@ -1074,7 +1441,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   Future<void> _checkForExistingDrafts() async {
     if (_isEditMode && widget.editFormId != null) {
       // Check if there's a draft for this existing form
-      final existingDraft = await _draftService.getDraftForForm(widget.editFormId!);
+      final existingDraft =
+          await _draftService.getDraftForForm(widget.editFormId!);
       if (existingDraft != null && mounted) {
         _showDraftRestoreDialog(existingDraft);
       }
@@ -1151,9 +1519,10 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     setState(() {
       _titleController.text = draft.title;
       _descriptionController.text = draft.description;
-      
+
       // Convert draft fields back to FormFieldData objects
-      final draftFieldsList = _draftService.convertDraftFieldsToFormFields(draft.fields);
+      final draftFieldsList =
+          _draftService.convertDraftFieldsToFormFields(draft.fields);
       fields = draftFieldsList.map((fieldData) {
         return FormFieldData(
           id: fieldData['id'],
@@ -1164,12 +1533,12 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           order: fieldData['order'],
           options: List<String>.from(fieldData['options'] ?? []),
           additionalConfig: fieldData['additionalConfig'],
-          conditionalLogic: fieldData['conditionalLogic'] != null 
+          conditionalLogic: fieldData['conditionalLogic'] != null
               ? ConditionalLogic.fromMap(fieldData['conditionalLogic'])
               : null,
         );
       }).toList();
-      
+
       _currentDraftId = draft.id;
       _hasUnsavedChanges = false;
     });
@@ -1185,6 +1554,62 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  /// Restore form from draft directly (called from initState)
+  void _restoreFromDraftDirectly(FormDraft draft) {
+    print(
+        'FormBuilder: Restoring draft ${draft.id} with ${draft.fields.length} raw fields');
+
+    // Convert draft fields back to FormFieldData objects
+    final draftFieldsList =
+        _draftService.convertDraftFieldsToFormFields(draft.fields);
+
+    setState(() {
+      _titleController.text = draft.title;
+      _descriptionController.text = draft.description;
+
+      fields = draftFieldsList.map((fieldData) {
+        return FormFieldData(
+          id: fieldData['id'],
+          type: fieldData['type'],
+          label: fieldData['label'],
+          placeholder: fieldData['placeholder'],
+          required: fieldData['required'],
+          order: fieldData['order'],
+          options: List<String>.from(fieldData['options'] ?? []),
+          additionalConfig: fieldData['additionalConfig'],
+          conditionalLogic: fieldData['conditionalLogic'] != null
+              ? ConditionalLogic.fromMap(fieldData['conditionalLogic'])
+              : null,
+        );
+      }).toList();
+
+      _currentDraftId = draft.id;
+      _hasUnsavedChanges = false;
+    });
+
+    print(
+        'FormBuilder: Restored ${fields.length} fields from draft ${draft.id}');
+
+    // Notify parent that draft has been restored
+    widget.onDraftRestored?.call();
+
+    // Schedule a frame to show success message
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Draft restored successfully! Found ${fields.length} fields.',
+              style: GoogleFonts.inter(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    });
   }
 
   void _populateFormForEditing() {
@@ -1292,15 +1717,19 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           'required': field.required,
           'order': field.order,
           if (field.options.isNotEmpty) 'options': field.options,
-          if (field.additionalConfig != null) 'additionalConfig': field.additionalConfig,
-          if (field.conditionalLogic != null) 'conditionalLogic': field.conditionalLogic!.toMap(),
+          if (field.additionalConfig != null)
+            'additionalConfig': field.additionalConfig,
+          if (field.conditionalLogic != null)
+            'conditionalLogic': field.conditionalLogic!.toMap(),
         };
       }
 
       // Save draft
       _currentDraftId = await _draftService.saveDraft(
         draftId: _currentDraftId,
-        title: _titleController.text.trim().isEmpty ? 'Untitled Form' : _titleController.text.trim(),
+        title: _titleController.text.trim().isEmpty
+            ? 'Untitled Form'
+            : _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         fields: fieldsMap,
         originalFormId: _isEditMode ? widget.editFormId : null,
@@ -1326,6 +1755,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   Future<void> _saveProgress() async {
     if (_isSavingDraft || _isSaving) return;
 
+    print('FormBuilder: Saving progress - current draft ID: $_currentDraftId');
+
     setState(() {
       _isSavingDraft = true;
     });
@@ -1341,20 +1772,29 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           'required': field.required,
           'order': field.order,
           if (field.options.isNotEmpty) 'options': field.options,
-          if (field.additionalConfig != null) 'additionalConfig': field.additionalConfig,
-          if (field.conditionalLogic != null) 'conditionalLogic': field.conditionalLogic!.toMap(),
+          if (field.additionalConfig != null)
+            'additionalConfig': field.additionalConfig,
+          if (field.conditionalLogic != null)
+            'conditionalLogic': field.conditionalLogic!.toMap(),
         };
       }
 
+      print('FormBuilder: Prepared ${fieldsMap.length} fields for saving');
+
       // Save draft
-      _currentDraftId = await _draftService.saveDraft(
+      final resultDraftId = await _draftService.saveDraft(
         draftId: _currentDraftId,
-        title: _titleController.text.trim().isEmpty ? 'Untitled Form' : _titleController.text.trim(),
+        title: _titleController.text.trim().isEmpty
+            ? 'Untitled Form'
+            : _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         fields: fieldsMap,
         originalFormId: _isEditMode ? widget.editFormId : null,
         originalFormData: _isEditMode ? widget.editFormData : null,
       );
+
+      _currentDraftId = resultDraftId;
+      print('FormBuilder: Saved with draft ID: $_currentDraftId');
 
       setState(() {
         _hasUnsavedChanges = false;
@@ -1416,7 +1856,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   String _getTimeAgo(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
-    
+
     if (difference.inSeconds < 60) {
       return 'just now';
     } else if (difference.inMinutes < 60) {
@@ -1472,8 +1912,10 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                 Expanded(
                   child: SingleChildScrollView(
                     child: SizedBox(
-                      height: MediaQuery.of(context).size.height - 160, // Adjust for header height
-                      child: _showPreview ? _buildPreview() : _buildFormBuilder(),
+                      height: MediaQuery.of(context).size.height -
+                          160, // Adjust for header height
+                      child:
+                          _showPreview ? _buildPreview() : _buildFormBuilder(),
                     ),
                   ),
                 ),
@@ -1637,7 +2079,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xff10B981)),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Color(0xff10B981)),
                         ),
                       )
                     : const Icon(Icons.bookmark_outline, size: 18),
@@ -1645,7 +2088,8 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xff10B981),
                   side: const BorderSide(color: Color(0xff10B981)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -2961,18 +3405,18 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           items: field.options.isEmpty
               ? [
                   const DropdownMenuItem(
-                      value: 'Option 1', 
-                      child: Text('Option 1', softWrap: true, overflow: TextOverflow.visible))
+                      value: 'Option 1',
+                      child: Text('Option 1',
+                          softWrap: true, overflow: TextOverflow.visible))
                 ]
               : field.options
-                  .map((option) =>
-                      DropdownMenuItem(
-                        value: option, 
-                        child: Text(
-                          option,
-                          softWrap: true,
-                          overflow: TextOverflow.visible,
-                        )))
+                  .map((option) => DropdownMenuItem(
+                      value: option,
+                      child: Text(
+                        option,
+                        softWrap: true,
+                        overflow: TextOverflow.visible,
+                      )))
                   .toList(),
           onChanged: (value) {
             setState(() {
@@ -3465,6 +3909,10 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
   List<String> selectedUsers = [];
   bool isLoading = false;
   List<Map<String, dynamic>> availableUsers = [];
+  bool showCrossGroupSelection = false;
+  Map<String, List<Map<String, dynamic>>> allUsersByRole = {};
+  TextEditingController searchController = TextEditingController();
+  String searchTerm = '';
 
   final List<Map<String, String>> userRoles = [
     {'id': 'students', 'name': 'Students', 'icon': '🎓'},
@@ -3472,6 +3920,12 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
     {'id': 'teachers', 'name': 'Teachers', 'icon': '👩‍🏫'},
     {'id': 'admins', 'name': 'Admins', 'icon': '👨‍💼'},
   ];
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3566,9 +4020,13 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
               _buildPermissionToggle(),
               if (selectedRole != null) ...[
                 const SizedBox(height: 24),
-                _buildRoleSelection(),
-                const SizedBox(height: 24),
-                _buildUserSelection(),
+                if (!showCrossGroupSelection) ...[
+                  _buildRoleSelection(),
+                  const SizedBox(height: 24),
+                  _buildUserSelection(),
+                ] else ...[
+                  _buildCrossGroupSelection(),
+                ],
               ],
             ],
           ),
@@ -3658,6 +4116,86 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
               ),
             ],
           ),
+          if (selectedRole == 'restricted') ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xffEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xffBFDBFE)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selection Method',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff1E40AF),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Radio<bool>(
+                        value: false,
+                        groupValue: showCrossGroupSelection,
+                        onChanged: (value) {
+                          setState(() {
+                            showCrossGroupSelection = value!;
+                            selectedUsers.clear();
+                            if (!showCrossGroupSelection) {
+                              // Reset to group-based selection
+                              selectedRole = null;
+                            }
+                          });
+                        },
+                        activeColor: const Color(0xff3B82F6),
+                      ),
+                      Flexible(
+                        child: Text(
+                          'Select by user group (e.g., all students)',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xff1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Radio<bool>(
+                        value: true,
+                        groupValue: showCrossGroupSelection,
+                        onChanged: (value) {
+                          setState(() {
+                            showCrossGroupSelection = value!;
+                            selectedUsers.clear();
+                            if (showCrossGroupSelection) {
+                              _loadAllUsers();
+                            }
+                          });
+                        },
+                        activeColor: const Color(0xff3B82F6),
+                      ),
+                      Flexible(
+                        child: Text(
+                          'Select individuals across all groups',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xff1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -3997,6 +4535,277 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
         );
       }
     }
+  }
+
+  /// Load all users from all groups for cross-group selection
+  Future<void> _loadAllUsers() async {
+    setState(() {
+      isLoading = true;
+      allUsersByRole.clear();
+      availableUsers.clear();
+    });
+
+    try {
+      // Load users from all groups
+      for (var role in userRoles) {
+        final roleId = role['id']!;
+        String userType;
+        switch (roleId) {
+          case 'students':
+            userType = 'student';
+            break;
+          case 'parents':
+            userType = 'parent';
+            break;
+          case 'teachers':
+            userType = 'teacher';
+            break;
+          case 'admins':
+            userType = 'admin';
+            break;
+          default:
+            userType = roleId;
+        }
+
+        final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('user_type', isEqualTo: userType)
+            .get();
+
+        List<Map<String, dynamic>> users = [];
+
+        for (QueryDocumentSnapshot doc in querySnapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+
+          String displayName = 'Unknown User';
+          if (data['first_name'] != null && data['lastName'] != null) {
+            displayName = '${data['first_name']} ${data['lastName']}';
+          } else if (data['first_name'] != null) {
+            displayName = data['first_name'];
+          } else if (data['lastName'] != null) {
+            displayName = data['lastName'];
+          } else if (data['email'] != null) {
+            displayName = data['email'];
+          }
+
+          users.add({
+            'id': doc.id,
+            'name': displayName,
+            'email': data['e-mail'] ?? data['email'],
+            'role': userType,
+            'roleIcon': role['icon'],
+            'roleName': role['name'],
+          });
+        }
+
+        allUsersByRole[roleId] = users;
+        availableUsers.addAll(users);
+      }
+
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading all users: $e');
+      setState(() {
+        isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading users: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Build the cross-group selection interface
+  Widget _buildCrossGroupSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Select Individual Users',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  showCrossGroupSelection = false;
+                  selectedUsers.clear();
+                });
+              },
+              icon: const Icon(Icons.group, size: 16),
+              label: Text(
+                'Switch to group selection',
+                style: GoogleFonts.inter(fontSize: 12),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xff6B7280),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Search bar
+        TextField(
+          controller: searchController,
+          decoration: InputDecoration(
+            hintText: 'Search users by name or email...',
+            prefixIcon: const Icon(Icons.search, color: Color(0xff6B7280)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xff3B82F6), width: 2),
+            ),
+          ),
+          onChanged: (value) {
+            setState(() {
+              searchTerm = value.toLowerCase();
+            });
+          },
+        ),
+        const SizedBox(height: 16),
+
+        if (isLoading)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xff3B82F6)),
+          )
+        else
+          _buildUserListWithGroups(),
+      ],
+    );
+  }
+
+  /// Build user list organized by groups with search filtering
+  Widget _buildUserListWithGroups() {
+    final filteredUsers = availableUsers.where((user) {
+      if (searchTerm.isEmpty) return true;
+      final name = (user['name'] ?? '').toLowerCase();
+      final email = (user['email'] ?? '').toLowerCase();
+      return name.contains(searchTerm) || email.contains(searchTerm);
+    }).toList();
+
+    // Group filtered users by role
+    final groupedUsers = <String, List<Map<String, dynamic>>>{};
+    for (var user in filteredUsers) {
+      final role = user['role'] as String;
+      groupedUsers.putIfAbsent(role, () => []).add(user);
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 400),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          if (filteredUsers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                searchTerm.isEmpty
+                    ? 'No users found'
+                    : 'No users match your search',
+                style: GoogleFonts.inter(
+                  color: const Color(0xff6B7280),
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            ...userRoles.map((role) {
+              final roleUsers =
+                  groupedUsers[role['id']!.replaceAll('s', '')] ?? [];
+              if (roleUsers.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: const BoxDecoration(
+                      color: Color(0xffF8FAFC),
+                      border: Border(
+                        bottom: BorderSide(color: Color(0xffE2E8F0)),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(role['icon']!,
+                            style: const TextStyle(fontSize: 16)),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${role['name']} (${roleUsers.length})',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff374151),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...roleUsers.map((user) {
+                    final isSelected = selectedUsers.contains(user['id']);
+                    return CheckboxListTile(
+                      title: Text(
+                        user['name'] ?? 'Unknown User',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: user['email'] != null
+                          ? Text(
+                              user['email'],
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: const Color(0xff6B7280),
+                              ),
+                            )
+                          : null,
+                      value: isSelected,
+                      onChanged: (value) {
+                        setState(() {
+                          if (value == true) {
+                            selectedUsers.add(user['id']);
+                          } else {
+                            selectedUsers.remove(user['id']);
+                          }
+                        });
+                      },
+                      activeColor: const Color(0xff3B82F6),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                    );
+                  }).toList(),
+                ],
+              );
+            }).toList(),
+        ],
+      ),
+    );
   }
 }
 

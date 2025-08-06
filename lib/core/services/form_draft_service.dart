@@ -25,7 +25,7 @@ class FormDraftService {
       }
 
       final now = DateTime.now();
-      
+
       final draftData = {
         'title': title,
         'description': description,
@@ -46,6 +46,10 @@ class FormDraftService {
         draftData['createdAt'] = Timestamp.fromDate(now);
         final docRef = await _firestore.collection(_collection).add(draftData);
         print('FormDraftService: Created new draft ${docRef.id}');
+
+        // Clean up old drafts if we exceed 10 drafts
+        await _limitUserDrafts();
+
         return docRef.id;
       }
     } catch (e) {
@@ -59,7 +63,7 @@ class FormDraftService {
     try {
       final doc = await _firestore.collection(_collection).doc(draftId).get();
       if (!doc.exists) return null;
-      
+
       return FormDraft.fromFirestore(doc);
     } catch (e) {
       print('FormDraftService: Error getting draft: $e');
@@ -67,7 +71,7 @@ class FormDraftService {
     }
   }
 
-  /// Get all drafts for the current user
+  /// Get all drafts for the current user (limited to 10 most recent)
   Stream<List<FormDraft>> getUserDrafts() {
     final user = _auth.currentUser;
     if (user == null) {
@@ -78,9 +82,20 @@ class FormDraftService {
         .collection(_collection)
         .where('createdBy', isEqualTo: user.uid)
         .orderBy('lastModifiedAt', descending: true)
+        .limit(10) // Limit to 10 most recent drafts
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => FormDraft.fromFirestore(doc)).toList();
+        .handleError((error) {
+      print('FormDraftService: Error in getUserDrafts stream: $error');
+      return <QuerySnapshot>[];
+    }).map((snapshot) {
+      try {
+        return snapshot.docs
+            .map((doc) => FormDraft.fromFirestore(doc))
+            .toList();
+      } catch (e) {
+        print('FormDraftService: Error parsing drafts: $e');
+        return <FormDraft>[];
+      }
     });
   }
 
@@ -110,7 +125,7 @@ class FormDraftService {
       for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
       }
-      
+
       await batch.commit();
       print('FormDraftService: Deleted all drafts for user ${user.uid}');
     } catch (e) {
@@ -126,7 +141,7 @@ class FormDraftService {
       if (user == null) return;
 
       final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
-      
+
       final snapshot = await _firestore
           .collection(_collection)
           .where('createdBy', isEqualTo: user.uid)
@@ -137,7 +152,7 @@ class FormDraftService {
       for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
       }
-      
+
       await batch.commit();
       print('FormDraftService: Cleaned up ${snapshot.docs.length} old drafts');
     } catch (e) {
@@ -160,7 +175,7 @@ class FormDraftService {
           .get();
 
       if (snapshot.docs.isEmpty) return null;
-      
+
       return FormDraft.fromFirestore(snapshot.docs.first);
     } catch (e) {
       print('FormDraftService: Error getting draft for form: $e');
@@ -169,8 +184,9 @@ class FormDraftService {
   }
 
   /// Convert draft fields back to FormFieldData list for the form builder
-  List<dynamic> convertDraftFieldsToFormFields(Map<String, dynamic> draftFields) {
-    return draftFields.entries.map((entry) {
+  List<dynamic> convertDraftFieldsToFormFields(
+      Map<String, dynamic> draftFields) {
+    final converted = draftFields.entries.map((entry) {
       final fieldData = entry.value as Map<String, dynamic>;
       return {
         'id': entry.key,
@@ -184,5 +200,75 @@ class FormDraftService {
         'conditionalLogic': fieldData['conditionalLogic'],
       };
     }).toList();
+
+    // Sort by order to maintain proper field sequence
+    converted.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+
+    print('FormDraftService: Converted ${converted.length} fields from draft');
+    for (var field in converted) {
+      print('  - Field ${field['id']}: ${field['type']} (${field['label']})');
+    }
+
+    return converted;
+  }
+
+  /// Limit user drafts to 10 most recent, delete oldest ones
+  Future<void> _limitUserDrafts() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      // Get all drafts for user, ordered by last modified (oldest first)
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('createdBy', isEqualTo: user.uid)
+          .orderBy('lastModifiedAt', descending: false) // Oldest first
+          .get();
+
+      // If we have more than 10 drafts, delete the oldest ones
+      if (snapshot.docs.length > 10) {
+        final docsToDelete =
+            snapshot.docs.take(snapshot.docs.length - 10).toList();
+
+        final batch = _firestore.batch();
+        for (final doc in docsToDelete) {
+          batch.delete(doc.reference);
+        }
+
+        await batch.commit();
+        print(
+            'FormDraftService: Cleaned up ${docsToDelete.length} old drafts to maintain 10 draft limit');
+      }
+    } catch (e) {
+      print('FormDraftService: Error limiting user drafts: $e');
+      // Don't rethrow as this is a cleanup operation
+    }
+  }
+
+  /// Test Firestore connection and permissions
+  Future<bool> testConnection() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        print('FormDraftService: No authenticated user for connection test');
+        return false;
+      }
+
+      print('FormDraftService: Testing connection for user ${user.uid}');
+
+      // Try to read from the collection
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('createdBy', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      print(
+          'FormDraftService: Connection test successful, found ${snapshot.docs.length} documents');
+      return true;
+    } catch (e) {
+      print('FormDraftService: Connection test failed: $e');
+      return false;
+    }
   }
 }

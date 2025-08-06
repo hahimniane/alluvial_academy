@@ -1214,3 +1214,168 @@ exports.sendCustomPasswordResetEmail = functions.https.onCall(async (data, conte
     throw new functions.https.HttpsError('internal', `Failed to send password reset email: ${error.message}`);
   }
 });
+
+// Delete user from Firebase Auth and Firestore
+exports.deleteUserAccount = functions.https.onCall(async (data, context) => {
+  console.log("Raw data received - type:", typeof data);
+  const requestData = data.data || data;
+  console.log("Using requestData:", requestData);
+  
+  const { email, adminEmail } = requestData;
+
+  console.log("Extracted email:", email);
+  console.log("Extracted adminEmail:", adminEmail);
+
+  if (!email) {
+    console.log("No email provided in request");
+    throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+  }
+
+  if (!adminEmail) {
+    console.log("No admin email provided in request");
+    throw new functions.https.HttpsError('invalid-argument', 'Admin email is required');
+  }
+  
+  console.log(`Starting delete process for user: ${email} by admin: ${adminEmail}`);
+
+  try {
+    // Verify the caller is an admin by checking their email in Firestore
+    const callerDoc = await admin.firestore()
+      .collection('users')
+      .where('e-mail', '==', adminEmail.toLowerCase())
+      .limit(1)
+      .get();
+
+    if (callerDoc.empty) {
+      console.log(`Admin not found in users collection: ${adminEmail}`);
+      throw new functions.https.HttpsError('permission-denied', 'Admin not found in users collection');
+    }
+
+    const callerData = callerDoc.docs[0].data();
+    const isAdmin = callerData.user_type === 'admin' || callerData.is_admin_teacher === true;
+    
+    if (!isAdmin) {
+      console.log(`User ${adminEmail} is not an admin. user_type: ${callerData.user_type}, is_admin_teacher: ${callerData.is_admin_teacher}`);
+      throw new functions.https.HttpsError('permission-denied', 'Only administrators can delete users');
+    }
+
+    console.log(`Admin ${adminEmail} (verified) attempting to delete user: ${email}`);
+
+    // Find the user to delete in Firestore first
+    const userQuery = await admin.firestore()
+      .collection('users')
+      .where('e-mail', '==', email.toLowerCase())
+      .limit(1)
+      .get();
+
+    if (userQuery.empty) {
+      throw new functions.https.HttpsError('not-found', 'User not found in database');
+    }
+
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+    const userId = userDoc.id;
+
+    // Safety check: only allow deletion of inactive users
+    const isActive = userData.is_active !== false; // Default to active if field doesn't exist
+    console.log(`User active status: ${userData.is_active} (isActive: ${isActive})`);
+    
+    if (isActive) {
+      console.log(`User ${email} is still active, cannot delete`);
+      throw new functions.https.HttpsError('failed-precondition', 'User must be deactivated (archived) before deletion');
+    }
+
+    console.log(`Deleting user: ${email} (ID: ${userId})`);
+
+    // Try to find and delete from Firebase Auth
+    let authUser = null;
+    try {
+      authUser = await admin.auth().getUserByEmail(email);
+      console.log(`Found user in Firebase Auth: ${authUser.uid}`);
+      
+      // Delete from Firebase Authentication
+      await admin.auth().deleteUser(authUser.uid);
+      console.log(`Successfully deleted user from Firebase Auth: ${email}`);
+    } catch (authError) {
+      console.log(`User not found in Firebase Auth or already deleted: ${email}`, authError.message);
+      // Continue with Firestore deletion even if auth user doesn't exist
+    }
+
+    // Begin batch deletion for Firestore data
+    const batch = admin.firestore().batch();
+
+    // Delete user document
+    batch.delete(userDoc.ref);
+
+    // Delete related data
+    const collections = [
+      { name: 'timesheet_entries', field: 'userId' },
+      { name: 'form_submissions', field: 'submittedBy' },
+      { name: 'form_drafts', field: 'createdBy' }
+    ];
+
+    for (const collection of collections) {
+      try {
+        const relatedQuery = await admin.firestore()
+          .collection(collection.name)
+          .where(collection.field, '==', userId)
+          .get();
+        
+        console.log(`Found ${relatedQuery.size} documents in ${collection.name} to delete`);
+        
+        relatedQuery.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+      } catch (error) {
+        console.log(`Error querying ${collection.name}:`, error.message);
+        // Continue with other collections
+      }
+    }
+
+    // Handle tasks (remove user from assignedTo array or delete if empty)
+    try {
+      const taskQuery = await admin.firestore()
+        .collection('tasks')
+        .where('assignedTo', 'array-contains', userId)
+        .get();
+
+      console.log(`Found ${taskQuery.size} tasks assigned to user`);
+
+      taskQuery.docs.forEach(doc => {
+        const taskData = doc.data();
+        const assignedTo = (taskData.assignedTo || []).filter(id => id !== userId);
+        
+        if (assignedTo.length === 0) {
+          // Delete task if no one else is assigned
+          batch.delete(doc.ref);
+        } else {
+          // Update task to remove this user
+          batch.update(doc.ref, { assignedTo });
+        }
+      });
+    } catch (error) {
+      console.log(`Error handling tasks:`, error.message);
+    }
+
+    // Commit the batch
+    await batch.commit();
+
+    console.log(`Successfully deleted user and all associated data: ${email}`);
+
+    return {
+      success: true,
+      message: `User ${email} and all associated data have been permanently deleted`,
+      deletedFromAuth: authUser !== null,
+      deletedFromFirestore: true
+    };
+
+  } catch (error) {
+    console.error('Error in deleteUserAccount:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', `Failed to delete user: ${error.message}`);
+  }
+});

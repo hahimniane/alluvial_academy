@@ -9,6 +9,8 @@ class UserEmployeeDataSource extends DataGridSource {
     required this.onPromoteToAdmin,
     required this.onDeactivateUser,
     required this.onActivateUser,
+    required this.onEditUser,
+    required this.onDeleteUser,
   }) {
     _employees = employees.map<DataGridRow>((e) {
       return DataGridRow(cells: [
@@ -32,6 +34,8 @@ class UserEmployeeDataSource extends DataGridSource {
   final Function(Employee) onPromoteToAdmin;
   final Function(Employee) onDeactivateUser;
   final Function(Employee) onActivateUser;
+  final Function(Employee) onEditUser;
+  final Function(Employee) onDeleteUser;
 
   List<DataGridRow> _employees = [];
 
@@ -73,6 +77,14 @@ class UserEmployeeDataSource extends DataGridSource {
               spacing: 4.0,
               runSpacing: 4.0,
               children: [
+                // Edit button - always available for active users
+                if (employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.edit,
+                    color: Colors.blue,
+                    onTap: () => onEditUser(employee),
+                    tooltip: 'Edit User',
+                  ),
                 if (employee.userType.toLowerCase() == 'teacher' &&
                     !employee.isAdminTeacher)
                   _buildActionButton(
@@ -81,13 +93,13 @@ class UserEmployeeDataSource extends DataGridSource {
                     onTap: () => onPromoteToAdmin(employee),
                     tooltip: 'Promote to Admin-Teacher',
                   ),
+                // Archive/Restore buttons
                 if (employee.isActive)
                   _buildActionButton(
-                    icon: Icons.delete_outline,
-                    color: Colors.red,
+                    icon: Icons.archive,
+                    color: Colors.orange,
                     onTap: () => onDeactivateUser(employee),
                     tooltip: 'Archive User',
-                    isDestructive: true,
                   ),
                 if (!employee.isActive)
                   _buildActionButton(
@@ -95,6 +107,15 @@ class UserEmployeeDataSource extends DataGridSource {
                     color: Colors.green,
                     onTap: () => onActivateUser(employee),
                     tooltip: 'Restore User',
+                  ),
+                // Permanent delete button - only for inactive users
+                if (!employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.delete_forever,
+                    color: Colors.red,
+                    onTap: () => onDeleteUser(employee),
+                    tooltip: 'Permanently Delete User',
+                    isDestructive: true,
                   ),
                 if (employee.userType.toLowerCase() == 'teacher' &&
                     employee.isAdminTeacher)

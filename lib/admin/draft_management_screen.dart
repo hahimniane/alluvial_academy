@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/services/form_draft_service.dart';
 import '../core/models/form_draft.dart';
+import '../debug_firestore_screen.dart';
 import 'form_builder.dart';
 
 /// Screen for managing form drafts
@@ -97,11 +98,35 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
             ),
           ),
           TextButton.icon(
+            onPressed: () => _testConnection(),
+            icon: const Icon(Icons.wifi_find, size: 18),
+            label: const Text('Test Connection'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xff3B82F6),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
             onPressed: () => _cleanupOldDrafts(),
             icon: const Icon(Icons.cleaning_services, size: 18),
             label: const Text('Cleanup Old'),
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xff6B7280),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const DebugFirestoreScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.bug_report, size: 18),
+            label: const Text('Debug'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xffEF4444),
             ),
           ),
         ],
@@ -122,6 +147,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         }
 
         if (snapshot.hasError) {
+          print('DraftManagementScreen: Error in stream: ${snapshot.error}');
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -142,10 +168,23 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please try again later',
+                  'Error: ${snapshot.error.toString()}',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: const Color(0xff9CA3AF),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {}); // Trigger rebuild to retry
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff10B981),
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ],
@@ -253,7 +292,8 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xff10B981).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -339,11 +379,13 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
 
   /// Resume editing a draft
   void _resumeDraft(FormDraft draft) {
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context)
+        .pushReplacement(
       MaterialPageRoute(
         builder: (context) => FormBuilder(),
       ),
-    ).then((_) {
+    )
+        .then((_) {
       // The draft restoration will be handled automatically
       // by the FormBuilder's _checkForExistingDrafts method
     });
@@ -507,5 +549,62 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         );
       },
     );
+  }
+
+  /// Test Firestore connection
+  void _testConnection() async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Testing connection...',
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: Colors.blue,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+
+      final success = await _draftService.testConnection();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? 'Connection successful!'
+                  : 'Connection failed - check logs',
+              style: GoogleFonts.inter(color: Colors.white),
+            ),
+            backgroundColor: success ? Colors.green : Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Connection test error: $e',
+              style: GoogleFonts.inter(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
   }
 }
