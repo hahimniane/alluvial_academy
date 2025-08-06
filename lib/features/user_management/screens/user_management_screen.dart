@@ -17,6 +17,7 @@ import '../../../core/models/admin_employee_datasource.dart';
 import '../../../core/models/user_employee_datasource.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/services/user_role_service.dart';
+import 'edit_user_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -71,6 +72,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       onPromoteToAdmin: _promoteToAdminTeacher,
       onDeactivateUser: _deactivateUser,
       onActivateUser: _activateUser,
+      onEditUser: _editUser,
+      onDeleteUser: _deleteUser,
     );
     _adminDataSource = AdminEmployeeDataSource(
       employees: [],
@@ -78,6 +81,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       onRevokeAdmin: _revokeAdminPrivileges,
       onDeactivateUser: _deactivateUser,
       onActivateUser: _activateUser,
+      onEditUser: _editUser,
+      onDeleteUser: _deleteUser,
     );
 
     _userStreamSubscription = FirebaseFirestore.instance
@@ -287,6 +292,155 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     } catch (e) {
       _showErrorSnackBar('Error activating user: $e');
     }
+  }
+
+  /// Edit user functionality
+  Future<void> _editUser(Employee employee) async {
+    // Navigate to edit user screen with employee data
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditUserScreen(employee: employee),
+      ),
+    );
+
+    // Refresh data if user was updated
+    if (result == true) {
+      _refreshData();
+    }
+  }
+
+  /// Delete user permanently
+  Future<void> _deleteUser(Employee employee) async {
+    final confirmed = await _showDeleteConfirmationDialog(employee);
+    if (!confirmed) return;
+
+    try {
+      final success = await UserRoleService.deleteUser(employee.email);
+
+      if (success) {
+        _showSuccessSnackBar(
+            '${employee.firstName} ${employee.lastName} has been permanently deleted');
+        _refreshData();
+      } else {
+        _showErrorSnackBar('Failed to delete user.');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error deleting user: $e');
+    }
+  }
+
+  Future<bool> _showDeleteConfirmationDialog(Employee employee) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.delete_forever, color: Colors.red, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Permanently Delete User',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This action cannot be undone!',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Are you sure you want to permanently delete this user?',
+                  style: GoogleFonts.inter(fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xffE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'User Details:',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Name: ${employee.firstName} ${employee.lastName}'),
+                      Text('Email: ${employee.email}'),
+                      Text('Role: ${employee.userType}'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'All associated data including timesheets, forms, and other records will be permanently removed.',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.inter(
+                    color: const Color(0xff6B7280),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  'Delete Permanently',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<bool> _showPromotionDialog(Employee employee) async {

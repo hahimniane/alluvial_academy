@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class UserRoleService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -432,6 +433,59 @@ class UserRoleService {
     } catch (e) {
       print('Error checking user active status: $e');
       return true; // Default to active on error
+    }
+  }
+
+  /// Permanently delete a user account from both Firebase Auth and Firestore using Cloud Function
+  static Future<bool> deleteUser(String userEmail) async {
+    try {
+      print(
+          'UserRoleService: Calling cloud function to delete user: $userEmail');
+
+      // Get current user's email for admin verification
+      final currentUser = _auth.currentUser;
+      if (currentUser == null || currentUser.email == null) {
+        print('UserRoleService: No authenticated user found');
+        throw Exception('You must be logged in to delete users');
+      }
+
+      // Call the cloud function to handle deletion
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('deleteUserAccount');
+      final result = await callable.call({
+        'email': userEmail,
+        'adminEmail': currentUser.email,
+      });
+
+      final data = result.data;
+      if (data['success'] == true) {
+        print(
+            'UserRoleService: Successfully deleted user via cloud function: $userEmail');
+        print('UserRoleService: Deleted from Auth: ${data['deletedFromAuth']}');
+        print(
+            'UserRoleService: Deleted from Firestore: ${data['deletedFromFirestore']}');
+        return true;
+      } else {
+        print('UserRoleService: Cloud function returned unsuccessful result');
+        return false;
+      }
+    } catch (e) {
+      print('UserRoleService: Error calling delete user cloud function: $e');
+
+      // Check if this is a Firebase Functions error with more details
+      if (e.toString().contains('failed-precondition')) {
+        print('UserRoleService: User must be deactivated before deletion');
+        throw Exception('User must be archived before permanent deletion');
+      } else if (e.toString().contains('permission-denied')) {
+        print('UserRoleService: Permission denied - user is not an admin');
+        throw Exception('Only administrators can delete users');
+      } else if (e.toString().contains('not-found')) {
+        print('UserRoleService: User not found');
+        throw Exception('User not found in the system');
+      } else {
+        print('UserRoleService: Unknown error: $e');
+        throw Exception('Failed to delete user: ${e.toString()}');
+      }
     }
   }
 }

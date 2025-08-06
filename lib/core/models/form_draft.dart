@@ -11,7 +11,7 @@ class FormDraft {
   final DateTime lastModifiedAt;
   final String? originalFormId; // If editing an existing form
   final Map<String, dynamic>? originalFormData; // Original form data if editing
-  
+
   FormDraft({
     required this.id,
     required this.title,
@@ -26,17 +26,30 @@ class FormDraft {
 
   /// Factory constructor from Firestore document
   factory FormDraft.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>?;
+
+    if (data == null) {
+      throw Exception('Document data is null for draft ${doc.id}');
+    }
+
+    // Safe parsing with null checks
+    final createdAtTimestamp = data['createdAt'] as Timestamp?;
+    final lastModifiedAtTimestamp = data['lastModifiedAt'] as Timestamp?;
+
+    if (createdAtTimestamp == null || lastModifiedAtTimestamp == null) {
+      throw Exception('Missing required timestamp fields for draft ${doc.id}');
+    }
+
     return FormDraft(
       id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      fields: data['fields'] ?? {},
-      createdBy: data['createdBy'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      lastModifiedAt: (data['lastModifiedAt'] as Timestamp).toDate(),
-      originalFormId: data['originalFormId'],
-      originalFormData: data['originalFormData'],
+      title: data['title']?.toString() ?? '',
+      description: data['description']?.toString() ?? '',
+      fields: (data['fields'] as Map<String, dynamic>?) ?? {},
+      createdBy: data['createdBy']?.toString() ?? '',
+      createdAt: createdAtTimestamp.toDate(),
+      lastModifiedAt: lastModifiedAtTimestamp.toDate(),
+      originalFormId: data['originalFormId']?.toString(),
+      originalFormData: data['originalFormData'] as Map<String, dynamic>?,
     );
   }
 
@@ -80,7 +93,7 @@ class FormDraft {
   String get lastModifiedFormatted {
     final now = DateTime.now();
     final difference = now.difference(lastModifiedAt);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
