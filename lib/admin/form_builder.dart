@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
+import '../core/services/form_draft_service.dart';
+import '../core/models/form_draft.dart';
+import 'draft_management_screen.dart';
 
 class FormBuilder extends StatefulWidget {
   const FormBuilder({super.key});
@@ -109,6 +113,26 @@ class _FormBuilderState extends State<FormBuilder>
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const Spacer(),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const DraftManagementScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.drafts, size: 18),
+                  label: const Text('View Drafts'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xff10B981),
+                    side: const BorderSide(color: Color(0xff10B981)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ],
@@ -927,6 +951,14 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   // Map to store preview field values
   Map<String, dynamic> _previewValues = {};
 
+  // Autosave functionality
+  Timer? _autosaveTimer;
+  final FormDraftService _draftService = FormDraftService();
+  String? _currentDraftId;
+  bool _hasUnsavedChanges = false;
+  bool _isSavingDraft = false;
+  DateTime? _lastAutosaveTime;
+
   // Field type templates with icons and descriptions
   final List<FieldTemplate> fieldTemplates = [
     FieldTemplate(
@@ -1005,6 +1037,154 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       _titleController.text = 'Untitled Form';
       _descriptionController.text = 'Enter a description for your form...';
     }
+
+    // Initialize autosave functionality
+    _initializeAutosave();
+  }
+
+  /// Initialize autosave timer and listeners
+  void _initializeAutosave() {
+    // Add listeners to text controllers to detect changes
+    _titleController.addListener(_onFormChanged);
+    _descriptionController.addListener(_onFormChanged);
+
+    // Start autosave timer (30-second intervals)
+    _autosaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_hasUnsavedChanges && !_isSaving && !_isSavingDraft) {
+        _performAutosave();
+      }
+    });
+
+    // Check for existing drafts on load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForExistingDrafts();
+    });
+  }
+
+  /// Called when form content changes
+  void _onFormChanged() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  /// Check for existing drafts when loading the form builder
+  Future<void> _checkForExistingDrafts() async {
+    if (_isEditMode && widget.editFormId != null) {
+      // Check if there's a draft for this existing form
+      final existingDraft = await _draftService.getDraftForForm(widget.editFormId!);
+      if (existingDraft != null && mounted) {
+        _showDraftRestoreDialog(existingDraft);
+      }
+    }
+  }
+
+  /// Show dialog to restore from draft
+  void _showDraftRestoreDialog(FormDraft draft) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Draft Found',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'We found an unsaved draft from ${draft.lastModifiedFormatted}.',
+                style: GoogleFonts.inter(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Would you like to restore your progress?',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _draftService.deleteDraft(draft.id); // Delete the draft
+              },
+              child: Text(
+                'Discard',
+                style: GoogleFonts.inter(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _restoreFromDraft(draft);
+              },
+              child: Text(
+                'Restore',
+                style: GoogleFonts.inter(
+                  color: const Color(0xff3B82F6),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Restore form from draft
+  void _restoreFromDraft(FormDraft draft) {
+    setState(() {
+      _titleController.text = draft.title;
+      _descriptionController.text = draft.description;
+      
+      // Convert draft fields back to FormFieldData objects
+      final draftFieldsList = _draftService.convertDraftFieldsToFormFields(draft.fields);
+      fields = draftFieldsList.map((fieldData) {
+        return FormFieldData(
+          id: fieldData['id'],
+          type: fieldData['type'],
+          label: fieldData['label'],
+          placeholder: fieldData['placeholder'],
+          required: fieldData['required'],
+          order: fieldData['order'],
+          options: List<String>.from(fieldData['options'] ?? []),
+          additionalConfig: fieldData['additionalConfig'],
+          conditionalLogic: fieldData['conditionalLogic'] != null 
+              ? ConditionalLogic.fromMap(fieldData['conditionalLogic'])
+              : null,
+        );
+      }).toList();
+      
+      _currentDraftId = draft.id;
+      _hasUnsavedChanges = false;
+    });
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Draft restored successfully!',
+          style: GoogleFonts.inter(color: Colors.white),
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _populateFormForEditing() {
@@ -1093,8 +1273,166 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     }
   }
 
+  /// Perform autosave in background
+  Future<void> _performAutosave() async {
+    if (_isSavingDraft || _isSaving) return;
+
+    setState(() {
+      _isSavingDraft = true;
+    });
+
+    try {
+      // Prepare fields data for draft storage
+      final fieldsMap = <String, dynamic>{};
+      for (var field in fields) {
+        fieldsMap[field.id] = {
+          'type': field.type,
+          'label': field.label,
+          'placeholder': field.placeholder,
+          'required': field.required,
+          'order': field.order,
+          if (field.options.isNotEmpty) 'options': field.options,
+          if (field.additionalConfig != null) 'additionalConfig': field.additionalConfig,
+          if (field.conditionalLogic != null) 'conditionalLogic': field.conditionalLogic!.toMap(),
+        };
+      }
+
+      // Save draft
+      _currentDraftId = await _draftService.saveDraft(
+        draftId: _currentDraftId,
+        title: _titleController.text.trim().isEmpty ? 'Untitled Form' : _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        fields: fieldsMap,
+        originalFormId: _isEditMode ? widget.editFormId : null,
+        originalFormData: _isEditMode ? widget.editFormData : null,
+      );
+
+      setState(() {
+        _hasUnsavedChanges = false;
+        _lastAutosaveTime = DateTime.now();
+      });
+
+      print('FormBuilder: Autosave completed at ${_lastAutosaveTime}');
+    } catch (e) {
+      print('FormBuilder: Autosave failed: $e');
+    } finally {
+      setState(() {
+        _isSavingDraft = false;
+      });
+    }
+  }
+
+  /// Manual save progress functionality
+  Future<void> _saveProgress() async {
+    if (_isSavingDraft || _isSaving) return;
+
+    setState(() {
+      _isSavingDraft = true;
+    });
+
+    try {
+      // Prepare fields data for draft storage
+      final fieldsMap = <String, dynamic>{};
+      for (var field in fields) {
+        fieldsMap[field.id] = {
+          'type': field.type,
+          'label': field.label,
+          'placeholder': field.placeholder,
+          'required': field.required,
+          'order': field.order,
+          if (field.options.isNotEmpty) 'options': field.options,
+          if (field.additionalConfig != null) 'additionalConfig': field.additionalConfig,
+          if (field.conditionalLogic != null) 'conditionalLogic': field.conditionalLogic!.toMap(),
+        };
+      }
+
+      // Save draft
+      _currentDraftId = await _draftService.saveDraft(
+        draftId: _currentDraftId,
+        title: _titleController.text.trim().isEmpty ? 'Untitled Form' : _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        fields: fieldsMap,
+        originalFormId: _isEditMode ? widget.editFormId : null,
+        originalFormData: _isEditMode ? widget.editFormData : null,
+      );
+
+      setState(() {
+        _hasUnsavedChanges = false;
+        _lastAutosaveTime = DateTime.now();
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Progress saved successfully!',
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Failed to save progress. Please try again.',
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSavingDraft = false;
+      });
+    }
+  }
+
+  /// Trigger form change detection when fields are modified
+  void _markFormAsChanged() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  /// Get human-readable time ago string
+  String _getTimeAgo(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+    
+    if (difference.inSeconds < 60) {
+      return 'just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
+    _titleController.removeListener(_onFormChanged);
+    _descriptionController.removeListener(_onFormChanged);
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -1184,14 +1522,73 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                   color: const Color(0xff111827),
                 ),
               ),
-              Text(
-                _isEditMode
-                    ? 'Modify your existing form'
-                    : 'Create dynamic forms with drag & drop',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xff6B7280),
-                ),
+              Row(
+                children: [
+                  Text(
+                    _isEditMode
+                        ? 'Modify your existing form'
+                        : 'Create dynamic forms with drag & drop',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                  if (_lastAutosaveTime != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '•',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          size: 14,
+                          color: Colors.green[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Saved ${_getTimeAgo(_lastAutosaveTime!)}',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.green[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (_hasUnsavedChanges) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '•',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.edit,
+                          size: 14,
+                          color: Colors.orange[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Unsaved changes',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.orange[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -1228,6 +1625,30 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                   side: const BorderSide(color: Color(0xffE2E8F0)),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Save Progress button
+              OutlinedButton.icon(
+                onPressed: _isSavingDraft ? null : _saveProgress,
+                icon: _isSavingDraft
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xff10B981)),
+                        ),
+                      )
+                    : const Icon(Icons.bookmark_outline, size: 18),
+                label: Text(_isSavingDraft ? 'Saving...' : 'Save Progress'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xff10B981),
+                  side: const BorderSide(color: Color(0xff10B981)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1583,6 +2004,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         allowMultiple: template.type == 'multiSelect',
       ));
     });
+    _markFormAsChanged();
   }
 
   void _reorderFields(int oldIndex, int newIndex) {
@@ -1598,6 +2020,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         fields[i].order = i;
       }
     });
+    _markFormAsChanged();
   }
 
   Widget _buildFieldEditor(FormFieldData field, int index) {
@@ -2706,6 +3129,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
     setState(() {
       fields.remove(field);
     });
+    _markFormAsChanged();
   }
 
   String _getConditionalSummary(ConditionalLogic logic) {
@@ -2825,6 +3249,18 @@ class _FormBuilderViewState extends State<FormBuilderView> {
             ),
           );
         }
+
+        // Clean up draft after successful update
+        if (_currentDraftId != null) {
+          try {
+            await _draftService.deleteDraft(_currentDraftId!);
+            _currentDraftId = null;
+            _hasUnsavedChanges = false;
+            print('FormBuilder: Draft cleaned up after successful update');
+          } catch (e) {
+            print('FormBuilder: Failed to clean up draft: $e');
+          }
+        }
       } else {
         // Create new form
         // Get user info for creator details
@@ -2877,12 +3313,25 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           );
         }
 
+        // Clean up draft after successful creation
+        if (_currentDraftId != null) {
+          try {
+            await _draftService.deleteDraft(_currentDraftId!);
+            _currentDraftId = null;
+            print('FormBuilder: Draft cleaned up after successful creation');
+          } catch (e) {
+            print('FormBuilder: Failed to clean up draft: $e');
+          }
+        }
+
         // Clear form after successful save (only for new forms)
         _titleController.clear();
         _descriptionController.clear();
         setState(() {
           fields.clear();
           _previewValues.clear();
+          _hasUnsavedChanges = false;
+          _lastAutosaveTime = null;
         });
       }
     } catch (e) {
