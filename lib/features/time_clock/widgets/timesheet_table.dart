@@ -152,7 +152,8 @@ class _TimesheetTableState extends State<TimesheetTable>
           .where('teacher_id', isEqualTo: user.uid)
           .get();
 
-      print('TimesheetTable: 📊 Found ${querySnapshot.docs.length} timesheet documents');
+      print(
+          'TimesheetTable: 📊 Found ${querySnapshot.docs.length} timesheet documents');
 
       if (querySnapshot.docs.isEmpty) {
         print('TimesheetTable: ⚠️ No timesheet entries found for this teacher');
@@ -166,7 +167,7 @@ class _TimesheetTableState extends State<TimesheetTable>
       List<TimesheetEntry> entries = [];
       for (QueryDocumentSnapshot doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        
+
         print('TimesheetTable: 📝 Processing document ${doc.id}:');
         print('  - Date: ${data['date']}');
         print('  - Student: ${data['student_name']}');
@@ -203,12 +204,13 @@ class _TimesheetTableState extends State<TimesheetTable>
         }
       });
 
-      print('TimesheetTable: ✅ Successfully loaded ${entries.length} timesheet entries');
+      print(
+          'TimesheetTable: ✅ Successfully loaded ${entries.length} timesheet entries');
       return entries;
     } catch (e) {
       print('TimesheetTable: ❌ Error loading timesheet entries: $e');
       print('TimesheetTable: 🔧 Stack trace: ${StackTrace.current}');
-      
+
       // Show user-friendly error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -219,7 +221,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           ),
         );
       }
-      
+
       return [];
     }
   }

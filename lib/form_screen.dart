@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -41,6 +42,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+
+    // Add debugging for production
+    print(
+        'FormScreen: Initializing in ${kDebugMode ? 'debug' : 'production'} mode');
+    print('FormScreen: Auth state - ${FirebaseAuth.instance.currentUser?.uid}');
+
     _loadUserFormSubmissions();
     _loadCurrentUserData();
   }
@@ -74,11 +81,43 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   Future<void> _loadCurrentUserData() async {
     try {
       final User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
+      if (currentUser == null) {
+        print('FormScreen: No authenticated user found');
+        if (mounted) {
+          setState(() {
+            _currentUserId = null;
+            _currentUserRole = null;
+            _currentUserData = null;
+          });
+        }
+        return;
+      }
 
-      // Get user role and data
-      final userData = await UserRoleService.getCurrentUserData();
-      final userRole = await UserRoleService.getCurrentUserRole();
+      print('FormScreen: Loading data for user: ${currentUser.uid}');
+
+      // Get user role and data with timeout and retry logic
+      String? userRole;
+      Map<String, dynamic>? userData;
+
+      try {
+        // Try to get user role with timeout
+        userRole = await UserRoleService.getCurrentUserRole()
+            .timeout(const Duration(seconds: 15));
+        print('FormScreen: User role loaded: $userRole');
+      } catch (e) {
+        print('FormScreen: Error getting user role: $e');
+        userRole = 'student'; // Safe fallback
+      }
+
+      try {
+        // Try to get user data with timeout
+        userData = await UserRoleService.getCurrentUserData()
+            .timeout(const Duration(seconds: 15));
+        print('FormScreen: User data loaded: ${userData?.keys}');
+      } catch (e) {
+        print('FormScreen: Error getting user data: $e');
+        // Continue without user data
+      }
 
       if (mounted) {
         setState(() {
@@ -88,12 +127,20 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         });
       }
 
-      print('Current user loaded:');
+      print('FormScreen: Current user loaded successfully:');
       print('- User ID: $_currentUserId');
       print('- User Role: $_currentUserRole');
-      print('- User Data: $_currentUserData');
+      print('- User Data keys: ${_currentUserData?.keys}');
     } catch (e) {
-      print('Error loading current user data: $e');
+      print('FormScreen: Critical error loading current user data: $e');
+      // Set safe fallback state
+      if (mounted) {
+        setState(() {
+          _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+          _currentUserRole = 'student'; // Safe fallback
+          _currentUserData = null;
+        });
+      }
     }
   }
 
@@ -341,18 +388,32 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         .collection('form')
                         .snapshots(),
                     builder: (context, snapshot) {
+                      // Enhanced error handling
                       if (snapshot.hasError) {
-                        return _buildErrorState('Error loading forms');
+                        print('FormScreen: Firestore error: ${snapshot.error}');
+                        return _buildErrorState(
+                            'Error loading forms: ${snapshot.error}');
+                      }
+
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return _buildLoadingState();
                       }
 
                       if (!snapshot.hasData) {
-                        return _buildLoadingState();
+                        print('FormScreen: No snapshot data received');
+                        return _buildErrorState(
+                            'No forms data received. Please check your connection.');
                       }
 
                       // Show loading state if user data is not loaded yet
                       if (_currentUserId == null || _currentUserRole == null) {
+                        print(
+                            'FormScreen: User data not loaded yet - userId: $_currentUserId, role: $_currentUserRole');
                         return _buildLoadingState();
                       }
+
+                      print(
+                          'FormScreen: Processing ${snapshot.data!.docs.length} forms from Firestore');
 
                       final forms = snapshot.data!.docs.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
@@ -821,52 +882,117 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             decoration: BoxDecoration(
                               color: const Color(0xffFEF3C7),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xffF59E0B)),
+                              border:
+                                  Border.all(color: const Color(0xffF59E0B)),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.info, color: Color(0xffF59E0B)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'No form fields are currently visible. This form may not have any fields configured or there may be a loading issue.',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      color: const Color(0xffB45309),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.info,
+                                        color: Color(0xffF59E0B)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'No form fields are currently visible',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xffB45309),
+                                        ),
+                                      ),
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Possible causes:\n'
+                                  '• This form may not have any fields configured\n'
+                                  '• There may be a network connection issue\n'
+                                  '• Your user permissions may have changed\n'
+                                  '• The form data may be corrupted',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xffB45309),
                                   ),
                                 ),
+                                if (kDebugMode) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Debug info:\n'
+                                    'Form ID: $selectedFormId\n'
+                                    'User ID: $_currentUserId\n'
+                                    'User Role: $_currentUserRole\n'
+                                    'Form has data: ${selectedFormData != null}\n'
+                                    'Form keys: ${selectedFormData?.keys.join(", ") ?? "null"}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xffB45309),
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                         ] else ...[
                           ..._getVisibleFields().map((fieldEntry) {
                             try {
+                              final fieldKey = fieldEntry.key;
+                              final controller = fieldControllers[fieldKey];
+
+                              // Safety check: if controller doesn't exist, create one
+                              if (controller == null) {
+                                print(
+                                    'FormScreen: Missing controller for field $fieldKey, creating one');
+                                fieldControllers[fieldKey] =
+                                    TextEditingController();
+                              }
+
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 24),
                                 child: _buildModernFormField(
                                   fieldEntry.value['label'] ?? 'Untitled Field',
-                                  fieldEntry.value['placeholder'] ?? 'Enter value',
-                                  fieldControllers[fieldEntry.key]!,
+                                  fieldEntry.value['placeholder'] ??
+                                      'Enter value',
+                                  fieldControllers[fieldKey]!,
                                   fieldEntry.value['required'] ?? false,
                                   fieldEntry.value['type'] ?? 'text',
-                                  fieldEntry.key,
-                                  options: (fieldEntry.value['type'] == 'select' ||
-                                          fieldEntry.value['type'] == 'dropdown' ||
-                                          fieldEntry.value['type'] == 'multi_select')
-                                      ? List<String>.from(fieldEntry.value['options'] ?? [])
-                                      : null,
+                                  fieldKey,
+                                  options:
+                                      (fieldEntry.value['type'] == 'select' ||
+                                              fieldEntry.value['type'] ==
+                                                  'dropdown' ||
+                                              fieldEntry.value['type'] ==
+                                                  'multi_select')
+                                          ? (fieldEntry.value['options']
+                                                  is List)
+                                              ? List<String>.from(
+                                                  fieldEntry.value['options'])
+                                              : (fieldEntry.value['options']
+                                                      is String)
+                                                  ? (fieldEntry.value['options']
+                                                          as String)
+                                                      .split(',')
+                                                      .map((e) => e.trim())
+                                                      .toList()
+                                                  : []
+                                          : null,
                                 ),
                               );
                             } catch (e) {
                               // Fallback for any field rendering errors
+                              print(
+                                  'FormScreen: Error rendering field ${fieldEntry.key}: $e');
                               return Container(
                                 padding: const EdgeInsets.all(16),
                                 margin: const EdgeInsets.only(bottom: 24),
                                 decoration: BoxDecoration(
                                   color: const Color(0xffFEF2F2),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xffEF4444)),
+                                  border: Border.all(
+                                      color: const Color(0xffEF4444)),
                                 ),
                                 child: Text(
                                   'Error rendering field: ${fieldEntry.key}. Error: $e',
@@ -1006,10 +1132,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with required indicator
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Flexible(
+            Expanded(
               child: Text(
                 label,
                 style: GoogleFonts.inter(
@@ -1086,7 +1212,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   ) {
     return TextFormField(
       controller: controller,
-      maxLines: type == 'text' ? null : 1, // Allow text wrapping for text fields
+      maxLines:
+          type == 'text' ? null : 1, // Allow text wrapping for text fields
       minLines: 1,
       decoration: InputDecoration(
         hintText: hintText,
@@ -2175,10 +2302,20 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         fieldValues.clear();
 
         // Create new controllers for form fields
-        final fields = formData['fields'] as Map<String, dynamic>;
-        fields.forEach((fieldId, fieldData) {
-          fieldControllers[fieldId] = TextEditingController();
-        });
+        final fields = formData['fields'] as Map<String, dynamic>?;
+        if (fields != null) {
+          print('FormScreen: Creating controllers for ${fields.length} fields');
+          fields.forEach((fieldId, fieldData) {
+            print(
+                'FormScreen: Creating controller for field: $fieldId (type: ${fieldId.runtimeType})');
+            fieldControllers[fieldId] = TextEditingController();
+          });
+          print(
+              'FormScreen: Controllers created for keys: ${fieldControllers.keys.toList()}');
+        } else {
+          print(
+              'FormScreen: No fields found in form data for controller creation');
+        }
       });
     }
 
@@ -2192,14 +2329,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return [];
     }
 
+    print('FormScreen: Selected form data keys: ${selectedFormData!.keys}');
+
     final fields = selectedFormData!['fields'];
     if (fields == null) {
       print('FormScreen: No fields found in form data');
+      print('FormScreen: Form data structure: $selectedFormData');
       return [];
     }
 
     if (fields is! Map<String, dynamic>) {
-      print('FormScreen: Fields is not a Map<String, dynamic>, type: ${fields.runtimeType}');
+      print(
+          'FormScreen: Fields is not a Map<String, dynamic>, type: ${fields.runtimeType}');
+      print('FormScreen: Fields content: $fields');
       return [];
     }
 
@@ -2207,6 +2349,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     final visibleFields = <MapEntry<String, dynamic>>[];
 
     print('FormScreen: Found ${fieldsMap.length} total fields');
+    print('FormScreen: Field keys: ${fieldsMap.keys.toList()}');
 
     // Sort fields by order first
     final sortedEntries = fieldsMap.entries.toList()
@@ -2222,7 +2365,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           visibleFields.add(fieldEntry);
           print('FormScreen: Field ${fieldEntry.key} is visible');
         } else {
-          print('FormScreen: Field ${fieldEntry.key} is hidden by conditional logic');
+          print(
+              'FormScreen: Field ${fieldEntry.key} is hidden by conditional logic');
         }
       } catch (e) {
         print('FormScreen: Error processing field ${fieldEntry.key}: $e');
@@ -2876,11 +3020,22 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       print('- Responses: ${responses.keys.toList()}');
       print('- Response data: $responses');
 
+      // Get user data for names
+      final userData = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+
+      final userFirstName = userData.data()?['first_name'] as String? ?? '';
+      final userLastName = userData.data()?['last_name'] as String? ?? '';
+
       final docRef =
           await FirebaseFirestore.instance.collection('form_responses').add({
         'formId': selectedFormId,
         'userId': currentUser.uid,
         'userEmail': currentUser.email,
+        'userFirstName': userFirstName,
+        'userLastName': userLastName,
         'responses': responses,
         'submittedAt': FieldValue.serverTimestamp(),
         'status': 'completed',

@@ -420,7 +420,13 @@ class LocationService {
 
   /// Convert latitude and longitude coordinates to a readable address
   static Future<LocationData?> coordinatesToLocation(
-      double latitude, double longitude) async {
+      double? latitude, double? longitude) async {
+    if (latitude == null || longitude == null) {
+      print(
+          'Error converting coordinates to location: Null coordinates provided');
+      return null;
+    }
+
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         latitude,
