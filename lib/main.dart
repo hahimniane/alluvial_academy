@@ -20,6 +20,24 @@ void main() {
 
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Handle Flutter framework errors gracefully (like trackpad gesture assertions)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    // Filter out known framework issues
+    if (details.exception.toString().contains('PointerDeviceKind.trackpad') ||
+        details.exception
+            .toString()
+            .contains('!identical(kind, PointerDeviceKind.trackpad)')) {
+      // Silently ignore trackpad gesture assertion errors
+      if (kDebugMode) {
+        print('Ignoring trackpad gesture assertion: ${details.exception}');
+      }
+      return;
+    }
+
+    // For other errors, use the default handler
+    FlutterError.presentError(details);
+  };
+
   // Use runWidget for web multiview compatibility
   if (kIsWeb) {
     try {

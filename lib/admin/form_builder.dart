@@ -3335,10 +3335,10 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Flexible(
+              Expanded(
                 child: Text(
                   field.label.isEmpty ? 'Untitled Field' : field.label,
                   style: GoogleFonts.inter(

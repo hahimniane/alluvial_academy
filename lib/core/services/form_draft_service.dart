@@ -195,7 +195,10 @@ class FormDraftService {
         'placeholder': fieldData['placeholder'] ?? '',
         'required': fieldData['required'] ?? false,
         'order': fieldData['order'] ?? 0,
-        'options': fieldData['options'] ?? [],
+        'options': (fieldData['options'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
         'additionalConfig': fieldData['additionalConfig'],
         'conditionalLogic': fieldData['conditionalLogic'],
       };

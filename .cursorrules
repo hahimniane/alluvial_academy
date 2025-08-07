@@ -1,0 +1,62 @@
+# Cursor AI Rules for Alluvial Academy Flutter Web Project
+
+## Project Overview
+This is a Flutter web application for Islamic education management, deployed on Hostinger hosting.
+
+## Build Process Automation
+
+### Cache Busting Version Management
+CRITICAL: Before running `flutter build web --release`, you MUST automatically increment the cache busting version number to prevent users from needing to clear their browser cache.
+
+**Automated Build Process:**
+1. When you run `flutter build web --release`, ALWAYS run `./increment_version.sh` first
+2. The complete command sequence should be:
+   ```bash
+   ./increment_version.sh && flutter build web --release
+   ```
+
+**What the version increment does:**
+- Updates version numbers in `web/index.html` for `flutter_bootstrap.js?v=X` 
+- Updates version numbers in `web/index.html` for `manifest.json?v=X`
+- Ensures users get the latest version without manual cache clearing
+
+### Build Commands
+**For development builds:**
+```bash
+flutter build web
+```
+
+**For production releases (ALWAYS use this pattern):**
+```bash
+./increment_version.sh && flutter build web --release
+```
+
+**Never run `flutter build web --release` without incrementing the version first!**
+
+## Deployment Workflow
+1. Make code changes
+2. Run: `./increment_version.sh && flutter build web --release`
+3. Upload `build/web/` contents to Hostinger
+4. Include the `.htaccess` file for proper caching
+
+## File Structure Notes
+- `web/index.html` - Contains versioned script references
+- `increment_version.sh` - Automated version incrementer
+- `version_manager.md` - Documentation for cache busting system
+- `web/.htaccess` - Server-side cache control for Hostinger
+
+## Development Guidelines
+- Always test locally before building for release
+- Monitor version numbers in `version_manager.md`
+- Ensure `.htaccess` file is uploaded to Hostinger root directory
+
+## Cache Busting Strategy
+This project uses URL versioning to prevent cache issues:
+- Critical files have `?v=X` parameters that increment with each release
+- Static assets use long-term caching with immutable headers
+- HTML files are never cached
+
+## Important Reminders
+- ⚠️ NEVER run `flutter build web --release` without incrementing version
+- ✅ ALWAYS use: `./increment_version.sh && flutter build web --release`
+- 📤 Upload entire `build/web/` folder to Hostinger after each build

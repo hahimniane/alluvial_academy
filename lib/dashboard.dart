@@ -2,6 +2,7 @@
 import 'features/dashboard/screens/admin_dashboard_screen.dart';
 import 'features/chat/screens/chat_page.dart';
 import 'form_screen.dart';
+import 'features/forms/screens/form_responses_screen.dart';
 import 'job_scheduling.dart';
 import 'features/time_clock/screens/time_clock_screen.dart';
 import 'features/time_clock/screens/admin_timesheet_review.dart';
@@ -117,6 +118,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const TimeClockScreen(),
         const AdminTimesheetReview(),
         const FormScreen(),
+        const FormResponsesScreen(),
         const FormBuilder(),
         const QuickTasksScreen(),
         const TestRoleSystemScreen(),
@@ -1038,28 +1040,34 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xffBA39A9),
                     ),
                     _buildSideMenuItem(
+                      icon: const Icon(Icons.list_alt),
+                      text: 'Form Responses',
+                      index: 9,
+                      color: const Color(0xffBA39A9),
+                    ),
+                    _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_task_manage.png'),
                       text: 'Quick Tasks',
-                      index: 10,
+                      index: 11,
                       color: const Color(0xff4CAF50),
                     ),
                     const Divider(),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.build),
                       text: 'Form Builder',
-                      index: 9,
+                      index: 10,
                     ),
                     // Debug features - only show in debug mode
                     if (kDebugMode) ...[
                       _buildSideMenuItem(
                         icon: const Icon(Icons.bug_report),
                         text: 'Test Role System',
-                        index: 11,
+                        index: 12,
                       ),
                       _buildSideMenuItem(
                         icon: const Icon(Icons.storage),
                         text: 'Firestore Debug',
-                        index: 12,
+                        index: 13,
                       ),
                     ],
                   ] else ...[
@@ -1097,7 +1105,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     _buildSideMenuItem(
                       icon: const Icon(Icons.task_alt),
                       text: 'Tasks',
-                      index: 10,
+                      index: 11,
                       color: DashboardConstants.jobSchedulingIconColor,
                     ),
                   ],
