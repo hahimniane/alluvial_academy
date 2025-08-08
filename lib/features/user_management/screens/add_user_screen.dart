@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:math';
+import 'dart:math' as math;
 
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
@@ -603,7 +603,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     String? guardianId
   ) async {
     // Generate preview credentials
-    final studentCode = _generateStudentCodePreview();
+    final studentCode = _generateStudentCodePreview(firstName, lastName);
     final aliasEmail = _generateAliasEmailPreview(studentCode);
     
     return showDialog<bool>(
@@ -630,20 +630,25 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   }
 
   // Generate preview student code (similar to Cloud Function logic)
-  String _generateStudentCodePreview() {
-    const String alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final Random random = Random();
-    String generateGroup() => List.generate(
-          4,
-          (_) => alphabet[random.nextInt(alphabet.length)],
-        ).join();
-
-    return '${generateGroup()}-${generateGroup()}';
+  String _generateStudentCodePreview(String firstName, String lastName) {
+    // Normalize names: remove spaces, special characters, convert to lowercase
+    String normalizeString(String str) {
+      return str
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '') // Remove all non-alphanumeric characters
+          .substring(0, math.min(str.length, 10)); // Limit length
+    }
+    
+    final firstNormalized = normalizeString(firstName);
+    final lastNormalized = normalizeString(lastName);
+    
+    // Create base student ID: firstname.lastname
+    return '$firstNormalized.$lastNormalized';
   }
 
   // Generate alias email preview
   String _generateAliasEmailPreview(String studentCode) {
-    return '$studentCode@students.alluwaleducationhub.org';
+    return '$studentCode@alluwaleducationhub.org';
   }
 
   @override

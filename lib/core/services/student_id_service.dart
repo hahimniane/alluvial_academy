@@ -2,7 +2,7 @@ import 'dart:math';
 
 class StudentIdService {
   // Domain used for alias emails for students without a real email address
-  static const String _aliasEmailDomain = 'students.alluwaleducationhub.org';
+  static const String _aliasEmailDomain = 'alluwaleducationhub.org';
 
   // Generate a human-friendly, non-sequential student code, e.g. A7Q4-MZ2N
   static String generateStudentCode({int groups = 2, int groupLength = 4}) {

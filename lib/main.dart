@@ -539,7 +539,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       }
     } catch (e) {
       if (mounted) {
-        _showErrorDialog('An unexpected error occurred. Please try again later.');
+        _showErrorDialog(
+            'An unexpected error occurred. Please try again later.');
       }
     }
   }
@@ -615,15 +616,16 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       }
     } catch (e) {
       if (mounted) {
-        _showErrorDialog('An unexpected error occurred. Please try again later.');
+        _showErrorDialog(
+            'An unexpected error occurred. Please try again later.');
       }
     }
   }
 
   // Local helper to build alias email without importing service at top-level
   String _aliasFromStudentId(String studentId) {
-    final normalized = studentId.trim().toUpperCase();
-    const domain = 'students.alluwaleducationhub.org';
+    final normalized = studentId.trim().toLowerCase();
+    const domain = 'alluwaleducationhub.org';
     return '$normalized@$domain';
   }
 
