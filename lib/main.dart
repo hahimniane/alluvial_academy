@@ -413,6 +413,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
   }
 
   void _showErrorDialog(String message) {
+    if (!mounted) return; // Check if widget is still mounted
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -446,6 +447,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
   }
 
   void _showSuccessDialog(String title, String message) {
+    if (!mounted) return; // Check if widget is still mounted
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -485,13 +487,17 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
 
     // Check if email is provided
     if (email.isEmpty) {
-      _showErrorDialog('Please enter your email address first.');
+      if (mounted) {
+        _showErrorDialog('Please enter your email address first.');
+      }
       return;
     }
 
     // Basic email validation
     if (!email.contains('@') || !email.contains('.')) {
-      _showErrorDialog('Please enter a valid email address.');
+      if (mounted) {
+        _showErrorDialog('Please enter a valid email address.');
+      }
       return;
     }
 
@@ -500,10 +506,12 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       await authService.sendPasswordResetEmail(email);
 
       // Show success message
-      _showSuccessDialog(
-        'Password Reset Email Sent',
-        'A password reset link has been sent to $email. Please check your inbox and follow the instructions to reset your password.',
-      );
+      if (mounted) {
+        _showSuccessDialog(
+          'Password Reset Email Sent',
+          'A password reset link has been sent to $email. Please check your inbox and follow the instructions to reset your password.',
+        );
+      }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
@@ -526,9 +534,13 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
           errorMessage = e.message ??
               'Unable to send password reset email. Please try again later.';
       }
-      _showErrorDialog(errorMessage);
+      if (mounted) {
+        _showErrorDialog(errorMessage);
+      }
     } catch (e) {
-      _showErrorDialog('An unexpected error occurred. Please try again later.');
+      if (mounted) {
+        _showErrorDialog('An unexpected error occurred. Please try again later.');
+      }
     }
   }
 
@@ -598,9 +610,13 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
           errorMessage =
               'Login failed. Please check your credentials and try again.';
       }
-      _showErrorDialog(errorMessage);
+      if (mounted) {
+        _showErrorDialog(errorMessage);
+      }
     } catch (e) {
-      _showErrorDialog('An unexpected error occurred. Please try again later.');
+      if (mounted) {
+        _showErrorDialog('An unexpected error occurred. Please try again later.');
+      }
     }
   }
 
