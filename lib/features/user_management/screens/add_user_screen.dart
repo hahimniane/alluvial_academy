@@ -1027,6 +1027,39 @@ class _UserInputRowState extends State<UserInputRow> {
     }
   }
 
+  // Helper methods for guardian display
+  String _getGuardianName(String guardianId) {
+    final guardian = availableGuardians.firstWhere(
+      (g) => g['id'] == guardianId,
+      orElse: () => {'name': 'Unknown Parent'},
+    );
+    return guardian['name'] ?? 'Unknown Parent';
+  }
+
+  String _getGuardianEmail(String guardianId) {
+    final guardian = availableGuardians.firstWhere(
+      (g) => g['id'] == guardianId,
+      orElse: () => {'email': ''},
+    );
+    return guardian['email'] ?? '';
+  }
+
+  // Show parent selection dialog
+  void _showParentSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ParentSelectionDialog(
+        availableParents: availableGuardians,
+        selectedParentId: selectedGuardianId,
+        onParentSelected: (parentId) {
+          setState(() {
+            selectedGuardianId = parentId;
+          });
+        },
+      ),
+    );
+  }
+
   // Auto-generate kiosk code when name or user type changes
   void _generateKioskCode() {
     if (firstNameController.text.isNotEmpty &&
@@ -1531,6 +1564,7 @@ class _UserInputRowState extends State<UserInputRow> {
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Row(
                               children: [
@@ -1540,19 +1574,21 @@ class _UserInputRowState extends State<UserInputRow> {
                                   size: 16,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'No Parents Found',
-                                  style: GoogleFonts.openSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xffE53E3E),
+                                Flexible(
+                                  child: Text(
+                                    'No Parents Found',
+                                    style: GoogleFonts.openSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xffE53E3E),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Please create a parent account first',
+                              'Create parent first',
                               style: GoogleFonts.openSans(
                                 fontSize: 11,
                                 color: const Color(0xffE53E3E),
@@ -1561,71 +1597,55 @@ class _UserInputRowState extends State<UserInputRow> {
                           ],
                         ),
                       )
-                    : DropdownButtonFormField<String>(
-                        value: selectedGuardianId,
-                        decoration: InputDecoration(
-                          labelText: 'Select Parent/Guardian*',
-                          labelStyle: GoogleFonts.openSans(
-                            color: const Color(0xff718096),
-                            fontSize: 12,
-                          ),
-                          border: OutlineInputBorder(
+                    : GestureDetector(
+                        onTap: () => _showParentSelectionDialog(),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffF7FAFC),
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                            border: Border.all(color: const Color(0xffE2E8F0)),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xffE2E8F0)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xffF7FAFC),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        ),
-                        style: GoogleFonts.openSans(
-                          fontSize: 14,
-                          color: const Color(0xff2D3748),
-                        ),
-                        icon: const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Color(0xff718096),
-                        ),
-                        dropdownColor: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        items: availableGuardians.map<DropdownMenuItem<String>>((guardian) {
-                          return DropdownMenuItem<String>(
-                            value: guardian['id'],
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  guardian['name'],
-                                  style: GoogleFonts.openSans(
-                                    fontSize: 14,
-                                    color: const Color(0xff2D3748),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      selectedGuardianId != null
+                                          ? _getGuardianName(selectedGuardianId!)
+                                          : 'Select Parent/Guardian*',
+                                      style: GoogleFonts.openSans(
+                                        fontSize: 14,
+                                        color: selectedGuardianId != null
+                                            ? const Color(0xff2D3748)
+                                            : const Color(0xff718096),
+                                        fontWeight: selectedGuardianId != null
+                                            ? FontWeight.w500
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                    if (selectedGuardianId != null)
+                                      Text(
+                                        _getGuardianEmail(selectedGuardianId!),
+                                        style: GoogleFonts.openSans(
+                                          fontSize: 12,
+                                          color: const Color(0xff718096),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                Text(
-                                  guardian['email'],
-                                  style: GoogleFonts.openSans(
-                                    fontSize: 12,
-                                    color: const Color(0xff718096),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            selectedGuardianId = newValue;
-                          });
-                        },
+                              ),
+                              const Icon(
+                                Icons.search,
+                                color: Color(0xff718096),
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
               ),
             const SizedBox(width: 16),
@@ -1709,6 +1729,325 @@ class _UserInputRowState extends State<UserInputRow> {
     emailController.dispose();
     kioskCodeController.dispose();
     hourlyRateController.dispose();
+    super.dispose();
+  }
+}
+
+// Parent Selection Dialog Component
+class ParentSelectionDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> availableParents;
+  final String? selectedParentId;
+  final Function(String?) onParentSelected;
+
+  const ParentSelectionDialog({
+    super.key,
+    required this.availableParents,
+    required this.selectedParentId,
+    required this.onParentSelected,
+  });
+
+  @override
+  State<ParentSelectionDialog> createState() => _ParentSelectionDialogState();
+}
+
+class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
+  final _searchController = TextEditingController();
+  String _searchTerm = '';
+  String? _tempSelectedParentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelectedParentId = widget.selectedParentId;
+  }
+
+  List<Map<String, dynamic>> get _filteredParents {
+    if (_searchTerm.isEmpty) return widget.availableParents;
+    final term = _searchTerm.toLowerCase();
+    return widget.availableParents.where((parent) {
+      final name = parent['name'].toString().toLowerCase();
+      final email = parent['email'].toString().toLowerCase();
+      return name.contains(term) || email.contains(term);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Color(0xff0386FF),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Select Parent/Guardian',
+                          style: GoogleFonts.openSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Choose a parent for this minor student',
+                          style: GoogleFonts.openSans(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            // Search
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search parents by name or email...',
+                  hintStyle: GoogleFonts.openSans(
+                    color: const Color(0xffA0AEC0),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xff718096),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xffF7FAFC),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchTerm = value;
+                  });
+                },
+              ),
+            ),
+            // Parent List
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                child: _filteredParents.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _searchTerm.isNotEmpty ? Icons.search_off : Icons.family_restroom,
+                              size: 48,
+                              color: const Color(0xff718096),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchTerm.isNotEmpty
+                                  ? 'No parents found matching "$_searchTerm"'
+                                  : 'No parents available',
+                              style: GoogleFonts.openSans(
+                                fontSize: 16,
+                                color: const Color(0xff718096),
+                              ),
+                            ),
+                            if (_searchTerm.isEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Create a parent account first',
+                                style: GoogleFonts.openSans(
+                                  fontSize: 14,
+                                  color: const Color(0xff718096),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredParents.length,
+                        itemBuilder: (context, index) {
+                          final parent = _filteredParents[index];
+                          final isSelected = _tempSelectedParentId == parent['id'];
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  setState(() {
+                                    _tempSelectedParentId = parent['id'];
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xff0386FF)
+                                          : const Color(0xffE2E8F0),
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                    color: isSelected
+                                        ? const Color(0xff0386FF).withOpacity(0.05)
+                                        : Colors.white,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                                        child: Text(
+                                          parent['name'].isNotEmpty
+                                              ? parent['name'][0].toUpperCase()
+                                              : 'P',
+                                          style: GoogleFonts.openSans(
+                                            color: const Color(0xff0386FF),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              parent['name'],
+                                              style: GoogleFonts.openSans(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                                color: const Color(0xff2D3748),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              parent['email'],
+                                              style: GoogleFonts.openSans(
+                                                fontSize: 14,
+                                                color: const Color(0xff718096),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Icon(
+                                          Icons.check_circle,
+                                          color: Color(0xff0386FF),
+                                          size: 24,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+            // Actions
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Color(0xffE2E8F0)),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.openSans(
+                        fontSize: 14,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: _tempSelectedParentId != null
+                        ? () {
+                            widget.onParentSelected(_tempSelectedParentId);
+                            Navigator.of(context).pop();
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff0386FF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Select',
+                      style: GoogleFonts.openSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
     super.dispose();
   }
 }
