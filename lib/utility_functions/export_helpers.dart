@@ -262,13 +262,22 @@ class ExportHelpers {
         final blob = html.Blob([
           Uint8List.fromList(fileBytes)
         ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        
         final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
-          ..setAttribute("download", "$baseFileName.xlsx")
-          ..click();
+        
+        // Create and configure the anchor element
+        final anchor = html.AnchorElement()
+          ..href = url
+          ..style.display = 'none'
+          ..download = "$baseFileName.xlsx";
+        
+        // Add to DOM, click, then remove
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        html.document.body?.children.remove(anchor);
 
         // Clean up URL after a delay to ensure download starts
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(const Duration(milliseconds: 1000), () {
           html.Url.revokeObjectUrl(url);
         });
 
@@ -313,10 +322,20 @@ class ExportHelpers {
 
       // Create a link element
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute("download", "$baseFileName.csv")
-        ..click();
-      html.Url.revokeObjectUrl(url);
+      final anchor = html.AnchorElement()
+        ..href = url
+        ..style.display = 'none'
+        ..download = "$baseFileName.csv";
+      
+      // Add to DOM, click, then remove
+      html.document.body?.children.add(anchor);
+      anchor.click();
+      html.document.body?.children.remove(anchor);
+      
+      // Clean up URL after download
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        html.Url.revokeObjectUrl(url);
+      });
 
       print('CSV file exported successfully: $baseFileName.csv');
     } catch (e) {

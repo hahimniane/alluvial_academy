@@ -118,7 +118,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const TimeClockScreen(),
         const AdminTimesheetReview(),
         const FormScreen(),
-        const FormResponsesScreen(),
+        FormResponsesScreen(key: ValueKey(_refreshTrigger)),
         const FormBuilder(),
         const QuickTasksScreen(),
         const TestRoleSystemScreen(),
@@ -130,6 +130,10 @@ class _DashboardPageState extends State<DashboardPage> {
     if (mounted) {
       setState(() {
         _selectedIndex = index;
+        // Trigger refresh for FormResponsesScreen (index 9) when navigated to
+        if (index == 9) {
+          _refreshTrigger++;
+        }
       });
     }
   }
