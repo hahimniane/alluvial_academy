@@ -1381,21 +1381,22 @@ exports.deleteUserAccount = functions.https.onCall(async (data, context) => {
 });
 
 // Generate a human-friendly, non-sequential student code
-const generateStudentCode = (groups = 2, groupLength = 4) => {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const generateGroup = () => {
-    let group = '';
-    for (let i = 0; i < groupLength; i++) {
-      group += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-    return group;
+const generateStudentCode = (firstName, lastName) => {
+  // Normalize names: remove spaces, special characters, convert to lowercase
+  const normalizeString = (str) => {
+    return str
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '') // Remove all non-alphanumeric characters
+      .substring(0, 10); // Limit length
   };
   
-  const parts = [];
-  for (let i = 0; i < groups; i++) {
-    parts.push(generateGroup());
-  }
-  return parts.join('-');
+  const firstNormalized = normalizeString(firstName);
+  const lastNormalized = normalizeString(lastName);
+  
+  // Create base student ID: firstname.lastname
+  const baseStudentId = `${firstNormalized}.${lastNormalized}`;
+  
+  return baseStudentId;
 };
 
 // Create student account with Student ID
@@ -1458,7 +1459,11 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     const maxAttempts = 10;
     
     do {
-      studentCode = generateStudentCode();
+      // Generate base student code from names
+      const baseStudentCode = generateStudentCode(firstName, lastName);
+      
+      // Add number prefix if this is not the first attempt (to handle duplicates)
+      studentCode = attempts === 0 ? baseStudentCode : `${attempts}${baseStudentCode}`;
       attempts++;
       
       // Check if Student ID already exists in users collection
@@ -1483,7 +1488,7 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     let authUserId = null;
 
     // For minor students or adult students, create Firebase Auth account with alias email
-    const aliasEmail = `${studentCode}@students.alluwaleducationhub.org`;
+    const aliasEmail = `${studentCode}@alluwaleducationhub.org`;
     const tempPassword = generateRandomPassword();
     
     console.log(`Creating Firebase Auth user with alias email: ${aliasEmail}`);
