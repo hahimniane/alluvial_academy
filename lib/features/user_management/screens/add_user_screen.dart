@@ -147,21 +147,48 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           rowState.emailController.text.isNotEmpty) {
         print('Row $index has some fields populated');
 
-        // Check if all required fields are populated (phone number is optional)
-        if (rowState.firstNameController.text.isEmpty ||
+        // Check validation based on user type
+        bool emailRequired = true;
+        bool guardianRequired = false;
+        
+        if (rowState.selectedUserType == 'Student') {
+          // For students: email is required only for adults
+          emailRequired = rowState.isAdultStudent;
+          // For minor students: guardian is required
+          guardianRequired = !rowState.isAdultStudent;
+        }
+        
+        // Check if all required fields are populated
+        bool missingRequiredFields = rowState.firstNameController.text.isEmpty ||
             rowState.lastNameController.text.isEmpty ||
-            rowState.emailController.text.isEmpty ||
-            rowState.kioskCodeController.text.isEmpty) {
+            rowState.kioskCodeController.text.isEmpty ||
+            (emailRequired && rowState.emailController.text.isEmpty) ||
+            (guardianRequired && (rowState.selectedGuardianId == null || rowState.availableGuardians.isEmpty));
+            
+        if (missingRequiredFields) {
           print('Row $index is incomplete');
           allValid = false;
           setState(() {
             _isLoading = false;
           });
+          String errorMessage = 'Missing required fields in row ${index + 1}: ';
+          List<String> missingFields = [];
+          
+          if (rowState.firstNameController.text.isEmpty) missingFields.add('First name');
+          if (rowState.lastNameController.text.isEmpty) missingFields.add('Last name');
+          if (rowState.kioskCodeController.text.isEmpty) missingFields.add('Kiosk code');
+          if (emailRequired && rowState.emailController.text.isEmpty) missingFields.add('Email');
+          if (guardianRequired && (rowState.selectedGuardianId == null || rowState.availableGuardians.isEmpty)) {
+            missingFields.add(rowState.availableGuardians.isEmpty ? 'Parent (none available - create parent first)' : 'Parent selection');
+          }
+          
+          errorMessage += missingFields.join(', ');
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xffF56565),
               content: Text(
-                'First name, last name, email, and kiosk code are required in row ${index + 1}',
+                errorMessage,
                 style: GoogleFonts.openSans(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -208,7 +235,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           hourlyRate = 15.0; // Default rate
         }
 
-        usersData.add({
+        Map<String, dynamic> userData = {
           'first_name': rowState.firstNameController.text.trim(),
           'last_name': rowState.lastNameController.text.trim(),
           'phone_number': fullPhoneNumber,
@@ -220,10 +247,19 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'kiosk_code': rowState.kioskCodeController.text.trim(),
           'hourly_rate': hourlyRate,
           'date_added': FieldValue.serverTimestamp(),
-          'last_login':
-              null, // Set to null for new users who haven't logged in yet
+          'last_login': null,
           'is_active': true,
-        });
+        };
+        
+        // Add student-specific fields
+        if (rowState.selectedUserType == 'Student') {
+          userData['is_adult_student'] = rowState.isAdultStudent;
+          if (!rowState.isAdultStudent && rowState.selectedGuardianId != null) {
+            userData['guardian_id'] = rowState.selectedGuardianId;
+          }
+        }
+        
+        usersData.add(userData);
       } else {
         print('Row $index has no fields populated');
       }
@@ -328,31 +364,58 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         print('User ${i + 1}: ${transformedUsers[i]}');
       }
 
-      // Call Firebase Function based on number of users
+      // Call Firebase Function based on user type and number of users
       if (transformedUsers.length == 1) {
-        // Use createUserWithEmail function for single user
         final functions = FirebaseFunctions.instance;
-        final callable = functions.httpsCallable('createUserWithEmail');
+        final userData = transformedUsers.first;
+        
+        // Check if this is a student creation
+        if (userData['userType'] == 'student') {
+          // Use createStudentAccount function for students
+          final callable = functions.httpsCallable('createStudentAccount');
+          
+          Map<String, dynamic> studentData = {
+            'firstName': userData['firstName'],
+            'lastName': userData['lastName'],
+            'phoneNumber': userData['phoneNumber'],
+            'isAdultStudent': usersData.first['is_adult_student'] ?? false,
+          };
+          
+          // Add email only if provided (for adult students)
+          if (userData['email'].isNotEmpty) {
+            studentData['email'] = userData['email'];
+          }
+          
+          // Add guardian ID for minor students
+          if (usersData.first['guardian_id'] != null) {
+            studentData['guardianIds'] = [usersData.first['guardian_id']];
+          }
+          
+          final result = await callable.call(studentData);
+          print('Student creation result: ${result.data}');
+        } else {
+          // Use createUserWithEmail function for regular users
+          final callable = functions.httpsCallable('createUserWithEmail');
+          final result = await callable.call(userData);
+          print('Regular user creation result: ${result.data}');
+        }
 
-        // Send the user data directly, not nested under 'data'
-        final result = await callable.call(transformedUsers.first);
-
-        print('Single user creation result: ${result.data}');
-
-        // Send welcome email
-        try {
-          final welcomeCallable = functions.httpsCallable('sendWelcomeEmail');
-          final user = transformedUsers.first;
-          await welcomeCallable.call({
-            'email': user['e-mail'], // Use correct field name from Firestore
-            'firstName': user['first_name'],
-            'lastName': user['last_name'],
-            'role': user['user_type'], // Use correct field name
-          });
-          print('Welcome email sent successfully');
-        } catch (emailError) {
-          print('Failed to send welcome email: $emailError');
-          // Don't fail the entire operation if email fails
+        // Send welcome email (only if email is provided)
+        if (userData['email'].isNotEmpty) {
+          try {
+            final welcomeCallable = functions.httpsCallable('sendWelcomeEmail');
+            final user = transformedUsers.first;
+            await welcomeCallable.call({
+              'email': user['email'],
+              'firstName': user['firstName'],
+              'lastName': user['lastName'],
+              'role': user['userType'],
+            });
+            print('Welcome email sent successfully');
+          } catch (emailError) {
+            print('Failed to send welcome email: $emailError');
+            // Don't fail the entire operation if email fails
+          }
         }
       } else {
         // Use createMultipleUsers function for multiple users
@@ -391,10 +454,26 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
       // Show detailed success message
       String successMessage;
       if (transformedUsers.length == 1) {
-        successMessage = '✅ User created successfully!\n'
-            '• Firebase Auth account created\n'
-            '• User profile saved to database\n'
-            '• Welcome email sent with login credentials';
+        final userData = transformedUsers.first;
+        if (userData['userType'] == 'student') {
+          bool isAdult = usersData.first['is_adult_student'] ?? false;
+          if (isAdult) {
+            successMessage = '✅ Adult Student created successfully!\n'
+                '• Student ID login account created\n'
+                '• Profile saved to database\n'
+                '• Welcome email sent with login credentials';
+          } else {
+            successMessage = '✅ Minor Student created successfully!\n'
+                '• Student ID login account created\n'
+                '• Profile saved and linked to guardian\n'
+                '• No email required for minor students';
+          }
+        } else {
+          successMessage = '✅ User created successfully!\n'
+              '• Firebase Auth account created\n'
+              '• User profile saved to database\n'
+              '• Welcome email sent with login credentials';
+        }
       } else {
         successMessage =
             '✅ ${transformedUsers.length} users created successfully!\n'
@@ -910,6 +989,43 @@ class _UserInputRowState extends State<UserInputRow> {
   String selectedUserType = "Admin"; // Default to Admin
 
   final List<String> userTypes = ["Admin", "Teacher", "Student", "Parent"];
+  
+  // Student-specific fields
+  bool isAdultStudent = false;
+  String? selectedGuardianId;
+  List<Map<String, dynamic>> availableGuardians = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableGuardians();
+  }
+
+  // Load available guardians (parents) from Firestore
+  Future<void> _loadAvailableGuardians() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('user_type', isEqualTo: 'parent')
+          .where('is_active', isEqualTo: true)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          availableGuardians = querySnapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,
+              'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+              'email': data['e-mail'] ?? '',
+            };
+          }).toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading guardians: $e');
+    }
+  }
 
   // Auto-generate kiosk code when name or user type changes
   void _generateKioskCode() {
@@ -967,6 +1083,8 @@ class _UserInputRowState extends State<UserInputRow> {
     hourlyRateController.text = '15.00';
     countryCode = "1";
     selectedUserType = "Admin";
+    isAdultStudent = false;
+    selectedGuardianId = null;
   }
 
   @override
@@ -1144,6 +1262,12 @@ class _UserInputRowState extends State<UserInputRow> {
                   setState(() {
                     selectedUserType = newValue;
                     _generateKioskCode();
+                    
+                    // Reset student-specific fields when changing away from Student
+                    if (newValue != 'Student') {
+                      isAdultStudent = false;
+                      selectedGuardianId = null;
+                    }
                   });
                 }
               },
@@ -1264,7 +1388,9 @@ class _UserInputRowState extends State<UserInputRow> {
               controller: emailController,
               onChanged: (value) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Email address',
+                hintText: selectedUserType == 'Student' && !isAdultStudent 
+                    ? 'Email (Optional for minors)' 
+                    : 'Email address',
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1307,6 +1433,203 @@ class _UserInputRowState extends State<UserInputRow> {
             ),
           ),
           const SizedBox(width: 16),
+
+          // Student-specific fields
+          if (selectedUserType == 'Student') ...[
+            // Adult/Minor Toggle
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF7FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Student Type',
+                      style: GoogleFonts.openSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff2D3748),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => isAdultStudent = true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: isAdultStudent ? const Color(0xff0386FF) : Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isAdultStudent ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
+                                ),
+                              ),
+                              child: Text(
+                                'Adult',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.openSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isAdultStudent ? Colors.white : const Color(0xff718096),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => isAdultStudent = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: !isAdultStudent ? const Color(0xff0386FF) : Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: !isAdultStudent ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
+                                ),
+                              ),
+                              child: Text(
+                                'Minor',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.openSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: !isAdultStudent ? Colors.white : const Color(0xff718096),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Guardian Selection (only for minors)
+            if (!isAdultStudent)
+              Expanded(
+                flex: 3,
+                child: availableGuardians.isEmpty
+                    ? Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffFED7D7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xffFC8181)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Color(0xffE53E3E),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'No Parents Found',
+                                  style: GoogleFonts.openSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xffE53E3E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Please create a parent account first',
+                              style: GoogleFonts.openSans(
+                                fontSize: 11,
+                                color: const Color(0xffE53E3E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : DropdownButtonFormField<String>(
+                        value: selectedGuardianId,
+                        decoration: InputDecoration(
+                          labelText: 'Select Parent/Guardian*',
+                          labelStyle: GoogleFonts.openSans(
+                            color: const Color(0xff718096),
+                            fontSize: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xffF7FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        style: GoogleFonts.openSans(
+                          fontSize: 14,
+                          color: const Color(0xff2D3748),
+                        ),
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Color(0xff718096),
+                        ),
+                        dropdownColor: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        items: availableGuardians.map<DropdownMenuItem<String>>((guardian) {
+                          return DropdownMenuItem<String>(
+                            value: guardian['id'],
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  guardian['name'],
+                                  style: GoogleFonts.openSans(
+                                    fontSize: 14,
+                                    color: const Color(0xff2D3748),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  guardian['email'],
+                                  style: GoogleFonts.openSans(
+                                    fontSize: 12,
+                                    color: const Color(0xff718096),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            selectedGuardianId = newValue;
+                          });
+                        },
+                      ),
+              ),
+            const SizedBox(width: 16),
+          ],
 
           // Hourly Rate (only for Teachers and Admins)
           if (selectedUserType == 'Teacher' || selectedUserType == 'Admin')
