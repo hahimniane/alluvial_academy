@@ -1379,3 +1379,218 @@ exports.deleteUserAccount = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', `Failed to delete user: ${error.message}`);
   }
 });
+
+// Generate a human-friendly, non-sequential student code
+const generateStudentCode = (groups = 2, groupLength = 4) => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const generateGroup = () => {
+    let group = '';
+    for (let i = 0; i < groupLength; i++) {
+      group += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return group;
+  };
+  
+  const parts = [];
+  for (let i = 0; i < groups; i++) {
+    parts.push(generateGroup());
+  }
+  return parts.join('-');
+};
+
+// Create student account with Student ID
+exports.createStudentAccount = functions.https.onCall(async (data, context) => {
+  console.log("--- CREATE STUDENT ACCOUNT ---");
+  console.log("Raw data received:", data);
+  
+  try {
+    // Validate input data
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid data received:', data);
+      throw new functions.https.HttpsError('invalid-argument', 'Data must be an object');
+    }
+
+    // Extract the actual data
+    const studentData = data.data || data;
+    console.log("Using studentData:", JSON.stringify(studentData, null, 2));
+    
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      grade,
+      isMinor,
+      guardianIds, // Array of guardian user IDs
+      phoneNumber,
+      address,
+      emergencyContact,
+      notes
+    } = studentData;
+
+    // Log extracted fields for debugging
+    console.log('Extracted fields:', {
+      firstName: firstName || 'MISSING',
+      lastName: lastName || 'MISSING', 
+      dateOfBirth: dateOfBirth || 'MISSING',
+      grade: grade || 'MISSING',
+      isMinor: isMinor !== undefined ? isMinor : 'MISSING',
+      guardianIds: guardianIds || 'MISSING',
+      phoneNumber: phoneNumber || 'OPTIONAL',
+      address: address || 'OPTIONAL',
+      emergencyContact: emergencyContact || 'OPTIONAL',
+      notes: notes || 'OPTIONAL'
+    });
+
+    // Validate required fields
+    const missingFields = [];
+    if (!firstName || String(firstName).trim() === '') missingFields.push('firstName');
+    if (!lastName || String(lastName).trim() === '') missingFields.push('lastName');
+    if (!dateOfBirth) missingFields.push('dateOfBirth');
+    if (isMinor === undefined || isMinor === null) missingFields.push('isMinor');
+
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields);
+      throw new functions.https.HttpsError('invalid-argument', `Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    console.log('All required fields validated successfully');
+
+    // Generate unique Student ID
+    let studentCode;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    do {
+      studentCode = generateStudentCode();
+      attempts++;
+      
+      // Check if Student ID already exists in users collection
+      const existingQuery = await admin.firestore()
+        .collection('users')
+        .where('student_code', '==', studentCode)
+        .limit(1)
+        .get();
+        
+      if (existingQuery.empty) {
+        break; // Found unique ID
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new functions.https.HttpsError('internal', 'Failed to generate unique Student ID after multiple attempts');
+      }
+    } while (attempts < maxAttempts);
+
+    console.log(`Generated unique Student ID: ${studentCode}`);
+
+    let userRecord = null;
+    let authUserId = null;
+
+    // For minor students or adult students, create Firebase Auth account with alias email
+    const aliasEmail = `${studentCode}@students.alluwaleducationhub.org`;
+    const tempPassword = generateRandomPassword();
+    
+    console.log(`Creating Firebase Auth user with alias email: ${aliasEmail}`);
+    
+    userRecord = await admin.auth().createUser({
+      email: aliasEmail,
+      password: tempPassword,
+      displayName: `${firstName} ${lastName}`,
+      emailVerified: false
+    });
+    
+    authUserId = userRecord.uid;
+    console.log(`Auth user created with UID: ${authUserId}`);
+
+    // Prepare Firestore data for users collection
+    const firestoreUserData = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      'e-mail': aliasEmail,
+      user_type: 'student',
+      student_code: studentCode,
+      is_minor: isMinor,
+      date_of_birth: dateOfBirth,
+      grade: grade || 'Student',
+      phone_number: phoneNumber || '',
+      address: address || '',
+      emergency_contact: emergencyContact || '',
+      guardian_ids: guardianIds || [],
+      notes: notes || '',
+      date_added: admin.firestore.FieldValue.serverTimestamp(),
+      last_login: null,
+      is_active: true,
+      email_verified: false,
+      uid: authUserId,
+      created_by_admin: true,
+      password_reset_required: true,
+      temp_password: tempPassword // Store temp password for admin reference
+    };
+
+    // Create Firestore document in users collection
+    await admin.firestore()
+      .collection("users")
+      .doc(authUserId)
+      .set(firestoreUserData);
+    console.log(`User document created for Student ID: ${studentCode}`);
+
+    // Also create a separate students collection document for extended student data
+    const studentDocData = {
+      student_code: studentCode,
+      auth_user_id: authUserId,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      date_of_birth: dateOfBirth,
+      grade: grade || 'Student',
+      is_minor: isMinor,
+      guardian_ids: guardianIds || [],
+      phone_number: phoneNumber || '',
+      address: address || '',
+      emergency_contact: emergencyContact || '',
+      notes: notes || '',
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      is_active: true
+    };
+
+    await admin.firestore()
+      .collection("students")
+      .doc(authUserId) // Use same ID as auth user for easy linking
+      .set(studentDocData);
+    console.log(`Student document created in students collection`);
+
+    // Update guardian documents to include this student in their children_ids array
+    if (guardianIds && Array.isArray(guardianIds) && guardianIds.length > 0) {
+      const batch = admin.firestore().batch();
+      
+      for (const guardianId of guardianIds) {
+        const guardianRef = admin.firestore().collection('users').doc(guardianId);
+        
+        // Add this student to guardian's children_ids array
+        batch.update(guardianRef, {
+          children_ids: admin.firestore.FieldValue.arrayUnion(authUserId)
+        });
+      }
+      
+      await batch.commit();
+      console.log(`Updated ${guardianIds.length} guardian documents with new student`);
+    }
+
+    return {
+      success: true,
+      studentId: authUserId,
+      studentCode: studentCode,
+      aliasEmail: aliasEmail,
+      tempPassword: tempPassword,
+      message: "Student account created successfully",
+      isMinor: isMinor,
+      guardiansUpdated: guardianIds ? guardianIds.length : 0
+    };
+
+  } catch (error) {
+    console.error("--- FULL FUNCTION ERROR ---");
+    console.error("ERROR MESSAGE:", error.message);
+    console.error("ERROR STACK:", error.stack);
+    // Re-throw a clean error to the client
+    throw new functions.https.HttpsError('internal', error.message, error.stack);
+  }
+});
