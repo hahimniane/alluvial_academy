@@ -29,7 +29,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     final initials =
         '${firstName.isNotEmpty ? firstName[0].toUpperCase() : 'X'}${lastName.isNotEmpty ? lastName[0].toUpperCase() : 'X'}';
     final typeCode = _getUserTypeCode(userType);
-    final random = Random().nextInt(999).toString().padLeft(3, '0');
+    final random = math.Random().nextInt(999).toString().padLeft(3, '0');
     final timestamp = DateTime.now()
         .millisecondsSinceEpoch
         .toString()
@@ -1167,7 +1167,7 @@ class _UserInputRowState extends State<UserInputRow> {
       final initials =
           '${firstNameController.text[0].toUpperCase()}${lastNameController.text[0].toUpperCase()}';
       final typeCode = _getUserTypeCode(selectedUserType);
-      final random = Random().nextInt(999).toString().padLeft(3, '0');
+      final random = math.Random().nextInt(999).toString().padLeft(3, '0');
       final timestamp =
           DateTime.now().millisecondsSinceEpoch.toString().substring(8, 13);
 
