@@ -18,6 +18,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   List<int> userRows = [0]; // Start with one row
   final Map<int, UserInputRow> userRowsWidgets = {};
   final Map<int, GlobalKey<_UserInputRowState>> rowKeys = {};
+  
+  // Available guardians for student creation
+  List<Map<String, dynamic>> _allGuardians = [];
 
   // Generate unique kiosk code
   String _generateKioskCode(
@@ -371,6 +374,20 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         
         // Check if this is a student creation
         if (userData['userType'] == 'student') {
+          // Show preview dialog for student credentials
+          final bool? confirmed = await _showStudentCredentialsPreview(
+            userData['firstName'], 
+            userData['lastName'], 
+            usersData.first['is_adult_student'] ?? false,
+            usersData.first['guardian_id'],
+          );
+          
+          if (confirmed != true) {
+            setState(() {
+              _isLoading = false;
+            });
+            return; // User cancelled
+          }
           // Use createStudentAccount function for students
           final callable = functions.httpsCallable('createStudentAccount');
           
@@ -551,6 +568,82 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     for (var index in userRows) {
       rowKeys[index] = GlobalKey<_UserInputRowState>();
     }
+    _loadAllGuardians();
+  }
+
+  // Load all guardians for student creation
+  Future<void> _loadAllGuardians() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('user_type', isEqualTo: 'parent')
+          .where('is_active', isEqualTo: true)
+          .get();
+
+      setState(() {
+        _allGuardians = querySnapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+            'email': data['e-mail'] ?? '',
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print('Error loading guardians: $e');
+    }
+  }
+
+  // Show student credentials preview dialog
+  Future<bool?> _showStudentCredentialsPreview(
+    String firstName, 
+    String lastName, 
+    bool isAdultStudent, 
+    String? guardianId
+  ) async {
+    // Generate preview credentials
+    final studentCode = _generateStudentCodePreview();
+    final aliasEmail = _generateAliasEmailPreview(studentCode);
+    
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StudentCredentialsPreviewDialog(
+        firstName: firstName,
+        lastName: lastName,
+        isAdultStudent: isAdultStudent,
+        studentCode: studentCode,
+        aliasEmail: aliasEmail,
+        guardianName: guardianId != null ? _getGuardianNameById(guardianId) : null,
+      ),
+    );
+  }
+
+  // Helper to get guardian name by ID
+  String _getGuardianNameById(String guardianId) {
+    final guardian = _allGuardians.firstWhere(
+      (g) => g['id'] == guardianId,
+      orElse: () => {'name': 'Unknown Parent'},
+    );
+    return guardian['name'] ?? 'Unknown Parent';
+  }
+
+  // Generate preview student code (similar to Cloud Function logic)
+  String _generateStudentCodePreview() {
+    const String alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final Random random = Random();
+    String generateGroup() => List.generate(
+          4,
+          (_) => alphabet[random.nextInt(alphabet.length)],
+        ).join();
+
+    return '${generateGroup()}-${generateGroup()}';
+  }
+
+  // Generate alias email preview
+  String _generateAliasEmailPreview(String studentCode) {
+    return '$studentCode@students.alluwaleducationhub.org';
   }
 
   @override
@@ -1059,6 +1152,8 @@ class _UserInputRowState extends State<UserInputRow> {
       ),
     );
   }
+
+
 
   // Auto-generate kiosk code when name or user type changes
   void _generateKioskCode() {
@@ -2049,6 +2144,335 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+}
+
+// Student Credentials Preview Dialog Component
+class StudentCredentialsPreviewDialog extends StatelessWidget {
+  final String firstName;
+  final String lastName;
+  final bool isAdultStudent;
+  final String studentCode;
+  final String aliasEmail;
+  final String? guardianName;
+
+  const StudentCredentialsPreviewDialog({
+    super.key,
+    required this.firstName,
+    required this.lastName,
+    required this.isAdultStudent,
+    required this.studentCode,
+    required this.aliasEmail,
+    this.guardianName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Color(0xff0386FF),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.preview,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Student Login Preview',
+                          style: GoogleFonts.openSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Review login credentials before creating account',
+                          style: GoogleFonts.openSans(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Student Info
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF7FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xffE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.person,
+                              color: Color(0xff0386FF),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Student Information',
+                              style: GoogleFonts.openSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff2D3748),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoRow('Name', '$firstName $lastName'),
+                        _buildInfoRow('Type', isAdultStudent ? 'Adult Student' : 'Minor Student'),
+                        if (!isAdultStudent && guardianName != null)
+                          _buildInfoRow('Guardian', guardianName!),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Login Credentials
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xffBFDBFE)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.vpn_key,
+                              color: Color(0xff0386FF),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Login Credentials',
+                              style: GoogleFonts.openSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff1E40AF),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildCredentialRow('Student ID', studentCode, true),
+                        _buildCredentialRow('Login Email', aliasEmail, false),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffDEF7EC),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xffBCF5CD)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                color: Color(0xff0D9488),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Student will use Student ID and system-generated password to login',
+                                  style: GoogleFonts.openSans(
+                                    fontSize: 12,
+                                    color: const Color(0xff0D9488),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Actions
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Color(0xffE2E8F0)),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.openSans(
+                        fontSize: 14,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff0386FF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Create Account',
+                      style: GoogleFonts.openSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: GoogleFonts.openSans(
+                fontSize: 14,
+                color: const Color(0xff718096),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.openSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff2D3748),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCredentialRow(String label, String value, bool isStudentId) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: GoogleFonts.openSans(
+                fontSize: 14,
+                color: const Color(0xff1E40AF),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xffE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff2D3748),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.copy,
+                      size: 16,
+                      color: Color(0xff718096),
+                    ),
+                    onPressed: () {
+                      // Copy to clipboard functionality can be added here
+                    },
+                    tooltip: 'Copy to clipboard',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

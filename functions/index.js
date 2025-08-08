@@ -1417,11 +1417,10 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     const {
       firstName,
       lastName,
-      dateOfBirth,
-      grade,
-      isMinor,
+      isAdultStudent,
       guardianIds, // Array of guardian user IDs
       phoneNumber,
+      email,
       address,
       emergencyContact,
       notes
@@ -1431,11 +1430,10 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     console.log('Extracted fields:', {
       firstName: firstName || 'MISSING',
       lastName: lastName || 'MISSING', 
-      dateOfBirth: dateOfBirth || 'MISSING',
-      grade: grade || 'MISSING',
-      isMinor: isMinor !== undefined ? isMinor : 'MISSING',
-      guardianIds: guardianIds || 'MISSING',
+      isAdultStudent: isAdultStudent !== undefined ? isAdultStudent : 'MISSING',
+      guardianIds: guardianIds || 'OPTIONAL',
       phoneNumber: phoneNumber || 'OPTIONAL',
+      email: email || 'OPTIONAL',
       address: address || 'OPTIONAL',
       emergencyContact: emergencyContact || 'OPTIONAL',
       notes: notes || 'OPTIONAL'
@@ -1445,8 +1443,7 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     const missingFields = [];
     if (!firstName || String(firstName).trim() === '') missingFields.push('firstName');
     if (!lastName || String(lastName).trim() === '') missingFields.push('lastName');
-    if (!dateOfBirth) missingFields.push('dateOfBirth');
-    if (isMinor === undefined || isMinor === null) missingFields.push('isMinor');
+    if (isAdultStudent === undefined || isAdultStudent === null) missingFields.push('isAdultStudent');
 
     if (missingFields.length > 0) {
       console.error('Missing required fields:', missingFields);
@@ -1505,12 +1502,10 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     const firestoreUserData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      'e-mail': aliasEmail,
+      'e-mail': email || aliasEmail,
       user_type: 'student',
       student_code: studentCode,
-      is_minor: isMinor,
-      date_of_birth: dateOfBirth,
-      grade: grade || 'Student',
+      is_adult_student: isAdultStudent,
       phone_number: phoneNumber || '',
       address: address || '',
       emergency_contact: emergencyContact || '',
@@ -1539,11 +1534,10 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
       auth_user_id: authUserId,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      date_of_birth: dateOfBirth,
-      grade: grade || 'Student',
-      is_minor: isMinor,
+      is_adult_student: isAdultStudent,
       guardian_ids: guardianIds || [],
       phone_number: phoneNumber || '',
+      email: email || aliasEmail,
       address: address || '',
       emergency_contact: emergencyContact || '',
       notes: notes || '',
@@ -1582,7 +1576,7 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
       aliasEmail: aliasEmail,
       tempPassword: tempPassword,
       message: "Student account created successfully",
-      isMinor: isMinor,
+      isAdultStudent: isAdultStudent,
       guardiansUpdated: guardianIds ? guardianIds.length : 0
     };
 
