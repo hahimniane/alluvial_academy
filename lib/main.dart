@@ -404,6 +404,7 @@ class EmployeeHubApp extends StatefulWidget {
 class _EmployeeHubAppState extends State<EmployeeHubApp> {
   TextEditingController emailAddressController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
+  bool _useStudentIdLogin = false;
 
   @override
   void initState() {
@@ -535,9 +536,20 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
   Future<void> _handleSignIn() async {
     AuthService authService = AuthService();
     try {
+      String emailOrId = emailAddressController.text.trim();
+      String password = passwordController.text;
+
+      // If using Student ID mode, convert ID to alias email
+      if (_useStudentIdLogin) {
+        // Avoid adding import at top by using fully-qualified name via a helper
+        // We'll map student ID to alias email on the fly
+        final aliasEmail = _aliasFromStudentId(emailOrId);
+        emailOrId = aliasEmail;
+      }
+
       User? user = await authService.signInWithEmailAndPassword(
-        emailAddressController.text,
-        passwordController.text,
+        emailOrId,
+        password,
       );
 
       if (user != null && mounted) {
@@ -590,6 +602,13 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     } catch (e) {
       _showErrorDialog('An unexpected error occurred. Please try again later.');
     }
+  }
+
+  // Local helper to build alias email without importing service at top-level
+  String _aliasFromStudentId(String studentId) {
+    final normalized = studentId.trim().toUpperCase();
+    const domain = 'students.alluwaleducationhub.org';
+    return '$normalized@$domain';
   }
 
   @override
@@ -675,12 +694,37 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                 ),
                 const SizedBox(height: 48),
 
-                // Email Field
+                // Login Mode Toggle
+                Row(
+                  children: [
+                    Switch(
+                      value: _useStudentIdLogin,
+                      onChanged: (val) {
+                        setState(() {
+                          _useStudentIdLogin = val;
+                          emailAddressController.clear();
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Use Student ID',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff374151),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Email or Student ID Field
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Email',
+                      _useStudentIdLogin ? 'Student ID' : 'Email',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -690,14 +734,16 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: emailAddressController,
-                      keyboardType: TextInputType.emailAddress,
+                      keyboardType: TextInputType.text,
                       onFieldSubmitted: (_) => _handleSignIn(),
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: const Color(0xff111827),
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Enter your email address',
+                        hintText: _useStudentIdLogin
+                            ? 'Enter your Student ID (e.g., A7Q4-MZ2N)'
+                            : 'Enter your email address',
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xff9CA3AF),
                           fontSize: 16,
