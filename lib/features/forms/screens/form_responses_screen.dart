@@ -16,7 +16,8 @@ class FormResponsesScreen extends StatefulWidget {
 class _FormResponsesScreenState extends State<FormResponsesScreen> {
   final _searchController = TextEditingController();
   String _selectedFormId = '';
-  String _selectedStatus = 'Completed'; // Default to completed only
+  String _selectedStatus =
+      'All'; // Temporarily changed to show all status to debug
   String _selectedCreator = 'All';
   DateTime? _startDate;
   DateTime? _endDate;
@@ -37,27 +38,50 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    // Add a small delay to ensure Firebase Auth is fully initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
+  }
+
+  @override
+  void didUpdateWidget(FormResponsesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh data when widget updates (e.g., when key changes due to refresh trigger)
+    if (widget.key != oldWidget.key) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadUserData();
+      });
+    }
   }
 
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        print('DEBUG: No authenticated user found in _loadUserData');
+        return;
+      }
 
+      print('DEBUG: Loading user data for ${user.email}');
       final role = await UserRoleService.getCurrentUserRole();
+      print('DEBUG: User role resolved as: $role');
 
-      setState(() {
-        _userRole = role;
-        _userEmail = user.email;
-      });
+      if (mounted) {
+        setState(() {
+          _userRole = role;
+          _userEmail = user.email;
+        });
+      }
 
-      _loadFormResponses();
-      _loadAllUsers();
+      // Load users first, then form responses to ensure proper initialization
+      await _loadAllUsers();
+      await _loadFormResponses();
     } catch (e) {
-      print('Error loading user data: $e');
-      _loadFormResponses(); // Load responses anyway
-      _loadAllUsers();
+      print('ERROR loading user data: $e');
+      print('ERROR: Proceeding to load responses anyway');
+      await _loadAllUsers(); // Load users first
+      await _loadFormResponses(); // Then responses
     }
   }
 
@@ -68,174 +92,272 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
           .orderBy('first_name')
           .get();
 
-      setState(() {
-        _allUsers = usersSnapshot.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'name':
-                '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
-            'email': data['email'] ?? '',
-            'role': data['user_type'] ?? '',
-          };
-        }).toList();
-        _loadingUsers = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allUsers = usersSnapshot.docs.map((doc) {
+            final data = doc.data();
+            // Debug: Print first user's raw data to see available fields
+            if (doc == usersSnapshot.docs.first) {
+              print('DEBUG: Sample user raw data: $data');
+              print('DEBUG: Available fields: ${data.keys.toList()}');
+            }
+            // Try different possible email field names
+            String email = data['email'] ??
+                data['e-mail'] ??
+                data['email_address'] ??
+                data['emailAddress'] ??
+                data['mail'] ??
+                data['user_email'] ??
+                '';
+
+            return {
+              'id': doc.id,
+              'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
+                  .trim(),
+              'email': email,
+              'role': data['user_type'] ?? '',
+              'is_admin_teacher': data['is_admin_teacher'] ?? false,
+            };
+          }).toList();
+          _loadingUsers = false;
+        });
+      }
     } catch (e) {
       print('Error loading users: $e');
-      setState(() => _loadingUsers = false);
+      if (mounted) {
+        setState(() => _loadingUsers = false);
+      }
     }
   }
 
   Future<void> _loadFormResponses() async {
-    setState(() => _isLoading = true);
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
+      print('DEBUG: Starting to load form responses...');
+      print('DEBUG: Current user role: $_userRole');
+      print('DEBUG: Current user email: $_userEmail');
+
       // Load form templates first
+      print('DEBUG: Loading form templates...');
       final formTemplatesSnapshot = await FirebaseFirestore.instance
           .collection('form')
           .where('status', isEqualTo: 'active')
           .get();
+
+      print(
+          'DEBUG: Found ${formTemplatesSnapshot.docs.length} active form templates');
+      for (var doc in formTemplatesSnapshot.docs) {
+        final data = doc.data();
+        print('DEBUG: Form template ${doc.id}: ${data['title'] ?? 'No title'}');
+      }
 
       _formTemplates = {
         for (var doc in formTemplatesSnapshot.docs) doc.id: doc,
       };
 
       // Load form responses - build query properly to avoid index issues
+      print('DEBUG: Loading form responses...');
       Query query = FirebaseFirestore.instance.collection('form_responses');
 
       // If not admin, only show user's own responses
       if (_userRole != 'admin' && _userEmail != null) {
+        print('DEBUG: Non-admin user - filtering by email: $_userEmail');
         query = query
             .where('userEmail', isEqualTo: _userEmail)
             .orderBy('submittedAt', descending: true);
       } else {
+        print('DEBUG: Admin user - loading all responses');
         query = query.orderBy('submittedAt', descending: true);
       }
 
       final responsesSnapshot = await query.get();
+      print(
+          'DEBUG: Found ${responsesSnapshot.docs.length} total form responses');
 
-      setState(() {
-        _allResponses = responsesSnapshot.docs;
-        _filteredResponses = _allResponses;
-        _isLoading = false;
-      });
+      // Debug each response
+      for (var doc in responsesSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        print('DEBUG: Response ${doc.id}:');
+        print('  - formId: ${data['formId']}');
+        print('  - userEmail: ${data['userEmail']}');
+        print('  - status: ${data['status']}');
+        print('  - submittedAt: ${data['submittedAt']}');
+        print(
+            '  - Has form template: ${_formTemplates.containsKey(data['formId'])}');
+      }
+
+      if (mounted) {
+        setState(() {
+          _allResponses = responsesSnapshot.docs;
+          _filteredResponses = _allResponses;
+          _isLoading = false;
+        });
+      }
+
+      print('DEBUG: Initial filtering with status: $_selectedStatus');
+      _filterResponses(); // Apply initial filters including status filter
     } catch (e) {
-      print('Error loading form responses: $e');
-      setState(() => _isLoading = false);
+      print('ERROR loading form responses: $e');
+      print('ERROR stack trace: ${StackTrace.current}');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   void _filterResponses() {
-    setState(() {
-      _filteredResponses = _allResponses.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        bool matchesSearch = true;
-        bool matchesForm = true;
-        bool matchesStatus = true;
-        bool matchesDate = true;
-        bool matchesCreator = true;
-        bool matchesUsers = true;
+    print(
+        'DEBUG: _filterResponses called with ${_allResponses.length} total responses');
+    print('DEBUG: Current filters:');
+    print('  - selectedFormId: $_selectedFormId');
+    print('  - selectedStatus: $_selectedStatus');
+    print('  - searchQuery: ${_searchController.text}');
+    print('  - startDate: $_startDate');
+    print('  - endDate: $_endDate');
 
-        // Enhanced search filter
-        if (_searchController.text.isNotEmpty) {
-          final searchTerm = _searchController.text.toLowerCase();
-          final firstName =
-              data['userFirstName']?.toString().toLowerCase() ?? '';
-          final lastName = data['userLastName']?.toString().toLowerCase() ?? '';
-          final email = data['userEmail']?.toString().toLowerCase() ?? '';
-          final formId = data['formId'] as String? ?? '';
-          final formTemplate = _formTemplates[formId];
-          final formTitle = formTemplate != null
-              ? (formTemplate.data() as Map<String, dynamic>)['title']
-                      ?.toString()
-                      .toLowerCase() ??
-                  ''
-              : '';
+    if (mounted) {
+      setState(() {
+        _filteredResponses = _allResponses.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          bool matchesSearch = true;
+          bool matchesForm = true;
+          bool matchesStatus = true;
+          bool matchesDate = true;
+          bool matchesCreator = true;
+          bool matchesUsers = true;
 
-          // Search in multiple fields
-          matchesSearch = email.contains(searchTerm) ||
-              firstName.contains(searchTerm) ||
-              lastName.contains(searchTerm) ||
-              '$firstName $lastName'.contains(searchTerm) ||
-              formTitle.contains(searchTerm) ||
-              // Search in form responses
-              _searchInFormResponses(
-                  data['responses'] as Map<String, dynamic>?, searchTerm);
-        }
+          // Enhanced search filter
+          if (_searchController.text.isNotEmpty) {
+            final searchTerm = _searchController.text.toLowerCase();
+            final firstName =
+                data['userFirstName']?.toString().toLowerCase() ?? '';
+            final lastName =
+                data['userLastName']?.toString().toLowerCase() ?? '';
+            final email = data['userEmail']?.toString().toLowerCase() ?? '';
+            final formId = data['formId'] as String? ?? '';
+            final formTemplate = _formTemplates[formId];
+            final formTitle = formTemplate != null
+                ? (formTemplate.data() as Map<String, dynamic>)['title']
+                        ?.toString()
+                        .toLowerCase() ??
+                    ''
+                : '';
 
-        // Form filter
-        if (_selectedFormId.isNotEmpty) {
-          matchesForm = data['formId'] == _selectedFormId;
-        }
-
-        // Status filter
-        if (_selectedStatus != 'All') {
-          matchesStatus = data['status'] == _selectedStatus.toLowerCase();
-        }
-
-        // Date filter
-        if (_startDate != null || _endDate != null) {
-          final submittedAt = (data['submittedAt'] as Timestamp).toDate();
-          if (_startDate != null && submittedAt.isBefore(_startDate!)) {
-            matchesDate = false;
+            // Search in multiple fields
+            matchesSearch = email.contains(searchTerm) ||
+                firstName.contains(searchTerm) ||
+                lastName.contains(searchTerm) ||
+                '$firstName $lastName'.contains(searchTerm) ||
+                formTitle.contains(searchTerm) ||
+                // Search in form responses
+                _searchInFormResponses(
+                    data['responses'] as Map<String, dynamic>?, searchTerm);
           }
-          if (_endDate != null &&
-              submittedAt.isAfter(_endDate!.add(const Duration(days: 1)))) {
-            matchesDate = false;
+
+          // Form filter
+          if (_selectedFormId.isNotEmpty) {
+            matchesForm = data['formId'] == _selectedFormId;
           }
-        }
 
-        // Creator filter (legacy - keeping for backward compatibility)
-        if (_selectedCreator != 'All') {
-          final formId = data['formId'] as String;
-          final formTemplate = _formTemplates[formId];
-          if (formTemplate != null) {
-            final formData = formTemplate.data() as Map<String, dynamic>;
-            final createdBy = formData['createdBy'] as String?;
-            matchesCreator = _selectedCreator == 'Admin'
-                ? (formData['createdByRole'] == 'admin')
-                : (data['userEmail'] == createdBy);
-          } else {
-            matchesCreator = false;
+          // Status filter
+          if (_selectedStatus != 'All') {
+            final docStatus = data['status']?.toString().toLowerCase() ?? '';
+            final filterStatus = _selectedStatus.toLowerCase();
+            matchesStatus = docStatus == filterStatus;
+
+            // Debug status matching for first few docs
+            if (_allResponses.indexOf(doc) < 3) {
+              print('DEBUG: Status filter for doc ${doc.id}:');
+              print('  - Document status: "$docStatus"');
+              print('  - Filter status: "$filterStatus"');
+              print('  - Matches: $matchesStatus');
+            }
           }
-        }
 
-        // Forms Created By filter (new)
-        bool matchesCreatedBy = true;
-        if (_selectedCreatedByUserId != null) {
-          final formId = data['formId'] as String;
-          final formTemplate = _formTemplates[formId];
-          if (formTemplate != null) {
-            final formData = formTemplate.data() as Map<String, dynamic>;
-            final createdBy = formData['createdBy'] as String?;
-            matchesCreatedBy = createdBy == _selectedCreatedByUserId;
-          } else {
-            matchesCreatedBy = false;
+          // Date filter
+          if (_startDate != null || _endDate != null) {
+            final submittedAt = (data['submittedAt'] as Timestamp).toDate();
+            if (_startDate != null && submittedAt.isBefore(_startDate!)) {
+              matchesDate = false;
+            }
+            if (_endDate != null &&
+                submittedAt.isAfter(_endDate!.add(const Duration(days: 1)))) {
+              matchesDate = false;
+            }
           }
-        }
 
-        // Forms Filled By filter (new)
-        bool matchesFilledBy = true;
-        if (_selectedFilledByUserId != null) {
-          final userId = data['userId'] as String?;
-          matchesFilledBy = userId == _selectedFilledByUserId;
-        }
+          // Creator filter (legacy - keeping for backward compatibility)
+          if (_selectedCreator != 'All') {
+            final formId = data['formId'] as String;
+            final formTemplate = _formTemplates[formId];
+            if (formTemplate != null) {
+              final formData = formTemplate.data() as Map<String, dynamic>;
+              final createdBy = formData['createdBy'] as String?;
+              matchesCreator = _selectedCreator == 'Admin'
+                  ? (formData['createdByRole'] == 'admin')
+                  : (data['userEmail'] == createdBy);
+            } else {
+              matchesCreator = false;
+            }
+          }
 
-        // User filter (legacy - keeping for backward compatibility)
-        if (_selectedUserIds.isNotEmpty) {
-          matchesUsers = _selectedUserIds.contains(data['userId']);
-        }
+          // Forms Created By filter (new)
+          bool matchesCreatedBy = true;
+          if (_selectedCreatedByUserId != null) {
+            final formId = data['formId'] as String;
+            final formTemplate = _formTemplates[formId];
+            if (formTemplate != null) {
+              final formData = formTemplate.data() as Map<String, dynamic>;
+              final createdBy = formData['createdBy'] as String?;
+              matchesCreatedBy = createdBy == _selectedCreatedByUserId;
+            } else {
+              matchesCreatedBy = false;
+            }
+          }
 
-        return matchesSearch &&
-            matchesForm &&
-            matchesStatus &&
-            matchesDate &&
-            matchesCreator &&
-            matchesCreatedBy &&
-            matchesFilledBy &&
-            matchesUsers;
-      }).toList();
-    });
+          // Forms Filled By filter (new)
+          bool matchesFilledBy = true;
+          if (_selectedFilledByUserId != null) {
+            final userId = data['userId'] as String?;
+            matchesFilledBy = userId == _selectedFilledByUserId;
+          }
+
+          // User filter (legacy - keeping for backward compatibility)
+          if (_selectedUserIds.isNotEmpty) {
+            matchesUsers = _selectedUserIds.contains(data['userId']);
+          }
+
+          final finalMatch = matchesSearch &&
+              matchesForm &&
+              matchesStatus &&
+              matchesDate &&
+              matchesCreator &&
+              matchesCreatedBy &&
+              matchesFilledBy &&
+              matchesUsers;
+
+          // Debug why specific docs are being filtered out
+          if (!finalMatch && _allResponses.indexOf(doc) < 3) {
+            print('DEBUG: Document ${doc.id} filtered out:');
+            print('  - matchesSearch: $matchesSearch');
+            print('  - matchesForm: $matchesForm');
+            print('  - matchesStatus: $matchesStatus');
+            print('  - matchesDate: $matchesDate');
+            print('  - matchesCreator: $matchesCreator');
+            print('  - matchesCreatedBy: $matchesCreatedBy');
+            print('  - matchesFilledBy: $matchesFilledBy');
+            print('  - matchesUsers: $matchesUsers');
+          }
+
+          return finalMatch;
+        }).toList();
+
+        print(
+            'DEBUG: After filtering: ${_filteredResponses.length} responses remain');
+      });
+    }
   }
 
   void _exportResponses() {
@@ -297,7 +419,10 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
       final formData = formTemplate?.data() as Map<String, dynamic>?;
       final createdBy = formData?['createdBy'] as String?;
       final formCreatedAt = formData?['createdAt'] as Timestamp?;
+      print('DEBUG EXPORT: Form ${response['formId']} createdBy: "$createdBy"');
       final creatorInfo = _getUserInfoById(createdBy);
+      print(
+          'DEBUG EXPORT: Creator info for $createdBy: ${creatorInfo['email']}');
 
       // Get submitter info
       final submitterId = response['userId'] as String?;
@@ -663,46 +788,94 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
                             ],
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                            ),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: _exportResponses,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
+                        Row(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.file_download_outlined,
-                                      color: Colors.white,
-                                      size: 20,
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () {
+                                    _loadUserData();
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Export',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.refresh,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Refresh',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: _exportResponses,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.file_download_outlined,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Export',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -812,11 +985,13 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
     );
 
     if (result != null) {
-      setState(() {
-        _startDate = result.start;
-        _endDate = result.end;
-        _filterResponses();
-      });
+      if (mounted) {
+        setState(() {
+          _startDate = result.start;
+          _endDate = result.end;
+          _filterResponses();
+        });
+      }
     }
   }
 
@@ -885,10 +1060,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
                   ),
                 ],
                 onChanged: (value) {
-                  setState(() {
-                    _selectedFormId = value ?? '';
-                    _filterResponses();
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _selectedFormId = value ?? '';
+                      _filterResponses();
+                    });
+                  }
                 },
                 icon: Icons.description_outlined,
               ),
@@ -907,10 +1084,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
                   DropdownMenuItem(value: 'Pending', child: Text('⏳ Pending')),
                 ],
                 onChanged: (value) {
-                  setState(() {
-                    _selectedStatus = value ?? 'Completed';
-                    _filterResponses();
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _selectedStatus = value ?? 'Completed';
+                      _filterResponses();
+                    });
+                  }
                 },
                 icon: Icons.flag_outlined,
               ),
@@ -931,10 +1110,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
                 hint: 'Forms Created By',
                 icon: Icons.create_outlined,
                 onChanged: (value) {
-                  setState(() {
-                    _selectedCreatedByUserId = value;
-                    _filterResponses();
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _selectedCreatedByUserId = value;
+                      _filterResponses();
+                    });
+                  }
                 },
               ),
             ),
@@ -946,10 +1127,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
                 hint: 'Forms Filled By',
                 icon: Icons.edit_outlined,
                 onChanged: (value) {
-                  setState(() {
-                    _selectedFilledByUserId = value;
-                    _filterResponses();
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _selectedFilledByUserId = value;
+                      _filterResponses();
+                    });
+                  }
                 },
               ),
             ),
@@ -1172,11 +1355,13 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
-                      setState(() {
-                        _startDate = null;
-                        _endDate = null;
-                        _filterResponses();
-                      });
+                      if (mounted) {
+                        setState(() {
+                          _startDate = null;
+                          _endDate = null;
+                          _filterResponses();
+                        });
+                      }
                     },
                     child: const Icon(
                       Icons.close,
@@ -1426,18 +1611,20 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
   }
 
   void _clearAllFilters() {
-    setState(() {
-      _searchController.clear();
-      _selectedFormId = '';
-      _selectedStatus = 'Completed'; // Keep default as completed
-      _selectedCreator = 'All';
-      _startDate = null;
-      _endDate = null;
-      _selectedUserIds.clear();
-      _selectedCreatedByUserId = null;
-      _selectedFilledByUserId = null;
-      _filterResponses();
-    });
+    if (mounted) {
+      setState(() {
+        _searchController.clear();
+        _selectedFormId = '';
+        _selectedStatus = 'All'; // Changed to All for debugging
+        _selectedCreator = 'All';
+        _startDate = null;
+        _endDate = null;
+        _selectedUserIds.clear();
+        _selectedCreatedByUserId = null;
+        _selectedFilledByUserId = null;
+        _filterResponses();
+      });
+    }
   }
 
   String? _getUserNameById(String userId) {
@@ -1451,17 +1638,22 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
 
   Map<String, String> _getUserInfoById(String? userId) {
     if (userId == null) {
+      print('DEBUG: _getUserInfoById called with null userId');
       return {'name': '', 'email': '', 'role': ''};
     }
 
     try {
       final user = _allUsers.firstWhere((user) => user['id'] == userId);
+      print('DEBUG: Found user for ID $userId: ${user['email']}');
+      print('DEBUG: Full user data: $user');
       return {
         'name': user['name'] ?? '',
         'email': user['email'] ?? '',
         'role': user['role'] ?? '',
       };
     } catch (e) {
+      print(
+          'DEBUG: User not found for ID $userId. Available users: ${_allUsers.map((u) => u['id']).take(3).toList()}');
       return {'name': '', 'email': '', 'role': ''};
     }
   }
@@ -1534,12 +1726,24 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
 
   void _showUserSelectionDialog(String title, IconData icon,
       String? currentValue, void Function(String?) onChanged) {
+    // Filter users based on the dialog type
+    List<Map<String, dynamic>> filteredUsers = _allUsers;
+
+    // If this is "Forms Created By" dialog, only show admins and admin-teachers
+    if (title == 'Forms Created By') {
+      filteredUsers = _allUsers
+          .where((user) =>
+              user['role']?.toString().toLowerCase() == 'admin' ||
+              user['is_admin_teacher'] == true)
+          .toList();
+    }
+
     showDialog(
       context: context,
       builder: (context) => _UserSelectionDialog(
         title: title,
         icon: icon,
-        users: _allUsers,
+        users: filteredUsers,
         currentValue: currentValue,
         onChanged: onChanged,
         isLoading: _loadingUsers,
@@ -1587,20 +1791,22 @@ class _UserSelectionDialogState extends State<_UserSelectionDialog> {
 
   void _filterUsers() {
     final query = _searchController.text.toLowerCase();
-    setState(() {
-      if (query.isEmpty) {
-        _filteredUsers = widget.users;
-      } else {
-        _filteredUsers = widget.users.where((user) {
-          final name = user['name']?.toString().toLowerCase() ?? '';
-          final email = user['email']?.toString().toLowerCase() ?? '';
-          final role = user['role']?.toString().toLowerCase() ?? '';
-          return name.contains(query) ||
-              email.contains(query) ||
-              role.contains(query);
-        }).toList();
-      }
-    });
+    if (mounted) {
+      setState(() {
+        if (query.isEmpty) {
+          _filteredUsers = widget.users;
+        } else {
+          _filteredUsers = widget.users.where((user) {
+            final name = user['name']?.toString().toLowerCase() ?? '';
+            final email = user['email']?.toString().toLowerCase() ?? '';
+            final role = user['role']?.toString().toLowerCase() ?? '';
+            return name.contains(query) ||
+                email.contains(query) ||
+                role.contains(query);
+          }).toList();
+        }
+      });
+    }
   }
 
   @override
