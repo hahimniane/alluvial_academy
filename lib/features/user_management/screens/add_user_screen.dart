@@ -21,6 +21,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   
   // Available guardians for student creation
   List<Map<String, dynamic>> _allGuardians = [];
+  
+  // Email notification tracking for success messages
+  Map<String, int>? _emailNotificationInfo;
 
   // Generate unique kiosk code
   String _generateKioskCode(
@@ -410,11 +413,27 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           
           final result = await callable.call(studentData);
           print('Student creation result: ${result.data}');
+          
+          // Store email notification info for success message
+          _emailNotificationInfo = null;
+          if (result.data != null && result.data['emailsToGuardians'] != null) {
+            final emailsToGuardians = result.data['emailsToGuardians'] ?? 0;
+            final emailsSent = result.data['emailsSent'] ?? 0;
+            
+            if (emailsToGuardians > 0) {
+              _emailNotificationInfo = {
+                'sent': emailsSent,
+                'total': emailsToGuardians
+              };
+              print('Email notifications: $emailsSent/$emailsToGuardians guardians notified');
+            }
+          }
         } else {
           // Use createUserWithEmail function for regular users
           final callable = functions.httpsCallable('createUserWithEmail');
           final result = await callable.call(userData);
           print('Regular user creation result: ${result.data}');
+          _emailNotificationInfo = null; // Clear for non-student users
         }
 
         // Send welcome email (only if email is provided)
@@ -480,10 +499,17 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                 '• Profile saved to database\n'
                 '• Welcome email sent with login credentials';
           } else {
+            String emailStatus = '';
+            if (_emailNotificationInfo != null) {
+              final sent = _emailNotificationInfo!['sent'] ?? 0;
+              final total = _emailNotificationInfo!['total'] ?? 0;
+              if (total > 0) {
+                emailStatus = '\n• Guardian notification emails sent ($sent/$total)';
+              }
+            }
             successMessage = '✅ Minor Student created successfully!\n'
                 '• Student ID login account created\n'
-                '• Profile saved and linked to guardian\n'
-                '• No email required for minor students';
+                '• Profile saved and linked to guardian$emailStatus';
           }
         } else {
           successMessage = '✅ User created successfully!\n'

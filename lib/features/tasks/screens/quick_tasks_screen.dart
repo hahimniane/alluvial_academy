@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
 import '../widgets/task_details_view.dart';
+import '../widgets/user_selection_dialog.dart' as task_filters;
 import '../../../core/services/user_role_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
@@ -20,6 +23,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   TaskStatus? _selectedStatus;
   TaskPriority? _selectedPriority;
   String _searchQuery = '';
+  DateTimeRange? _dueDateRange;
+  String? _filterAssignedByUserId;
+  List<String> _filterAssignedToUserIds = [];
+  final Map<String, String> _userIdToName = {};
+  final Set<String> _fetchingUserIds = {};
+  bool _isLoadingAssignedBy = false;
+  bool _isLoadingAssignedTo = false;
   late AnimationController _fabAnimationController;
   bool _isAdmin = false;
   Stream<List<Task>>? _taskStream;
@@ -33,14 +43,65 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       vsync: this,
     );
     _fabAnimationController.forward();
+    
+    // Start loading immediately and also listen for auth state changes
     _loadUserRoleAndTasks();
+    _listenToAuthState();
+    _listenToRoleChanges();
+  }
+
+  void _listenToAuthState() {
+    // Listen for auth state changes to reload tasks when user logs in
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted) {
+        // User is authenticated, reload tasks
+        _loadUserRoleAndTasks();
+      }
+    });
+  }
+
+  void _listenToRoleChanges() {
+    // Poll for role changes every few seconds to detect role switching
+    Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        final currentAdmin = await UserRoleService.isAdmin();
+        if (currentAdmin != _isAdmin) {
+          print('QuickTasks: Role change detected! Admin: $_isAdmin -> $currentAdmin');
+          // Role has changed, reload tasks
+          _loadUserRoleAndTasks();
+        }
+      } catch (e) {
+        print('QuickTasks: Error checking role changes: $e');
+      }
+    });
   }
 
   Future<void> _loadUserRoleAndTasks() async {
+    if (!mounted) return;
+    
     try {
-      // Ensure Firebase Auth is ready
-      await FirebaseAuth.instance.authStateChanges().first;
+      // Set loading state immediately
+      setState(() {
+        _isLoading = true;
+      });
 
+      // Wait for auth to be ready with a timeout
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        // Wait briefly for auth state to initialize
+        await Future.delayed(const Duration(milliseconds: 500));
+        final newUser = FirebaseAuth.instance.currentUser;
+        if (newUser == null) {
+          throw Exception('No authenticated user found');
+        }
+      }
+
+      // Load user role and task stream
       final isAdmin = await UserRoleService.isAdmin();
       final taskStream = await _taskService.getRoleBasedTasks();
 
@@ -50,13 +111,22 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           _taskStream = taskStream;
           _isLoading = false;
         });
+        
+        print('Tasks loaded successfully. Admin: $isAdmin');
       }
     } catch (e) {
       print('Error loading user role and tasks: $e');
-      // Retry after a short delay if there's an error
+      
       if (mounted) {
-        await Future.delayed(const Duration(milliseconds: 1000));
-        _loadUserRoleAndTasks();
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Retry after a delay if there's an error
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) {
+          _loadUserRoleAndTasks();
+        }
       }
     }
   }
@@ -183,7 +253,184 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
         ),
         const SizedBox(height: 12),
-        _buildFilterChips(),
+        _buildBeautifulFilters(),
+      ],
+    );
+  }
+
+  Widget _buildBeautifulFilters() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        // All Tasks chip
+        _buildModernFilterChip(
+          label: 'All Tasks',
+          isSelected: _selectedStatus == null && _selectedPriority == null && 
+                     _dueDateRange == null && _filterAssignedByUserId == null && 
+                     _filterAssignedToUserIds.isEmpty,
+          onSelected: () => setState(() {
+            _selectedStatus = null;
+            _selectedPriority = null;
+            _dueDateRange = null;
+            _filterAssignedByUserId = null;
+            _filterAssignedToUserIds = [];
+          }),
+          color: Colors.grey[600]!,
+        ),
+        
+        // Status filters
+        ...TaskStatus.values.map((status) => _buildModernFilterChip(
+              label: _getStatusLabel(status),
+              isSelected: _selectedStatus == status,
+              onSelected: () => setState(() =>
+                  _selectedStatus = _selectedStatus == status ? null : status),
+              color: _getStatusColor(status),
+            )),
+            
+        // Priority filters
+        ...TaskPriority.values.map((priority) => _buildModernFilterChip(
+              label: _getPriorityLabel(priority),
+              isSelected: _selectedPriority == priority,
+              onSelected: () => setState(() => _selectedPriority =
+                  _selectedPriority == priority ? null : priority),
+              color: _getPriorityColor(priority),
+            )),
+            
+        // Due Date filter chip
+        _buildModernFilterChip(
+          label: _dueDateRange == null
+              ? 'Due Date'
+              : '${DateFormat('MMM dd').format(_dueDateRange!.start)} - ${DateFormat('MMM dd').format(_dueDateRange!.end)}',
+          isSelected: _dueDateRange != null,
+          onSelected: () async {
+            if (_dueDateRange != null) {
+              // Clear filter if already set
+              setState(() => _dueDateRange = null);
+            } else {
+              // Open date picker
+              final now = DateTime.now();
+              final currentMonthStart = DateTime(now.year, now.month, 1);
+              final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(now.year + 5),
+                initialDateRange: DateTimeRange(start: currentMonthStart, end: currentMonthEnd),
+                currentDate: now,
+                helpText: 'Select Date Range for Tasks',
+                cancelText: 'Cancel',
+                confirmText: 'Apply Filter',
+                saveText: 'Apply',
+                builder: (context, child) {
+                  return Center(
+                    child: SingleChildScrollView(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          maxWidth: 450,
+                          maxHeight: 600,
+                        ),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            datePickerTheme: DatePickerThemeData(
+                              backgroundColor: Colors.white,
+                              surfaceTintColor: Colors.white,
+                              headerBackgroundColor: const Color(0xff0386FF),
+                              headerForegroundColor: Colors.white,
+                              headerHeadlineStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              headerHelpStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white70,
+                              ),
+                              dayStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              rangeSelectionBackgroundColor:
+                                  const Color(0xff0386FF).withOpacity(0.1),
+                              rangeSelectionOverlayColor: WidgetStateProperty.all(
+                                const Color(0xff0386FF).withOpacity(0.1),
+                              ),
+                              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.selected)) {
+                                  return const Color(0xff0386FF);
+                                }
+                                return null;
+                              }),
+                              dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.selected)) {
+                                  return Colors.white;
+                                }
+                                return null;
+                              }),
+                            ),
+                            textButtonTheme: TextButtonThemeData(
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xff0386FF),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                              ),
+                            ),
+                          ),
+                          child: child!,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+              if (picked != null) setState(() => _dueDateRange = picked);
+            }
+          },
+          color: const Color(0xFF4CAF50),
+        ),
+        
+        // Assigned By filter chip
+        _buildModernFilterChip(
+          label: _filterAssignedByUserId == null
+              ? 'Assigned By'
+              : 'By: ${_userIdToName[_filterAssignedByUserId] ?? 'Loading...'}',
+          isSelected: _filterAssignedByUserId != null,
+          onSelected: () async {
+            if (_filterAssignedByUserId != null) {
+              // Clear filter if already set
+              setState(() => _filterAssignedByUserId = null);
+            } else {
+              // Open user picker
+              await _openAssignedByPicker();
+            }
+          },
+          color: const Color(0xFF2196F3),
+        ),
+        
+        // Assigned To filter chip
+        _buildModernFilterChip(
+          label: _filterAssignedToUserIds.isEmpty
+              ? 'Assigned To'
+              : 'To: ${_formatAssigneesLabel(_filterAssignedToUserIds)}',
+          isSelected: _filterAssignedToUserIds.isNotEmpty,
+          onSelected: () async {
+            if (_filterAssignedToUserIds.isNotEmpty) {
+              // Clear filter if already set
+              setState(() => _filterAssignedToUserIds = []);
+            } else {
+              // Open user picker
+              await _openAssignedToPicker();
+            }
+          },
+          color: const Color(0xFF9C27B0),
+        ),
       ],
     );
   }
@@ -216,8 +463,244 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   _selectedPriority == priority ? null : priority),
               color: _getPriorityColor(priority),
             )),
+                 // Due date filter (reuse app pattern)
+         InputChip(
+           avatar: const Icon(Icons.date_range, size: 18),
+           label: Text(_dueDateRange == null
+               ? 'Due date'
+               : '${DateFormat('MM/dd').format(_dueDateRange!.start)} - ${DateFormat('MM/dd').format(_dueDateRange!.end)}'),
+           onPressed: () async {
+             final now = DateTime.now();
+             final currentMonthStart = DateTime(now.year, now.month, 1);
+             final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
+             final picked = await showDateRangePicker(
+               context: context,
+               firstDate: DateTime(2020),
+               lastDate: DateTime(now.year + 5),
+               initialDateRange: _dueDateRange ??
+                   DateTimeRange(start: currentMonthStart, end: currentMonthEnd),
+               currentDate: now,
+               helpText: 'Select Date Range for Tasks',
+               cancelText: 'Cancel',
+               confirmText: 'Apply Filter',
+               saveText: 'Apply',
+               builder: (context, child) {
+                 return Center(
+                   child: SingleChildScrollView(
+                     child: Container(
+                       constraints: const BoxConstraints(
+                         maxWidth: 450,
+                         maxHeight: 600,
+                       ),
+                       child: Theme(
+                         data: Theme.of(context).copyWith(
+                           datePickerTheme: DatePickerThemeData(
+                             backgroundColor: Colors.white,
+                             surfaceTintColor: Colors.white,
+                             headerBackgroundColor: const Color(0xff0386FF),
+                             headerForegroundColor: Colors.white,
+                             headerHeadlineStyle: const TextStyle(
+                               fontSize: 18,
+                               fontWeight: FontWeight.w600,
+                               color: Colors.white,
+                             ),
+                             headerHelpStyle: const TextStyle(
+                               fontSize: 14,
+                               fontWeight: FontWeight.w500,
+                               color: Colors.white70,
+                             ),
+                             dayStyle: const TextStyle(
+                               fontSize: 14,
+                               fontWeight: FontWeight.w500,
+                             ),
+                             rangeSelectionBackgroundColor:
+                                 const Color(0xff0386FF).withOpacity(0.1),
+                             rangeSelectionOverlayColor: WidgetStateProperty.all(
+                               const Color(0xff0386FF).withOpacity(0.1),
+                             ),
+                             dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                               if (states.contains(WidgetState.selected)) {
+                                 return const Color(0xff0386FF);
+                               }
+                               return null;
+                             }),
+                             dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                               if (states.contains(WidgetState.selected)) {
+                                 return Colors.white;
+                               }
+                               return null;
+                             }),
+                           ),
+                           textButtonTheme: TextButtonThemeData(
+                             style: TextButton.styleFrom(
+                               foregroundColor: const Color(0xff0386FF),
+                               textStyle: const TextStyle(
+                                 fontWeight: FontWeight.w600,
+                                 fontSize: 14,
+                               ),
+                               padding: const EdgeInsets.symmetric(
+                                 horizontal: 16,
+                                 vertical: 8,
+                               ),
+                             ),
+                           ),
+                         ),
+                         child: child!,
+                       ),
+                     ),
+                   ),
+                 );
+               },
+             );
+             if (picked != null) setState(() => _dueDateRange = picked);
+           },
+           onDeleted:
+               _dueDateRange != null ? () => setState(() => _dueDateRange = null) : null,
+         ),
+        // Assigned by (single select user picker)
+        InputChip(
+          avatar: const Icon(Icons.person_outline, size: 18),
+          label: Text(
+            _filterAssignedByUserId == null
+                ? 'Assigned by'
+                : 'By: ${_userIdToName[_filterAssignedByUserId] ?? 'Loading...'}',
+          ),
+          onPressed: _openAssignedByPicker,
+          onDeleted: _filterAssignedByUserId != null
+              ? () => setState(() => _filterAssignedByUserId = null)
+              : null,
+        ),
+        // Assigned to (multi-select user picker)
+        InputChip(
+          avatar: const Icon(Icons.group_outlined, size: 18),
+          label: Text(
+            _filterAssignedToUserIds.isEmpty
+                ? 'Assigned to'
+                : 'To: ${_formatAssigneesLabel(_filterAssignedToUserIds)}',
+          ),
+          onPressed: _openAssignedToPicker,
+          onDeleted: _filterAssignedToUserIds.isNotEmpty
+              ? () => setState(() => _filterAssignedToUserIds = [])
+              : null,
+        ),
       ],
     );
+  }
+
+  String _formatAssigneesLabel(List<String> ids) {
+    if (ids.isEmpty) return '';
+    final names = ids.map((id) => _userIdToName[id] ?? '').where((n) => n.isNotEmpty).toList();
+    if (names.isEmpty) return 'Loading...';
+    if (names.length == 1) return names.first;
+    return '${names.first} +${names.length - 1}';
+  }
+
+  void _fetchUserNameIfMissing(String userId) async {
+    if (_userIdToName.containsKey(userId) || _fetchingUserIds.contains(userId)) return;
+    _fetchingUserIds.add(userId);
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final d = doc.data() as Map<String, dynamic>;
+        final fullName = '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
+        setState(() => _userIdToName[userId] = fullName.isNotEmpty ? fullName : (d['e-mail'] ?? userId));
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      _fetchingUserIds.remove(userId);
+    }
+  }
+
+  Future<void> _openAssignedByPicker() async {
+    setState(() => _isLoadingAssignedBy = true);
+    try {
+      // Admins and Teachers promoted to Admin
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('is_active', isEqualTo: true)
+          .where('user_type', whereIn: ['admin', 'teacher']).get();
+
+      // Filter: include user_type == 'admin' OR (teacher with is_admin_teacher == true)
+      final options = <Map<String, dynamic>>[];
+      for (final doc in query.docs) {
+        final d = doc.data();
+        final userType = (d['user_type'] ?? '').toString();
+        final isAdminTeacher = d['is_admin_teacher'] == true;
+        final include = userType == 'admin' || (userType == 'teacher' && isAdminTeacher);
+        if (!include) continue;
+        final fullName = '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
+        final displayName = fullName.isNotEmpty ? fullName : (d['e-mail'] ?? doc.id);
+        options.add({
+          'id': doc.id, 
+          'name': displayName,
+          'email': d['e-mail'] ?? '',
+        });
+        _userIdToName[doc.id] = displayName;
+      }
+
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => task_filters.UserSelectionDialog(
+          title: 'Select Assigned By',
+          subtitle: 'Choose an admin or promoted teacher',
+          availableUsers: options,
+          selectedUserIds: _filterAssignedByUserId != null ? [_filterAssignedByUserId!] : [],
+          allowMultiple: false,
+          onUsersSelected: (userIds) {
+            if (mounted) {
+              setState(() => _filterAssignedByUserId = userIds.isEmpty ? null : userIds.first);
+            }
+          },
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingAssignedBy = false);
+    }
+  }
+
+  Future<void> _openAssignedToPicker() async {
+    setState(() => _isLoadingAssignedTo = true);
+    try {
+      // Everyone active
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('is_active', isEqualTo: true)
+          .get();
+
+      final options = <Map<String, dynamic>>[];
+      for (final doc in query.docs) {
+        final d = doc.data();
+        final fullName = '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
+        final display = fullName.isNotEmpty ? fullName : (d['e-mail'] ?? doc.id);
+        options.add({
+          'id': doc.id, 
+          'name': display,
+          'email': d['e-mail'] ?? '',
+        });
+        _userIdToName[doc.id] = display;
+      }
+
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => task_filters.UserSelectionDialog(
+          title: 'Select Assigned To',
+          subtitle: 'Choose users to assign this task to',
+          availableUsers: options,
+          selectedUserIds: _filterAssignedToUserIds,
+          allowMultiple: true,
+          onUsersSelected: (userIds) {
+            if (mounted) {
+              setState(() => _filterAssignedToUserIds = userIds);
+            }
+          },
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingAssignedTo = false);
+    }
   }
 
   Widget _buildModernFilterChip({
@@ -274,24 +757,36 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             padding: const EdgeInsets.all(32.0),
             child: Column(
               children: [
-                const CircularProgressIndicator(),
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  'Loading tasks...',
+                  _taskStream == null ? 'Initializing tasks...' : 'Loading tasks...',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextButton(
+                Text(
+                  'Please wait while we load your tasks',
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton.icon(
                   onPressed: () {
-                    setState(() {
-                      _isLoading = true;
-                    });
                     _loadUserRoleAndTasks();
                   },
-                  child: const Text('Retry'),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xff0386FF),
+                  ),
                 ),
               ],
             ),
@@ -303,12 +798,29 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     return StreamBuilder<List<Task>>(
       stream: _taskStream,
       builder: (context, snapshot) {
+        // Debug logging
+        print('StreamBuilder state: ${snapshot.connectionState}');
+        print('Has data: ${snapshot.hasData}');
+        print('Data length: ${snapshot.hasData ? snapshot.data!.length : 'N/A'}');
+        print('Has error: ${snapshot.hasError}');
+        if (snapshot.hasError) {
+          print('Error: ${snapshot.error}');
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverToBoxAdapter(
             child: Center(
               child: Padding(
                 padding: EdgeInsets.all(32.0),
-                child: CircularProgressIndicator(),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                    ),
+                    SizedBox(height: 16),
+                    Text('Connecting to task database...'),
+                  ],
+                ),
               ),
             ),
           );
@@ -319,7 +831,43 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
-                child: Text('Error: ${snapshot.error}'),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading tasks',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Error: ${snapshot.error}',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => _loadUserRoleAndTasks(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff0386FF),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -367,6 +915,26 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       filteredTasks = filteredTasks
           .where((task) => task.priority == _selectedPriority)
           .toList();
+    }
+
+    if (_dueDateRange != null) {
+      filteredTasks = filteredTasks.where((task) {
+        return !task.dueDate.isBefore(_dueDateRange!.start) &&
+            !task.dueDate.isAfter(_dueDateRange!.end);
+      }).toList();
+    }
+
+    if (_filterAssignedByUserId != null && _filterAssignedByUserId!.isNotEmpty) {
+      filteredTasks = filteredTasks
+          .where((task) => task.createdBy == _filterAssignedByUserId)
+          .toList();
+    }
+
+    if (_filterAssignedToUserIds.isNotEmpty) {
+      filteredTasks = filteredTasks.where((task) {
+        return task.assignedTo.any((assignee) =>
+            _filterAssignedToUserIds.contains(assignee));
+      }).toList();
     }
 
     if (_searchQuery.isNotEmpty) {
@@ -642,24 +1210,32 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildSingleAssigneeAvatar(String assigneeId) {
-    // Handle null or empty assigneeId
-    final displayChar =
-        assigneeId.isNotEmpty ? assigneeId.substring(0, 1).toUpperCase() : '?';
-
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: CircleAvatar(
-        radius: 16,
-        backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
-        child: Text(
-          displayChar,
-          style: const TextStyle(
-            color: Color(0xff0386FF),
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
+    // Use initials from resolved name; lazy fetch if missing
+    final name = _userIdToName[assigneeId];
+    if (name == null) {
+      _fetchUserNameIfMissing(assigneeId);
+    }
+    final displayChar = (name != null && name.isNotEmpty)
+        ? name.substring(0, 1).toUpperCase()
+        : (assigneeId.isNotEmpty ? assigneeId.substring(0, 1).toUpperCase() : '?');
+    
+    return Tooltip(
+      message: name ?? assigneeId,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: CircleAvatar(
+          radius: 16,
+          backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+          child: Text(
+            displayChar,
+            style: const TextStyle(
+              color: Color(0xff0386FF),
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
         ),
       ),

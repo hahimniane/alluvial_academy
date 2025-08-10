@@ -1,3 +1,5 @@
+const {onCall, onRequest} = require("firebase-functions/v2/https");
+const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
@@ -177,6 +179,118 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType) 
     return true;
   } catch (error) {
     console.error('Error sending welcome email:', error);
+    return false;
+  }
+};
+
+// Send student creation notification email to parent/guardian
+const sendStudentNotificationEmail = async (parentEmail, parentName, studentData, credentials) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+      to: parentEmail,
+      subject: `🎓 Student Account Created for ${studentData.firstName} ${studentData.lastName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>Student Account Created</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; }
+            .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 30px 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+            .content { padding: 30px 20px; }
+            .student-info-box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+            .credentials-box { background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px; }
+            .credentials-box h3 { margin-top: 0; color: #92400e; }
+            .important-note { background-color: #fee2e2; border: 1px solid #ef4444; padding: 15px; margin: 15px 0; border-radius: 6px; }
+            .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+            .student-code { font-family: monospace; font-size: 18px; color: #0386FF; font-weight: bold; }
+            .password { font-family: monospace; font-size: 16px; color: #e53e3e; font-weight: bold; }
+            .info-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 5px 0; border-bottom: 1px solid #e5e7eb; }
+            .info-label { font-weight: bold; color: #374151; }
+            .info-value { color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎓 Student Account Created</h1>
+              <p>Your child has been successfully enrolled</p>
+            </div>
+            
+            <div class="content">
+              <h2>Dear ${parentName},</h2>
+              <p>We're pleased to inform you that a student account has been successfully created for your child at Alluwal Academy.</p>
+              
+              <div class="student-info-box">
+                <h3>📋 Student Information</h3>
+                <div class="info-row">
+                  <span class="info-label">Name:</span>
+                  <span class="info-value">${studentData.firstName} ${studentData.lastName}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Student ID:</span>
+                  <span class="student-code">${studentData.studentCode}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Email:</span>
+                  <span class="info-value">${studentData.email || 'System generated alias'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Phone:</span>
+                  <span class="info-value">${studentData.phoneNumber || 'Not provided'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Student Type:</span>
+                  <span class="info-value">${studentData.isAdultStudent ? 'Adult Student' : 'Minor Student'}</span>
+                </div>
+              </div>
+              
+              ${!studentData.isAdultStudent ? `
+              <div class="credentials-box">
+                <h3>🔐 Student Login Credentials</h3>
+                <p><strong>Email/Username:</strong> ${credentials.email}</p>
+                <p><strong>Temporary Password:</strong> <span class="password">${credentials.tempPassword}</span></p>
+                <p><strong>Student ID:</strong> <span class="student-code">${studentData.studentCode}</span></p>
+              </div>
+              ` : ''}
+              
+              <div class="important-note">
+                <h3>⚠️ Important Notes:</h3>
+                <ul>
+                  <li>Please keep the Student ID safe - it will be needed for future reference</li>
+                  ${!studentData.isAdultStudent ? '<li>The temporary password should be changed during the first login</li>' : ''}
+                  <li>If you have any questions, please contact the school administration</li>
+                  <li>You will receive additional information about class schedules and requirements separately</li>
+                </ul>
+              </div>
+              
+              <p>We look forward to working with you and ${studentData.firstName} throughout their educational journey at Alluwal Academy.</p>
+              
+              <p>Best regards,<br>
+              Alluwal Academy Administration Team</p>
+            </div>
+            
+            <div class="footer">
+              <p>This is an automated notification. For questions, please contact the school office.</p>
+              <p>Alluwal Academy - Excellence in Islamic Education</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Student notification email sent to ${parentEmail} for student ${studentData.firstName} ${studentData.lastName}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending student notification email:', error);
     return false;
   }
 };
@@ -1001,12 +1115,12 @@ exports.sendTestEmail = functions.https.onCall(async (data, context) => {
   }
 });
 
-// Task status update notification function
-exports.sendTaskStatusUpdateNotification = functions.https.onCall(async (data, context) => {
+// Task status update notification function (v2)
+exports.sendTaskStatusUpdateNotification = onCall(async (request) => {
   console.log("--- TASK STATUS UPDATE NOTIFICATION ---");
   
   try {
-    const { taskId, taskTitle, oldStatus, newStatus, updatedByName, createdBy } = data.data || {};
+    const { taskId, taskTitle, oldStatus, newStatus, updatedByName, createdBy } = request.data || {};
     
     if (!taskId || !taskTitle || !newStatus || !createdBy) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: taskId, taskTitle, newStatus, and createdBy are required.');
@@ -1558,21 +1672,134 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     console.log(`Student document created in students collection`);
 
     // Update guardian documents to include this student in their children_ids array
+    let guardianEmails = [];
+    console.log(`=== GUARDIAN PROCESSING DEBUG ===`);
+    console.log(`Guardian IDs received: ${JSON.stringify(guardianIds)}`);
+    console.log(`Guardian IDs type: ${typeof guardianIds}`);
+    console.log(`Guardian IDs is array: ${Array.isArray(guardianIds)}`);
+    console.log(`Guardian IDs length: ${guardianIds ? guardianIds.length : 'null/undefined'}`);
+    
     if (guardianIds && Array.isArray(guardianIds) && guardianIds.length > 0) {
       const batch = admin.firestore().batch();
+      console.log(`Processing ${guardianIds.length} guardian(s)...`);
       
       for (const guardianId of guardianIds) {
+        console.log(`\n--- Processing guardian ID: ${guardianId} ---`);
         const guardianRef = admin.firestore().collection('users').doc(guardianId);
+        
+        // Get guardian information for email notification
+        try {
+          const guardianDoc = await guardianRef.get();
+          console.log(`Guardian document exists: ${guardianDoc.exists}`);
+          
+          if (guardianDoc.exists) {
+            const guardianData = guardianDoc.data();
+            console.log(`Guardian data:`, JSON.stringify(guardianData, null, 2));
+            
+            const guardianEmail = guardianData['e-mail'] || guardianData['email'];
+            const guardianName = `${guardianData['first_name'] || ''} ${guardianData['last_name'] || ''}`.trim() || 'Guardian';
+            
+            console.log(`Extracted guardian email: ${guardianEmail}`);
+            console.log(`Extracted guardian name: ${guardianName}`);
+            
+            if (guardianEmail) {
+              guardianEmails.push({
+                email: guardianEmail,
+                name: guardianName
+              });
+              console.log(`✅ Added guardian email to notification list`);
+            } else {
+              console.log(`❌ No email found for guardian ${guardianId}`);
+            }
+          } else {
+            console.log(`❌ Guardian document ${guardianId} does not exist`);
+          }
+        } catch (error) {
+          console.error(`❌ Error getting guardian ${guardianId} data:`, error);
+        }
         
         // Add this student to guardian's children_ids array
         batch.update(guardianRef, {
           children_ids: admin.firestore.FieldValue.arrayUnion(authUserId)
         });
+        console.log(`Added student to guardian's children_ids array`);
       }
       
       await batch.commit();
       console.log(`Updated ${guardianIds.length} guardian documents with new student`);
+    } else {
+      console.log(`⚠️ No guardian IDs to process (empty, null, or not an array)`);
     }
+    
+    console.log(`=== GUARDIAN PROCESSING SUMMARY ===`);
+    console.log(`Guardian emails collected: ${guardianEmails.length}`);
+    console.log(`Guardian emails list:`, JSON.stringify(guardianEmails, null, 2));
+    console.log(`=== END GUARDIAN DEBUG ===\n`);
+
+    // Send email notifications to guardians/parents
+    let emailsSent = 0;
+    console.log(`=== EMAIL NOTIFICATION DEBUG ===`);
+    console.log(`Guardian emails found: ${guardianEmails.length}`);
+    console.log(`Guardian emails array:`, JSON.stringify(guardianEmails, null, 2));
+    console.log(`isAdultStudent: ${isAdultStudent}`);
+    
+    if (guardianEmails.length > 0) {
+      const studentData = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        studentCode: studentCode,
+        email: email || aliasEmail,
+        phoneNumber: phoneNumber,
+        isAdultStudent: isAdultStudent
+      };
+      
+      const credentials = {
+        email: email || aliasEmail,
+        tempPassword: tempPassword
+      };
+      
+      console.log(`Student data for email:`, JSON.stringify(studentData, null, 2));
+      console.log(`Credentials for email:`, { email: credentials.email, tempPassword: '[HIDDEN]' });
+      
+      for (const guardian of guardianEmails) {
+        console.log(`\n--- Attempting to send email to guardian ---`);
+        console.log(`Guardian name: ${guardian.name}`);
+        console.log(`Guardian email: ${guardian.email}`);
+        
+        try {
+          const emailSent = await sendStudentNotificationEmail(
+            guardian.email,
+            guardian.name,
+            studentData,
+            credentials
+          );
+          console.log(`Email send result: ${emailSent}`);
+          
+          if (emailSent) {
+            emailsSent++;
+            console.log(`✅ Student notification email sent to ${guardian.name} (${guardian.email})`);
+          } else {
+            console.log(`❌ Failed to send email to ${guardian.name} (${guardian.email}) - sendStudentNotificationEmail returned false`);
+          }
+        } catch (error) {
+          console.error(`❌ Exception while sending student notification email to ${guardian.email}:`, error);
+          console.error(`Error stack:`, error.stack);
+        }
+      }
+    } else {
+      console.log(`⚠️ No guardian emails found - skipping email notifications`);
+      if (guardianIds && guardianIds.length > 0) {
+        console.log(`Guardian IDs were provided: ${JSON.stringify(guardianIds)}`);
+        console.log(`But no valid email addresses were found for these guardians`);
+      } else {
+        console.log(`No guardian IDs were provided in the request`);
+      }
+    }
+    
+    console.log(`=== EMAIL NOTIFICATION SUMMARY ===`);
+    console.log(`Total guardian emails: ${guardianEmails.length}`);
+    console.log(`Emails sent successfully: ${emailsSent}`);
+    console.log(`=== END EMAIL DEBUG ===\n`);
 
     return {
       success: true,
@@ -1582,7 +1809,9 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
       tempPassword: tempPassword,
       message: "Student account created successfully",
       isAdultStudent: isAdultStudent,
-      guardiansUpdated: guardianIds ? guardianIds.length : 0
+      guardiansUpdated: guardianIds ? guardianIds.length : 0,
+      emailsToGuardians: guardianEmails.length,
+      emailsSent: emailsSent
     };
 
   } catch (error) {
@@ -1591,5 +1820,314 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     console.error("ERROR STACK:", error.stack);
     // Re-throw a clean error to the client
     throw new functions.https.HttpsError('internal', error.message, error.stack);
+  }
+});
+
+// Email template for task comment notifications
+const getTaskCommentEmailTemplate = (data) => {
+  const {
+    taskTitle,
+    taskDescription,
+    commentAuthor,
+    commentText,
+    taskDueDate,
+    taskPriority,
+    taskStatus,
+    commentDate
+  } = data;
+
+  const formattedDueDate = new Date(taskDueDate).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const formattedCommentDate = new Date(commentDate).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const priorityColor = taskPriority === 'High' ? '#DC2626' : 
+                       taskPriority === 'Medium' ? '#F59E0B' : '#10B981';
+  
+  const statusColor = taskStatus === 'Completed' ? '#10B981' : 
+                     taskStatus === 'In Progress' ? '#8B5CF6' : '#3B82F6';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Task Comment - Alluwal Academy</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; }
+            .header { background: linear-gradient(135deg, #0386FF 0%, #0369C9 100%); padding: 40px 30px; text-align: center; }
+            .header h1 { color: white; margin: 0; font-size: 28px; font-weight: 600; }
+            .header p { color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px; }
+            .content { padding: 40px 30px; }
+            .comment-card { background: #f8fafc; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 8px; }
+            .task-info { background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .task-title { font-size: 20px; font-weight: 600; color: #1e293b; margin: 0 0 10px 0; }
+            .task-meta { display: flex; gap: 15px; margin: 15px 0; flex-wrap: wrap; }
+            .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+            .priority { background-color: ${priorityColor}; color: white; }
+            .status { background-color: ${statusColor}; color: white; }
+            .comment-author { font-weight: 600; color: #0386FF; margin-bottom: 8px; }
+            .comment-text { font-size: 15px; line-height: 1.6; color: #374151; }
+            .comment-date { font-size: 13px; color: #6b7280; margin-top: 10px; }
+            .task-description { font-size: 14px; color: #6b7280; margin: 10px 0; line-height: 1.5; }
+            .due-date { font-size: 14px; color: #dc2626; font-weight: 500; }
+            .footer { background: #f1f5f9; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0; }
+            .footer p { margin: 0; color: #6b7280; font-size: 14px; }
+            .logo { width: 120px; height: auto; margin-bottom: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>💬 New Task Comment</h1>
+                <p>Someone commented on a task you're involved with</p>
+            </div>
+            
+            <div class="content">
+                <div class="comment-card">
+                    <div class="comment-author">${commentAuthor} commented:</div>
+                    <div class="comment-text">"${commentText}"</div>
+                    <div class="comment-date">🕒 ${formattedCommentDate}</div>
+                </div>
+
+                <div class="task-info">
+                    <div class="task-title">📋 ${taskTitle}</div>
+                    ${taskDescription ? `<div class="task-description">${taskDescription}</div>` : ''}
+                    
+                    <div class="task-meta">
+                        <span class="badge priority">🔥 ${taskPriority} Priority</span>
+                        <span class="badge status">📊 ${taskStatus}</span>
+                    </div>
+                    
+                    <div class="due-date">⏰ Due: ${formattedDueDate}</div>
+                </div>
+
+                <p style="margin-top: 30px; font-size: 15px; color: #374151;">
+                    You're receiving this notification because you're either assigned to this task or created it. 
+                    Log into your Alluwal Academy dashboard to view the full conversation and respond.
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p>
+                    <strong>Alluwal Education Hub</strong><br>
+                    Islamic Education Management System<br>
+                    <a href="mailto:support@alluwaleducationhub.org" style="color: #0386FF;">support@alluwaleducationhub.org</a>
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+  `;
+};
+
+// Process email queue for task comment notifications
+exports.processTaskCommentEmail = onDocumentCreated('mail/{emailId}', async (event) => {
+  const snap = event.data;
+    const emailData = snap.data();
+    
+    // Check if this is a task comment notification
+    if (emailData.template?.name !== 'task_comment_notification') {
+      return null;
+    }
+
+    try {
+      const transporter = createTransporter();
+      const templateData = emailData.template.data;
+      const recipients = emailData.to;
+
+      console.log('Processing task comment notification for:', recipients);
+
+      const mailOptions = {
+        from: 'support@alluwaleducationhub.org',
+        to: recipients.join(', '),
+        subject: `💬 New comment on task: ${templateData.taskTitle}`,
+        html: getTaskCommentEmailTemplate(templateData),
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log('Task comment notification sent successfully to:', recipients);
+
+      // Mark email as sent
+      await snap.ref.update({ 
+        delivered: true, 
+        deliveredAt: admin.firestore.FieldValue.serverTimestamp() 
+      });
+
+    } catch (error) {
+      console.error('Error sending task comment notification:', error);
+      
+      // Mark email as failed
+      await snap.ref.update({ 
+        failed: true, 
+        error: error.message,
+        failedAt: admin.firestore.FieldValue.serverTimestamp() 
+      });
+    }
+
+    return null;
+});
+
+// Send task comment notification via HTTPS callable (direct send, no Firestore queue)
+exports.sendTaskCommentNotification = onCall(async (request) => {
+  try {
+    const {
+      taskId,
+      commentAuthorId,
+      commentAuthorName,
+      commentText,
+      commentDate,
+    } = request.data || {};
+
+    if (!taskId || !commentAuthorId || !commentAuthorName || !commentText) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Missing required fields: taskId, commentAuthorId, commentAuthorName, commentText'
+      );
+    }
+
+    const taskSnap = await admin.firestore().collection('tasks').doc(taskId).get();
+    if (!taskSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Task not found');
+    }
+
+    const task = taskSnap.data();
+
+    // Extract task fields with fallbacks
+    const createdBy = task.createdBy;
+    const assignedToRaw = task.assignedTo;
+    const assignedTo = Array.isArray(assignedToRaw)
+      ? assignedToRaw
+      : (assignedToRaw ? [assignedToRaw] : []);
+
+    // Determine recipients per business rule
+    const recipientUserIdsSet = new Set();
+    if (commentAuthorId === createdBy) {
+      // Creator commented -> notify all assignees
+      assignedTo.forEach((uid) => recipientUserIdsSet.add(uid));
+    } else if (assignedTo.includes(commentAuthorId)) {
+      // Assignee commented -> notify creator
+      if (createdBy) recipientUserIdsSet.add(createdBy);
+    } else {
+      // Other user commented -> notify creator + assignees
+      if (createdBy) recipientUserIdsSet.add(createdBy);
+      assignedTo.forEach((uid) => recipientUserIdsSet.add(uid));
+    }
+    recipientUserIdsSet.delete(commentAuthorId);
+
+    const recipientUserIds = Array.from(recipientUserIdsSet);
+
+    if (recipientUserIds.length === 0) {
+      return { success: false, reason: 'No recipients to notify' };
+    }
+
+    // Resolve recipient emails and names
+    const recipients = [];
+    const recipientNames = [];
+    for (const uid of recipientUserIds) {
+      try {
+        const userDoc = await admin.firestore().collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data() || {};
+          const email = userData['e-mail'];
+          const firstName = userData['first_name'] || '';
+          const lastName = userData['last_name'] || '';
+          const fullName = `${firstName} ${lastName}`.trim();
+          if (email) {
+            recipients.push(email);
+            recipientNames.push(fullName || email);
+          }
+        }
+      } catch (err) {
+        console.error('Error resolving user email for uid', uid, err);
+      }
+    }
+
+    if (recipients.length === 0) {
+      return { success: false, reason: 'No recipient emails found' };
+    }
+
+    // Prepare template data using robust mappings
+    const toIsoString = (ts) => {
+      if (!ts) return new Date().toISOString();
+      // Firestore Timestamp
+      if (ts && ts.toDate) return ts.toDate().toISOString();
+      // String
+      if (typeof ts === 'string') return new Date(ts).toISOString();
+      // Number (ms)
+      if (typeof ts === 'number') return new Date(ts).toISOString();
+      return new Date().toISOString();
+    };
+
+    const mapPriority = (p) => {
+      if (typeof p === 'string') {
+        const v = p.toLowerCase();
+        if (v.includes('high')) return 'High';
+        if (v.includes('medium')) return 'Medium';
+        return 'Low';
+      }
+      if (typeof p === 'number') {
+        return ['Low', 'Medium', 'High'][p] || 'Medium';
+      }
+      return 'Medium';
+    };
+
+    const mapStatus = (s) => {
+      if (typeof s === 'string') {
+        const v = s.toLowerCase();
+        if (v.includes('done') || v.includes('completed')) return 'Completed';
+        if (v.includes('progress')) return 'In Progress';
+        return 'To Do';
+      }
+      if (typeof s === 'number') {
+        return ['To Do', 'In Progress', 'Completed'][s] || 'To Do';
+      }
+      return 'To Do';
+    };
+
+    const templateData = {
+      taskTitle: task.title || 'Untitled Task',
+      taskDescription: task.description || '',
+      commentAuthor: commentAuthorName,
+      commentText,
+      taskDueDate: toIsoString(task.dueDate),
+      taskPriority: mapPriority(task.priority),
+      taskStatus: mapStatus(task.status),
+      taskId,
+      commentDate: commentDate || new Date().toISOString(),
+      recipients: recipientNames,
+    };
+
+    const transporter = createTransporter();
+    const mailOptions = {
+      from: 'support@alluwaleducationhub.org',
+      to: recipients.join(', '),
+      subject: `💬 New comment on task: ${templateData.taskTitle}`,
+      html: getTaskCommentEmailTemplate(templateData),
+    };
+
+    console.log('Sending task comment notification to:', recipients);
+    await transporter.sendMail(mailOptions);
+    console.log('Task comment notification sent successfully');
+
+    return { success: true, recipients };
+  } catch (error) {
+    console.error('sendTaskCommentNotification error:', error);
+    throw new functions.https.HttpsError('internal', error.message || 'Unknown error');
   }
 });

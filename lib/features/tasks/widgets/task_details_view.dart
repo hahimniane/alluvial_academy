@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
+import 'task_comments_section.dart';
 
 class TaskDetailsView extends StatefulWidget {
   final Task task;
@@ -34,6 +36,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
   bool _isUploadingFile = false;
   TaskStatus _currentStatus = TaskStatus.todo;
   late Task _currentTask;
+  String? _assignedByName;
+  List<String> _assignedToNames = [];
 
   @override
   void initState() {
@@ -59,6 +63,53 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     ));
 
     _animationController.forward();
+
+    // Resolve user IDs to display names
+    _resolveUserNames();
+  }
+
+  Future<void> _resolveUserNames() async {
+    try {
+      // Resolve Assigned By
+      if (widget.task.createdBy.isNotEmpty) {
+        final creatorDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.task.createdBy)
+            .get();
+        if (creatorDoc.exists) {
+          final data = creatorDoc.data() as Map<String, dynamic>;
+          final fullName = '${(data['first_name'] ?? '').toString().trim()} ${(data['last_name'] ?? '').toString().trim()}'.trim();
+          if (mounted) setState(() => _assignedByName = fullName.isNotEmpty ? fullName : (data['e-mail'] ?? 'Unknown'));
+        }
+      }
+
+      // Resolve Assigned To (list of user IDs)
+      if (widget.task.assignedTo.isNotEmpty) {
+        final List<Future<String>> futures = widget.task.assignedTo
+            .map<Future<String>>((uid) async {
+          try {
+            final doc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .get();
+            if (doc.exists) {
+              final d = doc.data() as Map<String, dynamic>;
+              final fullName =
+                  '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
+              return fullName.isNotEmpty
+                  ? fullName
+                  : (d['e-mail']?.toString() ?? uid);
+            }
+          } catch (_) {}
+          return uid; // fallback
+        }).toList();
+
+        final List<String> names = await Future.wait<String>(futures);
+        if (mounted) {
+          setState(() => _assignedToNames = List<String>.from(names));
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -170,6 +221,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               const SizedBox(height: 24),
               _buildNotesSection(),
             ],
+            const SizedBox(height: 32),
+            TaskCommentsSection(task: _currentTask),
           ],
         ),
       ),
@@ -193,9 +246,19 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
+            Icons.person,
+            'Assigned To',
+            _assignedToNames.isEmpty
+                ? (widget.task.assignedTo.isEmpty ? 'Unassigned' : 'Loading...')
+                : _assignedToNames.join(', '),
+          ),
+          const SizedBox(height: 16),
+          _buildInfoRow(
             Icons.person_outline,
             'Assigned By',
-            'Administrator', // You could fetch the creator's name from userData
+            (_assignedByName != null && _assignedByName!.isNotEmpty)
+                ? _assignedByName!
+                : (widget.task.createdBy.isNotEmpty ? 'Loading...' : 'Unknown'),
           ),
           const SizedBox(height: 16),
           _buildInfoRow(

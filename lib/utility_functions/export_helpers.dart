@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' as xl;
 import 'package:flutter/material.dart';
@@ -262,15 +263,15 @@ class ExportHelpers {
         final blob = html.Blob([
           Uint8List.fromList(fileBytes)
         ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        
+
         final url = html.Url.createObjectUrlFromBlob(blob);
-        
+
         // Create and configure the anchor element
         final anchor = html.AnchorElement()
           ..href = url
           ..style.display = 'none'
           ..download = "$baseFileName.xlsx";
-        
+
         // Add to DOM, click, then remove
         html.document.body?.children.add(anchor);
         anchor.click();
@@ -326,12 +327,12 @@ class ExportHelpers {
         ..href = url
         ..style.display = 'none'
         ..download = "$baseFileName.csv";
-      
+
       // Add to DOM, click, then remove
       html.document.body?.children.add(anchor);
       anchor.click();
       html.document.body?.children.remove(anchor);
-      
+
       // Clean up URL after download
       Future.delayed(const Duration(milliseconds: 1000), () {
         html.Url.revokeObjectUrl(url);
@@ -345,6 +346,50 @@ class ExportHelpers {
       Future.delayed(const Duration(milliseconds: 500), () {
         _isExporting = false;
       });
+    }
+  }
+
+  // Convenience wrapper for exporting form responses to Excel without a UI dialog
+  // Keeps backward compatibility with older callers
+  static void exportFormResponsesToExcel(
+    List<QueryDocumentSnapshot> responses,
+    Map<String, DocumentSnapshot> formTemplates,
+  ) {
+    try {
+      final headers = <String>[
+        'Form Title',
+        'First Name',
+        'Last Name',
+        'Email',
+        'Status',
+        'Submitted At',
+      ];
+
+      final rows = responses.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final template = formTemplates[data['formId']];
+        final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+        final submittedAtStr = submittedAt != null
+            ? '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}-${submittedAt.day.toString().padLeft(2, '0')} ${submittedAt.hour.toString().padLeft(2, '0')}:${submittedAt.minute.toString().padLeft(2, '0')}'
+            : '';
+
+        return <String>[
+          (template != null
+                  ? (template['title'] ?? 'Untitled Form')
+                  : 'Untitled Form')
+              .toString(),
+          (data['firstName'] ?? '').toString(),
+          (data['lastName'] ?? '').toString(),
+          (data['userEmail'] ?? '').toString(),
+          (data['status'] ?? 'Completed').toString(),
+          submittedAtStr,
+        ];
+      }).toList();
+
+      _exportToExcel(headers, rows, 'form_responses');
+    } catch (e) {
+      // Fall back silently; callers can handle errors if needed
+      print('exportFormResponsesToExcel failed: $e');
     }
   }
 }
