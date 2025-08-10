@@ -236,7 +236,12 @@ class TaskService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
+      print(
+          'TaskService: getTasks() found ${snapshot.docs.length} tasks in database');
+      final tasks =
+          snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
+      print('TaskService: Converted to ${tasks.length} task objects');
+      return tasks;
     });
   }
 
@@ -265,21 +270,25 @@ class TaskService {
       // Ensure user is authenticated before checking role
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
-        print('No authenticated user found');
+        print('TaskService: No authenticated user found');
         return Stream.value([]);
       }
 
+      print('TaskService: Getting tasks for user: ${currentUser.uid}');
       final isAdmin = await UserRoleService.isAdmin();
+      print('TaskService: User is admin: $isAdmin');
 
       // Admins can see all tasks
       if (isAdmin) {
+        print('TaskService: Returning all tasks for admin');
         return getTasks();
       }
 
       // Non-admins only see tasks assigned to them
+      print('TaskService: Returning assigned tasks for non-admin');
       return getAssignedTasks();
     } catch (e) {
-      print('Error getting role-based tasks: $e');
+      print('TaskService: Error getting role-based tasks: $e');
       // Fallback to assigned tasks if role check fails
       return getAssignedTasks();
     }

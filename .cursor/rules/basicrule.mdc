@@ -1,0 +1,71 @@
+---
+description: ## 1) Component Reuse Firs- Before generating any UI or feature, SEARCH the repo for an existing component that matches or can be adapted:
+  - Scan: lib/** for widgets, themes, helpers, and patterns (e.g., "Search", "Filter", "AppBar", "ListItem", "Card").
+  - If a functionally identical component exists, REUSE it without creating a new widget.
+  - If a similar component exists, PROPOSE a small refactor to generalize it (e.g., add optional params) and reuse it.
+  - Only create a new component if no reasonable reuse/refactor path exists; explain why.
+
+## 2) Design System Consistency
+- Follow the existing app theme: colors, typography, shapes, spacing, and motion.
+- Use Theme.of(context), existing ColorScheme, TextTheme, and shared spacing constants; do NOT hardcode visual values.
+- Keep naming, file structure, and state management consistent with what the repo already uses.
+- Match existing accessibility patterns: semantics labels, tap targets ≥ 48dp, contrast, focus order.
+
+## 3) State Management & Architecture
+- Detect and follow the repo’s current choices (e.g., Riverpod, Bloc, Provider, ValueNotifier). Do not introduce a new one without explicit approval.
+- Keep to the existing architecture (e.g., feature-first folders, clean architecture layers).
+- Keep widgets small and composable; prefer pure widgets over stateful when feasible.
+
+## 4) Dependencies & APIs
+- Do NOT add a new dependency without explicit user approval. If needed, suggest 1–2 options with pros/cons and license notes.
+- Do NOT downgrade or upgrade Flutter/Dart/Gradle versions unless explicitly requested.
+- Do NOT alter CI/CD, signing configs, or build flavors without approval.
+- Never include secrets in code; use existing env/config patterns.
+
+## 5) Quality Gates (before creating/committing changes)
+- Conform to repo lint rules (e.g., `flutter analyze` passes; fix warnings you introduce).
+- Add/update tests for new public widgets, logic, and utils where practical (golden tests for reusable UI if the project uses them).
+- Ensure performance basics: avoid rebuilding heavy widgets unnecessarily; use const where possible; list items are lazy (ListView.builder / SliverList).
+- Localization: use existing localization/i18n patterns; no hardcoded user-facing strings.
+
+## 6) Git Hygiene & Safety
+- DO NOT push to any remote unless the user explicitly says so.
+- Default to creating a local feature branch named after the task (e.g., `feat/<short-topic>`).
+- Make minimal, focused commits with clear messages.
+- If a change touches multiple areas, propose a brief plan and split into small PR-sized chunks.
+- Never rewrite history on shared branches.
+
+## 7) DX & Docs
+- For any new or refactored reusable component, add/extend inline DartDoc and a short usage snippet in a `README.md` under the feature or components folder (follow repo convention).
+- If you generalize a component, document new parameters and defaults.
+
+## 8) When Requirements Are Ambiguous
+- Prefer a minimal, extensible implementation that fits the existing patterns.
+- Leave a short TODO comment or open a small design note (`/docs/decisions/<date>-<topic>.md`) summarizing tradeoffs and questions.
+
+## 9) Error Handling & Logging
+- Follow existing error/reporting utilities. No print() in production code.
+- Surface user-visible errors with the current app pattern (e.g., SnackBar, inline message, or error state widget).
+
+## 10) Security & Privacy
+- Respect least privilege: do not request additional permissions without approval.
+- Handle any PII according to the repo’s existing guidelines.
+
+## 11) Performance & Bundle Size
+- Avoid unnecessary images/assets; reuse existing assets and icons.
+- Prefer composition over inheritance; avoid deep widget trees when simple layouts suffice.
+
+## 12) Review Checklist (run before proposing output)
+- ✅ Reused or refactored existing component(s) where possible.
+- ✅ Matches theme, spacing, typography, and semantics.
+- ✅ No new deps (or explicitly approved with rationale).
+- ✅ `flutter analyze` and tests pass locally.
+- ✅ No secrets, no config/build tampering.
+- ✅ Changes are small, documented, and ready for review.
+- ✅ Nothing pushed to remote without explicit instruction.
+
+
+
+globs:
+alwaysApply: false
+---
