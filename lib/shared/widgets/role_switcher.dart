@@ -82,7 +82,8 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
           final userType = userData['user_type'] as String?;
 
           // Check if dual role status changed
-          final newHasDualRoles = isAdminTeacher && userType == 'teacher';
+          // Any admin has dual modes (admin + teacher). Teachers with is_admin_teacher also have dual roles.
+          final newHasDualRoles = (userType == 'admin') || (isAdminTeacher && userType == 'teacher');
 
           if (newHasDualRoles != _hasDualRoles) {
             print(
@@ -93,7 +94,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
 
             // If user lost admin privileges, notify parent
             if (!newHasDualRoles && _hasDualRoles) {
-              // User lost admin privileges - switch back to primary role
+              // User lost dual-role privileges - switch back to primary role
               UserRoleService.switchActiveRole(userType ?? 'teacher')
                   .then((success) {
                 if (success && mounted) {
