@@ -32,25 +32,26 @@ class UserRoleService {
 
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
 
-      // Check for dual roles
+      // Determine available roles
       final primaryRole = userData['user_type'] as String?;
       final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
 
-      List<String> roles = [];
+      final Set<String> roles = <String>{};
       if (primaryRole != null) {
         roles.add(primaryRole);
       }
 
-      // If user is marked as admin-teacher, they have both roles
-      if (isAdminTeacher) {
-        if (primaryRole == 'teacher') {
-          roles.add('admin');
-        } else if (primaryRole == 'admin') {
-          roles.add('teacher');
-        }
+      // Business rule: Any admin can switch to teacher mode
+      if (primaryRole == 'admin') {
+        roles.add('teacher');
       }
 
-      return roles;
+      // Preserve existing dual-role flag for teachers promoted to admin
+      if (primaryRole == 'teacher' && isAdminTeacher) {
+        roles.add('admin');
+      }
+
+      return roles.toList();
     } catch (e) {
       print('Error getting available roles: $e');
       return [];
