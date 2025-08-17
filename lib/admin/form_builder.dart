@@ -470,7 +470,11 @@ class _FormsListViewState extends State<FormsListView> {
     final description = data['description'] ?? '';
     final status = data['status'] ?? 'active';
     final createdAt = data['createdAt'] as Timestamp?;
-    final responseCount = data['responseCount'] ?? 0;
+    final responseCountFuture = FirebaseFirestore.instance
+        .collection('form_responses')
+        .where('formId', isEqualTo: formId)
+        .count()
+        .get();
     final fieldCount = data['fieldCount'] ?? 0;
     final isActive = status == 'active';
 
@@ -611,8 +615,17 @@ class _FormsListViewState extends State<FormsListView> {
               children: [
                 _buildInfoChip(Icons.quiz, '$fieldCount fields', Colors.blue),
                 const SizedBox(width: 12),
-                _buildInfoChip(
-                    Icons.reply, '$responseCount responses', Colors.green),
+                FutureBuilder<AggregateQuerySnapshot>(
+                  future: responseCountFuture,
+                  builder: (context, snapshot) {
+                    final count = snapshot.data?.count ?? (data['responseCount'] ?? 0);
+                    return _buildInfoChip(
+                      Icons.reply,
+                      '$count responses',
+                      Colors.green,
+                    );
+                  },
+                ),
                 const SizedBox(width: 12),
                 if (createdAt != null)
                   _buildInfoChip(

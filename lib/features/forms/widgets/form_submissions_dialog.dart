@@ -16,23 +16,38 @@ class FormSubmissionsDialog extends StatefulWidget {
   State<FormSubmissionsDialog> createState() => _FormSubmissionsDialogState();
 }
 
-class _FormSubmissionsDialogState extends State<FormSubmissionsDialog> {
+class _FormSubmissionsDialogState extends State<FormSubmissionsDialog> 
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   Map<String, dynamic> _template = {};
   List<QueryDocumentSnapshot> _submissions = [];
   DateTimeRange? _range;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  late TabController _tabController;
+  final Map<String, TextEditingController> _notesControllers = {};
+  final Map<String, bool> _editingNotes = {};
+  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
+  int _rowsPerPage = 10;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     _load();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _tabController.dispose();
+    _horizontalScrollController.dispose();
+    _verticalScrollController.dispose();
+    for (final controller in _notesControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -46,16 +61,51 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog> {
       Query q = FirebaseFirestore.instance
           .collection('form_responses')
           .where('formId', isEqualTo: widget.formId)
-          .orderBy('submittedAt', descending: true);
+          .orderBy('submittedAt', descending: false); // Changed to ascending for proper numbering
       final snap = await q.get();
 
       if (!mounted) return;
       setState(() {
         _template = {'fields': fieldsMap};
         _submissions = snap.docs;
+        // Initialize notes controllers for each submission
+        for (final doc in snap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final note = (data['adminNote'] ?? '').toString();
+          _notesControllers[doc.id] = TextEditingController(text: note);
+          _editingNotes[doc.id] = false;
+        }
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveNote(String docId, String note) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('form_responses')
+          .doc(docId)
+          .update({'adminNote': note});
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note saved successfully'),
+            backgroundColor: Color(0xFF059669),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save note: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -71,223 +121,344 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog> {
     return (fields[fieldId]?['label'] ?? fieldId).toString();
   }
 
+  List<QueryDocumentSnapshot> get _filteredSubmissions {
+    if (_searchQuery.isEmpty) return _submissions;
+    
+    return _submissions.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
+      final email = (data['userEmail'] ?? '').toString();
+      final responses = (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
+      
+      return name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+             email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+             responses.values.any((value) => 
+               value.toString().toLowerCase().contains(_searchQuery.toLowerCase()));
+    }).toList();
+  }
+
+  List<QueryDocumentSnapshot> get _paginatedSubmissions {
+    final filtered = _filteredSubmissions;
+    final start = _currentPage * _rowsPerPage;
+    final end = (start + _rowsPerPage).clamp(0, filtered.length);
+    return filtered.sublist(start.clamp(0, filtered.length), end);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black54, // Semi-transparent overlay
+      color: Colors.black54,
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
-          width: MediaQuery.of(context).size.width - 250, // Account for sidebar width
+          width: MediaQuery.of(context).size.width - 250,
           height: MediaQuery.of(context).size.height,
           color: const Color(0xFFF9FAFB),
-        child: Column(
-          children: [
-            // Header with form title and action buttons
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.description_outlined, color: Color(0xFF6B7280), size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.formTitle,
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF111827),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'Published',
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.description_outlined, color: Color(0xFF6B7280), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.formTitle,
                       style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF059669),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111827),
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  // Action buttons
-                  OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.share_outlined, size: 16),
-                    label: const Text('Share'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Published',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF059669),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Edit form'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF059669),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    child: const Text('Collect', style: TextStyle(color: Colors.white)),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
-                  ),
-                ],
-              ),
-            ),
-
-            // Tabs
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  _buildTab('Submissions', isSelected: true),
-                  _buildTab('Users'),
-                  _buildTab('Summary'),
-                  _buildTab('Activity'),
-                ],
-              ),
-            ),
-
-            // Filter and search bar
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_back, color: Color(0xFF6B7280), size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    '01/01 - 12/31',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF374151),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.calendar_today_outlined, color: Color(0xFF6B7280), size: 16),
-                  const SizedBox(width: 24),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF2563EB), width: 1),
-                    ),
-                    child: Text(
-                      '${_submissions.length} submissions',
+                    const Spacer(),
+                    Text(
+                      'Permissions',
                       style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF2563EB),
+                        fontSize: 13,
+                        color: const Color(0xFF6B7280),
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  // Search field
-                  Container(
-                    width: 300,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFD1D5DB)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) {
-                        if (mounted) {
-                          setState(() => _searchQuery = value);
-                        }
-                      },
-                      decoration: const InputDecoration(
-                        hintText: 'Search',
-                        prefixIcon: Icon(Icons.search, color: Color(0xFF6B7280), size: 20),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    const SizedBox(width: 8),
+                    // Add user avatars similar to screenshot
+                    SizedBox(
+                      width: 120,
+                      height: 32,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: List.generate(4, (index) => Positioned(
+                          left: index * 20.0,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: [
+                                const Color(0xFF059669),
+                                const Color(0xFF2563EB),
+                                const Color(0xFFDC2626),
+                                const Color(0xFFF59E0B),
+                              ][index],
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Center(
+                              child: Text(
+                                ['A', 'B', 'C', 'D'][index],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )),
                       ),
                     ),
+                    const SizedBox(width: 16),
+                    OutlinedButton(
+                      onPressed: () {},
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      child: const Text('Preview', style: TextStyle(fontSize: 13)),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('Edit form', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: const Text('Settings', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tabs
+              Container(
+                color: Colors.white,
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorColor: const Color(0xFF2563EB),
+                  indicatorWeight: 2,
+                  labelColor: const Color(0xFF2563EB),
+                  unselectedLabelColor: const Color(0xFF6B7280),
+                  labelStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.filter_list, color: Color(0xFF6B7280)),
-                ],
+                  tabs: const [
+                    Tab(text: 'Submissions'),
+                    Tab(text: 'Users'),
+                    Tab(text: 'Summary'),
+                    Tab(text: 'Activity'),
+                  ],
+                ),
               ),
-            ),
 
-            // Filter options
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Row(
-                children: [
-                  const Text('Filter', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                  const SizedBox(width: 16),
-                  _buildFilterDropdown('Groups'),
-                  const SizedBox(width: 8),
-                  _buildFilterDropdown('Direct manager'),
-                  const SizedBox(width: 8),
-                  _buildFilterDropdown('Status'),
-                  const SizedBox(width: 16),
-                  const Text('Advanced filters', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB))),
-                  const Spacer(),
-                  const Text('Rows per page:', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                  const SizedBox(width: 8),
-                  _buildFilterDropdown('10'),
-                ],
+              // Toolbar
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        // Date range selector
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFD1D5DB)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today_outlined, color: Color(0xFF6B7280), size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                '07/09 - 08/08',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFF374151),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280), size: 20),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Submissions count
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${_filteredSubmissions.length} submissions',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF2563EB),
+                            ),
+                          ),
+                        ),
+                        
+                        const Spacer(),
+                        
+                        // Search field
+                        Container(
+                          width: 300,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (value) {
+                              if (mounted) {
+                                setState(() {
+                                  _searchQuery = value;
+                                  _currentPage = 0; // Reset to first page on search
+                                });
+                              }
+                            },
+                            style: GoogleFonts.inter(fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: 'Search',
+                              hintStyle: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: const Color(0xFF9CA3AF),
+                              ),
+                              prefixIcon: const Icon(Icons.search, color: Color(0xFF6B7280), size: 20),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            // Table
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-                  : _buildTable(),
-            )
-          ],
+              // Table
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+                    : _buildTable(),
+              ),
+
+              // Pagination
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: _currentPage > 0 ? () {
+                            setState(() => _currentPage--);
+                          } : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text(
+                          'Page ${_currentPage + 1} of ${(_filteredSubmissions.length / _rowsPerPage).ceil()}',
+                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280)),
+                        ),
+                        IconButton(
+                          onPressed: (_currentPage + 1) * _rowsPerPage < _filteredSubmissions.length ? () {
+                            setState(() => _currentPage++);
+                          } : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rows per page:',
+                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280)),
+                        ),
+                        const SizedBox(width: 8),
+                        DropdownButton<int>(
+                          value: _rowsPerPage,
+                          items: [10, 25, 50].map((e) => DropdownMenuItem(
+                            value: e,
+                            child: Text(e.toString()),
+                          )).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _rowsPerPage = value;
+                                _currentPage = 0;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 
   Widget _buildTable() {
-    final ids = _fieldOrder;
+    final fieldIds = _fieldOrder;
+    final tableWidth = _calculateTableWidth(fieldIds);
     
-    // Filter submissions based on search query
-    List<QueryDocumentSnapshot> filteredSubmissions = _submissions;
-    if (_searchQuery.isNotEmpty) {
-      filteredSubmissions = _submissions.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
-        final email = (data['userEmail'] ?? '').toString();
-        final responses = (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
-        
-        return name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-               email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-               responses.values.any((value) => 
-                 value.toString().toLowerCase().contains(_searchQuery.toLowerCase()));
-      }).toList();
-    }
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -297,27 +468,47 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog> {
         children: [
           // Table header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            height: 48,
             decoration: const BoxDecoration(
               color: Color(0xFFF9FAFB),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(8),
                 topRight: Radius.circular(8),
               ),
+              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
             ),
-            child: _buildTableHeader(ids),
+            child: SingleChildScrollView(
+              controller: _horizontalScrollController,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                child: _buildTableHeader(fieldIds),
+              ),
+            ),
           ),
+          
           // Table body
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: Column(
-                children: filteredSubmissions.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final doc = entry.value;
-                  final data = doc.data() as Map<String, dynamic>;
-                  return _buildTableRow(data, index, ids);
-                }).toList(),
+            child: Scrollbar(
+              controller: _verticalScrollController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _verticalScrollController,
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: tableWidth,
+                    child: Column(
+                      children: _paginatedSubmissions.asMap().entries.map((entry) {
+                        final globalIndex = (_currentPage * _rowsPerPage) + entry.key;
+                        final doc = entry.value;
+                        final data = doc.data() as Map<String, dynamic>;
+                        return _buildTableRow(doc.id, data, globalIndex + 1, fieldIds);
+                      }).toList(),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -327,276 +518,404 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog> {
   }
 
   double _calculateTableWidth(List<String> fieldIds) {
-    // Calculate total width: checkbox(40) + gap(16) + #(60) + user(200) + date(140) + fields(180 each) + status(100) + actions(120)
-    return 40 + 16 + 60 + 200 + 140 + (fieldIds.length * 180) + 100 + 120;
+    // Calculate total width: checkbox(48) + #(60) + user(220) + fixed columns + dynamic fields + notes(200)
+    double width = 48 + 60 + 220; // checkbox + number + user
+    
+    // Add fixed columns
+    for (final fieldId in fieldIds) {
+      final label = _labelFor(fieldId);
+      // Adjust width based on field type/label
+      if (label.toLowerCase().contains('date')) {
+        width += 140;
+      } else if (label.toLowerCase().contains('email')) {
+        width += 200;
+      } else {
+        width += 180;
+      }
+    }
+    
+    width += 200; // Notes column
+    width += 120; // Actions column
+    
+    return width;
   }
 
   Widget _buildTableHeader(List<String> fieldIds) {
-    return SizedBox(
-      width: _calculateTableWidth(fieldIds),
-      child: Row(
-        children: [
-          // Checkbox column
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+          // Checkbox
           SizedBox(
-            width: 40,
+            width: 48,
             child: Checkbox(
               value: false,
               onChanged: (bool? value) {},
               activeColor: const Color(0xFF2563EB),
             ),
           ),
-          const SizedBox(width: 16),
-          // Number column
+          
+          // # Column
           SizedBox(
             width: 60,
             child: Text(
               '#',
               style: GoogleFonts.inter(
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: const Color(0xFF6B7280),
+                letterSpacing: 0.5,
               ),
             ),
           ),
-          // User column
+          
+          // User Column
           SizedBox(
-            width: 200,
+            width: 220,
             child: Text(
               'User',
               style: GoogleFonts.inter(
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: const Color(0xFF6B7280),
+                letterSpacing: 0.5,
               ),
             ),
           ),
-          // Date submitted column
-          SizedBox(
-            width: 140,
-            child: Text(
-              'Date submitted',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF6B7280),
-              ),
-            ),
-          ),
-          // Dynamic form field columns
-          ...fieldIds.map((fieldId) => SizedBox(
-            width: 180,
-            child: Text(
-              _labelFor(fieldId),
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF6B7280),
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          )).toList(),
-          // Status column
-          SizedBox(
-            width: 100,
-            child: Text(
-              'Status',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF6B7280),
-              ),
-            ),
-          ),
-          // Actions column
-          SizedBox(
-            width: 120,
-            child: Text(
-              'Add manager/Tags',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF6B7280),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableRow(Map<String, dynamic> data, int index, List<String> fieldIds) {
-    final responses = (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
-    final timestamp = (data['submittedAt'] as Timestamp?)?.toDate();
-    final dateSubmitted = timestamp != null
-        ? '${timestamp.month.toString().padLeft(2, '0')}/${timestamp.day.toString().padLeft(2, '0')}/${timestamp.year}'
-        : '-';
-    final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
-    final email = (data['userEmail'] ?? '').toString();
-    final displayName = name.isEmpty ? email : name;
-
-    // Generate a random status for demo purposes
-    final statuses = ['Seen', 'Done'];
-    final status = statuses[index % statuses.length];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Checkbox
-            SizedBox(
-              width: 40,
-              child: Checkbox(
-                value: false,
-                onChanged: (bool? value) {},
-                activeColor: const Color(0xFF2563EB),
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Row number
-            SizedBox(
-              width: 60,
+          
+          // Dynamic field columns
+          ...fieldIds.map((fieldId) {
+            final label = _labelFor(fieldId);
+            double width = 180;
+            if (label.toLowerCase().contains('date')) width = 140;
+            if (label.toLowerCase().contains('email')) width = 200;
+            
+            return SizedBox(
+              width: width,
               child: Text(
-                '${index + 99}', // Start from 99 like in the screenshot
+                label,
                 style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF374151),
-                ),
-              ),
-            ),
-            // User with avatar
-            SizedBox(
-              width: 200,
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: const Color(0xFF059669),
-                    child: Text(
-                      displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      displayName,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: const Color(0xFF374151),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Date submitted
-            SizedBox(
-              width: 140,
-              child: Text(
-                dateSubmitted,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF374151),
-                ),
-              ),
-            ),
-            // Dynamic form field values
-            ...fieldIds.map((fieldId) => SizedBox(
-              width: 180,
-              child: Text(
-                '${responses[fieldId] ?? '-'}',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF374151),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF6B7280),
+                  letterSpacing: 0.5,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
-            )).toList(),
-            // Status pill
-            SizedBox(
-              width: 100,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: status == 'Done' ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: status == 'Done' ? const Color(0xFF059669) : const Color(0xFFD97706),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            );
+          }),
+          
+          // Notes Column
+          SizedBox(
+            width: 200,
+            child: Text(
+              'Notes',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6B7280),
+                letterSpacing: 0.5,
               ),
             ),
-            // Actions
-            SizedBox(
-              width: 120,
-              child: Row(
-                children: [
-                  Icon(Icons.more_horiz, color: const Color(0xFF6B7280)),
-                ],
+          ),
+          
+          // Actions Column
+          SizedBox(
+            width: 120,
+            child: Text(
+              'Actions',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6B7280),
+                letterSpacing: 0.5,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTab(String text, {bool isSelected = false}) {
-    return Container(
-      margin: const EdgeInsets.only(right: 32),
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
-            width: 2,
           ),
-        ),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF6B7280),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterDropdown(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: const Color(0xFF374151),
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF6B7280)),
         ],
+        ),
       ),
     );
+  }
+
+  Widget _buildTableRow(String docId, Map<String, dynamic> data, int rowNumber, List<String> fieldIds) {
+    final responses = (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
+    final timestamp = (data['submittedAt'] as Timestamp?)?.toDate();
+    final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
+    final email = (data['userEmail'] ?? '').toString();
+    final displayName = name.isNotEmpty ? name : email;
+    final isEditing = _editingNotes[docId] ?? false;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: rowNumber % 2 == 0 ? Colors.white : const Color(0xFFFAFBFC),
+        border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5)),
+      ),
+      child: InkWell(
+        onTap: () {},
+        hoverColor: const Color(0xFFF3F4F6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+              // Checkbox
+              SizedBox(
+                width: 48,
+                child: Checkbox(
+                  value: false,
+                  onChanged: (bool? value) {},
+                  activeColor: const Color(0xFF2563EB),
+                ),
+              ),
+              
+              // Row number
+              SizedBox(
+                width: 60,
+                child: Text(
+                  rowNumber.toString(),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              
+              // User with avatar
+              SizedBox(
+                width: 220,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: _getAvatarColor(displayName),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Text(
+                          displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF111827),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (email.isNotEmpty && email != displayName)
+                            Text(
+                              email,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: const Color(0xFF6B7280),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Dynamic field values
+              ...fieldIds.map((fieldId) {
+                final label = _labelFor(fieldId);
+                double width = 180;
+                if (label.toLowerCase().contains('date')) width = 140;
+                if (label.toLowerCase().contains('email')) width = 200;
+                
+                String value = '${responses[fieldId] ?? '-'}';
+                
+                // Format dates if it's a timestamp
+                if (responses[fieldId] is Timestamp) {
+                  final date = (responses[fieldId] as Timestamp).toDate();
+                  value = '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+                }
+                
+                return SizedBox(
+                  width: width,
+                  child: Text(
+                    value,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: const Color(0xFF374151),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+              
+              // Notes field
+              SizedBox(
+                width: 200,
+                child: isEditing
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _notesControllers[docId],
+                              style: GoogleFonts.inter(fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Add note...',
+                                hintStyle: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                  borderSide: const BorderSide(color: Color(0xFF2563EB)),
+                                ),
+                              ),
+                              onSubmitted: (value) async {
+                                await _saveNote(docId, value);
+                                setState(() {
+                                  _editingNotes[docId] = false;
+                                });
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.check, size: 16, color: Color(0xFF059669)),
+                            onPressed: () async {
+                              await _saveNote(docId, _notesControllers[docId]!.text);
+                              setState(() {
+                                _editingNotes[docId] = false;
+                              });
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                            onPressed: () {
+                              setState(() {
+                                _editingNotes[docId] = false;
+                                // Reset to saved value
+                                final savedNote = (data['adminNote'] ?? '').toString();
+                                _notesControllers[docId]!.text = savedNote;
+                              });
+                            },
+                          ),
+                        ],
+                      )
+                    : InkWell(
+                        onTap: () {
+                          setState(() {
+                            _editingNotes[docId] = true;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _notesControllers[docId]!.text.isNotEmpty
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _notesControllers[docId]!.text.isEmpty
+                                      ? 'Add note...'
+                                      : _notesControllers[docId]!.text,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: _notesControllers[docId]!.text.isEmpty
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF92400E),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.edit,
+                                size: 14,
+                                color: _notesControllers[docId]!.text.isEmpty
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF92400E),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+              
+              // Actions
+              SizedBox(
+                width: 120,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      onPressed: () {},
+                      color: const Color(0xFF6B7280),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      onPressed: () {},
+                      color: const Color(0xFF6B7280),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert, size: 18),
+                      onPressed: () {},
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getAvatarColor(String name) {
+    final colors = [
+      const Color(0xFF059669),
+      const Color(0xFF2563EB),
+      const Color(0xFF7C3AED),
+      const Color(0xFFDC2626),
+      const Color(0xFFF59E0B),
+      const Color(0xFF10B981),
+      const Color(0xFF8B5CF6),
+      const Color(0xFF06B6D4),
+    ];
+    
+    if (name.isEmpty) return colors[0];
+    final code = name.codeUnitAt(0);
+    return colors[code % colors.length];
   }
 }
