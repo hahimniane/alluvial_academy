@@ -359,18 +359,23 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                     children: [
           // Header row
                           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
+              color: Color(0xffFAFBFC),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              border: Border(bottom: BorderSide(color: Color(0xffE2E8F0), width: 1)),
             ),
             child: Row(
               children: [
-                _th('Name', flex: 3),
-                _th('Status', flex: 1),
-                _th('Entries', flex: 1),
-                _th('Assigned to', flex: 2),
-                _th('Created by', flex: 2),
-                _th('Date Created', flex: 2),
+                _th('FORM NAME', flex: 3),
+                _th('STATUS', flex: 2),
+                _th('ENTRIES', flex: 1),
+                _th('ASSIGNED TO', flex: 2),
+                _th('CREATED BY', flex: 2),
+                _th('DATE CREATED', flex: 2),
               ],
             ),
           ),
@@ -389,27 +394,180 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
                 final entries = _resolveEntriesCount(formId, formData);
                 final assignedTo = _resolveAssignedTo(formData);
 
-                return InkWell(
-                  onTap: () => _openFormResponses(formId),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Color(0xffF1F5F9))),
-                    ),
-            child: Row(
-              children: [
-                        _td(Text(title, style: _tdStyle()), flex: 3),
-                        _td(_statusPill(status), flex: 1),
-                        _td(Text(entries.toString(), style: _mutedStyle()), flex: 1),
-                        _td(Text(assignedTo, style: _mutedStyle(), overflow: TextOverflow.ellipsis), flex: 2),
-                        _td(Text(createdByName, style: _tdStyle(), overflow: TextOverflow.ellipsis), flex: 2),
-                        _td(Text(
-                          createdAt != null
-                              ? '${createdAt.day.toString().padLeft(2, '0')}/${createdAt.month.toString().padLeft(2, '0')}/${createdAt.year}'
-                              : '-',
-                          style: _mutedStyle(),
-                        ), flex: 2),
-                      ],
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _openFormResponses(formId),
+                    hoverColor: const Color(0xffF8FAFC),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: index == _filteredFormIds.length - 1 
+                              ? Colors.transparent 
+                              : const Color(0xffF1F5F9),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          _td(
+                            Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xff0386FF).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.description_outlined,
+                                    size: 18,
+                                    color: Color(0xff0386FF),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xff1E293B),
+                                          height: 1.3,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Form ID: ${formId.substring(0, formId.length > 8 ? 8 : formId.length)}...',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: const Color(0xff94A3B8),
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            flex: 3,
+                          ),
+                          _td(
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: _statusPill(status),
+                            ),
+                            flex: 2,
+                          ),
+                          _td(
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: entries > 0 ? const Color(0xffEFF6FF) : const Color(0xffF9FAFB),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                entries.toString(),
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: entries > 0 ? const Color(0xff0386FF) : const Color(0xff6B7280),
+                                ),
+                              ),
+                            ),
+                            flex: 1,
+                          ),
+                          _td(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  assignedTo,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xff475569),
+                                    height: 1.4,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                            flex: 2,
+                          ),
+                          _td(
+                            Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xff8B5CF6).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      createdByName.isNotEmpty ? createdByName[0].toUpperCase() : '?',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xff8B5CF6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    createdByName,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xff475569),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            flex: 2,
+                          ),
+                          _td(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  createdAt != null
+                                      ? '${_getMonthName(createdAt.month)} ${createdAt.day}, ${createdAt.year}'
+                                      : '-',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xff475569),
+                                  ),
+                                ),
+                                if (createdAt != null)
+                                  Text(
+                                    '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: const Color(0xff94A3B8),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            flex: 2,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -424,42 +582,62 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
   // Helpers for table cells
   Widget _th(String text, {required int flex}) => Expanded(
         flex: flex,
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xff1E293B))),
+        child: Text(
+          text,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xff64748B),
+            letterSpacing: 0.5,
+          ),
+        ),
       );
 
   Widget _td(Widget child, {required int flex}) => Expanded(flex: flex, child: child);
 
-  TextStyle _tdStyle() => const TextStyle(fontSize: 14, color: Color(0xff1E293B));
-  TextStyle _mutedStyle() => const TextStyle(fontSize: 14, color: Color(0xff64748B));
-
   Widget _statusPill(String statusRaw) {
     final s = statusRaw.toLowerCase();
-    final isActive = s == 'active' || s == 'published' || s == 'completed';
-    final bg = isActive ? const Color(0xffE8FBF3) : const Color(0xffF3F4F6);
-    final fg = isActive ? const Color(0xff059669) : const Color(0xff6B7280);
-    final label = isActive ? 'Published' : 'Inactive';
-          return Container(
-      constraints: const BoxConstraints(minWidth: 76),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
+    final isActive = s == 'active';
+    final bg = isActive ? const Color(0xffDCFCE7) : const Color(0xffFEF2F2);
+    final fg = isActive ? const Color(0xff16A34A) : const Color(0xffDC2626);
+    final label = isActive ? 'Active' : 'Inactive';
+    final icon = isActive ? Icons.check_circle : Icons.cancel;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
         color: bg,
-              borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isActive ? const Color(0xffA7F3D0) : const Color(0xffE5E7EB)),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Center(
-                            child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-                                fontWeight: FontWeight.w600,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
             color: fg,
-            letterSpacing: 0.2,
           ),
-        ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
   }
 
   String _resolveCreatorName(Map<String, dynamic> formData) {
@@ -573,7 +751,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             child: const Icon(
               Icons.assignment_outlined,
               size: 64,
-              color: Color(0xff64748B),
+              color: const Color(0xff64748B),
             ),
           ),
           const SizedBox(height: 24),

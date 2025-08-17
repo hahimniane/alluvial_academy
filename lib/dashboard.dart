@@ -23,6 +23,7 @@ import 'features/tasks/screens/quick_tasks_screen.dart';
 import 'features/shift_management/screens/shift_management_screen.dart';
 import 'features/shift_management/screens/teacher_shift_screen.dart';
 import 'features/website_management/screens/website_management_screen.dart';
+import 'features/zoom/screens/zoom_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
@@ -121,6 +122,7 @@ class _DashboardPageState extends State<DashboardPage> {
         FormResponsesScreen(key: ValueKey(_refreshTrigger)),
         const FormBuilder(),
         const QuickTasksScreen(),
+        const ZoomScreen(),
         const TestRoleSystemScreen(),
         const FirestoreDebugScreen(),
       ];
@@ -1013,11 +1015,18 @@ class _DashboardPageState extends State<DashboardPage> {
                       text: 'User Management',
                       index: 1,
                     ),
+                    // Quick access: move Quick Tasks up here
                     _buildSideMenuItem(
-                      icon: const Icon(Icons.web),
-                      text: 'Website Management',
-                      index: 2,
-                      color: const Color(0xff7C3AED),
+                      icon: Image.asset('assets/Icon_task_manage.png'),
+                      text: 'Quick Tasks',
+                      index: 11,
+                      color: const Color(0xff4CAF50),
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.video_call),
+                      text: 'Zoom',
+                      index: 12,
+                      color: const Color(0xff2563EB),
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.schedule),
@@ -1037,6 +1046,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       index: 7,
                       color: const Color(0xffF28B46),
                     ),
+                    // Forms group
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_forms.png'),
                       text: 'Forms',
@@ -1050,28 +1060,29 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xffBA39A9),
                     ),
                     _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_task_manage.png'),
-                      text: 'Quick Tasks',
-                      index: 11,
-                      color: const Color(0xff4CAF50),
-                    ),
-                    const Divider(),
-                    _buildSideMenuItem(
                       icon: const Icon(Icons.build),
                       text: 'Form Builder',
                       index: 10,
+                    ),
+                    const Divider(),
+                    // Move Website Management down near other tools
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.web),
+                      text: 'Website Management',
+                      index: 2,
+                      color: const Color(0xff7C3AED),
                     ),
                     // Debug features - only show in debug mode
                     if (kDebugMode) ...[
                       _buildSideMenuItem(
                         icon: const Icon(Icons.bug_report),
                         text: 'Test Role System',
-                        index: 12,
+                        index: 13,
                       ),
                       _buildSideMenuItem(
                         icon: const Icon(Icons.storage),
                         text: 'Firestore Debug',
-                        index: 13,
+                        index: 14,
                       ),
                     ],
                   ] else ...[
@@ -1111,6 +1122,12 @@ class _DashboardPageState extends State<DashboardPage> {
                       text: 'Tasks',
                       index: 11,
                       color: DashboardConstants.jobSchedulingIconColor,
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.video_call),
+                      text: 'Zoom',
+                      index: 12,
+                      color: const Color(0xff2563EB),
                     ),
                   ],
                 ],

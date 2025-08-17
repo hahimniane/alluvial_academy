@@ -721,21 +721,23 @@ class _TimesheetTableState extends State<TimesheetTable>
             ),
           ),
           Expanded(
-            child: SfDataGridTheme(
-              data: SfDataGridThemeData(
-                headerColor: const Color(0xff0386FF).withOpacity(0.1),
-              ),
-              child: _timesheetDataSource == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : SfDataGrid(
-                      source: _timesheetDataSource!,
-                      columnWidthMode: ColumnWidthMode.fill,
-                      gridLinesVisibility: GridLinesVisibility.horizontal,
-                      headerGridLinesVisibility: GridLinesVisibility.horizontal,
-                      allowSorting: true,
-                      allowMultiColumnSorting: true,
-                      selectionMode: SelectionMode.none,
-                      columns: [
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SfDataGridTheme(
+                data: SfDataGridThemeData(
+                  headerColor: const Color(0xff0386FF).withOpacity(0.1),
+                ),
+                child: _timesheetDataSource == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : SfDataGrid(
+                        source: _timesheetDataSource!,
+                        columnWidthMode: ColumnWidthMode.none,
+                        gridLinesVisibility: GridLinesVisibility.horizontal,
+                        headerGridLinesVisibility: GridLinesVisibility.horizontal,
+                        allowSorting: true,
+                        allowMultiColumnSorting: true,
+                        selectionMode: SelectionMode.none,
+                        columns: [
                         GridColumn(
                           columnName: 'date',
                           label: Container(
@@ -810,6 +812,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                         ),
                       ],
                     ),
+              ),
             ),
           ),
         ],
