@@ -17,7 +17,9 @@ class ShiftTimesheetService {
       print(
           'ShiftTimesheetService: Checking for valid shift for teacher $teacherId');
       final now = DateTime.now();
+      final nowUtc = now.toUtc();
       print('ShiftTimesheetService: Current local time: $now');
+      print('ShiftTimesheetService: Current UTC time: $nowUtc');
       print('ShiftTimesheetService: Current timezone: ${now.timeZoneName}');
       print('ShiftTimesheetService: Current UTC offset: ${now.timeZoneOffset}');
 
@@ -53,31 +55,33 @@ class ShiftTimesheetService {
       for (var doc in snapshot.docs) {
         final shift = TeachingShift.fromFirestore(doc);
 
-        // Convert shift times to local timezone for comparison
-        final shiftStartLocal = shift.shiftStart.toLocal();
-        final shiftEndLocal = shift.shiftEnd.toLocal();
-        final clockInWindow =
-            shiftStartLocal.subtract(const Duration(minutes: 15));
-        final clockOutWindow = shiftEndLocal.add(const Duration(minutes: 15));
+        // Use UTC for all time comparisons to ensure timezone consistency
+        final shiftStartUtc = shift.shiftStart.toUtc();
+        final shiftEndUtc = shift.shiftEnd.toUtc();
+        final clockInWindowUtc =
+            shiftStartUtc.subtract(const Duration(minutes: 15));
+        final clockOutWindowUtc = shiftEndUtc.add(const Duration(minutes: 15));
 
         print('ShiftTimesheetService: Shift ${shift.id}:');
         print('  - Display Name: ${shift.displayName}');
         print('  - Status: ${shift.status.name}');
-        print('  - Shift Start (stored): ${shift.shiftStart}');
-        print('  - Shift End (stored): ${shift.shiftEnd}');
-        print('  - Shift Start (local): $shiftStartLocal');
-        print('  - Shift End (local): $shiftEndLocal');
-        print('  - Clock-in Window (local): $clockInWindow');
-        print('  - Clock-out Window (local): $clockOutWindow');
+        print('  - Shift Start (UTC): $shiftStartUtc');
+        print('  - Shift End (UTC): $shiftEndUtc');
+        print('  - Admin Timezone: ${shift.adminTimezone}');
+        print('  - Teacher Timezone: ${shift.teacherTimezone}');
         print(
-            '  - Current time in window: ${now.isAfter(clockInWindow) && now.isBefore(clockOutWindow)}');
-        print('  - canClockIn: ${shift.canClockIn}');
+            '  - Clock-in Window (UTC): $clockInWindowUtc to $clockOutWindowUtc');
+        print(
+            '  - Current UTC time in window: ${nowUtc.isAfter(clockInWindowUtc) && nowUtc.isBefore(clockOutWindowUtc)}');
+        print('  - canClockIn (using getter): ${shift.canClockIn}');
         print('  - isClockedIn: ${shift.isClockedIn}');
         print('  - Is scheduled: ${shift.status == ShiftStatus.scheduled}');
 
         // Allow clock-in during entire shift window (15 min before to 15 min after)
         // Allow multiple clock-ins throughout the shift duration
-        if (now.isAfter(clockInWindow) && now.isBefore(clockOutWindow)) {
+        // Use UTC comparison to ensure timezone consistency
+        if (nowUtc.isAfter(clockInWindowUtc) &&
+            nowUtc.isBefore(clockOutWindowUtc)) {
           print(
               'ShiftTimesheetService: ✅ VALID SHIFT FOUND: ${shift.id} - ${shift.displayName}');
           validShifts.add(shift);
@@ -85,7 +89,7 @@ class ShiftTimesheetService {
           print(
               'ShiftTimesheetService: ❌ Shift not valid for clock-in - outside time window');
           print(
-              'ShiftTimesheetService: Current time: $now, Window: $clockInWindow to $clockOutWindow');
+              'ShiftTimesheetService: Current UTC: $nowUtc, Window UTC: $clockInWindowUtc to $clockOutWindowUtc');
         }
       }
 
@@ -441,6 +445,28 @@ class ShiftTimesheetService {
       final date = DateFormat('MMM dd, yyyy').format(now);
       final time = DateFormat('h:mm a').format(now);
 
+      // Improve human-readable address if it looks like raw coordinates
+      try {
+        final addr = location.address.toLowerCase();
+        final neigh = location.neighborhood.toLowerCase();
+        final looksLikeCoords =
+            addr.startsWith('location:') || neigh.startsWith('coordinates:') ||
+                neigh == 'gps coordinates' ||
+                RegExp(r'^-?\d+\.\d+').hasMatch(location.address);
+        if (looksLikeCoords) {
+          final improved = await LocationService.coordinatesToLocation(
+              location.latitude, location.longitude);
+          if (improved != null) {
+            location = LocationData(
+              latitude: location.latitude,
+              longitude: location.longitude,
+              address: improved.address,
+              neighborhood: improved.neighborhood,
+            );
+          }
+        }
+      } catch (_) {}
+
       // Create timesheet entry data
       final entryData = {
         'teacher_id': user.uid,
@@ -578,9 +604,10 @@ class ShiftTimesheetService {
       final docRef = querySnapshot.docs.first.reference;
       final docData = querySnapshot.docs.first.data();
 
-      // Use shift end time + 15 minutes for auto clock-out
-      final autoClockOutTime = shift.clockOutDeadline;
-      final endTime = DateFormat('h:mm a').format(autoClockOutTime);
+      // Use shift end time + 15 minutes for auto clock-out (convert UTC to local for display)
+      final autoClockOutTimeUtc = shift.clockOutDeadline;
+      final autoClockOutTimeLocal = autoClockOutTimeUtc.toLocal();
+      final endTime = DateFormat('h:mm a').format(autoClockOutTimeLocal);
 
       // Calculate total hours based on actual clock-in to auto clock-out time
       final startTime = docData['start_time'] as String;
@@ -599,7 +626,7 @@ class ShiftTimesheetService {
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
         'completion_method': 'auto_logout', // Mark as auto-logout
-        'auto_logout_time': Timestamp.fromDate(autoClockOutTime),
+        'auto_logout_time': Timestamp.fromDate(autoClockOutTimeUtc),
         'updated_at': FieldValue.serverTimestamp(),
       });
 
@@ -616,7 +643,7 @@ class ShiftTimesheetService {
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
         'completion_method': 'auto_logout',
-        'auto_logout_time': autoClockOutTime,
+        'auto_logout_time': autoClockOutTimeUtc,
       };
     } catch (e) {
       print('Error updating timesheet entry with auto clock-out: $e');

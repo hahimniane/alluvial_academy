@@ -158,13 +158,14 @@ class HeroSectionContent {
 
   factory HeroSectionContent.defaultContent() {
     return const HeroSectionContent(
-      badgeText: '🕌 Nurturing Young Hearts Through Islamic Education',
-      mainHeadline: 'Quality Islamic Education\nfor Your Children',
+      badgeText: '🌍 Embracing Africa\'s Triple Heritage',
+      mainHeadline: 'The Alluwal Education Hub\nLearn, Lead & Thrive',
       subtitle:
-          'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.',
-      primaryButtonText: 'Start Free Trial',
-      secondaryButtonText: 'Watch Demo',
-      trustIndicatorText: 'Trusted by Muslim families worldwide',
+          'Our mission seamlessly embraces what the eminent Ali Mazrui termed the \'Africa Triple Heritage\': the fusion of Islamic, African, and Western civilizations.',
+      primaryButtonText: 'Sign Up for Class',
+      secondaryButtonText: 'Learn More',
+      trustIndicatorText:
+          'Preparing students for a diverse and globalized world',
     );
   }
 
@@ -228,25 +229,22 @@ class FeatureContent {
   static List<FeatureContent> defaultFeatures() {
     return const [
       FeatureContent(
-        title: 'Qualified Teachers',
+        title: 'Islamic Programs',
         description:
-            'Learn from certified Islamic scholars and experienced educators.',
+            'Our Islamic program is meticulously designed to immerse students in the profound depths of Islamic knowledge. Offering courses in more than six islamic subjects including: Arabic language, Quran, Hadith, Tawhid, Tafsir etc.',
+        iconName: 'menu_book',
+      ),
+      FeatureContent(
+        title: 'After School Tutoring & Adults Literacy Program',
+        description:
+            'Discover the transformative power of our After-school Tutoring Program at Alluwal Education Hub, where education extends beyond traditional boundaries to embrace students from kindergarten through 12th grade, alongside a specialized adult program with a flexible and personalized class schedule.',
         iconName: 'school',
       ),
       FeatureContent(
-        title: 'Flexible Scheduling',
-        description: 'Book lessons at times that work for your family.',
-        iconName: 'schedule',
-      ),
-      FeatureContent(
-        title: 'Interactive Learning',
-        description: 'Engaging online lessons with modern teaching methods.',
-        iconName: 'devices',
-      ),
-      FeatureContent(
-        title: 'Progress Tracking',
-        description: 'Monitor your child\'s learning journey and achievements.',
-        iconName: 'analytics',
+        title: 'Afrolingual Program',
+        description:
+            'Indigenous African Language: Embark on a captivating journey through our African Indigenous Language Learning Program, tailored for both children and adults.',
+        iconName: 'language',
       ),
     ];
   }
@@ -502,10 +500,10 @@ class CTASectionContent {
 
   factory CTASectionContent.defaultContent() {
     return const CTASectionContent(
-      title: 'Ready to Start Your Journey?',
+      title: 'Give Your Child the Gift of Comprehensive Education',
       description:
-          'Join thousands of families who trust us with their children\'s Islamic education.',
-      buttonText: 'Get Started Today',
+          'Join our community where Islamic, African, and Western education converge to prepare students for a diverse and increasingly globalized world.',
+      buttonText: 'Sign Up for Class',
     );
   }
 
@@ -558,10 +556,10 @@ class FooterContent {
   factory FooterContent.defaultContent() {
     return const FooterContent(
       companyDescription:
-          'Alluwal Education Hub - Connecting Muslim families with qualified Islamic teachers for authentic religious education.',
-      address: '123 Islamic Center Street, City, Country',
-      phone: '+1 (555) 123-4567',
-      email: 'info@alluwal.edu',
+          'At Alluwal Education Hub, we envision a world where education transcends boundaries, cultures, and beliefs, fostering an environment where diverse knowledge thrives.',
+      address: '',
+      phone: 'WhatsApp: +1 646-872-8590',
+      email: 'alluwhalacademy@gmail.com',
       socialLinks: [],
     );
   }

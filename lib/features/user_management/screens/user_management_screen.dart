@@ -43,6 +43,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   String _currentSearchTerm = '';
   String? _currentFilterType;
   String? _currentStatusFilter;
+  String? _currentParentFilter; // For filtering by parent
+  Map<String, List<String>> _parentStudentMap =
+      {}; // parent ID -> list of student IDs
+  Map<String, String> _studentParentMap =
+      {}; // student ID -> parent ID (for display)
 
   int numberOfUsers = 0;
   int numberOfAdmins = 0;
@@ -98,6 +103,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             _isLoading = false;
           });
         }
+        _loadParentStudentRelationships();
         _applyFilters();
       }
     });
@@ -119,15 +125,21 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   void _filterByUserType(String? filterValue) {
     setState(() {
-      // Reset both filters
+      // Reset filters
       _currentFilterType = null;
       _currentStatusFilter = null;
+      _currentParentFilter = null;
 
-      // Determine if it's a user type or status filter
+      // Determine if it's a user type, status filter, or parent filter
       if (filterValue == 'active' ||
           filterValue == 'archived' ||
           filterValue == 'never_logged_in') {
         _currentStatusFilter = filterValue;
+      } else if (filterValue?.startsWith('parent_') == true) {
+        _currentParentFilter =
+            filterValue?.substring(7); // Remove 'parent_' prefix
+      // } else if (filterValue == 'shared_parents') {
+      //   _currentStatusFilter = 'shared_parents';
       } else {
         _currentFilterType = filterValue;
       }
@@ -135,6 +147,56 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       _applyFilters();
     });
   }
+
+  Future<void> _loadParentStudentRelationships() async {
+    try {
+      // Clear existing maps
+      _parentStudentMap.clear();
+      _studentParentMap.clear();
+
+      // Query all students with guardian_ids
+      final studentsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('user_type', isEqualTo: 'student')
+          .get();
+
+      for (var doc in studentsSnapshot.docs) {
+        final data = doc.data();
+        final studentId = doc.id;
+        final studentEmail = data['e-mail'] as String?;
+        final guardianIds = data['guardian_ids'] as List<dynamic>?;
+
+        print(
+            'Student: ${data['first_name']} ${data['last_name']} (ID: $studentId, Email: $studentEmail)');
+        print('  Guardian IDs: $guardianIds');
+
+        if (guardianIds != null && guardianIds.isNotEmpty) {
+          // For each guardian, add this student to their list
+          for (var guardianId in guardianIds) {
+            final parentId = guardianId.toString();
+            _parentStudentMap.putIfAbsent(parentId, () => []).add(studentId);
+
+            // Store the first parent for display purposes
+            if (!_studentParentMap.containsKey(studentId)) {
+              _studentParentMap[studentId] = parentId;
+            }
+          }
+        }
+      }
+
+      print('=== Parent-Student Mapping Debug ===');
+      _parentStudentMap.forEach((parentId, studentIds) {
+        print(
+            'Parent $parentId has ${studentIds.length} students: $studentIds');
+      });
+
+      print(
+          'Loaded parent-student relationships: ${_parentStudentMap.length} parents');
+    } catch (e) {
+      print('Error loading parent-student relationships: $e');
+    }
+  }
+
 
   void _applyFilters() {
     // Start with the full list from the snapshot (including archived users)
@@ -172,7 +234,32 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           adminUsers =
               adminUsers.where((emp) => _hasNeverLoggedIn(emp)).toList();
           break;
+        // case 'shared_parents':
+        //   // Show only students who share parents with other students
+        //   regularUsers = regularUsers.where((emp) {
+        //     if (emp.userType != 'student') return false;
+        //     
+        //     // Find the parent of this student using their document ID
+        //     final parentId = _studentParentMap[emp.documentId];
+        //     if (parentId == null) return false;
+
+        //     // Check if this parent has multiple students
+        //     final studentList = _parentStudentMap[parentId] ?? [];
+        //     return studentList.length > 1;
+        //   }).toList();
+        //   break;
       }
+    }
+
+    // Apply parent filter
+    if (_currentParentFilter != null) {
+      // Get all student IDs for this parent
+      final studentIds = _parentStudentMap[_currentParentFilter] ?? [];
+      regularUsers = regularUsers.where((emp) {
+        if (emp.userType != 'student') return false;
+        // Check if this student's document ID matches the parent's children
+        return studentIds.contains(emp.documentId);
+      }).toList();
     }
 
     // Apply search filter to both lists
@@ -887,6 +974,353 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     );
   }
 
+  void _showParentSelectionDialog() async {
+    // Get all parents
+    final parentsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('user_type', isEqualTo: 'parent')
+        .get();
+
+    final parents = parentsSnapshot.docs
+        .map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'name': '${data['first_name']} ${data['last_name']}',
+            'email': data['e-mail'],
+            'studentCount': _parentStudentMap[doc.id]?.length ?? 0,
+          };
+        })
+        .where((parent) => parent['studentCount'] as int > 0)
+        .toList();
+
+    // Sort by student count (descending)
+    parents.sort((a, b) =>
+        (b['studentCount'] as int).compareTo(a['studentCount'] as int));
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 16,
+        child: Container(
+          width: 500,
+          constraints: const BoxConstraints(maxHeight: 600),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xff9333EA).withOpacity(0.02),
+              ],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Modern Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xff9333EA),
+                      const Color(0xff7C3AED),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.family_restroom,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select Parent',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Choose a parent to view their students',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: parents.isEmpty
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 64,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'No parents with students found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: ListView.builder(
+                          itemCount: parents.length,
+                          itemBuilder: (context, index) {
+                            final parent = parents[index];
+                            final isSelected =
+                                _currentParentFilter == parent['id'];
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xff9333EA)
+                                      : Colors.grey.withOpacity(0.2),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                color: isSelected
+                                    ? const Color(0xff9333EA).withOpacity(0.05)
+                                    : Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isSelected
+                                        ? const Color(0xff9333EA)
+                                            .withOpacity(0.1)
+                                        : Colors.black.withOpacity(0.02),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    setState(() {
+                                      _currentFilterType = null;
+                                      _currentStatusFilter = null;
+                                      _currentParentFilter =
+                                          parent['id'].toString();
+                                      _applyFilters();
+                                    });
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        // Avatar
+                                        Container(
+                                          width: 56,
+                                          height: 56,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                const Color(0xff9333EA),
+                                                const Color(0xff7C3AED),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xff9333EA)
+                                                    .withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              parent['name']
+                                                  .toString()[0]
+                                                  .toUpperCase(),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        // Info
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                parent['name'].toString(),
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xff1F2937),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                parent['email'].toString(),
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Student count badge
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                const Color(0xff9333EA)
+                                                    .withOpacity(0.1),
+                                                const Color(0xff7C3AED)
+                                                    .withOpacity(0.1),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: const Color(0xff9333EA)
+                                                  .withOpacity(0.3),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.people,
+                                                size: 16,
+                                                color: Color(0xff9333EA),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '${parent['studentCount']}',
+                                                style: const TextStyle(
+                                                  color: Color(0xff9333EA),
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          const Padding(
+                                            padding: EdgeInsets.only(left: 12),
+                                            child: Icon(
+                                              Icons.check_circle,
+                                              color: Color(0xff9333EA),
+                                              size: 24,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+              // Bottom actions
+              if (_currentParentFilter != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          setState(() {
+                            _currentParentFilter = null;
+                            _applyFilters();
+                          });
+                        },
+                        icon: const Icon(Icons.clear, color: Colors.white),
+                        label: const Text('Clear Filter'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff9333EA),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -935,6 +1369,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 _applyFilters();
               });
             },
+            onSelectParent: _showParentSelectionDialog,
           ),
           Expanded(
             flex: 11,

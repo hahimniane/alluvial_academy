@@ -1,5 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'location_preference_service.dart';
 
@@ -22,9 +24,13 @@ class LocationService {
   static LocationData? _cachedLocation;
   static DateTime? _cacheTime;
   static const Duration _cacheValidDuration = Duration(minutes: 5);
+  static final Map<String, Map<String, String>> _reverseGeocodeCache = {};
 
-  static Future<LocationData?> getCurrentLocation() async {
+  static Future<LocationData?> getCurrentLocation(
+      {bool interactive = true}) async {
     try {
+      print(
+          'LocationService: getCurrentLocation called (web=$kIsWeb, interactive=$interactive)');
       // Return cached location if still valid (within 5 minutes)
       if (_cachedLocation != null &&
           _cacheTime != null &&
@@ -33,23 +39,39 @@ class LocationService {
         return _cachedLocation;
       }
 
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      // Check if location services are enabled (skip strict check on web)
+      bool serviceEnabled = true;
+      try {
+        serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      } catch (e) {
+        // Ignore platform-specific errors here
+        print('LocationService: Error checking service enabled: $e');
+      }
       print('LocationService: Location services enabled: $serviceEnabled');
-      if (!serviceEnabled) {
+      // On web, browsers handle enablement; don't hard-fail if reported disabled
+      if (!kIsWeb && !serviceEnabled) {
         throw Exception(
             'Location services are disabled. Please enable location services to clock in.');
       }
 
       // Handle permissions more gracefully
-      LocationPermission permission = await _ensureLocationPermission();
+      LocationPermission permission =
+          await _ensureLocationPermission(interactive: interactive);
       print('LocationService: Final permission status: $permission');
 
-      // Check if we have valid permissions before proceeding
-      if (permission != LocationPermission.whileInUse &&
+      // On web, allow proceeding to trigger the browser prompt via getCurrentPosition
+      // Only gate on permission for non-web platforms.
+      if (!kIsWeb &&
+          permission != LocationPermission.whileInUse &&
           permission != LocationPermission.always) {
-        print('LocationService: No valid permissions, cannot get location');
+        print('LocationService: No valid permissions (mobile/desktop).');
         return null; // Return null instead of throwing
+      }
+      if (kIsWeb &&
+          (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever)) {
+        print(
+            'LocationService: Web platform with permission=$permission; proceeding to request position to trigger prompt');
       }
 
       // Try to get position with multiple fallback strategies
@@ -97,25 +119,28 @@ class LocationService {
   }
 
   /// Ensure we have proper location permissions with retries
-  static Future<LocationPermission> _ensureLocationPermission() async {
+  static Future<LocationPermission> _ensureLocationPermission(
+      {bool interactive = true}) async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       print('LocationService: Initial permission check: $permission');
 
       if (permission == LocationPermission.denied) {
-        // For web, don't request permissions during background operations
-        if (kIsWeb) {
-          print('LocationService: Web platform - skipping permission request');
-          await LocationPreferenceService.markLocationDenied();
-          return LocationPermission.denied;
+        // Only throttle repeated prompts on non-web or when not interactive
+        if (!kIsWeb || !interactive) {
+          final shouldSkip =
+              await LocationPreferenceService.shouldSkipLocationRequest();
+          if (shouldSkip) {
+            print(
+                'LocationService: Skipping permission request based on user preferences');
+            return LocationPermission.denied;
+          }
         }
 
-        // Check if we should skip asking (recently denied or asked)
-        final shouldSkip =
-            await LocationPreferenceService.shouldSkipLocationRequest();
-        if (shouldSkip) {
+        // If not interactive (e.g., background), don't trigger browser prompt on web
+        if (kIsWeb && !interactive) {
           print(
-              'LocationService: Skipping permission request based on user preferences');
+              'LocationService: Web non-interactive context - not requesting permission');
           return LocationPermission.denied;
         }
 
@@ -139,8 +164,10 @@ class LocationService {
         print('LocationService: Permission after request: $permission');
 
         if (permission == LocationPermission.denied) {
-          // Mark permission as denied to avoid asking again soon
-          await LocationPreferenceService.markLocationDenied();
+          // Mark permission as denied to avoid asking again soon (non-web)
+          if (!kIsWeb) {
+            await LocationPreferenceService.markLocationDenied();
+          }
           print('LocationService: Permission was denied by user');
           return permission;
         }
@@ -148,7 +175,10 @@ class LocationService {
 
       if (permission == LocationPermission.deniedForever) {
         print('LocationService: Permission denied forever');
-        await LocationPreferenceService.markLocationDenied();
+        // On web there is no app settings concept; avoid sticky denial flag
+        if (!kIsWeb) {
+          await LocationPreferenceService.markLocationDenied();
+        }
         return permission;
       }
 
@@ -314,6 +344,23 @@ class LocationService {
       address =
           'Location: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
       neighborhood = 'GPS Coordinates';
+    }
+
+    // If result still looks like coordinates, try network reverse geocoding (Nominatim)
+    final looksLikeCoords = neighborhood.startsWith('Coordinates:') ||
+        neighborhood == 'GPS Coordinates' ||
+        address.startsWith('Location: ');
+    if (looksLikeCoords) {
+      try {
+        final fb = await _reverseGeocodeWithNominatim(
+            position.latitude, position.longitude);
+        if (fb != null) {
+          address = fb['address'] ?? address;
+          neighborhood = fb['neighborhood'] ?? neighborhood;
+        }
+      } catch (e) {
+        print('LocationService: Fallback reverse geocode failed: $e');
+      }
     }
 
     return {
@@ -490,23 +537,30 @@ class LocationService {
           address: fullAddress,
           neighborhood: neighborhood,
         );
+      } else {
+        print('No placemarks found for coordinates: $latitude, $longitude');
       }
     } catch (e) {
       print('Error converting coordinates to location: $e');
-      // Try to provide a meaningful location based on coordinate ranges if geocoding fails
-      String estimatedLocation =
-          _estimateLocationFromCoordinates(latitude, longitude);
-      if (estimatedLocation != 'Unknown location') {
+    }
+
+    // Try network reverse geocoding fallback
+    try {
+      final fb = await _reverseGeocodeWithNominatim(latitude, longitude);
+      if (fb != null) {
         return LocationData(
           latitude: latitude,
           longitude: longitude,
-          address: estimatedLocation,
-          neighborhood: estimatedLocation,
+          address: fb['address'] ??
+              '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+          neighborhood: fb['neighborhood'] ?? 'Unknown area',
         );
       }
+    } catch (e) {
+      print('Reverse geocoding (Nominatim) failed: $e');
     }
 
-    // Return coordinates as fallback if geocoding fails
+    // Return coordinates as fallback if all else fails
     return LocationData(
       latitude: latitude,
       longitude: longitude,
@@ -549,7 +603,7 @@ class LocationService {
     try {
       LocationData? locationData =
           await coordinatesToLocation(latitude, longitude);
-      if (locationData != null) {
+      if (locationData != null && locationData.address.isNotEmpty) {
         // Try to get a meaningful location name
         String locationName = formatLocationForDisplay(
             locationData.address, locationData.neighborhood);
@@ -596,6 +650,47 @@ class LocationService {
     // Don't use hardcoded location estimates - let geocoding handle it
     // or show coordinates if geocoding fails
     return 'Unknown location';
+  }
+
+  /// Fallback reverse geocoding via OpenStreetMap Nominatim
+  static Future<Map<String, String>?> _reverseGeocodeWithNominatim(
+      double latitude, double longitude) async {
+    final key =
+        '${latitude.toStringAsFixed(4)},${longitude.toStringAsFixed(4)}';
+    if (_reverseGeocodeCache.containsKey(key)) {
+      return _reverseGeocodeCache[key]!;
+    }
+
+    final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$latitude&lon=$longitude');
+    final resp = await http.get(uri, headers: {
+      'User-Agent': 'AlluwalEducationHub/1.0 (support@alluwal.edu)'
+    }).timeout(const Duration(seconds: 8));
+
+    if (resp.statusCode != 200) return null;
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final addr = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    String? city = addr['city'] ?? addr['town'] ?? addr['village'];
+    String? suburb = addr['suburb'] ?? addr['neighbourhood'];
+    String? state = addr['state'];
+    String? country = addr['country'];
+
+    String neighborhood = city ?? suburb ?? state ?? country ?? 'Unknown area';
+    String composed;
+    if (city != null && state != null) {
+      composed = '$city, $state';
+    } else if (city != null && country != null) {
+      composed = '$city, $country';
+    } else if (state != null && country != null) {
+      composed = '$state, $country';
+    } else {
+      composed = (data['display_name'] as String?) ?? neighborhood;
+    }
+
+    final result = {'address': composed, 'neighborhood': neighborhood};
+    _reverseGeocodeCache[key] = result;
+    return result;
   }
 
   /// Test geocoding with specific coordinates for debugging

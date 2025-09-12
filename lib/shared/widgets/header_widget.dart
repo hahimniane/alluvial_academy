@@ -8,6 +8,7 @@ class HeaderWidget extends StatelessWidget {
   final Function(String?) onFilterChanged;
   final VoidCallback onExport;
   final VoidCallback? onShowNeverLoggedIn;
+  final VoidCallback? onSelectParent;
 
   const HeaderWidget({
     super.key,
@@ -15,6 +16,7 @@ class HeaderWidget extends StatelessWidget {
     required this.onFilterChanged,
     required this.onExport,
     this.onShowNeverLoggedIn,
+    this.onSelectParent,
   });
 
   @override
@@ -83,6 +85,18 @@ class HeaderWidget extends StatelessWidget {
                             color: Color(0xffFF9A6C), size: 20),
                         SizedBox(width: 8),
                         Text('Admins',
+                            style: TextStyle(color: Color(0xff2D3748))),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'parent',
+                    child: Row(
+                      children: [
+                        Icon(Icons.family_restroom,
+                            color: Color(0xff9333EA), size: 20),
+                        SizedBox(width: 8),
+                        Text('Parents',
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -169,9 +183,10 @@ class HeaderWidget extends StatelessWidget {
             ExportWidget(onExport: onExport),
             // Never Logged In Button
             ElevatedButton(
-              onPressed: onShowNeverLoggedIn ?? () {
-                onFilterChanged('never_logged_in');
-              },
+              onPressed: onShowNeverLoggedIn ??
+                  () {
+                    onFilterChanged('never_logged_in');
+                  },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 shape: RoundedRectangleBorder(
@@ -187,6 +202,25 @@ class HeaderWidget extends StatelessWidget {
                 ],
               ),
             ),
+            // Filter by Parent Button
+            if (onSelectParent != null)
+              ElevatedButton(
+                onPressed: onSelectParent,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff9333EA),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.family_restroom, color: Colors.white),
+                    SizedBox(width: 5),
+                    Text('Filter by Parent',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
             // Add Users Button
             ElevatedButton.icon(
               onPressed: () {

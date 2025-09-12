@@ -516,10 +516,12 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     });
 
     try {
+      // Request permission explicitly on user gesture to ensure web prompt
+      await LocationService.requestPermission();
       // Try to get location but make it optional
       print('Attempting to get current location...');
       LocationData? location = await LocationService.getCurrentLocation()
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+          .timeout(const Duration(seconds: 30), onTimeout: () {
         print('Location request timed out - proceeding without location');
         return null;
       });
@@ -572,16 +574,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _autoLogoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
 
-      final now = DateTime.now();
-      final autoLogoutTime = _currentShift!.clockOutDeadline;
+      final nowUtc = DateTime.now().toUtc();
+      final autoLogoutTimeUtc = _currentShift!.clockOutDeadline;
 
-      if (now.isAfter(autoLogoutTime)) {
+      if (nowUtc.isAfter(autoLogoutTimeUtc)) {
         // Time's up - auto logout
         _performAutoLogout();
         return;
       }
 
-      final timeLeft = autoLogoutTime.difference(now);
+      final timeLeft = autoLogoutTimeUtc.difference(nowUtc);
       final hours = timeLeft.inHours;
       final minutes = timeLeft.inMinutes % 60;
       final seconds = timeLeft.inSeconds % 60;
@@ -702,8 +704,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
     final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
     _totalHoursWorked = '$hours:$minutes:$seconds';
-    print(
-        'Timer update: $_totalHoursWorked (elapsed: ${elapsed.inSeconds}s)'); // Debug
+    // Timer update debug message removed
   }
 
   void _clockOut() async {
@@ -979,6 +980,30 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     }
   }
 
+  Future<LocationData> _getBestLocationDisplay(LocationData loc) async {
+    final addr = (loc.address).toLowerCase();
+    final neigh = (loc.neighborhood).toLowerCase();
+    final looksLikeCoords = addr.startsWith('location:') ||
+        neigh.startsWith('coordinates:') ||
+        neigh == 'gps coordinates' ||
+        RegExp(r'^-?\d+\.\d+').hasMatch(loc.address);
+    if (!looksLikeCoords) return loc;
+
+    try {
+      final improved = await LocationService.coordinatesToLocation(
+          loc.latitude, loc.longitude);
+      if (improved != null) {
+        return LocationData(
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          address: improved.address,
+          neighborhood: improved.neighborhood,
+        );
+      }
+    } catch (_) {}
+    return loc;
+  }
+
   void _showLocationConfirmation(LocationData location,
       {required bool isClockIn}) {
     showDialog(
@@ -1002,47 +1027,67 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             ),
           ],
         ),
-        content: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xffF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xffE2E8F0)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        content: FutureBuilder<LocationData>(
+          future: _getBestLocationDisplay(location),
+          builder: (context, snap) {
+            final loc = snap.data ?? location;
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xffF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xffE2E8F0)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.place,
-                    color: const Color(0xff10B981),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      location.neighborhood,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.place,
                         color: const Color(0xff10B981),
+                        size: 16,
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          loc.neighborhood,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff10B981),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    loc.address,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: const Color(0xff64748B),
                     ),
                   ),
+                  if (snap.connectionState == ConnectionState.waiting) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: const [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('Refining location...')
+                      ],
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                location.address,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: const Color(0xff64748B),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
         actions: [
           TextButton(
@@ -2164,7 +2209,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           // Timesheet section
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(top: 16, bottom: 16),
               child: TimesheetTable(
                 clockInEntries: _timesheetEntries,
                 key: _timesheetTableKey,

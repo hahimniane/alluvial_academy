@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./build_release.sh:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

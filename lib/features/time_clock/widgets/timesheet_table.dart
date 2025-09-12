@@ -692,12 +692,22 @@ class _TimesheetTableState extends State<TimesheetTable>
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -721,98 +731,181 @@ class _TimesheetTableState extends State<TimesheetTable>
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SfDataGridTheme(
-                data: SfDataGridThemeData(
-                  headerColor: const Color(0xff0386FF).withOpacity(0.1),
-                ),
-                child: _timesheetDataSource == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : SfDataGrid(
-                        source: _timesheetDataSource!,
-                        columnWidthMode: ColumnWidthMode.none,
-                        gridLinesVisibility: GridLinesVisibility.horizontal,
-                        headerGridLinesVisibility: GridLinesVisibility.horizontal,
-                        allowSorting: true,
-                        allowMultiColumnSorting: true,
-                        selectionMode: SelectionMode.none,
-                        columns: [
-                        GridColumn(
-                          columnName: 'date',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.centerLeft,
-                            child: const Text('Date',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SfDataGridTheme(
+                  data: SfDataGridThemeData(
+                    headerColor: const Color(0xff0386FF).withOpacity(0.1),
+                  ),
+                  child: _timesheetDataSource == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : SfDataGrid(
+                          source: _timesheetDataSource!,
+                          columnWidthMode: ColumnWidthMode.fill,
+                          gridLinesVisibility: GridLinesVisibility.none,
+                          headerGridLinesVisibility: GridLinesVisibility.none,
+                          allowSorting: true,
+                          allowMultiColumnSorting: true,
+                          selectionMode: SelectionMode.none,
+                          columns: [
+                            GridColumn(
+                              columnName: 'date',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.centerLeft,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Date',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'subject',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.centerLeft,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Student',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'start',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Start',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'end',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('End',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'totalHours',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Total Hours',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'inLocation',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Clock-in Location',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'outLocation',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Clock-out Location',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'status',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text('Status',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            GridColumn(
+                              columnName: 'actions',
+                              label: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                alignment: Alignment.center,
+                                child: const Text('Actions',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
                         ),
-                        GridColumn(
-                          columnName: 'subject',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.centerLeft,
-                            child: const Text('Student',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        GridColumn(
-                          columnName: 'start',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.center,
-                            child: const Text('Start',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        GridColumn(
-                          columnName: 'end',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.center,
-                            child: const Text('End',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        GridColumn(
-                          columnName: 'totalHours',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.center,
-                            child: const Text('Total Hours',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        GridColumn(
-                          columnName: 'location',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.center,
-                            child: const Text('Location',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        GridColumn(
-                          columnName: 'status',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.center,
-                            child: const Text('Status',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        GridColumn(
-                          columnName: 'actions',
-                          label: Container(
-                            padding: const EdgeInsets.all(8.0),
-                            alignment: Alignment.center,
-                            child: const Text('Actions',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ],
-                    ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -821,27 +914,256 @@ class _TimesheetTableState extends State<TimesheetTable>
   }
 
   Widget _buildFilterDropdown() {
-    return Container();
+    return DropdownButtonHideUnderline(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xffE5E7EB)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButton<String>(
+          value: _selectedFilter,
+          icon: const Icon(Icons.expand_more, size: 18),
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() => _selectedFilter = val);
+            _applyFilterAndRefresh();
+          },
+          items: _filterOptions
+              .map((opt) => DropdownMenuItem(value: opt, child: Text(opt)))
+              .toList(),
+        ),
+      ),
+    );
   }
 
   Widget _buildExportButton() {
-    return Container();
+    return ElevatedButton.icon(
+      onPressed: () {
+        final visible = _timesheetDataSource?.rows
+                .map((r) => r.getCells().first.value as TimesheetEntry)
+                .toList() ??
+            [];
+
+        final headers = <String>[
+          'Date',
+          'Student',
+          'Start',
+          'End',
+          'Total Hours',
+          'Clock-in Location',
+          'Clock-out Location',
+          'Status',
+        ];
+        final rows = visible.map((e) {
+          String inLoc = '';
+          if (e.clockInAddress != null && e.clockInAddress!.isNotEmpty) {
+            inLoc = LocationService.formatLocationForDisplay(
+                e.clockInAddress, e.clockInAddress);
+          } else if (e.clockInLatitude != null && e.clockInLongitude != null) {
+            inLoc =
+                '${e.clockInLatitude!.toStringAsFixed(4)}, ${e.clockInLongitude!.toStringAsFixed(4)}';
+          }
+          String outLoc = '';
+          if (e.clockOutAddress != null && e.clockOutAddress!.isNotEmpty) {
+            outLoc = LocationService.formatLocationForDisplay(
+                e.clockOutAddress, e.clockOutAddress);
+          } else if (e.clockOutLatitude != null &&
+              e.clockOutLongitude != null) {
+            outLoc =
+                '${e.clockOutLatitude!.toStringAsFixed(4)}, ${e.clockOutLongitude!.toStringAsFixed(4)}';
+          }
+          return <String>[
+            e.date,
+            e.subject,
+            e.start,
+            e.end,
+            e.totalHours,
+            inLoc,
+            outLoc,
+            e.status.name,
+          ];
+        }).toList();
+
+        ExportHelpers.showExportDialog(
+          context,
+          headers,
+          rows,
+          'timesheets_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}',
+        );
+      },
+      icon: const Icon(Icons.file_download, size: 16),
+      label: const Text('Export'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xffF3F4F6),
+        foregroundColor: const Color(0xff111827),
+        elevation: 0,
+      ),
+    );
   }
 
   Widget _buildSubmitButton() {
-    return Container();
+    final drafts = timesheetData
+        .where((e) => e.status == TimesheetStatus.draft && e.documentId != null)
+        .toList();
+    if (drafts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return ElevatedButton.icon(
+      onPressed: () async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Submit All Drafts'),
+            content: Text(
+                'Submit ${drafts.length} draft entr${drafts.length == 1 ? 'y' : 'ies'} for review?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff0386FF),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        );
+        if (confirm != true) return;
+
+        try {
+          for (final e in drafts) {
+            final updated = TimesheetEntry(
+              documentId: e.documentId,
+              date: e.date,
+              subject: e.subject,
+              start: e.start,
+              end: e.end,
+              totalHours: e.totalHours,
+              description: e.description,
+              status: TimesheetStatus.pending,
+              clockInLatitude: e.clockInLatitude,
+              clockInLongitude: e.clockInLongitude,
+              clockInAddress: e.clockInAddress,
+              clockOutLatitude: e.clockOutLatitude,
+              clockOutLongitude: e.clockOutLongitude,
+              clockOutAddress: e.clockOutAddress,
+            );
+            await _saveTimesheetEntry(updated);
+          }
+
+          _loadTimesheetData();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    'Submitted ${drafts.length} entr${drafts.length == 1 ? 'y' : 'ies'} for review'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Submission failed: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      icon: const Icon(Icons.send, size: 16),
+      label: Text('Submit Drafts (${drafts.length})'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xff10B981),
+        foregroundColor: Colors.white,
+      ),
+    );
   }
 
   Future<String> _getDetailedLocationText(
       double latitude, double longitude, String? storedAddress) async {
-    return "Not implemented";
+    try {
+      final result =
+          await LocationService.coordinatesToLocation(latitude, longitude);
+      if (result != null) {
+        final display = LocationService.formatLocationForDisplay(
+            result.address, result.neighborhood);
+        if (display != 'Location unavailable' &&
+            !display.startsWith('Coordinates:')) {
+          return display;
+        }
+      }
+    } catch (_) {}
+    // fallback
+    if (storedAddress != null && storedAddress.isNotEmpty) {
+      return storedAddress;
+    }
+    return 'Lat: ${latitude.toStringAsFixed(4)}, Lng: ${longitude.toStringAsFixed(4)}';
   }
 
   void _showEntryDetails(TimesheetEntry entry) {
-    // This method is a placeholder and needs to be implemented
-    // It should show a dialog or navigate to a detail page
-    print('Viewing details for entry: ${entry.documentId}');
     _viewEntry(entry);
+  }
+
+  void _applyFilterAndRefresh() {
+    List<TimesheetEntry> filtered = List.of(timesheetData);
+
+    DateTime now = DateTime.now();
+    DateFormat fmt = DateFormat('MMM dd, yyyy');
+
+    bool inRange(TimesheetEntry e, DateTime start, DateTime end) {
+      try {
+        final d = fmt.parse(e.date);
+        return !d.isBefore(start) && !d.isAfter(end);
+      } catch (_) {
+        return true; // if parsing fails, keep item visible
+      }
+    }
+
+    switch (_selectedFilter) {
+      case 'Today':
+        final start = DateTime(now.year, now.month, now.day);
+        final end = start
+            .add(const Duration(days: 1))
+            .subtract(const Duration(milliseconds: 1));
+        filtered = filtered.where((e) => inRange(e, start, end)).toList();
+        break;
+      case 'This Week':
+        final weekday = now.weekday; // 1=Mon
+        final start = DateTime(now.year, now.month, now.day)
+            .subtract(Duration(days: weekday - 1));
+        final end = start
+            .add(const Duration(days: 7))
+            .subtract(const Duration(milliseconds: 1));
+        filtered = filtered.where((e) => inRange(e, start, end)).toList();
+        break;
+      case 'This Month':
+        final start = DateTime(now.year, now.month, 1);
+        final end = DateTime(now.year, now.month + 1, 1)
+            .subtract(const Duration(milliseconds: 1));
+        filtered = filtered.where((e) => inRange(e, start, end)).toList();
+        break;
+      default:
+        // All Time
+        break;
+    }
+
+    setState(() {
+      _timesheetDataSource = TimesheetDataSource(
+        timesheetData: filtered,
+        onEdit: _editEntry,
+        onView: _viewEntry,
+        onSubmit: _submitEntry,
+      );
+    });
   }
 }
 
@@ -865,7 +1187,8 @@ class TimesheetDataSource extends DataGridSource {
                 DataGridCell(columnName: 'start', value: entry),
                 DataGridCell(columnName: 'end', value: entry),
                 DataGridCell(columnName: 'totalHours', value: entry),
-                DataGridCell(columnName: 'location', value: entry),
+                DataGridCell(columnName: 'inLocation', value: entry),
+                DataGridCell(columnName: 'outLocation', value: entry),
                 DataGridCell(columnName: 'status', value: entry),
                 DataGridCell(columnName: 'actions', value: entry),
               ],
@@ -879,12 +1202,24 @@ class TimesheetDataSource extends DataGridSource {
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
     final entry = row.getCells().first.value as TimesheetEntry;
+    final rowIndex = _timesheetData.indexOf(row);
+    final isEvenRow = rowIndex % 2 == 0;
+    final rowColor = isEvenRow ? Colors.white : const Color(0xFFFAFBFC);
 
     return DataGridRowAdapter(
+      color: rowColor,
       cells: [
         Container(
           padding: const EdgeInsets.all(8.0),
           alignment: Alignment.centerLeft,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
           child: Text(
             entry.date,
             style: constants.openSansHebrewTextStyle,
@@ -893,6 +1228,14 @@ class TimesheetDataSource extends DataGridSource {
         Container(
           padding: const EdgeInsets.all(8.0),
           alignment: Alignment.centerLeft,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
           child: Text(
             entry.subject,
             style: constants.openSansHebrewTextStyle.copyWith(
@@ -902,7 +1245,15 @@ class TimesheetDataSource extends DataGridSource {
         ),
         Container(
           padding: const EdgeInsets.all(8.0),
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
           child: Text(
             entry.start,
             style: constants.openSansHebrewTextStyle,
@@ -910,7 +1261,15 @@ class TimesheetDataSource extends DataGridSource {
         ),
         Container(
           padding: const EdgeInsets.all(8.0),
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
           child: Text(
             entry.end,
             style: constants.openSansHebrewTextStyle,
@@ -918,7 +1277,15 @@ class TimesheetDataSource extends DataGridSource {
         ),
         Container(
           padding: const EdgeInsets.all(8.0),
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
           child: Text(
             entry.totalHours,
             style: constants.openSansHebrewTextStyle.copyWith(
@@ -929,11 +1296,40 @@ class TimesheetDataSource extends DataGridSource {
         Container(
           padding: const EdgeInsets.all(8.0),
           alignment: Alignment.centerLeft,
-          child: _buildLocationCell(entry),
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
+          child: _buildLocationCell(entry, isClockIn: true),
         ),
         Container(
           padding: const EdgeInsets.all(8.0),
           alignment: Alignment.centerLeft,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
+          child: _buildLocationCell(entry, isClockIn: false),
+        ),
+        Container(
+          padding: const EdgeInsets.all(8.0),
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1,
+              ),
+            ),
+          ),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -1019,11 +1415,11 @@ class TimesheetDataSource extends DataGridSource {
     }
   }
 
-  Widget _buildLocationCell(TimesheetEntry entry) {
+  Widget _buildLocationCell(TimesheetEntry entry, {required bool isClockIn}) {
     // Check if we have any location data
-    bool hasClockInLocation =
+    final hasClockInLocation =
         entry.clockInLatitude != null && entry.clockInLongitude != null;
-    bool hasClockOutLocation =
+    final hasClockOutLocation =
         entry.clockOutLatitude != null && entry.clockOutLongitude != null;
 
     if (!hasClockInLocation && !hasClockOutLocation) {
@@ -1055,7 +1451,7 @@ class TimesheetDataSource extends DataGridSource {
     }
 
     return FutureBuilder<String>(
-      future: _getLocationDisplayText(entry),
+      future: _getLocationDisplayText(entry, isClockIn: isClockIn),
       builder: (context, snapshot) {
         String locationText = 'Loading...';
 
@@ -1101,18 +1497,19 @@ class TimesheetDataSource extends DataGridSource {
     );
   }
 
-  Future<String> _getLocationDisplayText(TimesheetEntry entry) async {
+  Future<String> _getLocationDisplayText(TimesheetEntry entry,
+      {required bool isClockIn}) async {
     // Always try to convert coordinates to actual location names first
-    if (entry.clockInLatitude != null && entry.clockInLongitude != null) {
+    final lat = isClockIn ? entry.clockInLatitude : entry.clockOutLatitude;
+    final lng = isClockIn ? entry.clockInLongitude : entry.clockOutLongitude;
+    if (lat != null && lng != null) {
       try {
         String locationName =
-            await LocationService.getLocationDisplayFromCoordinates(
-          entry.clockInLatitude!,
-          entry.clockInLongitude!,
-        );
+            await LocationService.getLocationDisplayFromCoordinates(lat, lng);
 
         // Only use this result if it's not just coordinates
-        if (locationName != 'Location unavailable' &&
+        if (locationName.isNotEmpty &&
+            locationName != 'Location unavailable' &&
             !locationName.startsWith('Lat:') &&
             !locationName.startsWith('Coordinates:') &&
             !locationName.contains(RegExp(r'^\d+\.\d+'))) {
@@ -1120,21 +1517,23 @@ class TimesheetDataSource extends DataGridSource {
         }
       } catch (e) {
         print('Error converting coordinates to location: $e');
+        // Continue to fallback logic below
       }
     }
 
     // Fallback to stored address if geocoding failed but filter out coordinate strings
-    if (entry.clockInAddress != null &&
-        entry.clockInAddress!.isNotEmpty &&
-        !entry.clockInAddress!.contains(RegExp(r'^\d+\.\d+')) &&
-        !entry.clockInAddress!.toLowerCase().contains('lat') &&
-        !entry.clockInAddress!.toLowerCase().contains('coordinates')) {
-      return _extractNeighborhood(entry.clockInAddress!);
+    final stored = isClockIn ? entry.clockInAddress : entry.clockOutAddress;
+    if (stored != null &&
+        stored.isNotEmpty &&
+        !stored.contains(RegExp(r'^\d+\.\d+')) &&
+        !stored.toLowerCase().contains('lat') &&
+        !stored.toLowerCase().contains('coordinates')) {
+      return _extractNeighborhood(stored);
     }
 
     // Last resort: show coordinates in readable format
-    if (entry.clockInLatitude != null && entry.clockInLongitude != null) {
-      return 'Lat: ${entry.clockInLatitude!.toStringAsFixed(4)}, Lng: ${entry.clockInLongitude!.toStringAsFixed(4)}';
+    if (lat != null && lng != null) {
+      return 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}';
     }
 
     return 'Location unavailable';

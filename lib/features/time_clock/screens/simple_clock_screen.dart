@@ -99,12 +99,15 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         return;
       }
 
-      // 2. Try to get location (use cached if available, proceed without if not)
+      // 2. Request permission on user gesture to ensure web prompt
+      await LocationService.requestPermission();
+
+      // 3. Try to get location (use cached if available, proceed without if not)
       print('SimpleClockScreen: Getting location...');
       LocationData? location;
       try {
         location = await LocationService.getCurrentLocation()
-            .timeout(const Duration(seconds: 5), onTimeout: () {
+            .timeout(const Duration(seconds: 30), onTimeout: () {
           print('SimpleClockScreen: Location request timed out');
           return null;
         });
@@ -126,7 +129,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         print('SimpleClockScreen: Location obtained: ${location.neighborhood}');
       }
 
-      // 3. Clock in to shift
+      // 4. Clock in to shift
       print('SimpleClockScreen: Attempting clock-in to shift ${shift.id}...');
       final result = await ShiftTimesheetService.clockInToShift(
         user.uid,
@@ -174,7 +177,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
       LocationData? location;
       try {
         location = await LocationService.getCurrentLocation().timeout(
-          const Duration(seconds: 5),
+          const Duration(seconds: 30),
           onTimeout: () => null,
         );
       } catch (e) {
@@ -233,17 +236,16 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
 
     if (_currentShift == null) return;
 
-    // Calculate when auto logout should happen: shift end + 15 minutes
-    final autoLogoutTime =
-        _currentShift!.shiftEnd.add(const Duration(minutes: 15));
-    final now = DateTime.now();
+    // Calculate when auto logout should happen: shift end + 15 minutes (in UTC)
+    final autoLogoutTimeUtc = _currentShift!.clockOutDeadline;
+    final nowUtc = DateTime.now().toUtc();
 
     // If auto logout time is in the future, set timer
-    if (autoLogoutTime.isAfter(now)) {
-      final timeUntilAutoLogout = autoLogoutTime.difference(now);
+    if (autoLogoutTimeUtc.isAfter(nowUtc)) {
+      final timeUntilAutoLogout = autoLogoutTimeUtc.difference(nowUtc);
 
       print(
-          'Auto logout scheduled for: $autoLogoutTime (in ${timeUntilAutoLogout.inMinutes} minutes)');
+          'Auto logout scheduled for: ${autoLogoutTimeUtc.toLocal()} (in ${timeUntilAutoLogout.inMinutes} minutes)');
 
       _autoLogoutTimer = Timer(timeUntilAutoLogout, () {
         if (_isClockedIn && _currentShift != null && mounted) {

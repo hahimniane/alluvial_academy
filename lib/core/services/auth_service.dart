@@ -5,6 +5,7 @@ import 'location_service.dart';
 import 'location_preference_service.dart';
 import 'prayer_time_service.dart';
 import 'user_role_service.dart';
+import 'timezone_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -33,6 +34,11 @@ class AuthService {
 
         // Update last login time in Firestore
         await _updateLastLoginTime(user);
+
+        // Update timezone on login (non-blocking)
+        TimezoneService.updateUserTimezoneOnLogin().catchError((e) {
+          print('AuthService: Failed to update timezone: $e');
+        });
 
         // Initialize location and prayer times for teachers (non-blocking)
         _initializeTeacherServices(user).catchError((e) {
@@ -97,7 +103,7 @@ class AuthService {
       }
 
       // Request location permission and get current location with timeout
-      final location = await LocationService.getCurrentLocation()
+      final location = await LocationService.getCurrentLocation(interactive: false)
           .timeout(const Duration(seconds: 10), onTimeout: () {
         print('AuthService: Location request timed out');
         return null;

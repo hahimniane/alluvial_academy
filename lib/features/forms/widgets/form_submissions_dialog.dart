@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../utility_functions/export_helpers.dart';
 
 class FormSubmissionsDialog extends StatefulWidget {
   final String formId;
@@ -32,7 +33,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
     // Initialize date range to last 30 days
     final now = DateTime.now();
     _dateRange = DateTimeRange(
@@ -100,21 +101,82 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   }
 
   Future<void> _selectDateRange() async {
+    final now = DateTime.now();
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: now,
       initialDateRange: _dateRange,
+      currentDate: now,
+      helpText: 'Select Date Range for Form Submissions',
+      cancelText: 'Cancel',
+      confirmText: 'Apply Filter',
+      saveText: 'Apply',
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF2563EB),
-              onPrimary: Colors.white,
-              onSurface: Color(0xFF111827),
+        return Center(
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 450,
+                maxHeight: 600,
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  datePickerTheme: DatePickerThemeData(
+                    backgroundColor: Colors.white,
+                    surfaceTintColor: Colors.white,
+                    headerBackgroundColor: const Color(0xff0386FF),
+                    headerForegroundColor: Colors.white,
+                    headerHeadlineStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    headerHelpStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white70,
+                    ),
+                    dayStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    rangeSelectionBackgroundColor:
+                        const Color(0xff0386FF).withValues(alpha: 0.1),
+                    rangeSelectionOverlayColor: WidgetStateProperty.all(
+                      const Color(0xff0386FF).withValues(alpha: 0.1),
+                    ),
+                    dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const Color(0xff0386FF);
+                      }
+                      return null;
+                    }),
+                    dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return Colors.white;
+                      }
+                      return null;
+                    }),
+                  ),
+                  textButtonTheme: TextButtonThemeData(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xff0386FF),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                ),
+                child: child!,
+              ),
             ),
           ),
-          child: child!,
         );
       },
     );
@@ -148,6 +210,34 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save note: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveStatus(String docId, String status) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('form_responses')
+          .doc(docId)
+          .update({'reviewStatus': status});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status updated to "$status"'),
+            backgroundColor: const Color(0xFF059669),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save status: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -202,16 +292,357 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     return '${start.month.toString().padLeft(2, '0')}/${start.day.toString().padLeft(2, '0')} - ${end.month.toString().padLeft(2, '0')}/${end.day.toString().padLeft(2, '0')}';
   }
 
+  void _exportSubmissions() {
+    if (_filteredSubmissions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No submissions to export'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Build headers: basic user info + all form fields + status + admin notes
+      final fieldIds = _fieldOrder;
+      final headers = <String>[
+        'Submission #',
+        'User Name',
+        'Email',
+        'Submitted At',
+      ];
+      
+      // Add dynamic form field headers
+      for (final fieldId in fieldIds) {
+        headers.add(_labelFor(fieldId));
+      }
+      
+      // Add status and admin notes columns
+      headers.add('Status');
+      headers.add('Admin Notes');
+
+      // Build data rows
+      final rows = _filteredSubmissions.asMap().entries.map((entry) {
+        final index = entry.key;
+        final doc = entry.value;
+        final data = doc.data() as Map<String, dynamic>;
+        final responses = (data['responses'] as Map?)?.cast<String, dynamic>() ?? {};
+        
+        // Build row data
+        final row = <String>[
+          '${index + 1}', // Submission number
+          '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+          (data['userEmail'] ?? '').toString(),
+          _formatSubmissionDate(data['submittedAt']),
+        ];
+        
+        // Add dynamic form field values
+        for (final fieldId in fieldIds) {
+          String value = (responses[fieldId] ?? '').toString();
+          
+          // Format dates if it's a timestamp
+          if (responses[fieldId] is Timestamp) {
+            final date = (responses[fieldId] as Timestamp).toDate();
+            value = '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+          }
+          
+          row.add(value);
+        }
+        
+        // Add status and admin notes
+        row.add(_capitalizeStatus((data['reviewStatus'] ?? 'seen').toString()));
+        row.add((data['adminNote'] ?? '').toString());
+        
+        return row;
+      }).toList();
+
+      // Use ExportHelpers to show export dialog
+      ExportHelpers.showExportDialog(
+        context,
+        headers,
+        rows,
+        '${widget.formTitle.replaceAll(RegExp(r'[^\w\s-]'), '_')}_submissions',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Export failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _formatSubmissionDate(dynamic submittedAt) {
+    if (submittedAt is Timestamp) {
+      final date = submittedAt.toDate();
+      return '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '';
+  }
+
+  Widget _buildStatusDropdown(String docId, String currentStatus) {
+    const statusOptions = ['seen', 'in review', 'accepted', 'rejected'];
+    final normalizedCurrentStatus = currentStatus.toLowerCase().isEmpty ? 'seen' : currentStatus.toLowerCase();
+    
+    return Container(
+      width: 130,
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: _getStatusColor(normalizedCurrentStatus).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _getStatusColor(normalizedCurrentStatus).withValues(alpha: 0.3)),
+      ),
+      child: DropdownButton<String>(
+        value: statusOptions.contains(normalizedCurrentStatus) ? normalizedCurrentStatus : 'seen',
+        isExpanded: true,
+        underline: const SizedBox(),
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: _getStatusColor(normalizedCurrentStatus),
+        ),
+        dropdownColor: Colors.white,
+        items: statusOptions.map((String status) {
+          return DropdownMenuItem<String>(
+            value: status,
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(status),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _capitalizeStatus(status),
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _getStatusColor(status),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: (String? newStatus) {
+          if (newStatus != null && newStatus != normalizedCurrentStatus) {
+            _saveStatus(docId, newStatus);
+            // Reload data to reflect the change
+            _load();
+          }
+        },
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'seen':
+        return const Color(0xFF6B7280); // Gray
+      case 'in review':
+        return const Color(0xFFF59E0B); // Amber
+      case 'accepted':
+        return const Color(0xFF059669); // Green
+      case 'rejected':
+        return const Color(0xFFDC2626); // Red
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  String _capitalizeStatus(String status) {
+    if (status == 'in review') return 'In Review';
+    return status[0].toUpperCase() + status.substring(1);
+  }
+
+  Widget _buildFieldValueWidget(String fieldId, dynamic value, double width) {
+    final fields = (_template['fields'] as Map<String, dynamic>?) ?? {};
+    final fieldInfo = fields[fieldId] as Map<String, dynamic>?;
+    final fieldType = fieldInfo?['type'] as String?;
+    final fieldOptions = fieldInfo?['options'];
+    
+    // Convert value to string
+    String displayValue = value.toString();
+    
+    // Format dates if it's a timestamp
+    if (value is Timestamp) {
+      final date = value.toDate();
+      displayValue = '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+    }
+    
+    // If it's a field with options (select, dropdown, multi_select), show as clickable
+    if ((fieldType == 'select' || fieldType == 'dropdown' || fieldType == 'multi_select') && fieldOptions != null) {
+      List<String> options = [];
+      
+      // Parse options from various formats
+      if (fieldOptions is List) {
+        options = fieldOptions.map((e) => e.toString()).toList();
+      } else if (fieldOptions is String) {
+        options = fieldOptions.split(',').map((e) => e.trim()).toList();
+      }
+      
+      if (options.isNotEmpty) {
+        return SizedBox(
+          width: width,
+          child: InkWell(
+            onTap: () => _showFieldOptionsDialog(fieldId, _labelFor(fieldId), options, displayValue),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayValue.isEmpty ? '-' : displayValue,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: const Color(0xFF374151),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.visibility_outlined,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    
+    // Default text display for other field types
+    return SizedBox(
+      width: width,
+      child: Text(
+        displayValue.isEmpty ? '-' : displayValue,
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          color: const Color(0xFF374151),
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  void _showFieldOptionsDialog(String fieldId, String fieldLabel, List<String> options, String selectedValue) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            fieldLabel,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF111827),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Available options:',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: options.map((option) {
+                      final isSelected = option == selectedValue;
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            if (isSelected) ...[
+                              const Icon(
+                                Icons.check_circle,
+                                size: 16,
+                                color: Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: Text(
+                                option,
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF374151),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Close',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF6B7280),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black54,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          width: MediaQuery.of(context).size.width - 250,
-          height: MediaQuery.of(context).size.height,
-          color: const Color(0xFFF9FAFB),
+    return SizedBox(
+      width: double.infinity,
+      height: MediaQuery.of(context).size.height * 0.95,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
           child: Column(
             children: [
               // Header
@@ -227,12 +658,15 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                     const Icon(Icons.description_outlined,
                         color: Color(0xFF6B7280), size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      widget.formTitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF111827),
+                    Expanded(
+                      child: Text(
+                        widget.formTitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF111827),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -253,15 +687,16 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                       ),
                     ),
                     const Spacer(),
-                    ElevatedButton(
-                      onPressed: () {},
+                    ElevatedButton.icon(
+                      onPressed: _exportSubmissions,
+                      icon: const Icon(Icons.file_download_outlined, size: 16),
+                      label: const Text('Export'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
+                        backgroundColor: const Color(0xff0386FF),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
                       ),
-                      child: const Text('Settings',
-                          style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                     const SizedBox(width: 16),
                     IconButton(
@@ -287,9 +722,6 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                   ),
                   tabs: const [
                     Tab(text: 'Submissions'),
-                    Tab(text: 'Users'),
-                    Tab(text: 'Summary'),
-                    Tab(text: 'Activity'),
                   ],
                 ),
               ),
@@ -474,7 +906,6 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -546,10 +977,10 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   }
 
   double _calculateTableWidth(List<String> fieldIds) {
-    // Calculate total width: checkbox(48) + #(60) + user(220) + dynamic fields + notes(200) + actions(120) + padding(16)
+    // Calculate total width: checkbox(48) + #(60) + user(220) + dynamic fields + status(140) + notes(200) + padding(16)
     double width = 48 + 60 + 220 + 16; // checkbox + number + user + padding
 
-    // Add separators: 5 base separators (after checkbox, #, user, notes, actions) + 1 per field
+    // Add separators: 5 base separators (after checkbox, #, user, status, notes) + 1 per field
     final separatorCount = 5 + fieldIds.length;
     width += separatorCount * 17; // Each separator is 1px + 16px margin
 
@@ -566,13 +997,11 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       }
     }
 
+    width += 140; // Status column
     width += 200; // Notes column
-    width += 120; // Actions column
 
-    // Ensure minimum width
-    final screenWidth = MediaQuery.of(context).size.width -
-        250 -
-        48; // Account for sidebar and margins (increased for safety)
+    // Ensure minimum width for bottom sheet (account for padding)
+    final screenWidth = MediaQuery.of(context).size.width - 32; // Account for margins only
     return width < screenWidth ? screenWidth : width;
   }
 
@@ -662,6 +1091,22 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             ];
           }),
 
+          // Status Column
+          SizedBox(
+            width: 140,
+            child: Text(
+              'Status',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6B7280),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+
+          _buildColumnSeparator(),
+
           // Notes Column
           SizedBox(
             width: 200,
@@ -676,21 +1121,6 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             ),
           ),
 
-          _buildColumnSeparator(),
-
-          // Actions Column
-          SizedBox(
-            width: 120,
-            child: Text(
-              'Actions',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6B7280),
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -809,30 +1239,21 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                 if (label.toLowerCase().contains('date')) width = 140;
                 if (label.toLowerCase().contains('email')) width = 200;
 
-                String value = '${responses[fieldId] ?? '-'}';
-
-                // Format dates if it's a timestamp
-                if (responses[fieldId] is Timestamp) {
-                  final date = (responses[fieldId] as Timestamp).toDate();
-                  value =
-                      '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
-                }
+                final value = responses[fieldId] ?? '';
 
                 return [
-                  SizedBox(
-                    width: width,
-                    child: Text(
-                      value,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: const Color(0xFF374151),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  _buildFieldValueWidget(fieldId, value, width),
                   _buildColumnSeparator(),
                 ];
               }),
+
+              // Status field
+              SizedBox(
+                width: 140,
+                child: _buildStatusDropdown(docId, (data['reviewStatus'] ?? '').toString()),
+              ),
+
+              _buildColumnSeparator(),
 
               // Notes field
               SizedBox(
@@ -957,46 +1378,6 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                       ),
               ),
 
-              _buildColumnSeparator(),
-
-              // Actions
-              SizedBox(
-                width: 120,
-                child: Row(
-                  children: [
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
-                      ),
-                      icon: const Icon(Icons.visibility_outlined, size: 18),
-                      onPressed: () {},
-                      color: const Color(0xFF6B7280),
-                    ),
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
-                      ),
-                      icon: const Icon(Icons.download_outlined, size: 18),
-                      onPressed: () {},
-                      color: const Color(0xFF6B7280),
-                    ),
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
-                      ),
-                      icon: const Icon(Icons.more_vert, size: 18),
-                      onPressed: () {},
-                      color: const Color(0xFF6B7280),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),

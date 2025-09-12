@@ -6,6 +6,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
+import '../../../core/utils/timezone_utils.dart';
 
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
@@ -18,10 +19,10 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   List<int> userRows = [0]; // Start with one row
   final Map<int, UserInputRow> userRowsWidgets = {};
   final Map<int, GlobalKey<_UserInputRowState>> rowKeys = {};
-  
+
   // Available guardians for student creation
   List<Map<String, dynamic>> _allGuardians = [];
-  
+
   // Email notification tracking for success messages
   Map<String, int>? _emailNotificationInfo;
 
@@ -156,21 +157,24 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         // Check validation based on user type
         bool emailRequired = true;
         bool guardianRequired = false;
-        
+
         if (rowState.selectedUserType == 'Student') {
           // For students: email is required only for adults
           emailRequired = rowState.isAdultStudent;
           // For minor students: guardian is required
           guardianRequired = !rowState.isAdultStudent;
         }
-        
+
         // Check if all required fields are populated
-        bool missingRequiredFields = rowState.firstNameController.text.isEmpty ||
-            rowState.lastNameController.text.isEmpty ||
-            rowState.kioskCodeController.text.isEmpty ||
-            (emailRequired && rowState.emailController.text.isEmpty) ||
-            (guardianRequired && (rowState.selectedGuardianId == null || rowState.availableGuardians.isEmpty));
-            
+        bool missingRequiredFields =
+            rowState.firstNameController.text.isEmpty ||
+                rowState.lastNameController.text.isEmpty ||
+                rowState.kioskCodeController.text.isEmpty ||
+                (emailRequired && rowState.emailController.text.isEmpty) ||
+                (guardianRequired &&
+                    (rowState.selectedGuardianId == null ||
+                        rowState.availableGuardians.isEmpty));
+
         if (missingRequiredFields) {
           print('Row $index is incomplete');
           allValid = false;
@@ -179,17 +183,25 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           });
           String errorMessage = 'Missing required fields in row ${index + 1}: ';
           List<String> missingFields = [];
-          
-          if (rowState.firstNameController.text.isEmpty) missingFields.add('First name');
-          if (rowState.lastNameController.text.isEmpty) missingFields.add('Last name');
-          if (rowState.kioskCodeController.text.isEmpty) missingFields.add('Kiosk code');
-          if (emailRequired && rowState.emailController.text.isEmpty) missingFields.add('Email');
-          if (guardianRequired && (rowState.selectedGuardianId == null || rowState.availableGuardians.isEmpty)) {
-            missingFields.add(rowState.availableGuardians.isEmpty ? 'Parent (none available - create parent first)' : 'Parent selection');
+
+          if (rowState.firstNameController.text.isEmpty)
+            missingFields.add('First name');
+          if (rowState.lastNameController.text.isEmpty)
+            missingFields.add('Last name');
+          if (rowState.kioskCodeController.text.isEmpty)
+            missingFields.add('Kiosk code');
+          if (emailRequired && rowState.emailController.text.isEmpty)
+            missingFields.add('Email');
+          if (guardianRequired &&
+              (rowState.selectedGuardianId == null ||
+                  rowState.availableGuardians.isEmpty)) {
+            missingFields.add(rowState.availableGuardians.isEmpty
+                ? 'Parent (none available - create parent first)'
+                : 'Parent selection');
           }
-          
+
           errorMessage += missingFields.join(', ');
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xffF56565),
@@ -241,6 +253,13 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           hourlyRate = 15.0; // Default rate
         }
 
+        // Detect timezone for admin/teacher users
+        String? timezone;
+        if (rowState.selectedUserType == 'Admin' ||
+            rowState.selectedUserType == 'Teacher') {
+          timezone = TimezoneUtils.detectUserTimezone();
+        }
+
         Map<String, dynamic> userData = {
           'first_name': rowState.firstNameController.text.trim(),
           'last_name': rowState.lastNameController.text.trim(),
@@ -255,8 +274,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'date_added': FieldValue.serverTimestamp(),
           'last_login': null,
           'is_active': true,
+          'timezone': timezone,
         };
-        
+
         // Add student-specific fields
         if (rowState.selectedUserType == 'Student') {
           userData['is_adult_student'] = rowState.isAdultStudent;
@@ -264,7 +284,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
             userData['guardian_id'] = rowState.selectedGuardianId;
           }
         }
-        
+
         usersData.add(userData);
       } else {
         print('Row $index has no fields populated');
@@ -362,6 +382,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'userType': userData['user_type'],
           'title': userData['title'],
           'kioskCode': userData['kiosk_code'],
+          'timezone': userData['timezone'],
         };
       }).toList();
 
@@ -374,17 +395,17 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
       if (transformedUsers.length == 1) {
         final functions = FirebaseFunctions.instance;
         final userData = transformedUsers.first;
-        
+
         // Check if this is a student creation
         if (userData['userType'] == 'student') {
           // Show preview dialog for student credentials
           final bool? confirmed = await _showStudentCredentialsPreview(
-            userData['firstName'], 
-            userData['lastName'], 
+            userData['firstName'],
+            userData['lastName'],
             usersData.first['is_adult_student'] ?? false,
             usersData.first['guardian_id'],
           );
-          
+
           if (confirmed != true) {
             setState(() {
               _isLoading = false;
@@ -393,39 +414,40 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           }
           // Use createStudentAccount function for students
           final callable = functions.httpsCallable('createStudentAccount');
-          
+
           Map<String, dynamic> studentData = {
             'firstName': userData['firstName'],
             'lastName': userData['lastName'],
             'phoneNumber': userData['phoneNumber'],
             'isAdultStudent': usersData.first['is_adult_student'] ?? false,
           };
-          
+
           // Add email only if provided (for adult students)
           if (userData['email'].isNotEmpty) {
             studentData['email'] = userData['email'];
           }
-          
+
           // Add guardian ID for minor students
           if (usersData.first['guardian_id'] != null) {
             studentData['guardianIds'] = [usersData.first['guardian_id']];
           }
-          
+
           final result = await callable.call(studentData);
           print('Student creation result: ${result.data}');
-          
+
           // Store email notification info for success message
           _emailNotificationInfo = null;
           if (result.data != null && result.data['emailsToGuardians'] != null) {
             final emailsToGuardians = result.data['emailsToGuardians'] ?? 0;
             final emailsSent = result.data['emailsSent'] ?? 0;
-            
+
             if (emailsToGuardians > 0) {
               _emailNotificationInfo = {
                 'sent': emailsSent,
                 'total': emailsToGuardians
               };
-              print('Email notifications: $emailsSent/$emailsToGuardians guardians notified');
+              print(
+                  'Email notifications: $emailsSent/$emailsToGuardians guardians notified');
             }
           }
         } else {
@@ -504,7 +526,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
               final sent = _emailNotificationInfo!['sent'] ?? 0;
               final total = _emailNotificationInfo!['total'] ?? 0;
               if (total > 0) {
-                emailStatus = '\n• Guardian notification emails sent ($sent/$total)';
+                emailStatus =
+                    '\n• Guardian notification emails sent ($sent/$total)';
               }
             }
             successMessage = '✅ Minor Student created successfully!\n'
@@ -611,7 +634,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           final data = doc.data();
           return {
             'id': doc.id,
-            'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+            'name':
+                '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
             'email': data['e-mail'] ?? '',
           };
         }).toList();
@@ -622,16 +646,12 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   }
 
   // Show student credentials preview dialog
-  Future<bool?> _showStudentCredentialsPreview(
-    String firstName, 
-    String lastName, 
-    bool isAdultStudent, 
-    String? guardianId
-  ) async {
+  Future<bool?> _showStudentCredentialsPreview(String firstName,
+      String lastName, bool isAdultStudent, String? guardianId) async {
     // Generate preview credentials
     final studentCode = _generateStudentCodePreview(firstName, lastName);
     final aliasEmail = _generateAliasEmailPreview(studentCode);
-    
+
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -641,7 +661,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         isAdultStudent: isAdultStudent,
         studentCode: studentCode,
         aliasEmail: aliasEmail,
-        guardianName: guardianId != null ? _getGuardianNameById(guardianId) : null,
+        guardianName:
+            guardianId != null ? _getGuardianNameById(guardianId) : null,
       ),
     );
   }
@@ -661,13 +682,14 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
     String normalizeString(String str) {
       return str
           .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9]'), '') // Remove all non-alphanumeric characters
+          .replaceAll(RegExp(r'[^a-z0-9]'),
+              '') // Remove all non-alphanumeric characters
           .substring(0, math.min(str.length, 10)); // Limit length
     }
-    
+
     final firstNormalized = normalizeString(firstName);
     final lastNormalized = normalizeString(lastName);
-    
+
     // Create base student ID: firstname.lastname
     return '$firstNormalized.$lastNormalized';
   }
@@ -1113,7 +1135,7 @@ class _UserInputRowState extends State<UserInputRow> {
   String selectedUserType = "Admin"; // Default to Admin
 
   final List<String> userTypes = ["Admin", "Teacher", "Student", "Parent"];
-  
+
   // Student-specific fields
   bool isAdultStudent = false;
   String? selectedGuardianId;
@@ -1140,7 +1162,8 @@ class _UserInputRowState extends State<UserInputRow> {
             final data = doc.data();
             return {
               'id': doc.id,
-              'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+              'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'
+                  .trim(),
               'email': data['e-mail'] ?? '',
             };
           }).toList();
@@ -1183,8 +1206,6 @@ class _UserInputRowState extends State<UserInputRow> {
       ),
     );
   }
-
-
 
   // Auto-generate kiosk code when name or user type changes
   void _generateKioskCode() {
@@ -1421,7 +1442,7 @@ class _UserInputRowState extends State<UserInputRow> {
                   setState(() {
                     selectedUserType = newValue;
                     _generateKioskCode();
-                    
+
                     // Reset student-specific fields when changing away from Student
                     if (newValue != 'Student') {
                       isAdultStudent = false;
@@ -1547,8 +1568,8 @@ class _UserInputRowState extends State<UserInputRow> {
               controller: emailController,
               onChanged: (value) => setState(() {}),
               decoration: InputDecoration(
-                hintText: selectedUserType == 'Student' && !isAdultStudent 
-                    ? 'Email (Optional for minors)' 
+                hintText: selectedUserType == 'Student' && !isAdultStudent
+                    ? 'Email (Optional for minors)'
                     : 'Email address',
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
@@ -1623,12 +1644,17 @@ class _UserInputRowState extends State<UserInputRow> {
                           child: GestureDetector(
                             onTap: () => setState(() => isAdultStudent = true),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
                               decoration: BoxDecoration(
-                                color: isAdultStudent ? const Color(0xff0386FF) : Colors.white,
+                                color: isAdultStudent
+                                    ? const Color(0xff0386FF)
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: isAdultStudent ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
+                                  color: isAdultStudent
+                                      ? const Color(0xff0386FF)
+                                      : const Color(0xffE2E8F0),
                                 ),
                               ),
                               child: Text(
@@ -1637,7 +1663,9 @@ class _UserInputRowState extends State<UserInputRow> {
                                 style: GoogleFonts.openSans(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: isAdultStudent ? Colors.white : const Color(0xff718096),
+                                  color: isAdultStudent
+                                      ? Colors.white
+                                      : const Color(0xff718096),
                                 ),
                               ),
                             ),
@@ -1648,12 +1676,17 @@ class _UserInputRowState extends State<UserInputRow> {
                           child: GestureDetector(
                             onTap: () => setState(() => isAdultStudent = false),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
                               decoration: BoxDecoration(
-                                color: !isAdultStudent ? const Color(0xff0386FF) : Colors.white,
+                                color: !isAdultStudent
+                                    ? const Color(0xff0386FF)
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: !isAdultStudent ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
+                                  color: !isAdultStudent
+                                      ? const Color(0xff0386FF)
+                                      : const Color(0xffE2E8F0),
                                 ),
                               ),
                               child: Text(
@@ -1662,7 +1695,9 @@ class _UserInputRowState extends State<UserInputRow> {
                                 style: GoogleFonts.openSans(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: !isAdultStudent ? Colors.white : const Color(0xff718096),
+                                  color: !isAdultStudent
+                                      ? Colors.white
+                                      : const Color(0xff718096),
                                 ),
                               ),
                             ),
@@ -1726,7 +1761,8 @@ class _UserInputRowState extends State<UserInputRow> {
                     : GestureDetector(
                         onTap: () => _showParentSelectionDialog(),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
                             color: const Color(0xffF7FAFC),
                             borderRadius: BorderRadius.circular(8),
@@ -1741,7 +1777,8 @@ class _UserInputRowState extends State<UserInputRow> {
                                   children: [
                                     Text(
                                       selectedGuardianId != null
-                                          ? _getGuardianName(selectedGuardianId!)
+                                          ? _getGuardianName(
+                                              selectedGuardianId!)
                                           : 'Select Parent/Guardian*',
                                       style: GoogleFonts.openSans(
                                         fontSize: 14,
@@ -1983,11 +2020,13 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                    borderSide:
+                        const BorderSide(color: Color(0xff0386FF), width: 2),
                   ),
                   filled: true,
                   fillColor: const Color(0xffF7FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -2006,7 +2045,9 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              _searchTerm.isNotEmpty ? Icons.search_off : Icons.family_restroom,
+                              _searchTerm.isNotEmpty
+                                  ? Icons.search_off
+                                  : Icons.family_restroom,
                               size: 48,
                               color: const Color(0xff718096),
                             ),
@@ -2037,7 +2078,8 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                         itemCount: _filteredParents.length,
                         itemBuilder: (context, index) {
                           final parent = _filteredParents[index];
-                          final isSelected = _tempSelectedParentId == parent['id'];
+                          final isSelected =
+                              _tempSelectedParentId == parent['id'];
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 8),
@@ -2061,13 +2103,15 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                                       width: isSelected ? 2 : 1,
                                     ),
                                     color: isSelected
-                                        ? const Color(0xff0386FF).withOpacity(0.05)
+                                        ? const Color(0xff0386FF)
+                                            .withOpacity(0.05)
                                         : Colors.white,
                                   ),
                                   child: Row(
                                     children: [
                                       CircleAvatar(
-                                        backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                                        backgroundColor: const Color(0xff0386FF)
+                                            .withOpacity(0.1),
                                         child: Text(
                                           parent['name'].isNotEmpty
                                               ? parent['name'][0].toUpperCase()
@@ -2081,7 +2125,8 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                                       const SizedBox(width: 16),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               parent['name'],
@@ -2298,14 +2343,15 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         _buildInfoRow('Name', '$firstName $lastName'),
-                        _buildInfoRow('Type', isAdultStudent ? 'Adult Student' : 'Minor Student'),
+                        _buildInfoRow('Type',
+                            isAdultStudent ? 'Adult Student' : 'Minor Student'),
                         if (!isAdultStudent && guardianName != null)
                           _buildInfoRow('Guardian', guardianName!),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Login Credentials
                   Container(
                     padding: const EdgeInsets.all(16),

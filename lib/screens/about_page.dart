@@ -44,6 +44,8 @@ class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
             children: [
               _buildHeroSection(),
               _buildMissionSection(),
+              _buildVisionSection(),
+              _buildAspirationSection(),
               _buildValuesSection(),
               _buildStorySection(),
               _buildTeamSection(),
@@ -56,9 +58,19 @@ class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
   }
 
   Widget _buildHeroSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isTablet = MediaQuery.of(context).size.width > 768;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 24 : 16,
+        vertical: isDesktop
+            ? 80
+            : isTablet
+                ? 60
+                : 40,
+      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -87,10 +99,14 @@ class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 24),
           Text(
-            'Nurturing Faith Through\nAuthentic Islamic Education',
+            'The Alluwal Education Hub\nLearn, Lead & Thrive',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
-              fontSize: 48,
+              fontSize: isDesktop
+                  ? 48
+                  : isTablet
+                      ? 36
+                      : 28,
               fontWeight: FontWeight.w900,
               color: const Color(0xff111827),
               height: 1.1,
@@ -100,10 +116,10 @@ class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
           Container(
             constraints: const BoxConstraints(maxWidth: 700),
             child: Text(
-              'At Alluwal Education Hub, we bridge the gap between traditional Islamic knowledge and modern learning methods, making quality Islamic education accessible to Muslim families worldwide.',
+              'At Alluwal Education Hub, we envision a world where education transcends boundaries, cultures, and beliefs, fostering an environment where diverse knowledge thrives.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 18,
+                fontSize: isDesktop ? 18 : 16,
                 color: const Color(0xff6B7280),
                 height: 1.6,
               ),
@@ -136,7 +152,7 @@ class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'To provide authentic, comprehensive Islamic education that nurtures the spiritual, intellectual, and moral development of Muslim children and adults, connecting them with qualified Islamic scholars and teachers from around the world.',
+                    'Our mission seamlessly embraces what the eminent Ali Mazrui termed the \'Africa Triple Heritage\': the fusion of Islamic, African, and Western civilizations. We offer diverse courses in Islamic studies, African indigenous languages and cultures, and Western education studies, aiming to transcend cultural boundaries to prepare our students for a diverse and increasingly globalized world.',
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       color: const Color(0xff374151),
@@ -204,6 +220,71 @@ class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
                     size: 120,
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVisionSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(color: Color(0xffF9FAFB)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          children: [
+            Text(
+              'Our Vision',
+              style: GoogleFonts.inter(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'At Alluwal Education Hub, we envision a world where education transcends boundaries, cultures, and beliefs, fostering an environment where diverse knowledge thrives.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                color: const Color(0xff374151),
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAspirationSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          children: [
+            Text(
+              'Our Aspiration',
+              style: GoogleFonts.inter(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'We aspire to create a comprehensive educational platform that celebrates and integrates the richness of African heritage, the depth of Islamic scholarship, and the innovation of Western education, empowering students to become leaders in their communities and the world.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                color: const Color(0xff374151),
+                height: 1.6,
               ),
             ),
           ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../shared/widgets/persistent_app_bar.dart';
+import '../shared/widgets/responsive_builder.dart';
+import 'teacher_application_screen.dart';
 
 class TeachersPage extends StatefulWidget {
   const TeachersPage({super.key});
@@ -66,58 +68,76 @@ class _TeachersPageState extends State<TeachersPage>
   }
 
   Widget _buildHeroSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xffFAFBFF), Color(0xffF0F7FF)],
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xff3B82F6).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-              border:
-                  Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
+    return ResponsiveBuilder(
+      builder: (context, constraints, deviceType) {
+        final isDesktop = deviceType == DeviceType.desktop;
+        final isTablet = deviceType == DeviceType.tablet;
+
+        return Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 24 : 16,
+              vertical: isDesktop
+                  ? 80
+                  : isTablet
+                      ? 60
+                      : 40,
             ),
-            child: Text(
-              '👨‍🏫 Qualified Islamic Educators',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xff3B82F6),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xffFAFBFF), Color(0xffF0F7FF)],
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Learn from Certified\nIslamic Scholars',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 48,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xff111827),
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Our teachers are certified Islamic scholars with years of experience\nin teaching Quran, Arabic, and Islamic studies to students worldwide.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              color: const Color(0xff6B7280),
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
+            child: Column(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff3B82F6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(
+                        color: const Color(0xff3B82F6).withOpacity(0.2)),
+                  ),
+                  child: Text(
+                    '👨‍🏫 Qualified Islamic Educators',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff3B82F6),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Learn from Certified\nIslamic Scholars',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop
+                        ? 48
+                        : isTablet
+                            ? 36
+                            : 28,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xff111827),
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Our teachers are certified Islamic scholars with years of experience\nin teaching Quran, Arabic, and Islamic studies to students worldwide.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 18 : 16,
+                    color: const Color(0xff6B7280),
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ));
+      },
     );
   }
 
@@ -199,85 +219,85 @@ class _TeachersPageState extends State<TeachersPage>
             ),
           ),
           const SizedBox(height: 48),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 3 : 1,
-              crossAxisSpacing: 32,
-              mainAxisSpacing: 32,
-              childAspectRatio:
-                  MediaQuery.of(context).size.width > 768 ? 0.85 : 1.2,
-              children: [
-                _buildTeacherCard(
-                  'Sheikh Ahmad Al-Mahmoud',
-                  'Quran & Tajweed Specialist',
-                  'Hafiz with 15+ years of teaching experience. Graduated from Al-Azhar University.',
-                  ['Quran Memorization', 'Tajweed', 'Qira\'at'],
-                  '15+ years',
-                  '4.9',
-                  '500+',
-                  'assets/teacher1.jpg', // You can add actual images later
-                  const Color(0xff3B82F6),
+          ResponsiveBuilder(
+            builder: (context, constraints, deviceType) {
+              return Container(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: deviceType == DeviceType.desktop
+                      ? 3
+                      : deviceType == DeviceType.tablet
+                          ? 2
+                          : 1,
+                  crossAxisSpacing: deviceType == DeviceType.desktop ? 32 : 16,
+                  mainAxisSpacing: deviceType == DeviceType.desktop ? 32 : 16,
+                  childAspectRatio: deviceType == DeviceType.desktop
+                      ? 0.85
+                      : deviceType == DeviceType.tablet
+                          ? 0.9
+                          : 1.2,
+                  children: [
+                    _buildTeacherCard(
+                      'Ibrahim M. Baldee',
+                      'Teacher / Ustaz',
+                      'Ustaz Ibrahim is a Liberian international student currently based in Saudi Arabia. He completed the memorization of the Holy Qur\'an in 2012 and studied Tajweed in depth, memorizing many Tajweed texts. He has been teaching Qur\'an since 2012 and finds teaching among the most pleasant acts. He looks forward to meeting new students. (University of Madinah. Languages: Pular, English, Arabic)',
+                      ['Pular', 'English', 'Arabic'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/ibrahim_baldee.jpg',
+                      const Color(0xff3B82F6),
+                    ),
+                    _buildTeacherCard(
+                      'Elham Shifa',
+                      'Teacher / Ustaza',
+                      'Elham is pursuing a degree in Islamic Psychology at Ankara University (Turkey). Originally from Ethiopia, she has been teaching for several years. Learning and teaching the Qur\'an to understand Allah\'s message has always been her life goal, inspired by the hadith: “The best of you are those who learn the Qur\'an and teach it.” (Languages: English, Arabic)',
+                      ['English', 'Arabic'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/elham_shifa.jpg',
+                      const Color(0xff10B981),
+                    ),
+                    _buildTeacherCard(
+                      'Mohammed Kosiah',
+                      'Teacher / Ustaz',
+                      'Brother Kosiah graduated from Kahatain Children Village Islamic Mission (2016) with foundations in Islam and secular education. He has delivered sermons and public talks since 5th grade and is active in youth/community development programs. He recently graduated from the intensive Arabic Institute of the Islamic University of Madinah and studies Economics at the same university. (Languages: Mandingo, French, English, Arabic)',
+                      ['Mandingo', 'French', 'English'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/mohammed_kosiah.jpg',
+                      const Color(0xffF59E0B),
+                    ),
+                    _buildTeacherCard(
+                      'Ustaz Abdul Hadee Balde',
+                      'Teacher / Ustaz',
+                      'Abdul Hadee graduated as valedictorian from Fanima Islamic School System and is a Hafiz from a renowned mission in Conakry, Guinea. Born in Ivory Coast and raised in Liberia, he later moved to Guinea for Islamic studies and earned a diploma. (King Khalid University. Languages: English, Arabic, Pular)',
+                      ['English', 'Arabic', 'Pular'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/abdul_hadee_balde.jpg',
+                      const Color(0xff8B5CF6),
+                    ),
+                    _buildTeacherCard(
+                      'Ousman Cham',
+                      'Teacher',
+                      'Ousman is a graduate of Muslim Congress High School (Liberia) and studies at the Islamic University of Madinah (Department of Dawah). His passion for learning and teaching Islam began in childhood while listening to lectures from imams and preachers. He loves teaching Qur\'an for its great reward in this world and the Hereafter. (Languages: Pular, English, Arabic)',
+                      ['Pular', 'English', 'Arabic'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/ousman_cham.jpg',
+                      const Color(0xffEF4444),
+                    ),
+                  ],
                 ),
-                _buildTeacherCard(
-                  'Dr. Fatima Al-Zahra',
-                  'Islamic Studies & Arabic',
-                  'PhD in Islamic Theology. Expert in teaching Islamic history and Arabic grammar.',
-                  ['Islamic Studies', 'Arabic Grammar', 'Islamic History'],
-                  '12+ years',
-                  '4.8',
-                  '350+',
-                  'assets/teacher2.jpg',
-                  const Color(0xff10B981),
-                ),
-                _buildTeacherCard(
-                  'Ustadh Yusuf Ibrahim',
-                  'Hadith & Fiqh Scholar',
-                  'Master\'s in Islamic Studies. Specializes in Hadith sciences and Islamic jurisprudence.',
-                  ['Hadith Studies', 'Fiqh', 'Islamic Ethics'],
-                  '10+ years',
-                  '4.9',
-                  '280+',
-                  'assets/teacher3.jpg',
-                  const Color(0xffF59E0B),
-                ),
-                _buildTeacherCard(
-                  'Sister Aisha Khan',
-                  'Children\'s Quran Teacher',
-                  'Specialized in teaching children. Expert in making Quran learning fun and engaging.',
-                  ['Children\'s Quran', 'Basic Arabic', 'Islamic Stories'],
-                  '8+ years',
-                  '4.9',
-                  '400+',
-                  'assets/teacher4.jpg',
-                  const Color(0xff8B5CF6),
-                ),
-                _buildTeacherCard(
-                  'Sheikh Omar Hassan',
-                  'Advanced Arabic Teacher',
-                  'Native Arabic speaker with expertise in classical Arabic literature and poetry.',
-                  ['Advanced Arabic', 'Arabic Literature', 'Classical Texts'],
-                  '18+ years',
-                  '4.8',
-                  '220+',
-                  'assets/teacher5.jpg',
-                  const Color(0xffEF4444),
-                ),
-                _buildTeacherCard(
-                  'Dr. Khadija Salim',
-                  'Islamic Psychology & Ethics',
-                  'PhD in Islamic Psychology. Focuses on character building and Islamic lifestyle.',
-                  ['Islamic Psychology', 'Character Building', 'Family Ethics'],
-                  '14+ years',
-                  '4.9',
-                  '180+',
-                  'assets/teacher6.jpg',
-                  const Color(0xff06B6D4),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -295,136 +315,152 @@ class _TeachersPageState extends State<TeachersPage>
     String imagePath,
     Color color,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xffE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Teacher Avatar
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [color, color.withOpacity(0.7)],
+    return GestureDetector(
+      onTap: () => _showTeacherBioDialog(
+          name, title, bio, specialties, imagePath, color),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xffE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Teacher Avatar
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withOpacity(0.3), width: 2),
               ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(
-              Icons.person,
-              color: Colors.white,
-              size: 40,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Teacher Name & Title
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xff111827),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Bio
-          Text(
-            bio,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: const Color(0xff6B7280),
-              height: 1.4,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 16),
-
-          // Specialties
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: specialties
-                .take(2)
-                .map((specialty) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  imagePath,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        specialty,
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: color,
+                        gradient: LinearGradient(
+                          colors: [color, color.withOpacity(0.7)],
                         ),
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 16),
-
-          // Stats
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildStatItem('⭐', rating),
-              _buildStatItem('👥', students),
-              _buildStatItem('📅', experience.split('+')[0]),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Book Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _showBookingDialog(name),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    );
+                  },
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Teacher Name & Title
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Bio
+            Text(
+              bio,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff6B7280),
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 16),
+
+            // Specialties
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: specialties
+                  .take(2)
+                  .map((specialty) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          specialty,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: color,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Stats
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatItem('⭐', rating),
+                _buildStatItem('👥', students),
+                _buildStatItem('📅', experience.split('+')[0]),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Click to read more indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withOpacity(0.3)),
               ),
               child: Text(
-                'Book Lesson',
+                'Tap to read full biography',
                 style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: color,
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -610,114 +646,171 @@ class _TeachersPageState extends State<TeachersPage>
     );
   }
 
-  void _showBookingDialog(String teacherName) {
+  void _showTeacherBioDialog(String name, String title, String bio,
+      List<String> specialties, String imagePath, Color color) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Book Lesson with $teacherName',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'Great choice! $teacherName is an excellent teacher. Would you like to schedule a free trial lesson?',
-          style: GoogleFonts.inter(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showScheduleDialog(teacherName);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff3B82F6),
-            ),
-            child: const Text('Schedule Trial',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showScheduleDialog(String teacherName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Schedule Free Trial',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Please contact us to schedule your free trial lesson with $teacherName.',
-              style: GoogleFonts.inter(),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'We\'ll help you find the perfect time that works for you and your child.',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.grey[600],
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          width: MediaQuery.of(context).size.width > 600
+              ? 500
+              : MediaQuery.of(context).size.width * 0.9,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Close button
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.grey[100],
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+
+              // Teacher Photo
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(60),
+                  border: Border.all(color: color.withOpacity(0.3), width: 3),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(57),
+                  child: Image.asset(
+                    imagePath,
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [color, color.withOpacity(0.7)],
+                          ),
+                          borderRadius: BorderRadius.circular(57),
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 60,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Name and Title
+              Text(
+                name,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff111827),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Languages/Specialties
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: specialties
+                    .map((specialty) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: color.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            specialty,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: color,
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 24),
+
+              // Full Biography
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SingleChildScrollView(
+                  child: Text(
+                    bio,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff6B7280),
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Contact button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Navigate to contact page
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Contact Us for More Information',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Navigate to contact page
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff3B82F6),
-            ),
-            child:
-                const Text('Contact Us', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
 
   void _showApplicationDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Apply to Teach',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'We\'re always looking for qualified Islamic teachers. Please send us your qualifications and we\'ll get back to you.',
-          style: GoogleFonts.inter(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Navigate to application form
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff3B82F6),
-            ),
-            child: const Text('Submit Application',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TeacherApplicationScreen(),
       ),
     );
   }

@@ -730,9 +730,15 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
   void _openFormResponses(String formId) {
     final formData = _formTemplates[formId]?.data() as Map<String, dynamic>?;
     final title = (formData?['title'] ?? 'Form').toString();
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(
+        maxWidth: double.infinity,
+        minWidth: double.infinity,
+      ),
       builder: (_) => FormSubmissionsDialog(formId: formId, formTitle: title),
     );
   }
@@ -751,7 +757,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             child: const Icon(
               Icons.assignment_outlined,
               size: 64,
-              color: const Color(0xff64748B),
+              color: Color(0xff64748B),
             ),
           ),
           const SizedBox(height: 24),

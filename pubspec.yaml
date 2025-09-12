@@ -43,19 +43,23 @@ dependencies:
   firebase_auth_web: ^5.13.2
   google_fonts: ^6.2.1
   flutter_svg: ^2.0.10+1
-  syncfusion_flutter_datagrid: ^26.2.5
+  syncfusion_flutter_datagrid: ^31.1.19
+  # Weekly/Timeline calendar view for shifts
+  syncfusion_flutter_calendar: ^31.1.19
   intl_phone_field: ^3.2.0
   provider: ^6.1.2
   csv: ^6.0.0
   universal_html: ^2.2.4
   excel: ^4.0.3
-  syncfusion_flutter_datepicker: ^26.2.8
+  syncfusion_flutter_datepicker: ^31.1.19
   flutter_login: ^5.0.0
   font_awesome_flutter: ^10.7.0
+  
   file_picker: ^8.1.4
   firebase_storage: ^12.3.2
   firebase_storage_web: ^3.10.2
   url_launcher: ^6.1.10
+  timezone: ^0.10.1
   emoji_picker_flutter: ^1.6.4
   shared_preferences: ^2.2.2
   cloud_functions: ^5.2.0
@@ -64,6 +68,7 @@ dependencies:
   geocoding: ^3.0.0
   http: ^1.1.0
   mailer: ^6.5.0
+  country_picker: ^2.0.26
 
 dev_dependencies:
   flutter_test:
@@ -89,7 +94,7 @@ flutter:
 
   assets:
      - assets/
-  #   - images/a_dot_ham.jpeg
+     - assets/teachers/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

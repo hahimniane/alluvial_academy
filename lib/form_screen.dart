@@ -2356,8 +2356,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       ..sort((a, b) {
         final aOrder = (a.value as Map<String, dynamic>)['order'] as int? ?? 0;
         final bOrder = (b.value as Map<String, dynamic>)['order'] as int? ?? 0;
+        print(
+            'FormScreen: Field ${a.key} has order $aOrder, Field ${b.key} has order $bOrder');
         return aOrder.compareTo(bOrder);
       });
+
+    print('FormScreen: Final field order after sorting:');
+    for (var i = 0; i < sortedEntries.length; i++) {
+      final entry = sortedEntries[i];
+      final order = (entry.value as Map<String, dynamic>)['order'] as int? ?? 0;
+      final label =
+          (entry.value as Map<String, dynamic>)['label'] ?? 'No label';
+      print('  ${i + 1}. ${entry.key}: "$label" (order: $order)');
+    }
 
     for (var fieldEntry in sortedEntries) {
       try {

@@ -40,6 +40,13 @@ OR manually:
 
 **⚠️ NEVER run `flutter build web --release` without incrementing the version first!**
 
+**Dependencies and package management:**
+```bash
+flutter pub get
+flutter pub upgrade
+flutter pub outdated  # Check for package updates
+```
+
 ### Cache Busting System
 
 The project uses an automated cache busting system to prevent browser cache issues:
@@ -62,91 +69,233 @@ flutter analyze
 3. Upload `build/web/` contents to Hostinger
 4. Include `web/.htaccess` file for proper caching headers
 
+**Firebase Functions deployment:**
+```bash
+firebase deploy --only functions
+firebase deploy --only firestore:rules
+firebase deploy --only hosting  # Alternative to manual Hostinger upload
+```
+
 ## Architecture Overview
 
-### Core Structure
+### Authentication Flow Architecture
 
-**Entry Points:**
-- `lib/main.dart` - App initialization with Firebase setup and error handling
-- `lib/role_based_dashboard.dart` - Role-based routing after authentication
-- `lib/dashboard.dart` - Main dashboard UI with navigation
+**Critical Path: `main.dart` → Firebase Init → Auth Wrapper → Role Router → Dashboard**
 
-**Core Services (`lib/core/services/`):**
-- `auth_service.dart` - Firebase authentication with role checking
-- `user_role_service.dart` - Role management and permissions
+1. **App Initialization (`main.dart:15-65`)**:
+   - Special web compatibility with `runWidget()` fallback to `runApp()`
+   - Trackpad gesture assertion errors silently ignored (lines 24-39)
+   - Zone error assertions disabled for web debug mode
+
+2. **Firebase Initialization (`main.dart:115-284`)**:
+   - Web-specific delays: 100ms + 500ms for proper initialization
+   - Network connectivity testing for Firestore
+   - Comprehensive error handling with retry mechanism
+
+3. **Authentication Wrapper (`main.dart:285-395`)**:
+   - `StreamBuilder<User?>` on `FirebaseAuth.authStateChanges()`
+   - Routes authenticated users to `RoleBasedDashboard`
+
+4. **Role-Based Dashboard (`role_based_dashboard.dart:7-88`)**:
+   - Determines role via `UserRoleService.getCurrentUserRole()`
+   - Routes: admin → full dashboard, others → role-specific dashboards
+
+### Core Services Architecture (`lib/core/services/`)
+
+**UserRoleService** - Critical for all role-based functionality:
+- **Dual-role system**: Admins can switch to teacher mode; admin-teachers can switch back
+- **Local storage**: Active role cached with key `active_user_role`
+- **5-minute cache**: In-memory user data caching to reduce Firestore calls
+- **Key methods**: `getAvailableRoles()`, `switchActiveRole()`, `hasDualRoles()`
+
+**AuthService** - Enhanced authentication:
+- User activation checking before sign-in
+- Background location/prayer time initialization for teachers
+- Custom password reset emails via Cloud Functions
+
+**Other Core Services:**
+- `chat_service.dart` - Real-time messaging with presence tracking
 - `location_service.dart` - Geolocation for shift tracking
 - `prayer_time_service.dart` - Islamic prayer time calculations
-- `form_draft_service.dart` - Form builder draft management
+- `shift_service.dart` - Employee shift management with geofencing
 
-**Feature Modules (`lib/features/`):**
-Each feature is organized in its own directory with:
-- `screens/` - UI screens
-- `widgets/` - Reusable components  
-- `services/` - Feature-specific business logic
-- `models/` - Data models
+### Feature-Based Modular Architecture (`lib/features/`)
+
+**Standardized Structure per Feature:**
+```
+feature_name/
+├── models/     # Data models
+├── screens/    # UI screens  
+├── services/   # Business logic
+└── widgets/    # Reusable components
+```
+
+**Key Features:**
+- `dashboard/` - Role-aware statistics and Islamic calendar integration
+- `user_management/` - Syncfusion DataGrid with export functionality
+- `chat/` - Real-time messaging with group and individual chats
+- `time_clock/` - Location-based attendance tracking
+- `forms/` - Dynamic form builder with draft system
+- `shift_management/` - Employee scheduling with monitoring
 
 ### Key Architectural Patterns
 
 **Role-Based Access Control:**
-- Users have roles: admin, teacher, student, parent
-- Dashboard content dynamically changes based on user role
-- Admins see full management interface, others see limited views
+- **Roles**: admin, teacher, student, parent with dynamic switching capability
+- **Dual-role system**: Admins can act as teachers; admin-teachers can switch back
+- **Permission checking**: Always use `UserRoleService.getCurrentUserRole()` before displaying features
+- **Local storage**: Active role persisted in SharedPreferences
 
-**State Management:**
-- Uses provider pattern for state management
-- SharedPreferences for local settings (sidebar collapse state)
-- Firebase Firestore for real-time data synchronization
+**State Management Patterns:**
+- **Provider pattern**: Used across components for state management
+- **SharedPreferences**: Local storage for sidebar state (`sidebar_collapsed`), active role
+- **Stream subscriptions**: Firestore real-time updates with proper disposal
+- **Refresh triggers**: Integer counters (`_refreshTrigger`) to force widget rebuilds
+- **In-memory caching**: 5-minute TTL cache in UserRoleService
 
-**Authentication Flow:**
-1. `LandingPage` → Login screen for unauthenticated users
-2. `AuthenticationWrapper` → Firebase auth state listener
-3. `RoleBasedDashboard` → Role determination and routing
-4. `DashboardPage` → Main app interface
+**Navigation Architecture:**
+- **IndexedStack**: All dashboard screens kept in memory for fast switching
+- **Role-aware sidebar**: Dynamic menu generation based on current user role
+- **Persistent state**: Sidebar collapse state maintained across sessions
 
 ## Important Implementation Notes
 
-### Firebase Configuration
-- Uses `firebase_options.dart` for platform-specific config
-- Includes web-specific initialization delays and error handling
-- Firestore security rules in `firestore.rules`
+### Firebase Integration Architecture
 
-### Form System
-- Dynamic form builder in `admin/form_builder.dart`
-- Form responses handled in `features/forms/`
-- Draft system allows saving incomplete forms
+**Authentication:**
+- Email/password with Student ID alias support (format: `studentid@alluwaleducationhub.org`)
+- User activation checking before sign-in via `auth_service.dart:22-32`
+- Custom branded password reset emails via Cloud Functions
+- Last login time tracking in Firestore
 
-### Time Clock System
-- Location-based attendance tracking
-- Geolocation verification for shift check-ins
-- Admin timesheet review capabilities
+**Firestore Patterns:**
+- **Users Collection**: Indexed by `e-mail` field (lowercase)
+- **Real-time subscriptions**: Extensive use of snapshots for live data
+- **Batch operations**: Optimized queries for performance
+- **5-minute caching**: UserRoleService reduces Firestore calls
 
-### Development Debugging
-When `kDebugMode` is true, additional debug screens are available:
-- Test Role System screen
-- Firestore Debug screen
+**Cloud Functions:**
+- Password reset email customization
+- User account deletion with admin privilege verification
+- Background task processing
 
-## File Locations for Common Tasks
+### Error Handling & Web Compatibility
 
-**Authentication:** `lib/core/services/auth_service.dart`
-**Role Management:** `lib/core/services/user_role_service.dart`
-**Main Navigation:** `lib/dashboard.dart:969` (side menu)
-**User Profile UI:** `lib/dashboard.dart:805` (app bar)
-**Form Builder:** `lib/admin/form_builder.dart`
-**Chat System:** `lib/features/chat/`
-**Time Clock:** `lib/features/time_clock/`
+**Web-Specific Handling:**
+- Trackpad gesture assertions silently ignored (`main.dart:26-30`)
+- Zone error assertions disabled for debug mode (`main.dart:16-19`)
+- Multi-view compatibility with `runWidget()` fallback
+
+**Firebase Error Patterns:**
+- Comprehensive `FirebaseAuthException` handling with user-friendly messages
+- Network failure detection with retry mechanisms
+- Graceful degradation when background services fail
+
+### Development and Debugging
+
+**Debug Mode Features** (only when `kDebugMode` is true):
+- Test Role System screen (`lib/test_role_system.dart`)
+- Firestore Debug screen (`lib/firestore_debug_screen.dart`)
+- Console logging with structured debug messages
+
+**Performance Optimizations:**
+- In-memory caching for user data (5-minute TTL)
+- Stream subscription management with proper disposal
+- Debounced search in user management screens
+- IndexedStack for instant screen switching
+
+## Critical File Locations and Line References
+
+**Authentication Flow:**
+- App initialization: `lib/main.dart:15-65`
+- Firebase setup: `lib/main.dart:132-168`  
+- Auth wrapper: `lib/main.dart:285-395`
+- Role routing: `lib/role_based_dashboard.dart:76-88`
+
+**Role Management:**
+- Core service: `lib/core/services/user_role_service.dart`
+- Role switching: `lib/shared/widgets/role_switcher.dart`
+- Admin-teacher logic: `user_role_service.dart:44-52`
+
+**Dashboard Architecture:**
+- Main dashboard: `lib/dashboard.dart`
+- Navigation sidebar: `lib/dashboard.dart` (around line 969)
+- User profile UI: `lib/dashboard.dart` (around line 805)
+- IndexedStack screens: `lib/dashboard.dart` (screen array)
+
+**Key Features:**
+- Form builder: `lib/admin/form_builder.dart`
+- User management: `lib/features/user_management/screens/user_management_screen.dart`
+- Chat system: `lib/features/chat/`
+- Time clock: `lib/features/time_clock/`
+- Shift management: `lib/features/shift_management/`
 
 ## Production Deployment Notes
 
-**Hosting:** Deployed on Hostinger with custom caching rules
-**Cache Strategy:** HTML never cached, static assets cached for 1 year
+**Primary Hosting:** Deployed on Hostinger with custom caching rules
+**Alternative Hosting:** Firebase Hosting configured in `firebase.json`
+**Cache Strategy:** 
+- HTML files: never cached (`no-cache, no-store, must-revalidate`)
+- Static assets (JS/CSS): cached for 1 year (`max-age=31536000, immutable`)
+- Images/fonts: cached for 1 year with immutable headers
 **Version Management:** Automated via `increment_version.sh` script
 **Build Output:** Upload entire `build/web/` directory contents
 
+**Cache Headers Configuration:**
+- Configured in `firebase.json` for Firebase Hosting
+- Use `web/.htaccess` for Hostinger deployment
+- Version parameters (`?v=X`) added to critical files automatically
+
 ## Development Guidelines
 
-- Always check user role before displaying admin features
-- Use `UserRoleService.getCurrentUserRole()` for role checks
-- Firebase operations should have try-catch error handling
+### Critical Patterns to Follow
+
+**Role-Based Development:**
+- **Always** use `UserRoleService.getCurrentUserRole()` before showing admin features
+- Check `hasDualRoles()` for users who can switch between admin/teacher modes
+- Test with different role combinations (admin, teacher, admin-teacher)
+- Use `getAvailableRoles()` for role switcher UI
+
+**State Management:**
+- Use refresh trigger patterns: `_refreshTrigger++` to force rebuilds
+- Cancel stream subscriptions in `dispose()` methods
+- Cache user data when possible, respect 5-minute TTL
+- Persist UI state (sidebar collapse) in SharedPreferences
+
+**Firebase Integration:**
+- Wrap all Firebase operations in try-catch blocks
+- Use streams for real-time data, snapshots for static queries
+- Query users by `e-mail` field (lowercase) for consistency
+- Handle network errors gracefully with user-friendly messages
+
+**UI/UX Standards:**
 - Use `GoogleFonts.inter()` for consistent typography
-- Follow existing color scheme: primary `Color(0xff0386FF)`
-- Test role-based features with different user types
+- Follow color scheme: primary `Color(0xff0386FF)`, secondary `Color(0xff0693e3)`
+- Implement loading states for all async operations
+- Use Syncfusion widgets for data grids and date pickers
+
+**Performance Guidelines:**
+- Use IndexedStack for dashboard screens to maintain state
+- Implement debounced search in data-heavy screens
+- Cache frequently accessed data with appropriate TTL
+- Dispose of controllers and streams properly
+
+## Key Dependencies & Packages
+
+**Core Flutter & Firebase:**
+- `firebase_core`, `cloud_firestore`, `firebase_auth`, `firebase_storage`
+- `cloud_functions` for server-side logic
+
+**UI & Design:**
+- `google_fonts` for typography (Inter font family)
+- `syncfusion_flutter_datagrid` for data tables
+- `syncfusion_flutter_datepicker` for date selection
+- `font_awesome_flutter` for icons
+
+**Functionality:**
+- `provider` for state management
+- `geolocator` & `geocoding` for location services
+- `shared_preferences` for local storage
+- `file_picker` for file uploads
+- `url_launcher` for external links
+- `emoji_picker_flutter` for chat features

@@ -89,8 +89,6 @@ class UserRoleService {
         return null;
       }
 
-      print('Getting role for user: ${currentUser.uid}');
-      print('User email: ${currentUser.email}');
 
       // Query Firestore users collection by email
       final QuerySnapshot userQuery = await _firestore
@@ -108,9 +106,6 @@ class UserRoleService {
       final userType = userData['user_type'] as String?;
       final title = userData['title'] as String?;
 
-      print('Found user data:');
-      print('User Type: $userType');
-      print('Title: $title');
 
       return userType;
     } catch (e) {
