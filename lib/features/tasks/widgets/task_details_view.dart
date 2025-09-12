@@ -797,6 +797,22 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     setState(() => _isUpdating = true);
 
     try {
+      // Determine completion fields
+      Timestamp? completedAt = widget.task.completedAt;
+      int? overdueFrozen = widget.task.overdueDaysAtCompletion;
+
+      final wasDone = widget.task.status == TaskStatus.done;
+      final willBeDone = _currentStatus == TaskStatus.done;
+
+      if (!wasDone && willBeDone) {
+        final now = DateTime.now();
+        final overdue = now.isAfter(widget.task.dueDate)
+            ? now.difference(widget.task.dueDate).inDays
+            : 0;
+        completedAt = Timestamp.fromDate(now);
+        overdueFrozen = overdue;
+      }
+
       final updatedTask = Task(
         id: widget.task.id,
         title: widget.task.title,
@@ -810,6 +826,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         recurrenceType: widget.task.recurrenceType,
         createdAt: widget.task.createdAt,
         attachments: _currentTask.attachments,
+        completedAt: completedAt,
+        overdueDaysAtCompletion: overdueFrozen,
       );
 
       await _taskService.updateTask(widget.task.id, updatedTask);

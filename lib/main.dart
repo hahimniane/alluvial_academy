@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -11,14 +12,23 @@ import 'role_based_dashboard.dart';
 import 'firebase_options.dart';
 import 'core/constants/app_constants.dart';
 import 'screens/landing_page.dart';
+import 'core/utils/timezone_utils.dart';
 
-void main() {
+Future<void> main() async {
   // Disable zone error assertions for web in debug mode
   if (kIsWeb && kDebugMode) {
     BindingBase.debugZoneErrorsAreFatal = false;
   }
 
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase before running the app (required for web and all platforms)
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize timezone database
+  TimezoneUtils.initializeTimezones();
 
   // Handle Flutter framework errors gracefully (like trackpad gesture assertions)
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -34,7 +44,25 @@ void main() {
       return;
     }
 
-    // For other errors, use the default handler
+    // For other errors, be conservative on web to avoid inspector crashes
+    if (kIsWeb) {
+      // Work around a web debug inspector type error with LegacyJavaScriptObject
+      final msg = details.exception.toString();
+      if (msg.contains('LegacyJavaScriptObject') ||
+          msg.contains('DiagnosticsNode') ||
+          msg.contains('Assertion failed') ||
+          msg.contains('org-dartlang-sdk')) {
+        if (kDebugMode) {
+          print('Ignoring web inspector/engine error: $msg');
+        }
+        return;
+      }
+      // Dump to console without structured inspector overlay
+      FlutterError.dumpErrorToConsole(details);
+      return;
+    }
+
+    // Non-web: use default handler
     FlutterError.presentError(details);
   };
 
@@ -72,6 +100,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      scrollBehavior: AppScrollBehavior(),
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xffF8FAFC),
         canvasColor: const Color(0xffF8FAFC),
@@ -110,6 +139,18 @@ class MyApp extends StatelessWidget {
       home: const LandingPage(),
     );
   }
+}
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        // Enable drag scrolling for all common input devices on web/mobile
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.unknown,
+      };
 }
 
 class FirebaseInitializer extends StatefulWidget {

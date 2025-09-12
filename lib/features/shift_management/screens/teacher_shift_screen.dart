@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:async'; // Added for StreamSubscription
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
@@ -23,18 +22,10 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   final String _teacherTimezone =
       'America/New_York'; // Get from user preferences
 
-  StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
-
   @override
   void initState() {
     super.initState();
     _setupShiftStream();
-  }
-
-  @override
-  void dispose() {
-    _shiftsSubscription?.cancel();
-    super.dispose();
   }
 
   void _setupShiftStream() {
@@ -50,7 +41,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     print('TeacherShiftScreen: User email: ${user.email}');
 
     // Listen to real-time shifts stream
-    _shiftsSubscription = ShiftService.getTeacherShifts(user.uid).listen(
+    ShiftService.getTeacherShifts(user.uid).listen(
       (shifts) {
         print(
             'TeacherShiftScreen: Stream update - received ${shifts.length} shifts');
@@ -142,18 +133,26 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildFilterTabs(),
-          _buildShiftStats(),
-          Expanded(
-            child: _isLoading
-                ? _buildLoadingState()
-                : _filteredShifts.isEmpty
-                    ? _buildEmptyState()
-                    : _buildShiftsList(),
+      // Make the entire page scrollable (filters + stats + content)
+      body: Scrollbar(
+        thumbVisibility: true,
+        interactive: true,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _buildFilterTabs(),
+              _buildShiftStats(),
+              // Inline the content; list itself won't scroll
+              if (_isLoading)
+                _buildLoadingState()
+              else if (_filteredShifts.isEmpty)
+                _buildEmptyState()
+              else
+                _buildShiftsList(shrinkWrap: true),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -404,10 +403,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     );
   }
 
-  Widget _buildShiftsList() {
+  Widget _buildShiftsList({bool shrinkWrap = false}) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _filteredShifts.length,
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       itemBuilder: (context, index) {
         final shift = _filteredShifts[index];
         return _buildShiftCard(shift);
@@ -490,7 +491,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          shift.subjectDisplayName,
+                          shift.effectiveSubjectDisplayName,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),

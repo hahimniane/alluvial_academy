@@ -5,9 +5,11 @@ import '../../screens/islamic_courses_page.dart';
 import '../../screens/teachers_page.dart';
 import '../../screens/about_page.dart';
 import '../../screens/contact_page.dart';
+import '../../screens/tutoring_literacy_page.dart';
+import '../../screens/afrolingual_page.dart';
 import '../../main.dart';
 
-class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
+class PersistentAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String currentPage;
 
   const PersistentAppBar({
@@ -16,7 +18,22 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
+  State<PersistentAppBar> createState() => _PersistentAppBarState();
+
+  @override
   Size get preferredSize => const Size.fromHeight(80);
+}
+
+class _PersistentAppBarState extends State<PersistentAppBar> {
+  OverlayEntry? _overlayEntry;
+  bool _isProgramsHovered = false;
+  final GlobalKey _programsKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +59,9 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
               const Spacer(),
               // Navigation Items (Desktop)
               if (MediaQuery.of(context).size.width > 1024) ...[
-                _buildNavItem(context, 'Home', currentPage == 'Home', () {
-                  if (currentPage != 'Home') {
+                _buildNavItem(context, 'Home', widget.currentPage == 'Home',
+                    () {
+                  if (widget.currentPage != 'Home') {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -51,19 +69,11 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     );
                   }
                 }),
+                _buildProgramsDropdown(context),
                 _buildNavItem(
-                    context, 'Islamic Courses', currentPage == 'Courses', () {
-                  if (currentPage != 'Courses') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const IslamicCoursesPage()),
-                    );
-                  }
-                }),
-                _buildNavItem(
-                    context, 'Our Teachers', currentPage == 'Teachers', () {
-                  if (currentPage != 'Teachers') {
+                    context, 'Our Teachers', widget.currentPage == 'Teachers',
+                    () {
+                  if (widget.currentPage != 'Teachers') {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -71,8 +81,9 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     );
                   }
                 }),
-                _buildNavItem(context, 'About Us', currentPage == 'About', () {
-                  if (currentPage != 'About') {
+                _buildNavItem(
+                    context, 'About Us', widget.currentPage == 'About', () {
+                  if (widget.currentPage != 'About') {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -80,8 +91,9 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                     );
                   }
                 }),
-                _buildNavItem(context, 'Contact', currentPage == 'Contact', () {
-                  if (currentPage != 'Contact') {
+                _buildNavItem(
+                    context, 'Contact', widget.currentPage == 'Contact', () {
+                  if (widget.currentPage != 'Contact') {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -110,7 +122,7 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget _buildLogo(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        if (currentPage != 'Home') {
+        if (widget.currentPage != 'Home') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const LandingPage()),
@@ -177,6 +189,240 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
+  Widget _buildProgramsDropdown(BuildContext context) {
+    final isProgramsPage = widget.currentPage == 'Courses' ||
+        widget.currentPage == 'Programs' ||
+        widget.currentPage == 'Tutoring' ||
+        widget.currentPage == 'Afrolingual';
+
+    return MouseRegion(
+      onEnter: (_) => _showProgramsDropdown(context),
+      onExit: (_) => _hideProgramsDropdown(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Builder(
+          builder: (context) => GestureDetector(
+            onTap: () => _showProgramsDropdown(context),
+            child: AnimatedContainer(
+              key: _programsKey,
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isProgramsPage || _isProgramsHovered
+                    ? const Color(0xff3B82F6).withOpacity(0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Programs',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: isProgramsPage || _isProgramsHovered
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: isProgramsPage || _isProgramsHovered
+                          ? const Color(0xff3B82F6)
+                          : const Color(0xff374151),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    size: 20,
+                    color: isProgramsPage || _isProgramsHovered
+                        ? const Color(0xff3B82F6)
+                        : const Color(0xff374151),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showProgramsDropdown(BuildContext context) {
+    setState(() {
+      _isProgramsHovered = true;
+    });
+
+    _overlayEntry?.remove();
+    _overlayEntry = _createProgramsOverlay(context);
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideProgramsDropdown() {
+    setState(() {
+      _isProgramsHovered = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!_isProgramsHovered) {
+        _overlayEntry?.remove();
+        _overlayEntry = null;
+      }
+    });
+  }
+
+  OverlayEntry _createProgramsOverlay(BuildContext context) {
+    // Find the Programs dropdown button using its key
+    final programsRenderBox = _programsKey.currentContext?.findRenderObject() as RenderBox?;
+    
+    // Fallback to calculating position based on the app bar if the button isn't found
+    final RenderBox appBar = context.findRenderObject() as RenderBox;
+    final appBarSize = appBar.size;
+    final appBarOffset = appBar.localToGlobal(Offset.zero);
+    
+    double leftPosition;
+    if (programsRenderBox != null) {
+      final programsOffset = programsRenderBox.localToGlobal(Offset.zero);
+      leftPosition = programsOffset.dx;
+    } else {
+      // Calculate approximate position: logo (270px) + Home button (100px) + spacing
+      leftPosition = appBarOffset.dx + 370;
+    }
+
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        left: leftPosition,
+        top: appBarOffset.dy + appBarSize.height - 10,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isProgramsHovered = true),
+          onExit: (_) => _hideProgramsDropdown(),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 280,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDropdownItem(
+                    'Islamic Programs',
+                    'Comprehensive Islamic education',
+                    Icons.menu_book,
+                    const Color(0xff3B82F6),
+                    () {
+                      _hideProgramsDropdown();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const IslamicCoursesPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  _buildDropdownItem(
+                    'After School & Adult Literacy',
+                    'K-12 tutoring and adult education',
+                    Icons.school,
+                    const Color(0xff10B981),
+                    () {
+                      _hideProgramsDropdown();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TutoringLiteracyPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  _buildDropdownItem(
+                    'Afrolingual Program',
+                    'African language learning',
+                    Icons.language,
+                    const Color(0xffF59E0B),
+                    () {
+                      _hideProgramsDropdown();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AfrolingualPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownItem(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavItem(
       BuildContext context, String title, bool isActive, VoidCallback onTap) {
     return Padding(
@@ -214,7 +460,8 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
           false,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
+            MaterialPageRoute(
+                builder: (context) => const FirebaseInitializer()),
           ),
         ),
         const SizedBox(width: 16),
@@ -223,7 +470,8 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
           true,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
+            MaterialPageRoute(
+                builder: (context) => const FirebaseInitializer()),
           ),
         ),
       ],
@@ -298,10 +546,10 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                   _buildMobileNavItem(
                     context,
                     'Home',
-                    currentPage == 'Home',
+                    widget.currentPage == 'Home',
                     () {
                       Navigator.pop(context);
-                      if (currentPage != 'Home') {
+                      if (widget.currentPage != 'Home') {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
@@ -310,28 +558,67 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                       }
                     },
                   ),
+                  // Programs Section Header
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      'PROGRAMS',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff9CA3AF),
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
                   _buildMobileNavItem(
                     context,
-                    'Islamic Courses',
-                    currentPage == 'Courses',
+                    'Islamic Programs',
+                    widget.currentPage == 'Courses',
                     () {
                       Navigator.pop(context);
-                      if (currentPage != 'Courses') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const IslamicCoursesPage()),
-                        );
-                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const IslamicCoursesPage()),
+                      );
                     },
                   ),
                   _buildMobileNavItem(
                     context,
-                    'Our Teachers',
-                    currentPage == 'Teachers',
+                    'After School & Adult Literacy',
+                    widget.currentPage == 'Tutoring',
                     () {
                       Navigator.pop(context);
-                      if (currentPage != 'Teachers') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const TutoringLiteracyPage()),
+                      );
+                    },
+                  ),
+                  _buildMobileNavItem(
+                    context,
+                    'Afrolingual Program',
+                    widget.currentPage == 'Afrolingual',
+                    () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const AfrolingualPage()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMobileNavItem(
+                    context,
+                    'Our Teachers',
+                    widget.currentPage == 'Teachers',
+                    () {
+                      Navigator.pop(context);
+                      if (widget.currentPage != 'Teachers') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -343,10 +630,10 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                   _buildMobileNavItem(
                     context,
                     'About Us',
-                    currentPage == 'About',
+                    widget.currentPage == 'About',
                     () {
                       Navigator.pop(context);
-                      if (currentPage != 'About') {
+                      if (widget.currentPage != 'About') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -358,10 +645,10 @@ class PersistentAppBar extends StatelessWidget implements PreferredSizeWidget {
                   _buildMobileNavItem(
                     context,
                     'Contact',
-                    currentPage == 'Contact',
+                    widget.currentPage == 'Contact',
                     () {
                       Navigator.pop(context);
-                      if (currentPage != 'Contact') {
+                      if (widget.currentPage != 'Contact') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(

@@ -6,6 +6,7 @@ class AppUser {
   final String? role;
   final String? name;
   final bool isActive;
+  final String? timezone;
 
   AppUser({
     required this.id,
@@ -13,6 +14,7 @@ class AppUser {
     this.role,
     this.name,
     this.isActive = true,
+    this.timezone,
   });
 
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
@@ -23,6 +25,7 @@ class AppUser {
       role: data['user_type'] ?? data['role'],
       name: (data['first_name'] ?? '') + ' ' + (data['last_name'] ?? ''),
       isActive: data['is_active'] ?? true,
+      timezone: data['timezone'],
     );
   }
 
@@ -33,6 +36,7 @@ class AppUser {
       role: map['role'] ?? '',
       name: map['name'] ?? '',
       isActive: map['isActive'] ?? true,
+      timezone: map['timezone'],
     );
   }
 
@@ -43,6 +47,7 @@ class AppUser {
       'role': role,
       'name': name,
       'isActive': isActive,
+      'timezone': timezone,
     };
   }
 }

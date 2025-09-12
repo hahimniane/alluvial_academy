@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Temporary debug script to check what's in the database

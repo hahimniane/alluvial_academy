@@ -39,7 +39,7 @@ class PrayerTimeService {
       // Get user location with timeout
       LocationData? location;
       try {
-        location = await LocationService.getCurrentLocation()
+        location = await LocationService.getCurrentLocation(interactive: false)
             .timeout(const Duration(seconds: 15), onTimeout: () {
           print('PrayerTimeService: Location request timed out');
           return null;
@@ -183,7 +183,8 @@ class PrayerTimeService {
   /// Get tomorrow's prayer times
   static Future<List<PrayerTime>> getTomorrowPrayerTimes() async {
     try {
-      LocationData? location = await LocationService.getCurrentLocation();
+      LocationData? location =
+          await LocationService.getCurrentLocation(interactive: false);
       if (location == null) {
         return [];
       }

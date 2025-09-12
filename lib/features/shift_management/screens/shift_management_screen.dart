@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/user_role_service.dart';
 import '../widgets/create_shift_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
+import '../widgets/subject_management_dialog.dart';
 
 class ShiftManagementScreen extends StatefulWidget {
   const ShiftManagementScreen({super.key});
@@ -27,22 +32,71 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   Map<String, dynamic> _shiftStats = {};
   bool _isLoading = true;
+  bool _isAdmin = false;
+  String? _currentUserId;
 
   // Bulk selection state
   Set<String> _selectedShiftIds = {};
   bool _isSelectionMode = false;
 
+  // Teacher deletion state
+  List<Employee> _availableTeachers = [];
+  Map<String, String> _teacherEmailToIdMap = {}; // email -> document ID
+  String? _selectedTeacherForDeletion;
+
+  // Search functionality
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  // Filtered shifts
+  List<TeachingShift> _filteredAllShifts = [];
+  List<TeachingShift> _filteredTodayShifts = [];
+  List<TeachingShift> _filteredUpcomingShifts = [];
+  List<TeachingShift> _filteredActiveShifts = [];
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadShiftData();
-    _loadShiftStatistics();
+    _initializeUserRole();
+  }
+
+  Future<void> _initializeUserRole() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user');
+      }
+
+      final isAdmin = await UserRoleService.isAdmin();
+
+      if (mounted) {
+        setState(() {
+          _currentUserId = currentUser.uid;
+          _isAdmin = isAdmin;
+        });
+
+        // Load data based on role
+        await _loadShiftData();
+        await _loadShiftStatistics();
+        if (_isAdmin) {
+          await _loadTeachers();
+        }
+      }
+    } catch (e) {
+      print('Error initializing user role: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -50,12 +104,24 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     setState(() => _isLoading = true);
 
     try {
-      // Listen to all shifts stream
-      ShiftService.getAllShifts().listen((shifts) {
+      Stream<List<TeachingShift>> shiftsStream;
+
+      if (_isAdmin) {
+        // Admins see all shifts
+        shiftsStream = ShiftService.getAllShifts();
+      } else {
+        // Teachers only see their own shifts
+        if (_currentUserId == null) {
+          throw Exception('User ID not available');
+        }
+        shiftsStream = ShiftService.getTeacherShifts(_currentUserId!);
+      }
+
+      shiftsStream.listen((shifts) {
         if (mounted) {
           setState(() {
             _allShifts = shifts;
-            _filterShifts();
+            _categorizeShifts();
             _isLoading = false;
           });
         }
@@ -81,7 +147,55 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
   }
 
-  void _filterShifts() {
+  Future<void> _loadTeachers() async {
+    print('ShiftManagement: Loading teachers using ShiftService...');
+    try {
+      // Use the same method as CreateShiftDialog
+      final teachers = await ShiftService.getAvailableTeachers();
+      print(
+          'ShiftManagement: ShiftService returned ${teachers.length} teachers');
+
+      // Build email to document ID mapping by querying each teacher's document
+      final emailToIdMap = <String, String>{};
+      for (final teacher in teachers) {
+        try {
+          final teacherSnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('e-mail', isEqualTo: teacher.email)
+              .limit(1)
+              .get();
+
+          if (teacherSnapshot.docs.isNotEmpty) {
+            emailToIdMap[teacher.email] = teacherSnapshot.docs.first.id;
+            print(
+                'ShiftManagement: ✅ Mapped ${teacher.email} -> ${teacherSnapshot.docs.first.id}');
+          } else {
+            print(
+                'ShiftManagement: ❌ No document found for email: ${teacher.email}');
+          }
+        } catch (e) {
+          print('ShiftManagement: Error mapping teacher email to ID: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableTeachers = teachers;
+          _teacherEmailToIdMap = emailToIdMap;
+        });
+        print(
+            'ShiftManagement: ✅ Successfully loaded ${teachers.length} teachers');
+        for (final teacher in teachers) {
+          print(
+              'ShiftManagement: Teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
+        }
+      }
+    } catch (e) {
+      print('ShiftManagement: ❌ Error loading teachers: $e');
+    }
+  }
+
+  void _categorizeShifts() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
@@ -101,28 +215,210 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     _activeShifts = _allShifts
         .where((shift) => shift.status == ShiftStatus.active)
         .toList();
+
+    // Apply search filter
+    _filterShifts();
+  }
+
+  void _filterShifts() {
+    if (_searchQuery.isEmpty) {
+      _filteredAllShifts = List.from(_allShifts);
+      _filteredTodayShifts = List.from(_todayShifts);
+      _filteredUpcomingShifts = List.from(_upcomingShifts);
+      _filteredActiveShifts = List.from(_activeShifts);
+    } else {
+      final query = _searchQuery.toLowerCase();
+      _filteredAllShifts = _allShifts
+          .where((shift) => shift.teacherName.toLowerCase().contains(query))
+          .toList();
+      _filteredTodayShifts = _todayShifts
+          .where((shift) => shift.teacherName.toLowerCase().contains(query))
+          .toList();
+      _filteredUpcomingShifts = _upcomingShifts
+          .where((shift) => shift.teacherName.toLowerCase().contains(query))
+          .toList();
+      _filteredActiveShifts = _activeShifts
+          .where((shift) => shift.teacherName.toLowerCase().contains(query))
+          .toList();
+    }
+  }
+
+  int _getFilteredShiftsCount() {
+    return _filteredAllShifts.length;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
-      body: Column(
-        children: [
-          _buildHeader(),
-          _buildStatsCards(),
-          _buildTabContent(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewportHeight = constraints.maxHeight;
+          return Scrollbar(
+            thumbVisibility: true,
+            interactive: true,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.zero,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: viewportHeight),
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    _buildStatsCards(),
+                    _buildTabContentScrollable(context, viewportHeight),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Scroll-friendly tab content: avoids Expanded and gives TabBarView a bounded height
+  Widget _buildTabContentScrollable(BuildContext context, double viewportHeight) {
+    final tabViewHeight = math.max(420.0, viewportHeight * 0.6);
+
+    return Container(
+      margin: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateShiftDialog,
-        backgroundColor: const Color(0xff0386FF),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: Text(
-          'Create Shift',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
+      child: Column(
+        children: [
+          // Teacher Search Bar
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                          _filterShifts();
+                        });
+                      },
+                      style: GoogleFonts.inter(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Search by teacher name...',
+                        hintStyle: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Color(0xFF6B7280),
+                          size: 20,
+                        ),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _filterShifts();
+                                  });
+                                },
+                                icon: const Icon(Icons.close, size: 18, color: Color(0xFF6B7280)),
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0386FF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      '${_getFilteredShiftsCount()} results',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF0386FF),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          // Tabs
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: const Color(0xff0386FF),
+              unselectedLabelColor: const Color(0xff6B7280),
+              indicatorColor: const Color(0xff0386FF),
+              labelStyle: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              tabs: [
+                Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
+                Tab(text: 'Today (${_filteredTodayShifts.length})'),
+                Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
+                Tab(text: 'Active (${_filteredActiveShifts.length})'),
+              ],
+            ),
+          ),
+          // Tab contents - fixed, scrollable region
+          SizedBox(
+            height: tabViewHeight,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildShiftDataGrid(_filteredAllShifts),
+                _buildShiftDataGrid(_filteredTodayShifts),
+                _buildShiftDataGrid(_filteredUpcomingShifts),
+                _buildShiftDataGrid(_filteredActiveShifts),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -162,7 +458,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Shift Management',
+                            _isAdmin ? 'Shift Management' : 'My Shifts',
                             style: GoogleFonts.inter(
                               fontSize: 28,
                               fontWeight: FontWeight.w700,
@@ -171,7 +467,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Manage Islamic education teaching shifts and schedules',
+                            _isAdmin
+                                ? 'Manage Islamic education teaching shifts and schedules'
+                                : 'View your assigned teaching shifts and schedules',
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               color: const Color(0xff6B7280),
@@ -180,39 +478,178 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         ],
                       ),
                     ),
-                    // Bulk selection toggle
+                    // Action buttons
                     if (!_isLoading) ...[
-                      TextButton.icon(
-                        onPressed: _toggleSelectionMode,
-                        icon: Icon(
-                          _isSelectionMode ? Icons.close : Icons.checklist,
-                          size: 20,
-                        ),
-                        label: Text(
-                          _isSelectionMode ? 'Cancel' : 'Select',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: _isSelectionMode
-                              ? Colors.red
-                              : const Color(0xff0386FF),
-                        ),
-                      ),
-                      if (_isSelectionMode && _selectedShiftIds.isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                      // Only show admin controls for admins
+                      if (_isAdmin) ...[
                         ElevatedButton.icon(
-                          onPressed: _deleteSelectedShifts,
-                          icon: const Icon(Icons.delete, size: 20),
+                          onPressed: _showCreateShiftDialog,
+                          icon: const Icon(Icons.add, size: 20),
                           label: Text(
-                            'Delete (${_selectedShiftIds.length})',
+                            'Create Shift',
                             style:
                                 GoogleFonts.inter(fontWeight: FontWeight.w600),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                            backgroundColor: const Color(0xff0386FF),
                             foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        PopupMenuButton<String>(
+                          onSelected: (value) async {
+                            if (value == 'manage_subjects') {
+                              showDialog(
+                                context: context,
+                                builder: (context) =>
+                                    const SubjectManagementDialog(),
+                              ).then((_) => _loadShiftData());
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'manage_subjects',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.subject,
+                                      size: 20, color: Color(0xff0386FF)),
+                                  SizedBox(width: 8),
+                                  Text('Manage Subjects'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border:
+                                  Border.all(color: const Color(0xffE2E8F0)),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white,
+                            ),
+                            child: const Icon(
+                              Icons.settings,
+                              size: 20,
+                              color: Color(0xff6B7280),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton.icon(
+                          onPressed: _toggleSelectionMode,
+                          icon: Icon(
+                            _isSelectionMode ? Icons.close : Icons.checklist,
+                            size: 20,
+                          ),
+                          label: Text(
+                            _isSelectionMode ? 'Cancel' : 'Select',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _isSelectionMode
+                                ? Colors.red
+                                : const Color(0xff0386FF),
+                          ),
+                        ),
+                        if (_isSelectionMode &&
+                            _selectedShiftIds.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: _deleteSelectedShifts,
+                            icon: const Icon(Icons.delete, size: 20),
+                            label: Text(
+                              'Delete (${_selectedShiftIds.length})',
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                        if (!_isSelectionMode) ...[
+                          const SizedBox(width: 12),
+                          // Teacher selection searchable dropdown
+                          Container(
+                            width: 200,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              border:
+                                  Border.all(color: const Color(0xffE2E8F0)),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white,
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _availableTeachers.isNotEmpty
+                                    ? _showTeacherSearchDialog
+                                    : null,
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _selectedTeacherForDeletion != null
+                                              ? _getTeacherDisplayName(
+                                                  _selectedTeacherForDeletion!)
+                                              : _availableTeachers.isEmpty
+                                                  ? 'Loading teachers...'
+                                                  : 'Search Teacher (${_availableTeachers.length})',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            color:
+                                                _selectedTeacherForDeletion !=
+                                                        null
+                                                    ? const Color(0xff111827)
+                                                    : const Color(0xff6B7280),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Icon(
+                                        _selectedTeacherForDeletion != null
+                                            ? Icons.person
+                                            : Icons.search,
+                                        color: const Color(0xff6B7280),
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Delete teacher shifts button
+                          ElevatedButton.icon(
+                            onPressed: _selectedTeacherForDeletion != null
+                                ? _deleteTeacherShifts
+                                : null,
+                            icon: const Icon(Icons.person_remove, size: 20),
+                            label: Text(
+                              'Delete Teacher Shifts',
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  _selectedTeacherForDeletion != null
+                                      ? Colors.red
+                                      : Colors.grey,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ],
@@ -366,6 +803,91 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         ),
         child: Column(
           children: [
+            // Teacher Search Bar
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                            _filterShifts();
+                          });
+                        },
+                        style: GoogleFonts.inter(fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Search by teacher name...',
+                          hintStyle: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xFF9CA3AF),
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Color(0xFF6B7280),
+                            size: 20,
+                          ),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                      _filterShifts();
+                                    });
+                                  },
+                                  icon: const Icon(
+                                    Icons.clear,
+                                    color: Color(0xFF6B7280),
+                                    size: 18,
+                                  ),
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_searchQuery.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0386FF).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '${_getFilteredShiftsCount()} results',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF0386FF),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
@@ -387,10 +909,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   fontWeight: FontWeight.w500,
                 ),
                 tabs: [
-                  Tab(text: 'All Shifts (${_allShifts.length})'),
-                  Tab(text: 'Today (${_todayShifts.length})'),
-                  Tab(text: 'Upcoming (${_upcomingShifts.length})'),
-                  Tab(text: 'Active (${_activeShifts.length})'),
+                  Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
+                  Tab(text: 'Today (${_filteredTodayShifts.length})'),
+                  Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
+                  Tab(text: 'Active (${_filteredActiveShifts.length})'),
                 ],
               ),
             ),
@@ -398,10 +920,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildShiftDataGrid(_allShifts),
-                  _buildShiftDataGrid(_todayShifts),
-                  _buildShiftDataGrid(_upcomingShifts),
-                  _buildShiftDataGrid(_activeShifts),
+                  _buildShiftDataGrid(_filteredAllShifts),
+                  _buildShiftDataGrid(_filteredTodayShifts),
+                  _buildShiftDataGrid(_filteredUpcomingShifts),
+                  _buildShiftDataGrid(_filteredActiveShifts),
                 ],
               ),
             ),
@@ -428,7 +950,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'No shifts found',
+              _searchQuery.isEmpty
+                  ? 'No shifts found'
+                  : 'No shifts found for "${_searchQuery}"',
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -437,7 +961,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Create your first shift to get started',
+              _searchQuery.isEmpty
+                  ? 'Create your first shift to get started'
+                  : 'Try searching with a different teacher name',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff9CA3AF),
@@ -464,9 +990,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           isSelectionMode: _isSelectionMode,
           selectedShiftIds: _selectedShiftIds,
           onSelectionChanged: _onShiftSelectionChanged,
+          isAdmin: _isAdmin,
         ),
         columns: [
-          if (_isSelectionMode)
+          if (_isSelectionMode && _isAdmin)
             GridColumn(
               columnName: 'checkbox',
               width: 60,
@@ -836,6 +1363,283 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       }
     });
   }
+
+  String _getTeacherDisplayName(String email) {
+    final teacher = _availableTeachers.firstWhere(
+      (t) => t.email == email,
+      orElse: () => Employee(
+        firstName: 'Unknown',
+        lastName: 'Teacher',
+        email: email,
+        countryCode: '',
+        mobilePhone: '',
+        userType: 'teacher',
+        title: '',
+        employmentStartDate: '',
+        kioskCode: '',
+        dateAdded: '',
+        lastLogin: '',
+        documentId: '', // Add missing documentId parameter
+      ),
+    );
+    return '${teacher.firstName} ${teacher.lastName}';
+  }
+
+  void _showTeacherSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _TeacherSearchDialog(
+          teachers: _availableTeachers,
+          onTeacherSelected: (email) {
+            setState(() {
+              _selectedTeacherForDeletion = email.isEmpty ? null : email;
+            });
+          },
+          currentlySelected: _selectedTeacherForDeletion,
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteTeacherShifts() async {
+    if (_selectedTeacherForDeletion == null) return;
+
+    // Find the selected teacher
+    final selectedTeacher = _availableTeachers.firstWhere(
+      (teacher) => teacher.email == _selectedTeacherForDeletion,
+    );
+
+    // Get the teacher's document ID
+    final teacherId = _teacherEmailToIdMap[_selectedTeacherForDeletion];
+    if (teacherId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Teacher ID not found'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Count shifts for this teacher
+    final teacherShifts =
+        _allShifts.where((shift) => shift.teacherId == teacherId).length;
+
+    if (teacherShifts == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'No shifts found for ${selectedTeacher.firstName} ${selectedTeacher.lastName}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.red,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Delete All Teacher Shifts',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff111827),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete all shifts for:',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xffFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+                border:
+                    Border.all(color: const Color(0xffF59E0B).withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xffF59E0B),
+                    child: Text(
+                      '${selectedTeacher.firstName[0]}${selectedTeacher.lastName[0]}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${selectedTeacher.firstName} ${selectedTeacher.lastName}',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff92400E),
+                          ),
+                        ),
+                        Text(
+                          selectedTeacher.email,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff92400E).withOpacity(0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$teacherShifts shifts will be permanently deleted. This action cannot be undone.',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.red,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff6B7280),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.delete, size: 18),
+            label: Text(
+              'Delete All ($teacherShifts)',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Show loading state
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Deleting all shifts for ${selectedTeacher.firstName} ${selectedTeacher.lastName}...'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
+        // Delete all shifts for the teacher
+        final deletedCount =
+            await ShiftService.deleteAllShiftsByTeacher(teacherId);
+
+        if (mounted) {
+          setState(() {
+            _selectedTeacherForDeletion = null; // Reset selection
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Successfully deleted $deletedCount shifts for ${selectedTeacher.firstName} ${selectedTeacher.lastName}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+
+          // Force refresh both statistics and shift data
+          _loadShiftStatistics();
+          _loadShiftData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting teacher shifts: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+  }
 }
 
 class ShiftDataSource extends DataGridSource {
@@ -846,6 +1650,7 @@ class ShiftDataSource extends DataGridSource {
   final bool isSelectionMode;
   final Set<String> selectedShiftIds;
   final Function(String, bool) onSelectionChanged;
+  final bool isAdmin;
 
   ShiftDataSource({
     required this.shifts,
@@ -855,6 +1660,7 @@ class ShiftDataSource extends DataGridSource {
     required this.isSelectionMode,
     required this.selectedShiftIds,
     required this.onSelectionChanged,
+    required this.isAdmin,
   });
 
   @override
@@ -862,8 +1668,8 @@ class ShiftDataSource extends DataGridSource {
     return shifts.map<DataGridRow>((shift) {
       final cells = <DataGridCell>[];
 
-      // Add checkbox cell if in selection mode
-      if (isSelectionMode) {
+      // Add checkbox cell if in selection mode and user is admin
+      if (isSelectionMode && isAdmin) {
         cells.add(DataGridCell<bool>(
             columnName: 'checkbox',
             value: selectedShiftIds.contains(shift.id)));
@@ -1025,22 +1831,25 @@ class ShiftDataSource extends DataGridSource {
             color: const Color(0xff0386FF),
             tooltip: 'View Details',
           ),
-          const SizedBox(width: 8),
-          if (shift.status == ShiftStatus.scheduled) ...[
-            IconButton(
-              onPressed: () => onEditShift(shift),
-              icon: const Icon(Icons.edit, size: 20),
-              color: const Color(0xffF59E0B),
-              tooltip: 'Edit Shift',
-            ),
+          // Only show edit and delete buttons for admins
+          if (isAdmin) ...[
             const SizedBox(width: 8),
+            if (shift.status == ShiftStatus.scheduled) ...[
+              IconButton(
+                onPressed: () => onEditShift(shift),
+                icon: const Icon(Icons.edit, size: 20),
+                color: const Color(0xffF59E0B),
+                tooltip: 'Edit Shift',
+              ),
+              const SizedBox(width: 8),
+            ],
+            IconButton(
+              onPressed: () => onDeleteShift(shift),
+              icon: const Icon(Icons.delete, size: 20),
+              color: const Color(0xffEF4444),
+              tooltip: 'Delete Shift',
+            ),
           ],
-          IconButton(
-            onPressed: () => onDeleteShift(shift),
-            icon: const Icon(Icons.delete, size: 20),
-            color: const Color(0xffEF4444),
-            tooltip: 'Delete Shift',
-          ),
         ],
       ),
     );
@@ -1054,5 +1863,273 @@ class ShiftDataSource extends DataGridSource {
               DataGridCell<TeachingShift>(columnName: 'actions', value: null),
         );
     return actionsCell.value as TeachingShift?;
+  }
+}
+
+class _TeacherSearchDialog extends StatefulWidget {
+  final List<Employee> teachers;
+  final Function(String) onTeacherSelected;
+  final String? currentlySelected;
+
+  const _TeacherSearchDialog({
+    required this.teachers,
+    required this.onTeacherSelected,
+    this.currentlySelected,
+  });
+
+  @override
+  State<_TeacherSearchDialog> createState() => _TeacherSearchDialogState();
+}
+
+class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Employee> _filteredTeachers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredTeachers = widget.teachers;
+    _searchController.addListener(_filterTeachers);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterTeachers() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredTeachers = widget.teachers.where((teacher) {
+        final fullName =
+            '${teacher.firstName} ${teacher.lastName}'.toLowerCase();
+        final email = teacher.email.toLowerCase();
+        return fullName.contains(query) || email.contains(query);
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 400,
+        height: 500,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Icon(
+                  Icons.search,
+                  color: const Color(0xff0386FF),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Search Teachers',
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: Color(0xff6B7280)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Search field
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xffE2E8F0)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: GoogleFonts.inter(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search by name or email...',
+                  hintStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff9CA3AF),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xff6B7280),
+                    size: 20,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Results count
+            Text(
+              '${_filteredTeachers.length} teachers found',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Teachers list
+            Expanded(
+              child: _filteredTeachers.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.person_search,
+                            size: 48,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No teachers found',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              color: const Color(0xff6B7280),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Try adjusting your search',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: const Color(0xff9CA3AF),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filteredTeachers.length,
+                      itemBuilder: (context, index) {
+                        final teacher = _filteredTeachers[index];
+                        final isSelected =
+                            teacher.email == widget.currentlySelected;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xff0386FF).withOpacity(0.1)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xff0386FF)
+                                  : const Color(0xffE2E8F0),
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                widget.onTeacherSelected(teacher.email);
+                                Navigator.pop(context);
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: const Color(0xff0386FF),
+                                      child: Text(
+                                        '${teacher.firstName[0]}${teacher.lastName[0]}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${teacher.firstName} ${teacher.lastName}',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: const Color(0xff111827),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            teacher.email,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              color: const Color(0xff6B7280),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      const Icon(
+                                        Icons.check_circle,
+                                        color: Color(0xff0386FF),
+                                        size: 20,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+
+            // Clear selection button
+            if (widget.currentlySelected != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () {
+                    widget.onTeacherSelected(''); // Clear selection
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.clear, size: 18),
+                  label: Text(
+                    'Clear Selection',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

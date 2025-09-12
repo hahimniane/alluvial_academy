@@ -352,6 +352,8 @@ class TaskService {
         recurrenceType: task.recurrenceType,
         createdAt: task.createdAt,
         attachments: updatedAttachments,
+        completedAt: task.completedAt,
+        overdueDaysAtCompletion: task.overdueDaysAtCompletion,
       );
 
       await updateTask(taskId, updatedTask);
@@ -392,6 +394,8 @@ class TaskService {
         recurrenceType: task.recurrenceType,
         createdAt: task.createdAt,
         attachments: updatedAttachments,
+        completedAt: task.completedAt,
+        overdueDaysAtCompletion: task.overdueDaysAtCompletion,
       );
 
       await updateTask(taskId, updatedTask);

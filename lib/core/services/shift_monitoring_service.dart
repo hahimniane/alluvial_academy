@@ -142,7 +142,7 @@ class ShiftMonitoringService {
       // Try to get a reasonable location (use last known or default)
       LocationData? location;
       try {
-        location = await LocationService.getCurrentLocation();
+        location = await LocationService.getCurrentLocation(interactive: false);
       } catch (e) {
         print(
             'ShiftMonitoringService: Could not get location for auto clock-out, using default');

@@ -151,23 +151,18 @@ class _ContactPageState extends State<ContactPage>
                   const SizedBox(height: 32),
                   _buildContactItem(
                     Icons.phone,
-                    'Phone Numbers',
+                    'Contact Numbers',
                     [
-                      'USA: +1 (555) 123-4567',
-                      'UK: +44 20 7123 4567',
-                      'Canada: +1 (416) 123-4567',
-                      'Australia: +61 2 1234 5678',
+                      'WhatsApp: +1 646-872-8590',
                     ],
                     const Color(0xff3B82F6),
                   ),
                   const SizedBox(height: 32),
                   _buildContactItem(
                     Icons.email,
-                    'Email Addresses',
+                    'Email Address',
                     [
-                      'info@alluwalacademy.com',
-                      'support@alluwalacademy.com',
-                      'teachers@alluwalacademy.com',
+                      'alluwhalacademy@gmail.com',
                     ],
                     const Color(0xff10B981),
                   ),

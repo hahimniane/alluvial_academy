@@ -43,7 +43,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       vsync: this,
     );
     _fabAnimationController.forward();
-    
+
     // Start loading immediately and also listen for auth state changes
     _loadUserRoleAndTasks();
     _listenToAuthState();
@@ -71,7 +71,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       try {
         final currentAdmin = await UserRoleService.isAdmin();
         if (currentAdmin != _isAdmin) {
-          print('QuickTasks: Role change detected! Admin: $_isAdmin -> $currentAdmin');
+          print(
+              'QuickTasks: Role change detected! Admin: $_isAdmin -> $currentAdmin');
           // Role has changed, reload tasks
           _loadUserRoleAndTasks();
         }
@@ -83,7 +84,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
   Future<void> _loadUserRoleAndTasks() async {
     if (!mounted) return;
-    
+
     try {
       // Set loading state immediately
       setState(() {
@@ -110,18 +111,24 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           _isAdmin = isAdmin;
           _taskStream = taskStream;
           _isLoading = false;
+          
+          // Clear admin-only filters for non-admin users
+          if (!isAdmin) {
+            _filterAssignedByUserId = null;
+            _filterAssignedToUserIds = [];
+          }
         });
-        
+
         print('Tasks loaded successfully. Admin: $isAdmin');
       }
     } catch (e) {
       print('Error loading user role and tasks: $e');
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        
+
         // Retry after a delay if there's an error
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
@@ -266,19 +273,22 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         // All Tasks chip
         _buildModernFilterChip(
           label: 'All Tasks',
-          isSelected: _selectedStatus == null && _selectedPriority == null && 
-                     _dueDateRange == null && _filterAssignedByUserId == null && 
-                     _filterAssignedToUserIds.isEmpty,
+          isSelected: _selectedStatus == null &&
+              _selectedPriority == null &&
+              _dueDateRange == null &&
+              (_isAdmin ? (_filterAssignedByUserId == null && _filterAssignedToUserIds.isEmpty) : true),
           onSelected: () => setState(() {
             _selectedStatus = null;
             _selectedPriority = null;
             _dueDateRange = null;
-            _filterAssignedByUserId = null;
-            _filterAssignedToUserIds = [];
+            if (_isAdmin) {
+              _filterAssignedByUserId = null;
+              _filterAssignedToUserIds = [];
+            }
           }),
           color: Colors.grey[600]!,
         ),
-        
+
         // Status filters
         ...TaskStatus.values.map((status) => _buildModernFilterChip(
               label: _getStatusLabel(status),
@@ -287,7 +297,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   _selectedStatus = _selectedStatus == status ? null : status),
               color: _getStatusColor(status),
             )),
-            
+
         // Priority filters
         ...TaskPriority.values.map((priority) => _buildModernFilterChip(
               label: _getPriorityLabel(priority),
@@ -296,7 +306,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   _selectedPriority == priority ? null : priority),
               color: _getPriorityColor(priority),
             )),
-            
+
         // Due Date filter chip
         _buildModernFilterChip(
           label: _dueDateRange == null
@@ -316,7 +326,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 context: context,
                 firstDate: DateTime(2020),
                 lastDate: DateTime(now.year + 5),
-                initialDateRange: DateTimeRange(start: currentMonthStart, end: currentMonthEnd),
+                initialDateRange: DateTimeRange(
+                    start: currentMonthStart, end: currentMonthEnd),
                 currentDate: now,
                 helpText: 'Select Date Range for Tasks',
                 cancelText: 'Cancel',
@@ -353,16 +364,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                               ),
                               rangeSelectionBackgroundColor:
                                   const Color(0xff0386FF).withOpacity(0.1),
-                              rangeSelectionOverlayColor: WidgetStateProperty.all(
+                              rangeSelectionOverlayColor:
+                                  WidgetStateProperty.all(
                                 const Color(0xff0386FF).withOpacity(0.1),
                               ),
-                              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                              dayBackgroundColor:
+                                  WidgetStateProperty.resolveWith((states) {
                                 if (states.contains(WidgetState.selected)) {
                                   return const Color(0xff0386FF);
                                 }
                                 return null;
                               }),
-                              dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                              dayForegroundColor:
+                                  WidgetStateProperty.resolveWith((states) {
                                 if (states.contains(WidgetState.selected)) {
                                   return Colors.white;
                                 }
@@ -395,42 +409,44 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           },
           color: const Color(0xFF4CAF50),
         ),
-        
-        // Assigned By filter chip
-        _buildModernFilterChip(
-          label: _filterAssignedByUserId == null
-              ? 'Assigned By'
-              : 'By: ${_userIdToName[_filterAssignedByUserId] ?? 'Loading...'}',
-          isSelected: _filterAssignedByUserId != null,
-          onSelected: () async {
-            if (_filterAssignedByUserId != null) {
-              // Clear filter if already set
-              setState(() => _filterAssignedByUserId = null);
-            } else {
-              // Open user picker
-              await _openAssignedByPicker();
-            }
-          },
-          color: const Color(0xFF2196F3),
-        ),
-        
-        // Assigned To filter chip
-        _buildModernFilterChip(
-          label: _filterAssignedToUserIds.isEmpty
-              ? 'Assigned To'
-              : 'To: ${_formatAssigneesLabel(_filterAssignedToUserIds)}',
-          isSelected: _filterAssignedToUserIds.isNotEmpty,
-          onSelected: () async {
-            if (_filterAssignedToUserIds.isNotEmpty) {
-              // Clear filter if already set
-              setState(() => _filterAssignedToUserIds = []);
-            } else {
-              // Open user picker
-              await _openAssignedToPicker();
-            }
-          },
-          color: const Color(0xFF9C27B0),
-        ),
+
+        // Assigned By filter chip - only show for admins
+        if (_isAdmin)
+          _buildModernFilterChip(
+            label: _filterAssignedByUserId == null
+                ? 'Assigned By'
+                : 'By: ${_userIdToName[_filterAssignedByUserId] ?? 'Loading...'}',
+            isSelected: _filterAssignedByUserId != null,
+            onSelected: () async {
+              if (_filterAssignedByUserId != null) {
+                // Clear filter if already set
+                setState(() => _filterAssignedByUserId = null);
+              } else {
+                // Open user picker
+                await _openAssignedByPicker();
+              }
+            },
+            color: const Color(0xFF2196F3),
+          ),
+
+        // Assigned To filter chip - only show for admins
+        if (_isAdmin)
+          _buildModernFilterChip(
+            label: _filterAssignedToUserIds.isEmpty
+                ? 'Assigned To'
+                : 'To: ${_formatAssigneesLabel(_filterAssignedToUserIds)}',
+            isSelected: _filterAssignedToUserIds.isNotEmpty,
+            onSelected: () async {
+              if (_filterAssignedToUserIds.isNotEmpty) {
+                // Clear filter if already set
+                setState(() => _filterAssignedToUserIds = []);
+              } else {
+                // Open user picker
+                await _openAssignedToPicker();
+              }
+            },
+            color: const Color(0xFF9C27B0),
+          ),
       ],
     );
   }
@@ -463,100 +479,103 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   _selectedPriority == priority ? null : priority),
               color: _getPriorityColor(priority),
             )),
-                 // Due date filter (reuse app pattern)
-         InputChip(
-           avatar: const Icon(Icons.date_range, size: 18),
-           label: Text(_dueDateRange == null
-               ? 'Due date'
-               : '${DateFormat('MM/dd').format(_dueDateRange!.start)} - ${DateFormat('MM/dd').format(_dueDateRange!.end)}'),
-           onPressed: () async {
-             final now = DateTime.now();
-             final currentMonthStart = DateTime(now.year, now.month, 1);
-             final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
-             final picked = await showDateRangePicker(
-               context: context,
-               firstDate: DateTime(2020),
-               lastDate: DateTime(now.year + 5),
-               initialDateRange: _dueDateRange ??
-                   DateTimeRange(start: currentMonthStart, end: currentMonthEnd),
-               currentDate: now,
-               helpText: 'Select Date Range for Tasks',
-               cancelText: 'Cancel',
-               confirmText: 'Apply Filter',
-               saveText: 'Apply',
-               builder: (context, child) {
-                 return Center(
-                   child: SingleChildScrollView(
-                     child: Container(
-                       constraints: const BoxConstraints(
-                         maxWidth: 450,
-                         maxHeight: 600,
-                       ),
-                       child: Theme(
-                         data: Theme.of(context).copyWith(
-                           datePickerTheme: DatePickerThemeData(
-                             backgroundColor: Colors.white,
-                             surfaceTintColor: Colors.white,
-                             headerBackgroundColor: const Color(0xff0386FF),
-                             headerForegroundColor: Colors.white,
-                             headerHeadlineStyle: const TextStyle(
-                               fontSize: 18,
-                               fontWeight: FontWeight.w600,
-                               color: Colors.white,
-                             ),
-                             headerHelpStyle: const TextStyle(
-                               fontSize: 14,
-                               fontWeight: FontWeight.w500,
-                               color: Colors.white70,
-                             ),
-                             dayStyle: const TextStyle(
-                               fontSize: 14,
-                               fontWeight: FontWeight.w500,
-                             ),
-                             rangeSelectionBackgroundColor:
-                                 const Color(0xff0386FF).withOpacity(0.1),
-                             rangeSelectionOverlayColor: WidgetStateProperty.all(
-                               const Color(0xff0386FF).withOpacity(0.1),
-                             ),
-                             dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
-                               if (states.contains(WidgetState.selected)) {
-                                 return const Color(0xff0386FF);
-                               }
-                               return null;
-                             }),
-                             dayForegroundColor: WidgetStateProperty.resolveWith((states) {
-                               if (states.contains(WidgetState.selected)) {
-                                 return Colors.white;
-                               }
-                               return null;
-                             }),
-                           ),
-                           textButtonTheme: TextButtonThemeData(
-                             style: TextButton.styleFrom(
-                               foregroundColor: const Color(0xff0386FF),
-                               textStyle: const TextStyle(
-                                 fontWeight: FontWeight.w600,
-                                 fontSize: 14,
-                               ),
-                               padding: const EdgeInsets.symmetric(
-                                 horizontal: 16,
-                                 vertical: 8,
-                               ),
-                             ),
-                           ),
-                         ),
-                         child: child!,
-                       ),
-                     ),
-                   ),
-                 );
-               },
-             );
-             if (picked != null) setState(() => _dueDateRange = picked);
-           },
-           onDeleted:
-               _dueDateRange != null ? () => setState(() => _dueDateRange = null) : null,
-         ),
+        // Due date filter (reuse app pattern)
+        InputChip(
+          avatar: const Icon(Icons.date_range, size: 18),
+          label: Text(_dueDateRange == null
+              ? 'Due date'
+              : '${DateFormat('MM/dd').format(_dueDateRange!.start)} - ${DateFormat('MM/dd').format(_dueDateRange!.end)}'),
+          onPressed: () async {
+            final now = DateTime.now();
+            final currentMonthStart = DateTime(now.year, now.month, 1);
+            final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(now.year + 5),
+              initialDateRange: _dueDateRange ??
+                  DateTimeRange(start: currentMonthStart, end: currentMonthEnd),
+              currentDate: now,
+              helpText: 'Select Date Range for Tasks',
+              cancelText: 'Cancel',
+              confirmText: 'Apply Filter',
+              saveText: 'Apply',
+              builder: (context, child) {
+                return Center(
+                  child: SingleChildScrollView(
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        maxWidth: 450,
+                        maxHeight: 600,
+                      ),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          datePickerTheme: DatePickerThemeData(
+                            backgroundColor: Colors.white,
+                            surfaceTintColor: Colors.white,
+                            headerBackgroundColor: const Color(0xff0386FF),
+                            headerForegroundColor: Colors.white,
+                            headerHeadlineStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            headerHelpStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white70,
+                            ),
+                            dayStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            rangeSelectionBackgroundColor:
+                                const Color(0xff0386FF).withOpacity(0.1),
+                            rangeSelectionOverlayColor: WidgetStateProperty.all(
+                              const Color(0xff0386FF).withOpacity(0.1),
+                            ),
+                            dayBackgroundColor:
+                                WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return const Color(0xff0386FF);
+                              }
+                              return null;
+                            }),
+                            dayForegroundColor:
+                                WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return Colors.white;
+                              }
+                              return null;
+                            }),
+                          ),
+                          textButtonTheme: TextButtonThemeData(
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xff0386FF),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+            if (picked != null) setState(() => _dueDateRange = picked);
+          },
+          onDeleted: _dueDateRange != null
+              ? () => setState(() => _dueDateRange = null)
+              : null,
+        ),
         // Assigned by (single select user picker)
         InputChip(
           avatar: const Icon(Icons.person_outline, size: 18),
@@ -589,21 +608,31 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
   String _formatAssigneesLabel(List<String> ids) {
     if (ids.isEmpty) return '';
-    final names = ids.map((id) => _userIdToName[id] ?? '').where((n) => n.isNotEmpty).toList();
+    final names = ids
+        .map((id) => _userIdToName[id] ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
     if (names.isEmpty) return 'Loading...';
     if (names.length == 1) return names.first;
     return '${names.first} +${names.length - 1}';
   }
 
   void _fetchUserNameIfMissing(String userId) async {
-    if (_userIdToName.containsKey(userId) || _fetchingUserIds.contains(userId)) return;
+    if (_userIdToName.containsKey(userId) || _fetchingUserIds.contains(userId))
+      return;
     _fetchingUserIds.add(userId);
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
       if (doc.exists) {
         final d = doc.data() as Map<String, dynamic>;
-        final fullName = '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
-        setState(() => _userIdToName[userId] = fullName.isNotEmpty ? fullName : (d['e-mail'] ?? userId));
+        final fullName =
+            '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
+                .trim();
+        setState(() => _userIdToName[userId] =
+            fullName.isNotEmpty ? fullName : (d['e-mail'] ?? userId));
       }
     } catch (_) {
       // ignore
@@ -627,12 +656,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         final d = doc.data();
         final userType = (d['user_type'] ?? '').toString();
         final isAdminTeacher = d['is_admin_teacher'] == true;
-        final include = userType == 'admin' || (userType == 'teacher' && isAdminTeacher);
+        final include =
+            userType == 'admin' || (userType == 'teacher' && isAdminTeacher);
         if (!include) continue;
-        final fullName = '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
-        final displayName = fullName.isNotEmpty ? fullName : (d['e-mail'] ?? doc.id);
+        final fullName =
+            '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
+                .trim();
+        final displayName =
+            fullName.isNotEmpty ? fullName : (d['e-mail'] ?? doc.id);
         options.add({
-          'id': doc.id, 
+          'id': doc.id,
           'name': displayName,
           'email': d['e-mail'] ?? '',
         });
@@ -646,11 +679,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           title: 'Select Assigned By',
           subtitle: 'Choose an admin or promoted teacher',
           availableUsers: options,
-          selectedUserIds: _filterAssignedByUserId != null ? [_filterAssignedByUserId!] : [],
+          selectedUserIds:
+              _filterAssignedByUserId != null ? [_filterAssignedByUserId!] : [],
           allowMultiple: false,
           onUsersSelected: (userIds) {
             if (mounted) {
-              setState(() => _filterAssignedByUserId = userIds.isEmpty ? null : userIds.first);
+              setState(() => _filterAssignedByUserId =
+                  userIds.isEmpty ? null : userIds.first);
             }
           },
         ),
@@ -672,10 +707,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       final options = <Map<String, dynamic>>[];
       for (final doc in query.docs) {
         final d = doc.data();
-        final fullName = '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
-        final display = fullName.isNotEmpty ? fullName : (d['e-mail'] ?? doc.id);
+        final fullName =
+            '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
+                .trim();
+        final display =
+            fullName.isNotEmpty ? fullName : (d['e-mail'] ?? doc.id);
         options.add({
-          'id': doc.id, 
+          'id': doc.id,
           'name': display,
           'email': d['e-mail'] ?? '',
         });
@@ -762,7 +800,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _taskStream == null ? 'Initializing tasks...' : 'Loading tasks...',
+                  _taskStream == null
+                      ? 'Initializing tasks...'
+                      : 'Loading tasks...',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 16,
@@ -801,7 +841,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         // Debug logging
         print('StreamBuilder state: ${snapshot.connectionState}');
         print('Has data: ${snapshot.hasData}');
-        print('Data length: ${snapshot.hasData ? snapshot.data!.length : 'N/A'}');
+        print(
+            'Data length: ${snapshot.hasData ? snapshot.data!.length : 'N/A'}');
         print('Has error: ${snapshot.hasError}');
         if (snapshot.hasError) {
           print('Error: ${snapshot.error}');
@@ -815,7 +856,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 child: Column(
                   children: [
                     CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                     ),
                     SizedBox(height: 16),
                     Text('Connecting to task database...'),
@@ -888,9 +930,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: _getCrossAxisCount(context),
-              childAspectRatio: 0.85,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              childAspectRatio: _getAspectRatio(context),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) => _buildModernTaskCard(tasks[index]),
@@ -924,7 +966,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       }).toList();
     }
 
-    if (_filterAssignedByUserId != null && _filterAssignedByUserId!.isNotEmpty) {
+    if (_filterAssignedByUserId != null &&
+        _filterAssignedByUserId!.isNotEmpty) {
       filteredTasks = filteredTasks
           .where((task) => task.createdBy == _filterAssignedByUserId)
           .toList();
@@ -932,8 +975,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
     if (_filterAssignedToUserIds.isNotEmpty) {
       filteredTasks = filteredTasks.where((task) {
-        return task.assignedTo.any((assignee) =>
-            _filterAssignedToUserIds.contains(assignee));
+        return task.assignedTo
+            .any((assignee) => _filterAssignedToUserIds.contains(assignee));
       }).toList();
     }
 
@@ -973,18 +1016,30 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           borderRadius: BorderRadius.circular(20),
           onTap: () => _showTaskDetailsDialog(task),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _buildCardHeader(task),
-                const SizedBox(height: 12),
-                _buildTaskTitle(task),
-                const SizedBox(height: 8),
-                _buildTaskDescription(task),
-                const Spacer(),
-                _buildDueDateSection(task, daysUntilDue, isOverdue, isDueSoon),
-                const SizedBox(height: 12),
+                const SizedBox(height: 3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTaskTitle(task),
+                      const SizedBox(height: 1),
+                      Expanded(
+                        child: _buildTaskDescription(task),
+                      ),
+                      const SizedBox(height: 2),
+                      _buildDueDateSection(
+                          task, daysUntilDue, isOverdue, isDueSoon),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 3),
                 _buildCardFooter(task),
               ],
             ),
@@ -1006,7 +1061,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
   Widget _buildPriorityIndicator(TaskPriority priority) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: _getPriorityColor(priority).withOpacity(0.15),
         borderRadius: BorderRadius.circular(8),
@@ -1078,7 +1133,25 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     String dueDateText;
     Color dateColor;
 
-    if (isOverdue) {
+    // If the task is completed, stop dynamic overdue counting and show
+    // the frozen overdue days captured at completion (if any)
+    if (task.status == TaskStatus.done) {
+      int frozenOverdue = task.overdueDaysAtCompletion ?? 0;
+      // If not stored yet but we have a completedAt timestamp, compute once
+      if (frozenOverdue == 0 && task.completedAt != null) {
+        final completed = task.completedAt!.toDate();
+        if (completed.isAfter(task.dueDate)) {
+          frozenOverdue = completed.difference(task.dueDate).inDays;
+        }
+      }
+
+      if (frozenOverdue > 0) {
+        dueDateText = '${frozenOverdue} days overdue • Completed';
+      } else {
+        dueDateText = 'Completed on time';
+      }
+      dateColor = const Color(0xFF10B981); // green for completed
+    } else if (isOverdue) {
       dueDateText = '${daysUntilDue.abs()} days overdue';
       dateColor = Colors.red[600]!;
     } else if (daysUntilDue == 0) {
@@ -1093,7 +1166,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: dateColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
@@ -1119,16 +1192,20 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   Widget _buildCardFooter(Task task) {
     return Row(
       children: [
-        _buildStatusChip(task.status),
-        const Spacer(),
-        _buildMultipleAssigneeAvatars(task.assignedTo),
+        Flexible(
+          child: _buildStatusChip(task.status),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: _buildMultipleAssigneeAvatars(task.assignedTo),
+        ),
       ],
     );
   }
 
   Widget _buildStatusChip(TaskStatus status) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: _getStatusColor(status).withOpacity(0.15),
         borderRadius: BorderRadius.circular(8),
@@ -1217,8 +1294,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
     final displayChar = (name != null && name.isNotEmpty)
         ? name.substring(0, 1).toUpperCase()
-        : (assigneeId.isNotEmpty ? assigneeId.substring(0, 1).toUpperCase() : '?');
-    
+        : (assigneeId.isNotEmpty
+            ? assigneeId.substring(0, 1).toUpperCase()
+            : '?');
+
     return Tooltip(
       message: name ?? assigneeId,
       child: Container(
@@ -1365,10 +1444,29 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   // Helper methods
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 4;
-    if (width > 800) return 3;
-    if (width > 600) return 2;
+    if (width > 1400) return 4;
+    if (width > 1000) return 3;
+    if (width > 700) return 2;
     return 1;
+  }
+
+  double _getAspectRatio(BuildContext context) {
+    final crossAxisCount = _getCrossAxisCount(context);
+    final width = MediaQuery.of(context).size.width;
+
+    // Higher aspect ratio = shorter/smaller cards
+    if (crossAxisCount == 1) {
+      // Single column on mobile
+      if (width < 400) return 2.2; // Very small screens
+      return 2.5; // Regular mobile screens
+    }
+    if (crossAxisCount == 2) {
+      // Two columns on tablet
+      if (width < 800) return 2.0; // Small tablets
+      return 2.3; // Regular tablets
+    }
+    if (crossAxisCount == 3) return 1.8; // Three columns
+    return 1.6; // Four columns on large desktop
   }
 
   String _getStatusLabel(TaskStatus status) {

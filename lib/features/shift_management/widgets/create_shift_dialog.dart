@@ -4,8 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/models/enhanced_recurrence.dart';
+import '../../../core/models/subject.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/subject_service.dart';
 import '../../../shared/widgets/enhanced_recurrence_picker.dart';
+import '../../../core/services/timezone_service.dart';
+import '../../../core/utils/timezone_utils.dart';
+import 'subject_management_dialog.dart';
 
 class CreateShiftDialog extends StatefulWidget {
   final TeachingShift? shift; // For editing existing shift
@@ -31,33 +36,81 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
   // Form fields
   String? _selectedTeacherId;
-  List<String> _selectedStudentIds = [];
+  Set<String> _selectedStudentIds = {};
+
+  // Search controllers
+  final TextEditingController _teacherSearchController =
+      TextEditingController();
+  final TextEditingController _studentSearchController =
+      TextEditingController();
   DateTime _shiftDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _startTime = const TimeOfDay(hour: 14, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 16, minute: 0);
-  IslamicSubject _selectedSubject = IslamicSubject.quranStudies;
+  String? _selectedSubjectId;
   RecurrencePattern _recurrence = RecurrencePattern.none;
   EnhancedRecurrence _enhancedRecurrence = const EnhancedRecurrence();
   DateTime? _recurrenceEndDate;
 
+  // Subjects list
+  List<Subject> _availableSubjects = [];
+
   // Data lists
   List<Employee> _availableTeachers = [];
   List<Employee> _availableStudents = [];
+  Map<String, String> _studentCodes = {}; // email -> student_code
+  bool _studentCodesLoaded = false;
 
-  // Timezone (simplified - in production use proper timezone library)
-  final String _adminTimezone = 'EST'; // Get from user preferences
+  // Timezone will be loaded from user profile
+  String _adminTimezone = 'UTC';
 
   @override
   void initState() {
     super.initState();
     _loadAvailableUsers();
+    _loadAvailableSubjects();
     _initializeFormData();
+    _loadAdminTimezone();
+  }
+
+  Future<void> _loadAdminTimezone() async {
+    try {
+      final timezone = await TimezoneService.getCurrentUserTimezone();
+      if (mounted) {
+        setState(() {
+          _adminTimezone = timezone;
+        });
+      }
+      print('CreateShiftDialog: Loaded admin timezone: $timezone');
+    } catch (e) {
+      print('CreateShiftDialog: Error loading admin timezone: $e');
+    }
+  }
+
+  Future<void> _loadAvailableSubjects() async {
+    try {
+      final subjects = await SubjectService.getActiveSubjects();
+      if (mounted) {
+        setState(() {
+          _availableSubjects = subjects;
+          // Preserve current selection if possible; otherwise pick first
+          final hasCurrent = _selectedSubjectId != null &&
+              subjects.any((s) => s.id == _selectedSubjectId);
+          if (!hasCurrent && subjects.isNotEmpty) {
+            _selectedSubjectId = subjects.first.id;
+          }
+        });
+      }
+    } catch (e) {
+      print('CreateShiftDialog: Error loading subjects: $e');
+    }
   }
 
   @override
   void dispose() {
     _customNameController.dispose();
     _notesController.dispose();
+    _teacherSearchController.dispose();
+    _studentSearchController.dispose();
     super.dispose();
   }
 
@@ -117,11 +170,89 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         print(
             'CreateShiftDialog: State updated with teachers: ${_availableTeachers.length}, students: ${_availableStudents.length}');
 
+        // Load student codes for the students
+        await _loadStudentCodes();
+
+        // Force a rebuild to show the loaded codes
+        if (mounted) {
+          setState(() {});
+        }
+
         // Convert UIDs to emails for editing mode
         _convertUidsToEmails();
       }
     } catch (e) {
       print('CreateShiftDialog: Error loading available users: $e');
+    }
+  }
+
+  Future<void> _loadStudentCodes() async {
+    try {
+      print('CreateShiftDialog: Loading student codes...');
+      final Map<String, String> studentCodesMap = {};
+
+      for (final student in _availableStudents) {
+        try {
+          // Query Firestore to get the student_code for this student
+          final studentSnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('e-mail', isEqualTo: student.email)
+              .where('user_type', isEqualTo: 'student')
+              .limit(1)
+              .get();
+
+          if (studentSnapshot.docs.isNotEmpty) {
+            final studentData = studentSnapshot.docs.first.data();
+            print(
+                'CreateShiftDialog: Student data for ${student.firstName}: ${studentData.keys.toList()}');
+
+            // Check all possible field names for student code
+            String? studentCode = studentData['student_code'] as String?;
+            if (studentCode == null || studentCode.isEmpty) {
+              studentCode = studentData['studentCode'] as String?;
+            }
+            if (studentCode == null || studentCode.isEmpty) {
+              studentCode = studentData['student_id'] as String?;
+            }
+            if (studentCode == null || studentCode.isEmpty) {
+              studentCode = studentData['studentId'] as String?;
+            }
+
+            if (studentCode != null && studentCode.isNotEmpty) {
+              studentCodesMap[student.email] = studentCode;
+              print(
+                  'CreateShiftDialog: ✅ Found student code for ${student.firstName} ${student.lastName}: "$studentCode"');
+            } else {
+              print(
+                  'CreateShiftDialog: ❌ No student code found for ${student.firstName} ${student.lastName}');
+              print(
+                  'CreateShiftDialog: Available fields with "student/code/id": ${studentData.keys.where((k) => k.toLowerCase().contains("student") || k.toLowerCase().contains("code") || k.toLowerCase().contains("id")).toList()}');
+            }
+          } else {
+            print(
+                'CreateShiftDialog: ⚠️ No documents found for email: ${student.email}');
+          }
+        } catch (e) {
+          print(
+              'CreateShiftDialog: Error loading student code for ${student.email}: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _studentCodes = studentCodesMap;
+          _studentCodesLoaded = true;
+        });
+        print(
+            'CreateShiftDialog: Loaded ${_studentCodes.length} student codes');
+        print('CreateShiftDialog: Student codes map: $_studentCodes');
+        // Sample output for verification
+        _studentCodes.forEach((email, code) {
+          print('  - $email → $code');
+        });
+      }
+    } catch (e) {
+      print('CreateShiftDialog: Error loading student codes: $e');
     }
   }
 
@@ -148,8 +279,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           }
         }
 
-        // Convert student UIDs to emails by querying Firestore
-        final studentEmails = <String>[];
+        // Convert student UIDs to unique identifiers by querying Firestore
+        final studentIdentifiers = <String>[];
         for (String studentUid in shift.studentIds) {
           final studentDoc = await FirebaseFirestore.instance
               .collection('users')
@@ -159,18 +290,21 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           if (studentDoc.exists) {
             final studentData = studentDoc.data() as Map<String, dynamic>;
             final studentEmail = studentData['e-mail'] as String?;
+            final firstName = studentData['first_name'] as String? ?? '';
+            final lastName = studentData['last_name'] as String? ?? '';
             if (studentEmail != null) {
-              studentEmails.add(studentEmail);
+              // Create unique identifier for the student
+              studentIdentifiers.add('$studentEmail|$firstName|$lastName');
             }
           }
         }
 
         if (mounted) {
           setState(() {
-            _selectedStudentIds = studentEmails;
+            _selectedStudentIds = studentIdentifiers.toSet();
           });
           print(
-              'CreateShiftDialog: Converted ${shift.studentIds.length} student UIDs to ${studentEmails.length} emails');
+              'CreateShiftDialog: Converted ${shift.studentIds.length} student UIDs to ${studentIdentifiers.length} unique identifiers');
         }
       } catch (e) {
         print('CreateShiftDialog: Error converting UIDs to emails: $e');
@@ -189,7 +323,15 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       );
       _startTime = TimeOfDay.fromDateTime(shift.shiftStart);
       _endTime = TimeOfDay.fromDateTime(shift.shiftEnd);
-      _selectedSubject = shift.subject;
+
+      // Handle subject - check if it has a subject ID first
+      if (shift.subjectId != null) {
+        _selectedSubjectId = shift.subjectId;
+      } else {
+        // For backward compatibility - map the enum to a subject ID after subjects are loaded
+        // This will be handled in _loadAvailableSubjects
+      }
+
       _recurrence = shift.recurrence;
       _recurrenceEndDate = shift.recurrenceEndDate;
 
@@ -303,6 +445,15 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   Widget _buildTeacherSelection() {
+    // Filter teachers based on search
+    final filteredTeachers = _availableTeachers.where((teacher) {
+      if (_teacherSearchController.text.isEmpty) return true;
+      final query = _teacherSearchController.text.toLowerCase();
+      return teacher.firstName.toLowerCase().contains(query) ||
+          teacher.lastName.toLowerCase().contains(query) ||
+          teacher.email.toLowerCase().contains(query);
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -315,60 +466,243 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        _availableTeachers.isEmpty
-            ? Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xffD1D5DB)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Center(
-                  child: Text('Loading teachers...'),
-                ),
-              )
-            : DropdownButtonFormField<String>(
-                value: _selectedTeacherId,
-                decoration: InputDecoration(
-                  hintText: 'Select a teacher',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xffD1D5DB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xffD1D5DB)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xff0386FF)),
-                  ),
-                ),
-                items: _availableTeachers.map((teacher) {
-                  return DropdownMenuItem<String>(
-                    value: teacher.email,
-                    child: Text(
-                      '${teacher.firstName} ${teacher.lastName}',
-                      style: GoogleFonts.inter(),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xffD1D5DB)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Select a teacher${_selectedTeacherId != null ? ' (1 selected)' : ''}',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff6B7280),
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedTeacherId = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select a teacher';
-                  }
-                  return null;
-                },
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _teacherSearchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search teacher by name or email...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide:
+                              const BorderSide(color: Color(0xffE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide:
+                              const BorderSide(color: Color(0xffE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide:
+                              const BorderSide(color: Color(0xff0386FF)),
+                        ),
+                      ),
+                      onChanged: (value) => setState(() {}),
+                    ),
+                  ],
+                ),
               ),
+              const Divider(height: 1),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: _availableTeachers.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Loading teachers...'),
+                        ),
+                      )
+                    : filteredTeachers.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text('No teachers found'),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: filteredTeachers.length,
+                            itemBuilder: (context, index) {
+                              final teacher = filteredTeachers[index];
+                              final isSelected =
+                                  _selectedTeacherId == teacher.email;
+
+                              return InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedTeacherId = teacher.email;
+                                    print(
+                                        'Selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xff0386FF)
+                                            .withOpacity(0.05)
+                                        : null,
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: const Color(0xff0386FF)
+                                                .withOpacity(0.3))
+                                        : null,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Radio<String>(
+                                        value: teacher.email,
+                                        groupValue: _selectedTeacherId,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedTeacherId = value;
+                                            print(
+                                                'Radio selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
+                                          });
+                                        },
+                                        activeColor: const Color(0xff0386FF),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xff0386FF)
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${teacher.firstName[0]}${teacher.lastName[0]}',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: const Color(0xff0386FF),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '${teacher.firstName} ${teacher.lastName}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xff059669)
+                                                            .withOpacity(0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
+                                                  child: Text(
+                                                    teacher.userType
+                                                        .toUpperCase(),
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 11,
+                                                      color: const Color(
+                                                          0xff059669),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    teacher.email,
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 12,
+                                                      color: const Color(
+                                                          0xff6B7280),
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Icon(
+                                          Icons.check_circle,
+                                          color: Color(0xff0386FF),
+                                          size: 20,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
+          ),
+        ),
+        if (_selectedTeacherId == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Please select a teacher',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: Colors.red,
+              ),
+            ),
+          ),
       ],
     );
   }
 
   Widget _buildStudentSelection() {
+    // Filter students based on search
+    final filteredStudents = _availableStudents.where((student) {
+      if (_studentSearchController.text.isEmpty) return true;
+      final query = _studentSearchController.text.toLowerCase();
+      final studentCode = _studentCodes[student.email] ?? '';
+      return student.firstName.toLowerCase().contains(query) ||
+          student.lastName.toLowerCase().contains(query) ||
+          student.email.toLowerCase().contains(query) ||
+          studentCode.toLowerCase().contains(query);
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -390,17 +724,51 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                child: Text(
-                  'Select students for this shift',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: const Color(0xff6B7280),
-                  ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Select students (${_selectedStudentIds.length} selected)',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _studentSearchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search by name, student code, or email...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide:
+                              const BorderSide(color: Color(0xffE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide:
+                              const BorderSide(color: Color(0xffE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide:
+                              const BorderSide(color: Color(0xff0386FF)),
+                        ),
+                      ),
+                      onChanged: (value) => setState(() {}),
+                    ),
+                  ],
                 ),
               ),
               const Divider(height: 1),
               Container(
-                constraints: const BoxConstraints(maxHeight: 150),
+                constraints: const BoxConstraints(maxHeight: 200),
                 child: _availableStudents.isEmpty
                     ? const Center(
                         child: Padding(
@@ -410,20 +778,37 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       )
                     : ListView.builder(
                         shrinkWrap: true,
-                        itemCount: _availableStudents.length,
+                        itemCount: filteredStudents.length,
                         itemBuilder: (context, index) {
-                          final student = _availableStudents[index];
+                          final student = filteredStudents[index];
+                          // Create a unique identifier combining email and name to handle students with same parent email
+                          final uniqueStudentId =
+                              '${student.email}|${student.firstName}|${student.lastName}';
                           final isSelected =
-                              _selectedStudentIds.contains(student.email);
+                              _selectedStudentIds.contains(uniqueStudentId);
+
+                          // Debug: Print student code for this student
+                          final studentCode = _studentCodes[student.email];
+                          if (index < 3) {
+                            // Only print first 3 to avoid spam
+                            print(
+                                'CreateShiftDialog: Displaying student ${student.firstName} ${student.lastName}, code: $studentCode');
+                          }
 
                           return InkWell(
                             onTap: () {
                               setState(() {
                                 if (isSelected) {
-                                  _selectedStudentIds.remove(student.email);
+                                  _selectedStudentIds.remove(uniqueStudentId);
+                                  print(
+                                      'Deselected student: ${student.firstName} ${student.lastName} (${student.email})');
                                 } else {
-                                  _selectedStudentIds.add(student.email);
+                                  _selectedStudentIds.add(uniqueStudentId);
+                                  print(
+                                      'Selected student: ${student.firstName} ${student.lastName} (${student.email})');
                                 }
+                                print(
+                                    'Currently selected: $_selectedStudentIds');
                               });
                             },
                             child: Container(
@@ -439,11 +824,17 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                       setState(() {
                                         if (checked == true) {
                                           _selectedStudentIds
-                                              .add(student.email);
+                                              .add(uniqueStudentId);
+                                          print(
+                                              'Checkbox selected student: ${student.firstName} ${student.lastName} (${student.email})');
                                         } else {
                                           _selectedStudentIds
-                                              .remove(student.email);
+                                              .remove(uniqueStudentId);
+                                          print(
+                                              'Checkbox deselected student: ${student.firstName} ${student.lastName} (${student.email})');
                                         }
+                                        print(
+                                            'Currently selected: $_selectedStudentIds');
                                       });
                                     },
                                     activeColor: const Color(0xff0386FF),
@@ -460,12 +851,73 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                           style:
                                               GoogleFonts.inter(fontSize: 14),
                                         ),
-                                        Text(
-                                          student.email,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            color: const Color(0xff6B7280),
-                                          ),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xff0386FF)
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                student.userType.toUpperCase(),
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  color:
+                                                      const Color(0xff0386FF),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: RichText(
+                                                overflow: TextOverflow.ellipsis,
+                                                text: TextSpan(
+                                                  children: [
+                                                    if (_studentCodes[
+                                                            student.email] !=
+                                                        null) ...[
+                                                      TextSpan(
+                                                        text:
+                                                            '${_studentCodes[student.email]} ',
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                          fontSize: 12,
+                                                          color: const Color(
+                                                              0xff059669), // Green color for student code
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                      TextSpan(
+                                                        text: '• ',
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                          fontSize: 12,
+                                                          color: const Color(
+                                                              0xff6B7280),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    TextSpan(
+                                                      text: student.email,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 12,
+                                                        color: const Color(
+                                                            0xff6B7280),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -499,17 +951,39 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Subject *',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xff374151),
-          ),
+        Row(
+          children: [
+            Text(
+              'Subject *',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const SubjectManagementDialog(),
+                ).then((_) => _loadAvailableSubjects());
+              },
+              icon: const Icon(Icons.settings, size: 16),
+              label: Text(
+                'Manage Subjects',
+                style: GoogleFonts.inter(fontSize: 12),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xff0386FF),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<IslamicSubject>(
-          value: _selectedSubject,
+        DropdownButtonFormField<String>(
+          value: _selectedSubjectId,
+          isExpanded: true,
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -524,21 +998,73 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               borderSide: const BorderSide(color: Color(0xff0386FF)),
             ),
           ),
-          items: IslamicSubject.values.map((subject) {
-            return DropdownMenuItem<IslamicSubject>(
-              value: subject,
+          items: _availableSubjects.map((subject) {
+            return DropdownMenuItem<String>(
+              value: subject.id,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      subject.displayName,
+                      style: GoogleFonts.inter(),
+                    ),
+                  ),
+                  if (subject.arabicName != null)
+                    Text(
+                      ' (${subject.arabicName})',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+          selectedItemBuilder: (context) => _availableSubjects.map((s) {
+            return Align(
+              alignment: Alignment.centerLeft,
               child: Text(
-                _getSubjectDisplayName(subject),
-                style: GoogleFonts.inter(),
+                s.displayName,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
               ),
             );
           }).toList(),
           onChanged: (value) {
             setState(() {
-              _selectedSubject = value!;
+              _selectedSubjectId = value;
             });
           },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please select a subject';
+            }
+            return null;
+          },
         ),
+        if (_selectedSubjectId != null) ...[
+          const SizedBox(height: 8),
+          Builder(
+            builder: (context) {
+              final selectedSubject = _availableSubjects.firstWhere(
+                (s) => s.id == _selectedSubjectId,
+                orElse: () => _availableSubjects.first,
+              );
+              if (selectedSubject.description != null) {
+                return Text(
+                  selectedSubject.description!,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF6B7280),
+                    fontStyle: FontStyle.italic,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
       ],
     );
   }
@@ -561,6 +1087,29 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         return 'Quran Interpretation (Tafseer)';
       case IslamicSubject.seerah:
         return 'Prophet\'s Biography (Seerah)';
+    }
+  }
+
+  IslamicSubject _mapSubjectToEnum(String subjectName) {
+    switch (subjectName) {
+      case 'quran_studies':
+        return IslamicSubject.quranStudies;
+      case 'hadith_studies':
+        return IslamicSubject.hadithStudies;
+      case 'fiqh':
+        return IslamicSubject.fiqh;
+      case 'arabic_language':
+        return IslamicSubject.arabicLanguage;
+      case 'islamic_history':
+        return IslamicSubject.islamicHistory;
+      case 'aqeedah':
+        return IslamicSubject.aqeedah;
+      case 'tafseer':
+        return IslamicSubject.tafseer;
+      case 'seerah':
+        return IslamicSubject.seerah;
+      default:
+        return IslamicSubject.quranStudies;
     }
   }
 
@@ -913,8 +1462,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     setState(() => _isLoading = true);
 
     try {
-      // Create DateTime objects for shift start and end
-      final shiftStart = DateTime(
+      // Create DateTime objects for shift start and end in admin's local time
+      final shiftStartLocal = DateTime(
         _shiftDate.year,
         _shiftDate.month,
         _shiftDate.day,
@@ -922,13 +1471,19 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         _startTime.minute,
       );
 
-      final shiftEnd = DateTime(
+      final shiftEndLocal = DateTime(
         _shiftDate.year,
         _shiftDate.month,
         _shiftDate.day,
         _endTime.hour,
         _endTime.minute,
       );
+
+      // Convert admin's local time to UTC for storage
+      final shiftStart =
+          TimezoneUtils.convertToUtc(shiftStartLocal, _adminTimezone);
+      final shiftEnd =
+          TimezoneUtils.convertToUtc(shiftEndLocal, _adminTimezone);
 
       if (widget.shift == null) {
         // Find teacher UID from email
@@ -944,9 +1499,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
         final teacherUid = teacherSnapshot.docs.first.id;
 
-        // Find student UIDs from emails
+        // Find student UIDs from unique identifiers
         final studentUids = <String>[];
-        for (String studentEmail in _selectedStudentIds) {
+        for (String uniqueId in _selectedStudentIds) {
+          // Extract email from unique identifier (format: email|firstName|lastName)
+          final parts = uniqueId.split('|');
+          if (parts.isEmpty) continue;
+          final studentEmail = parts[0];
+
           final studentSnapshot = await FirebaseFirestore.instance
               .collection('users')
               .where('e-mail', isEqualTo: studentEmail)
@@ -958,6 +1518,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           }
         }
 
+        // Find selected subject
+        final selectedSubject = _selectedSubjectId != null
+            ? _availableSubjects.firstWhere(
+                (s) => s.id == _selectedSubjectId,
+                orElse: () => _availableSubjects.first,
+              )
+            : null;
+
         // Create new shift
         await ShiftService.createShift(
           teacherId: teacherUid,
@@ -965,13 +1533,18 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
           adminTimezone: _adminTimezone,
-          subject: _selectedSubject,
+          subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
+          subjectId: _selectedSubjectId,
+          subjectDisplayName: selectedSubject?.displayName,
           customName: _useCustomName ? _customNameController.text.trim() : null,
           notes: _notesController.text.trim().isNotEmpty
               ? _notesController.text.trim()
               : null,
           recurrence: _recurrence,
-          enhancedRecurrence: _enhancedRecurrence.type != EnhancedRecurrenceType.none ? _enhancedRecurrence : null,
+          enhancedRecurrence:
+              _enhancedRecurrence.type != EnhancedRecurrenceType.none
+                  ? _enhancedRecurrence
+                  : null,
           recurrenceEndDate: _recurrenceEndDate,
         );
       } else {
@@ -996,10 +1569,15 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         print(
             'CreateShiftDialog: Update - converted teacher email $_selectedTeacherId to UID $teacherUid, name: $teacherName');
 
-        // Find student UIDs and names from emails
+        // Find student UIDs and names from unique identifiers
         final studentUids = <String>[];
         final studentNames = <String>[];
-        for (String studentEmail in _selectedStudentIds) {
+        for (String uniqueId in _selectedStudentIds) {
+          // Extract email from unique identifier (format: email|firstName|lastName)
+          final parts = uniqueId.split('|');
+          if (parts.isEmpty) continue;
+          final studentEmail = parts[0];
+
           final studentSnapshot = await FirebaseFirestore.instance
               .collection('users')
               .where('e-mail', isEqualTo: studentEmail)
@@ -1018,10 +1596,18 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         print(
             'CreateShiftDialog: Update - converted ${_selectedStudentIds.length} student emails to ${studentUids.length} UIDs and ${studentNames.length} names');
 
+        // Find selected subject for update
+        final selectedSubject = _selectedSubjectId != null
+            ? _availableSubjects.firstWhere(
+                (s) => s.id == _selectedSubjectId,
+                orElse: () => _availableSubjects.first,
+              )
+            : null;
+
         // Regenerate auto-generated name with updated participants
         final autoGeneratedName = TeachingShift.generateAutoName(
           teacherName: teacherName,
-          subject: _selectedSubject,
+          subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
           studentNames: studentNames,
         );
 
@@ -1032,7 +1618,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           studentNames: studentNames,
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
-          subject: _selectedSubject,
+          subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
+          subjectId: _selectedSubjectId,
+          subjectDisplayName: selectedSubject?.displayName,
           autoGeneratedName: autoGeneratedName,
           customName: _useCustomName ? _customNameController.text.trim() : null,
           notes: _notesController.text.trim().isNotEmpty

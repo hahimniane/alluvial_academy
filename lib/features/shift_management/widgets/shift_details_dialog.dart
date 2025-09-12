@@ -112,7 +112,7 @@ class ShiftDetailsDialog extends StatelessWidget {
       'Basic Information',
       Icons.info_outline,
       [
-        _buildInfoRow('Subject', shift.subjectDisplayName),
+        _buildInfoRow('Subject', shift.effectiveSubjectDisplayName),
         _buildInfoRow('Teacher', shift.teacherName),
         _buildInfoRow(
             'Duration', '${shift.shiftDurationHours.toStringAsFixed(1)} hours'),

@@ -15,6 +15,7 @@ class Employee {
     required this.kioskCode,
     required this.dateAdded,
     required this.lastLogin,
+    required this.documentId, // Add document ID field
     this.isAdminTeacher = false,
     this.isActive = true,
   });
@@ -30,6 +31,7 @@ class Employee {
   final String kioskCode;
   final String dateAdded;
   final String lastLogin;
+  final String documentId; // Store Firestore document ID
   final bool isAdminTeacher;
   final bool isActive;
 }
@@ -96,6 +98,7 @@ class EmployeeDataSource extends DataGridSource {
   static List<Employee> mapSnapshotToEmployeeList(QuerySnapshot snapshot) {
     return snapshot.docs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
+      final userType = data['user_type'] ?? '';
 
       // Convert Timestamp to String for dates
       String formatTimestamp(dynamic timestamp) {
@@ -108,18 +111,28 @@ class EmployeeDataSource extends DataGridSource {
         return timestamp.toString();
       }
 
+      // For students, use document ID as kiosk code if kiosk_code is empty
+      String getKioskCode() {
+        final kioskCode = data['kiosk_code'] ?? '';
+        if (userType == 'student' && kioskCode.isEmpty) {
+          return doc.id; // Use document ID as student ID
+        }
+        return kioskCode;
+      }
+
       return Employee(
         firstName: data['first_name'] ?? '',
         lastName: data['last_name'] ?? '',
         email: data['e-mail'] ?? '',
         countryCode: data['country_code'] ?? '',
         mobilePhone: data['phone_number'] ?? '',
-        userType: data['user_type'] ?? '',
+        userType: userType,
         title: data['title'] ?? '',
         employmentStartDate: formatTimestamp(data['employment_start_date']),
-        kioskCode: data['kiosk_code'] ?? '',
+        kioskCode: getKioskCode(),
         dateAdded: formatTimestamp(data['date_added']),
         lastLogin: formatTimestamp(data['last_login']),
+        documentId: doc.id, // Store the document ID
         isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
         isActive: data['is_active'] as bool? ??
             true, // Default to active if field doesn't exist

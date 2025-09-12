@@ -72,6 +72,9 @@ class Task {
   final EnhancedRecurrence enhancedRecurrence; // New enhanced recurrence
   final Timestamp createdAt;
   final List<TaskAttachment> attachments;
+  // Completion tracking
+  final Timestamp? completedAt; // when status first moved to done
+  final int? overdueDaysAtCompletion; // freeze overdue days at completion
 
   Task({
     required this.id,
@@ -87,6 +90,8 @@ class Task {
     this.enhancedRecurrence = const EnhancedRecurrence(),
     required this.createdAt,
     this.attachments = const [],
+    this.completedAt,
+    this.overdueDaysAtCompletion,
   });
 
   factory Task.fromFirestore(DocumentSnapshot doc) {
@@ -147,6 +152,8 @@ class Task {
       enhancedRecurrence: enhancedRecurrence,
       createdAt: data['createdAt'] ?? Timestamp.now(),
       attachments: attachmentsList,
+      completedAt: data['completedAt'],
+      overdueDaysAtCompletion: data['overdueDaysAtCompletion'],
     );
   }
 
@@ -167,6 +174,9 @@ class Task {
       'createdAt': createdAt,
       'attachments':
           attachments.map((attachment) => attachment.toMap()).toList(),
+      if (completedAt != null) 'completedAt': completedAt,
+      if (overdueDaysAtCompletion != null)
+        'overdueDaysAtCompletion': overdueDaysAtCompletion,
     };
   }
 
