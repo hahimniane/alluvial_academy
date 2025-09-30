@@ -131,7 +131,8 @@ class _EditUserScreenState extends State<EditUserScreen>
       // Prepare updated user data
       final updatedData = {
         'first_name': _firstNameController.text.trim(),
-        'lastName': _lastNameController.text.trim(),
+        // Use consistent Firestore key with underscore
+        'last_name': _lastNameController.text.trim(),
         // Email and kiosk_code are read-only and cannot be changed
         'phone_number': _phoneController.text.trim(),
         'country_code': _countryCodeController.text.trim(),

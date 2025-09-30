@@ -22,17 +22,25 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
   String _elapsedTime = "00:00:00";
   TeachingShift? _currentShift;
   bool _isProcessing = false;
+  StreamSubscription<User?>? _authSub;
 
   @override
   void initState() {
     super.initState();
     _checkCurrentShiftStatus();
+    // Also resume once auth rehydrates after a web refresh
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        _checkCurrentShiftStatus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _autoLogoutTimer?.cancel();
+    _authSub?.cancel();
     super.dispose();
   }
 
@@ -42,13 +50,30 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     if (user == null) return;
 
     try {
+      // Prefer resuming from an open session (with accurate clock-in time)
+      final session = await ShiftTimesheetService.getOpenSession(user.uid);
+      if (session != null && mounted) {
+        final shift = session['shift'] as TeachingShift?;
+        final start = session['clockInTime'] as DateTime?;
+        if (shift != null) {
+          setState(() {
+            _isClockedIn = true;
+            _currentShift = shift;
+            _clockInTime = start ?? DateTime.now();
+            _startTimer();
+            _startAutoLogoutTimer();
+          });
+          return;
+        }
+      }
+
+      // Fallback: legacy behavior
       final activeShift = await ShiftTimesheetService.getActiveShift(user.uid);
       if (activeShift != null && mounted) {
         setState(() {
           _isClockedIn = true;
           _currentShift = activeShift;
-          _clockInTime = DateTime
-              .now(); // Approximate - could be improved with actual clock-in time
+          _clockInTime = DateTime.now();
           _startTimer();
           _startAutoLogoutTimer();
         });

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/teacher_shift_calendar.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
@@ -21,6 +22,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   String _selectedFilter = 'all'; // all, upcoming, active, completed
   final String _teacherTimezone =
       'America/New_York'; // Get from user preferences
+  bool _isCalendarView = true; // Calendar/List toggle
 
   @override
   void initState() {
@@ -142,6 +144,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           child: Column(
             children: [
               _buildFilterTabs(),
+              _buildViewToggle(),
               _buildShiftStats(),
               // Inline the content; list itself won't scroll
               if (_isLoading)
@@ -149,7 +152,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
               else if (_filteredShifts.isEmpty)
                 _buildEmptyState()
               else
-                _buildShiftsList(shrinkWrap: true),
+                (_isCalendarView
+                    ? _buildCalendarSection()
+                    : _buildShiftsList(shrinkWrap: true)),
             ],
           ),
         ),
@@ -416,6 +421,85 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     );
   }
 
+  // Calendar section with bounded height so it lays out within page scroll
+  Widget _buildCalendarSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+      child: SizedBox(
+        height: 700,
+        child: TeacherShiftCalendar(
+          shifts: _filteredShifts,
+          onSelectShift: _showShiftDetails,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewToggle() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      alignment: Alignment.centerRight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xffF3F4F6),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildViewButton(
+              icon: Icons.calendar_view_week,
+              label: 'Calendar',
+              isSelected: _isCalendarView,
+              onTap: () => setState(() => _isCalendarView = true),
+            ),
+            _buildViewButton(
+              icon: Icons.view_list,
+              label: 'List',
+              isSelected: !_isCalendarView,
+              onTap: () => setState(() => _isCalendarView = false),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewButton({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xff0386FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 16,
+                color: isSelected ? Colors.white : const Color(0xff6B7280)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xff6B7280),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildShiftCard(TeachingShift shift) {
     final now = DateTime.now();
     final canClockIn = shift.canClockIn && !shift.isClockedIn;
@@ -500,33 +584,41 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          statusIcon,
-                          size: 16,
-                          color: statusColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          statusText,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                  // Status pill — make it flexible to avoid overflow on narrow screens
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            statusIcon,
+                            size: 16,
                             color: statusColor,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
