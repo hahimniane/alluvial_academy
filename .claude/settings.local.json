@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./build_release.sh:*)"
+      "Bash(./build_release.sh:*)",
+      "Bash(flutter analyze:*)"
     ],
     "deny": [],
     "ask": []

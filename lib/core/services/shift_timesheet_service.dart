@@ -28,13 +28,10 @@ class ShiftTimesheetService {
       if (activeShift != null) {
         print(
             'ShiftTimesheetService: Found active shift ${activeShift.id} - ${activeShift.displayName}');
-        print(
-            'ShiftTimesheetService: Active shift can clock out: ${activeShift.canClockOut}');
         return {
           'shift': activeShift,
           'canClockIn': false,
-          'canClockOut':
-              true, // If we found an active timesheet, they can clock out
+          'canClockOut': true,
           'status': 'active',
           'message':
               'You are currently clocked in to ${activeShift.displayName}',
@@ -55,7 +52,7 @@ class ShiftTimesheetService {
       for (var doc in snapshot.docs) {
         final shift = TeachingShift.fromFirestore(doc);
 
-        // Use UTC for all time comparisons to ensure timezone consistency
+        // CONSISTENT TIME HANDLING - Always use UTC for comparisons
         final shiftStartUtc = shift.shiftStart.toUtc();
         final shiftEndUtc = shift.shiftEnd.toUtc();
         final clockInWindowUtc =
@@ -67,19 +64,12 @@ class ShiftTimesheetService {
         print('  - Status: ${shift.status.name}');
         print('  - Shift Start (UTC): $shiftStartUtc');
         print('  - Shift End (UTC): $shiftEndUtc');
-        print('  - Admin Timezone: ${shift.adminTimezone}');
-        print('  - Teacher Timezone: ${shift.teacherTimezone}');
         print(
             '  - Clock-in Window (UTC): $clockInWindowUtc to $clockOutWindowUtc');
         print(
             '  - Current UTC time in window: ${nowUtc.isAfter(clockInWindowUtc) && nowUtc.isBefore(clockOutWindowUtc)}');
-        print('  - canClockIn (using getter): ${shift.canClockIn}');
-        print('  - isClockedIn: ${shift.isClockedIn}');
-        print('  - Is scheduled: ${shift.status == ShiftStatus.scheduled}');
 
-        // Allow clock-in during entire shift window (15 min before to 15 min after)
-        // Allow multiple clock-ins throughout the shift duration
-        // Use UTC comparison to ensure timezone consistency
+        // Allow clock-in during entire shift window
         if (nowUtc.isAfter(clockInWindowUtc) &&
             nowUtc.isBefore(clockOutWindowUtc)) {
           print(
@@ -88,13 +78,10 @@ class ShiftTimesheetService {
         } else {
           print(
               'ShiftTimesheetService: ❌ Shift not valid for clock-in - outside time window');
-          print(
-              'ShiftTimesheetService: Current UTC: $nowUtc, Window UTC: $clockInWindowUtc to $clockOutWindowUtc');
         }
       }
 
       if (validShifts.isNotEmpty) {
-        // Return the first valid shift
         final shift = validShifts.first;
         return {
           'shift': shift,
@@ -135,9 +122,9 @@ class ShiftTimesheetService {
       print('ShiftTimesheetService: Teacher ID: $teacherId');
       print('ShiftTimesheetService: Location: ${location.neighborhood}');
 
-      // First validate the shift timing and eligibility (allow multiple clock-ins)
-      print('ShiftTimesheetService: Validating shift for multiple clock-in...');
-      final shift = await _validateShiftForMultipleClockIn(teacherId, shiftId);
+      // Validate the shift timing and eligibility
+      print('ShiftTimesheetService: Validating shift for clock-in...');
+      final shift = await _validateShiftForClockIn(teacherId, shiftId);
       if (shift == null) {
         print(
             'ShiftTimesheetService: ❌ Shift validation failed - no valid shift found');
@@ -152,38 +139,47 @@ class ShiftTimesheetService {
       print('ShiftTimesheetService: Shift name: ${shift.displayName}');
       print('ShiftTimesheetService: Shift status: ${shift.status.name}');
 
-      // Get location and validate
-      if (location == null) {
-        print('ShiftTimesheetService: ❌ No location provided');
+      // Check if already clocked in (check for open timesheet)
+      final existingOpenTimesheet = await _firestore
+          .collection('timesheet_entries')
+          .where('shift_id', isEqualTo: shiftId)
+          .where('teacher_id', isEqualTo: teacherId)
+          .where('end_time', isEqualTo: '')
+          .limit(1)
+          .get();
+
+      if (existingOpenTimesheet.docs.isNotEmpty) {
+        print(
+            'ShiftTimesheetService: ❌ Already has open timesheet for this shift');
         return {
           'success': false,
-          'message': 'Location is required for clock-in',
-          'shift': null,
+          'message': 'You are already clocked in to this shift',
+          'shift': shift,
         };
       }
 
       print('ShiftTimesheetService: ✅ Location validated');
 
-      // Perform clock-in (this will update shift status to active)
-      print('ShiftTimesheetService: Calling ShiftService.clockIn...');
-      final clockInSuccess = await ShiftService.clockIn(teacherId, shiftId);
-      if (!clockInSuccess) {
-        print('ShiftTimesheetService: ❌ ShiftService.clockIn failed');
-        return {
-          'success': false,
-          'message':
-              'Failed to update shift status - you may already be clocked in or shift is not available',
-          'shift': null,
-        };
-      }
-
-      print('ShiftTimesheetService: ✅ ShiftService.clockIn succeeded');
-
-      // Create timesheet entry (always create new entry for each clock-in)
+      // Create timesheet entry FIRST (to ensure we have a record)
       print('ShiftTimesheetService: Creating timesheet entry...');
       final timesheetEntry = await _createTimesheetEntryFromShift(
           shift, location,
           isClockIn: true);
+
+      // Then update shift status (if this fails, we still have the timesheet)
+      print('ShiftTimesheetService: Updating shift status...');
+      try {
+        final clockInSuccess = await ShiftService.clockIn(teacherId, shiftId);
+        if (!clockInSuccess) {
+          print(
+              'ShiftTimesheetService: ⚠️ ShiftService.clockIn returned false, but continuing with timesheet');
+          // Don't fail entirely - we have the timesheet entry
+        }
+      } catch (e) {
+        print(
+            'ShiftTimesheetService: ⚠️ ShiftService.clockIn error: $e, but continuing');
+        // Continue anyway - the timesheet is what matters
+      }
 
       print(
           'ShiftTimesheetService: ✅ Clock-in successful, timesheet entry created');
@@ -213,7 +209,7 @@ class ShiftTimesheetService {
       print(
           'ShiftTimesheetService: Starting clock-out process for shift $shiftId');
 
-      // Validate the shift is valid for clock-out by checking for an open timesheet entry
+      // Validate the shift exists
       final doc =
           await _firestore.collection('teaching_shifts').doc(shiftId).get();
       if (!doc.exists) {
@@ -232,7 +228,7 @@ class ShiftTimesheetService {
         };
       }
 
-      // Check for an open timesheet entry to validate if we can clock out.
+      // Check for an open timesheet entry
       final openTimesheetQuery = await _firestore
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: shiftId)
@@ -244,24 +240,26 @@ class ShiftTimesheetService {
       if (openTimesheetQuery.docs.isEmpty) {
         return {
           'success': false,
-          'message': 'Couldn\'t find a valid shift to clock out.',
+          'message': 'No active clock-in found for this shift.',
           'shift': null,
         };
       }
 
-      // Perform clock-out
-      final clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
-      if (!clockOutSuccess) {
-        return {
-          'success': false,
-          'message': 'Failed to clock out from shift',
-          'shift': null,
-        };
-      }
-
-      // Update timesheet entry with clock-out data
+      // Update timesheet entry with clock-out data FIRST
       final timesheetEntry =
           await _updateTimesheetEntryWithClockOut(shift, location);
+
+      // Then update shift status (if this fails, we still have the timesheet)
+      try {
+        final clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
+        if (!clockOutSuccess) {
+          print(
+              'ShiftTimesheetService: ⚠️ ShiftService.clockOut returned false, but continuing');
+        }
+      } catch (e) {
+        print(
+            'ShiftTimesheetService: ⚠️ ShiftService.clockOut error: $e, but continuing');
+      }
 
       print(
           'ShiftTimesheetService: Clock-out successful, timesheet entry updated');
@@ -291,7 +289,7 @@ class ShiftTimesheetService {
       print(
           'ShiftTimesheetService: Starting auto clock-out process for shift $shiftId');
 
-      // Validate the shift is valid for clock-out by checking for an open timesheet entry
+      // Validate the shift
       final doc =
           await _firestore.collection('teaching_shifts').doc(shiftId).get();
       if (!doc.exists) {
@@ -310,7 +308,7 @@ class ShiftTimesheetService {
         };
       }
 
-      // Check for an open timesheet entry to validate if we can clock out.
+      // Check for an open timesheet entry
       final openTimesheetQuery = await _firestore
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: shiftId)
@@ -322,17 +320,7 @@ class ShiftTimesheetService {
       if (openTimesheetQuery.docs.isEmpty) {
         return {
           'success': false,
-          'message': 'Couldn\'t find an active clock-in for auto clock-out.',
-          'shift': null,
-        };
-      }
-
-      // Perform clock-out
-      final clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
-      if (!clockOutSuccess) {
-        return {
-          'success': false,
-          'message': 'Failed to auto clock out from shift',
+          'message': 'No active clock-in found for auto clock-out.',
           'shift': null,
         };
       }
@@ -340,6 +328,14 @@ class ShiftTimesheetService {
       // Update timesheet entry with auto clock-out data
       final timesheetEntry =
           await _updateTimesheetEntryWithAutoClockOut(shift, location);
+
+      // Update shift status
+      try {
+        await ShiftService.clockOut(teacherId, shiftId);
+      } catch (e) {
+        print(
+            'ShiftTimesheetService: ⚠️ ShiftService.clockOut error during auto-logout: $e');
+      }
 
       print(
           'ShiftTimesheetService: Auto clock-out successful, timesheet entry updated');
@@ -361,12 +357,11 @@ class ShiftTimesheetService {
     }
   }
 
-  /// Validate shift for clock-in (allowing multiple clock-ins within window)
-  static Future<TeachingShift?> _validateShiftForMultipleClockIn(
+  /// Validate shift for clock-in (single clock-in per shift)
+  static Future<TeachingShift?> _validateShiftForClockIn(
       String teacherId, String shiftId) async {
     try {
-      print(
-          'ShiftTimesheetService: _validateShiftForMultipleClockIn starting...');
+      print('ShiftTimesheetService: _validateShiftForClockIn starting...');
       print(
           'ShiftTimesheetService: Looking for shift $shiftId for teacher $teacherId');
 
@@ -389,43 +384,40 @@ class ShiftTimesheetService {
 
       print('ShiftTimesheetService: ✅ Teacher ID matches');
 
-      final now = DateTime.now();
-      // Convert shift times to local timezone for comparison
-      final shiftStartLocal = shift.shiftStart.toLocal();
-      final shiftEndLocal = shift.shiftEnd.toLocal();
-      final clockInWindow =
-          shiftStartLocal.subtract(const Duration(minutes: 15));
-      final clockOutWindow = shiftEndLocal.add(const Duration(minutes: 15));
+      // CONSISTENT UTC TIME HANDLING
+      final nowUtc = DateTime.now().toUtc();
+      final shiftStartUtc = shift.shiftStart.toUtc();
+      final shiftEndUtc = shift.shiftEnd.toUtc();
+      final clockInWindowUtc =
+          shiftStartUtc.subtract(const Duration(minutes: 15));
+      final clockOutWindowUtc = shiftEndUtc.add(const Duration(minutes: 15));
 
-      print('ShiftTimesheetService: Multiple clock-in validation:');
-      print('  - Current local time: $now');
-      print('  - Shift Start (stored): ${shift.shiftStart}');
-      print('  - Shift End (stored): ${shift.shiftEnd}');
-      print('  - Shift Start (local): $shiftStartLocal');
-      print('  - Shift End (local): $shiftEndLocal');
-      print('  - Clock-in Window Start: $clockInWindow');
-      print('  - Clock-out Window End: $clockOutWindow');
+      print('ShiftTimesheetService: Clock-in validation:');
+      print('  - Current UTC time: $nowUtc');
+      print('  - Shift Start (UTC): $shiftStartUtc');
+      print('  - Shift End (UTC): $shiftEndUtc');
+      print(
+          '  - Clock-in Window (UTC): $clockInWindowUtc to $clockOutWindowUtc');
       print('  - Shift Status: ${shift.status.name}');
       print(
-          '  - Time check: now.isAfter(clockInWindow) = ${now.isAfter(clockInWindow)}');
+          '  - Time check: nowUtc.isAfter(clockInWindowUtc) = ${nowUtc.isAfter(clockInWindowUtc)}');
       print(
-          '  - Time check: now.isBefore(clockOutWindow) = ${now.isBefore(clockOutWindow)}');
+          '  - Time check: nowUtc.isBefore(clockOutWindowUtc) = ${nowUtc.isBefore(clockOutWindowUtc)}');
 
-      // Allow clock-in during entire shift window regardless of current clock status
-      // This enables multiple clock-in/out cycles throughout the shift duration
-      if (now.isAfter(clockInWindow) && now.isBefore(clockOutWindow)) {
+      // Allow clock-in during entire shift window
+      if (nowUtc.isAfter(clockInWindowUtc) &&
+          nowUtc.isBefore(clockOutWindowUtc)) {
         print(
-            'ShiftTimesheetService: ✅ Shift validated for multiple clock-in - within extended time window');
+            'ShiftTimesheetService: ✅ Shift validated for clock-in - within time window');
         return shift;
       }
 
       print('ShiftTimesheetService: ❌ Shift not within valid time window');
       print(
-          'ShiftTimesheetService: Current time $now is not between $clockInWindow and $clockOutWindow');
+          'ShiftTimesheetService: Current UTC $nowUtc is not between $clockInWindowUtc and $clockOutWindowUtc');
       return null;
     } catch (e) {
-      print(
-          'ShiftTimesheetService: ❌ Exception in validating shift for multiple clock-in: $e');
+      print('ShiftTimesheetService: ❌ Exception in validating shift: $e');
       return null;
     }
   }
@@ -438,21 +430,18 @@ class ShiftTimesheetService {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      // The logic to close incomplete entries has been removed to allow for multiple,
-      // distinct timesheet entries per shift, each completed upon its own clock-out.
-
       final now = DateTime.now();
       final date = DateFormat('MMM dd, yyyy').format(now);
       final time = DateFormat('h:mm a').format(now);
 
-      // Improve human-readable address if it looks like raw coordinates
+      // Improve human-readable address if needed
       try {
         final addr = location.address.toLowerCase();
         final neigh = location.neighborhood.toLowerCase();
-        final looksLikeCoords =
-            addr.startsWith('location:') || neigh.startsWith('coordinates:') ||
-                neigh == 'gps coordinates' ||
-                RegExp(r'^-?\d+\.\d+').hasMatch(location.address);
+        final looksLikeCoords = addr.startsWith('location:') ||
+            neigh.startsWith('coordinates:') ||
+            neigh == 'gps coordinates' ||
+            RegExp(r'^-?\d+\.\d+').hasMatch(location.address);
         if (looksLikeCoords) {
           final improved = await LocationService.coordinatesToLocation(
               location.latitude, location.longitude);
@@ -467,23 +456,25 @@ class ShiftTimesheetService {
         }
       } catch (_) {}
 
-      // Create timesheet entry data
+      // Create timesheet entry data with proper clock-in timestamp
       final entryData = {
         'teacher_id': user.uid,
         'teacher_email': user.email,
-        'shift_id': shift.id, // Link to the shift
+        'shift_id': shift.id,
         'date': date,
         'student_name': shift.studentNames.isNotEmpty
             ? shift.studentNames.join(', ')
             : 'No students assigned',
         'start_time': time,
-        'end_time': '', // Will be filled on clock-out
-        'total_hours': '00:00', // Will be calculated on clock-out
+        'end_time': '',
+        'total_hours': '00:00',
         'description':
             'Teaching session: ${shift.subjectDisplayName} - ${shift.displayName}',
         'status': 'draft',
         'source': 'shift_clock_in',
-        'completion_method': 'pending', // Will be updated on clock-out
+        'completion_method': 'pending',
+        // Store the actual clock-in timestamp for persistence
+        'clock_in_timestamp': Timestamp.fromDate(now),
         // Location data
         'clock_in_latitude': location.latitude,
         'clock_in_longitude': location.longitude,
@@ -521,13 +512,13 @@ class ShiftTimesheetService {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      // Find the MOST RECENT timesheet entry for this shift that hasn't been clocked out
+      // Find the most recent open timesheet entry
       final querySnapshot = await _firestore
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: shift.id)
           .where('teacher_id', isEqualTo: user.uid)
-          .where('end_time', isEqualTo: '') // Not yet clocked out
-          .orderBy('created_at', descending: true) // Get the most recent entry
+          .where('end_time', isEqualTo: '')
+          .orderBy('created_at', descending: true)
           .limit(1)
           .get();
 
@@ -541,11 +532,20 @@ class ShiftTimesheetService {
       final now = DateTime.now();
       final endTime = DateFormat('h:mm a').format(now);
 
-      // Calculate total hours
-      final startTime = docData['start_time'] as String;
-      final startDateTime = DateFormat('h:mm a').parse(startTime);
-      final endDateTime = DateFormat('h:mm a').parse(endTime);
-      final duration = endDateTime.difference(startDateTime);
+      // Calculate total hours using the stored clock-in timestamp
+      DateTime startDateTime;
+      if (docData['clock_in_timestamp'] != null) {
+        startDateTime = (docData['clock_in_timestamp'] as Timestamp).toDate();
+      } else {
+        // Fallback to parsing the time string
+        final startTime = docData['start_time'] as String;
+        startDateTime = DateFormat('h:mm a').parse(startTime);
+        // Adjust to today's date
+        startDateTime = DateTime(now.year, now.month, now.day,
+            startDateTime.hour, startDateTime.minute);
+      }
+
+      final duration = now.difference(startDateTime);
       final totalHours =
           '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}';
 
@@ -553,11 +553,12 @@ class ShiftTimesheetService {
       await docRef.update({
         'end_time': endTime,
         'total_hours': totalHours,
+        'clock_out_timestamp': Timestamp.fromDate(now),
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
-        'completion_method': 'manual', // Mark as manual clock-out
+        'completion_method': 'manual',
         'updated_at': FieldValue.serverTimestamp(),
       });
 
@@ -580,20 +581,20 @@ class ShiftTimesheetService {
     }
   }
 
-  /// Update timesheet entry with auto clock-out data (uses shift end time)
+  /// Update timesheet entry with auto clock-out data
   static Future<Map<String, dynamic>> _updateTimesheetEntryWithAutoClockOut(
       TeachingShift shift, LocationData location) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      // Find the MOST RECENT timesheet entry for this shift that hasn't been clocked out
+      // Find the most recent open timesheet entry
       final querySnapshot = await _firestore
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: shift.id)
           .where('teacher_id', isEqualTo: user.uid)
-          .where('end_time', isEqualTo: '') // Not yet clocked out
-          .orderBy('created_at', descending: true) // Get the most recent entry
+          .where('end_time', isEqualTo: '')
+          .orderBy('created_at', descending: true)
           .limit(1)
           .get();
 
@@ -604,16 +605,22 @@ class ShiftTimesheetService {
       final docRef = querySnapshot.docs.first.reference;
       final docData = querySnapshot.docs.first.data();
 
-      // Use shift end time + 15 minutes for auto clock-out (convert UTC to local for display)
+      // Use shift end time + 15 minutes for auto clock-out
       final autoClockOutTimeUtc = shift.clockOutDeadline;
       final autoClockOutTimeLocal = autoClockOutTimeUtc.toLocal();
       final endTime = DateFormat('h:mm a').format(autoClockOutTimeLocal);
 
-      // Calculate total hours based on actual clock-in to auto clock-out time
-      final startTime = docData['start_time'] as String;
-      final startDateTime = DateFormat('h:mm a').parse(startTime);
-      final endDateTime = DateFormat('h:mm a').parse(endTime);
-      final duration = endDateTime.difference(startDateTime);
+      // Calculate total hours using stored clock-in timestamp
+      DateTime startDateTime;
+      if (docData['clock_in_timestamp'] != null) {
+        startDateTime = (docData['clock_in_timestamp'] as Timestamp).toDate();
+      } else {
+        // Fallback to parsing the time string
+        final startTime = docData['start_time'] as String;
+        startDateTime = DateFormat('h:mm a').parse(startTime);
+      }
+
+      final duration = autoClockOutTimeLocal.difference(startDateTime);
       final totalHours =
           '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}';
 
@@ -621,11 +628,12 @@ class ShiftTimesheetService {
       await docRef.update({
         'end_time': endTime,
         'total_hours': totalHours,
+        'clock_out_timestamp': Timestamp.fromDate(autoClockOutTimeUtc),
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
-        'completion_method': 'auto_logout', // Mark as auto-logout
+        'completion_method': 'auto_logout',
         'auto_logout_time': Timestamp.fromDate(autoClockOutTimeUtc),
         'updated_at': FieldValue.serverTimestamp(),
       });
@@ -651,14 +659,14 @@ class ShiftTimesheetService {
     }
   }
 
-  /// Get active shift for teacher (if any) - only if currently has an open timesheet
+  /// Get active shift for teacher (if any)
   static Future<TeachingShift?> getActiveShift(String teacherId) async {
     try {
-      // Instead of checking shift.isClockedIn, check for open timesheet entries
+      // Check for open timesheet entries
       final openTimesheetQuery = await _firestore
           .collection('timesheet_entries')
           .where('teacher_id', isEqualTo: teacherId)
-          .where('end_time', isEqualTo: '') // Open timesheet entry
+          .where('end_time', isEqualTo: '')
           .limit(1)
           .get();
 
@@ -691,6 +699,86 @@ class ShiftTimesheetService {
       return shift;
     } catch (e) {
       print('Error getting active shift: $e');
+      return null;
+    }
+  }
+
+  /// Get current open session with proper timestamp handling
+  static Future<Map<String, dynamic>?> getOpenSession(String teacherId) async {
+    try {
+      // Find the most recent open timesheet entry
+      var openTimesheetQuery = await _firestore
+          .collection('timesheet_entries')
+          .where('teacher_id', isEqualTo: teacherId)
+          .where('end_time', isEqualTo: '')
+          .orderBy('created_at', descending: true)
+          .limit(1)
+          .get();
+
+      // Fallback for legacy entries with null end_time
+      if (openTimesheetQuery.docs.isEmpty) {
+        openTimesheetQuery = await _firestore
+            .collection('timesheet_entries')
+            .where('teacher_id', isEqualTo: teacherId)
+            .where('end_time', isEqualTo: null)
+            .orderBy('created_at', descending: true)
+            .limit(1)
+            .get();
+      }
+
+      if (openTimesheetQuery.docs.isEmpty) {
+        return null;
+      }
+
+      final openEntryDoc = openTimesheetQuery.docs.first;
+      final openEntry = openEntryDoc.data();
+      final shiftId = openEntry['shift_id'] as String?;
+
+      if (shiftId == null) {
+        return null;
+      }
+
+      // Load the associated shift
+      final shiftDoc =
+          await _firestore.collection('teaching_shifts').doc(shiftId).get();
+      if (!shiftDoc.exists) return null;
+
+      final shift = TeachingShift.fromFirestore(shiftDoc);
+
+      // Get the clock-in timestamp - prioritize the stored timestamp
+      DateTime? startDateTime;
+
+      // First try the clock_in_timestamp field
+      if (openEntry['clock_in_timestamp'] != null) {
+        startDateTime = (openEntry['clock_in_timestamp'] as Timestamp).toDate();
+      }
+      // Then try created_at timestamp
+      else if (openEntry['created_at'] != null) {
+        startDateTime = (openEntry['created_at'] as Timestamp).toDate();
+      }
+      // Finally fallback to parsing date and time strings
+      else {
+        final dateStr = openEntry['date'] as String?;
+        final timeStr = openEntry['start_time'] as String?;
+        if (dateStr != null && timeStr != null) {
+          try {
+            startDateTime =
+                DateFormat('MMM dd, yyyy h:mm a').parse('$dateStr $timeStr');
+          } catch (_) {
+            // If parsing fails, use current time as fallback
+            startDateTime = DateTime.now();
+          }
+        }
+      }
+
+      return {
+        'shift': shift,
+        'timesheetEntryId': openEntryDoc.id,
+        'timesheetEntry': openEntry,
+        'clockInTime': startDateTime ?? DateTime.now(),
+      };
+    } catch (e) {
+      print('Error getting open session: $e');
       return null;
     }
   }

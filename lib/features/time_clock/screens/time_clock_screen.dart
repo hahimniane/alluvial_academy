@@ -55,12 +55,66 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadStudents();
-    _checkForActiveShift();
+    // Initialize shift and session in proper order
+    _initializeShiftAndSession();
     // Run shift monitoring in background
     _runPeriodicShiftMonitoring();
   }
 
-  void _checkForActiveShift() async {
+  // New method to properly initialize in order
+  Future<void> _initializeShiftAndSession() async {
+    await _checkForActiveShift();
+    await _resumeOpenSession();
+  }
+
+  // Helper method to format duration
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
+  Future<void> _resumeOpenSession() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final session = await ShiftTimesheetService.getOpenSession(user.uid);
+      if (session == null || !mounted) return;
+
+      final shift = session['shift'] as TeachingShift?;
+      final clockInTime = session['clockInTime'] as DateTime?;
+      
+      if (shift == null || clockInTime == null) return;
+
+      // Calculate elapsed time since clock-in
+      final now = DateTime.now();
+      final elapsed = now.difference(clockInTime);
+      
+      setState(() {
+        _currentShift = shift;
+        _isClockingIn = true;
+        _selectedStudentName = shift.displayName;
+        _clockInTime = clockInTime; // Use the actual clock-in time from database
+        _totalHoursWorked = _formatDuration(elapsed);
+        
+        // Reset and start the stopwatch
+        _stopwatch.reset();
+        _stopwatch.start();
+        // Note: We track the actual start time separately in _clockInTime
+        
+        _startTimer();
+        _startAutoLogoutTimer();
+      });
+      
+      print('TimeClockScreen: Resumed session - elapsed time: ${elapsed.inMinutes} minutes');
+    } catch (e) {
+      print('Error resuming open session: $e');
+    }
+  }
+
+  Future<void> _checkForActiveShift() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -467,40 +521,34 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     });
 
     try {
-      // Get location for clock out
-      LocationData? clockOutLocation =
-          await LocationService.getCurrentLocation();
+      // Get location for clock out with timeout
+      LocationData? clockOutLocation = await LocationService.getCurrentLocation()
+          .timeout(const Duration(seconds: 15), onTimeout: () {
+        print('Clock-out location request timed out');
+        return null;
+      });
 
       if (!mounted) return;
 
       if (clockOutLocation != null) {
         _showLocationConfirmation(clockOutLocation, isClockIn: false);
       } else {
+        // Show option to proceed without location instead of blocking
         setState(() {
           _isGettingLocation = false;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Location could not be determined. Please ensure GPS is enabled.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showClockOutWithoutLocationDialog();
       }
     } catch (e) {
+      print('Error getting location for clock-out: $e');
       if (!mounted) return;
 
       setState(() {
         _isGettingLocation = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error getting location for clock-out: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Show option to proceed without location instead of blocking
+      _showClockOutWithoutLocationDialog();
     }
   }
 
@@ -537,9 +585,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         print('Location obtained successfully: ${location.neighborhood}');
         _showLocationConfirmation(location, isClockIn: true);
       } else {
-        print(
-            'Location unavailable - showing option to proceed without location');
-        _showLocationOptionalDialog();
+        print('Location unavailable - clock-in requires location for timezone');
+        _showLocationRequiredDialog('Location access is required for clock-in to determine your timezone for accurate time tracking.');
       }
     } catch (e) {
       print('Error getting location: $e');
@@ -549,12 +596,13 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _isGettingLocation = false;
       });
 
-      // Show option to proceed without location instead of requiring it
-      _showLocationOptionalDialog();
+      // Show location required dialog for clock-in
+      _showLocationRequiredDialog('Location access is required for clock-in to determine your timezone for accurate time tracking.');
     }
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
@@ -699,21 +747,19 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   }
 
   void _updateTotalHours() {
-    final elapsed = _stopwatch.elapsed;
-    final hours = elapsed.inHours.toString().padLeft(2, '0');
-    final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
-    _totalHoursWorked = '$hours:$minutes:$seconds';
-    // Timer update debug message removed
+    // Always calculate from the actual clock-in time, not stopwatch
+    if (_clockInTime != null) {
+      final elapsed = DateTime.now().difference(_clockInTime!);
+      _totalHoursWorked = _formatDuration(elapsed);
+    }
   }
 
   void _clockOut() async {
-    if (!_isClockingIn || _clockInTime == null || _currentShift == null) return;
+    if (!_isClockingIn || _currentShift == null) return;
 
     // Prevent multiple simultaneous clock-out attempts
     if (_isGettingLocation) return;
 
-    // Show loading state while getting location
     setState(() {
       _isGettingLocation = true;
     });
@@ -721,106 +767,70 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     try {
       LocationData? clockOutLocation;
 
-      // Try to use cached location first (if clock-in location is recent enough)
-      if (_clockInLocation != null) {
-        final clockInTime = _clockInTime!;
-        final now = DateTime.now();
-        final timeSinceClockIn = now.difference(clockInTime);
-
-        // If clocked in less than 5 minutes ago, use the same location
-        if (timeSinceClockIn.inMinutes < 5) {
-          print(
-              'Using cached clock-in location for clock-out (${timeSinceClockIn.inMinutes} min ago)');
-          clockOutLocation = _clockInLocation;
-        }
-      }
-
-      // If no cached location available, try to get new location with timeout
-      if (clockOutLocation == null) {
-        print('Getting new location for clock-out...');
-        try {
-          clockOutLocation = await LocationService.getCurrentLocation()
-              .timeout(const Duration(seconds: 10));
-        } catch (e) {
-          print('Clock-out location failed, using fallback: $e');
-          // Use a fallback location for clock-out to prevent endless loops
-          clockOutLocation = LocationData(
-            latitude: _clockInLocation?.latitude ?? 0.0,
-            longitude: _clockInLocation?.longitude ?? 0.0,
-            address: 'Clock-out location unavailable',
-            neighborhood: 'Previous Location',
-          );
-        }
+      // Try to get location with fallback
+      try {
+        clockOutLocation = await LocationService.getCurrentLocation()
+            .timeout(const Duration(seconds: 10));
+      } catch (e) {
+        print('Clock-out location failed, using fallback: $e');
+        // Use a fallback location
+        clockOutLocation = LocationData(
+          latitude: _clockInLocation?.latitude ?? 0.0,
+          longitude: _clockInLocation?.longitude ?? 0.0,
+          address: 'Clock-out location unavailable',
+          neighborhood: 'Previous Location',
+        );
       }
 
       if (!mounted) return;
 
-      if (clockOutLocation != null) {
-        // Use the shift timesheet service to properly clock out
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          final result = await ShiftTimesheetService.clockOutFromShift(
-            user.uid,
-            _currentShift!.id,
-            location: clockOutLocation,
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && clockOutLocation != null) {
+        final result = await ShiftTimesheetService.clockOutFromShift(
+          user.uid,
+          _currentShift!.id,
+          location: clockOutLocation,
+        );
+
+        if (result['success']) {
+          // Clock-out successful
+          _resetClockOutState(clockOutLocation);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
           );
 
-          if (result['success']) {
-            // Clock-out successful - update UI immediately
+          // Refresh timesheet data
+          _refreshTimesheetData();
+          _checkForActiveShift();
+        } else {
+          // Handle failure without getting stuck
+          setState(() {
+            _isGettingLocation = false;
+          });
+          
+          // Check if it's a state mismatch
+          if (result['message'].toString().toLowerCase().contains('no active clock-in') ||
+              result['message'].toString().toLowerCase().contains('couldn\'t find a valid shift')) {
+            // Force reset UI state when backend says no active session
             _resetClockOutState(clockOutLocation);
-
-            // Show success message
+            _showStateMismatchError();
+          } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(result['message']),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
+                content: Text('Clock-out failed: ${result['message']}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
               ),
             );
-
-            // Refresh timesheet data and check for next shift
-            _refreshTimesheetData();
-            _checkForActiveShift();
-          } else {
-            // Clock-out failed. This is where the loop happens.
-            // If the error is "no valid shift to clock out", it means the backend
-            // state and UI state are mismatched. Force a UI reset.
-            if (result['message']
-                .toString()
-                .toLowerCase()
-                .contains('couldn\'t find a valid shift')) {
-              _showStateMismatchError();
-              _resetClockOutState(clockOutLocation); // Force reset UI
-            } else {
-              // For other errors, just show the message and reset loading state
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Clock-out failed: ${result['message']}'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            }
-
-            // Always reset the loading state to prevent getting stuck
-            _resetLocationState();
           }
         }
-      } else {
-        // This should not happen now since we have fallback location
-        setState(() {
-          _isGettingLocation = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Unable to determine location for clock-out. Please try again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          ),
-        );
       }
+
       if (mounted) {
         // Add a small delay to ensure Firebase write is committed
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -829,8 +839,6 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           }
         });
       }
-
-      // Location handling is now done in the shift timesheet service above
     } catch (e) {
       print('Clock-out error: $e');
       if (!mounted) return;
@@ -839,7 +847,6 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _isGettingLocation = false;
       });
 
-      // Show error message and stop the process
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Clock-out failed: ${e.toString()}'),
@@ -847,11 +854,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           duration: const Duration(seconds: 4),
         ),
       );
-      return; // Stop here to prevent further processing
     }
   }
-
-  // Removed _saveToFirebase method - timesheet entries are now handled by ShiftTimesheetService
 
   void _proceedWithClockIn(LocationData location) async {
     if (!mounted) return;
@@ -882,9 +886,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       if (result['success']) {
         setState(() {
           _isClockingIn = true;
-          _selectedStudentName = _currentShift!
-              .displayName; // Use shift name instead of student name
-          _clockInTime = DateTime.now();
+          _selectedStudentName = _currentShift!.displayName;
+          _clockInTime = DateTime.now(); // Store the actual clock-in time
           _clockInLocation = location;
           _totalHoursWorked = "00:00:00";
           _stopwatch.reset();
@@ -923,6 +926,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     if (!mounted) return;
 
     if (_currentShift == null) {
+      setState(() {
+        _isGettingLocation = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No active shift found for clock-out'),
@@ -934,7 +940,12 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        setState(() {
+          _isGettingLocation = false;
+        });
+        return;
+      }
 
       // Use the shift-based clock-out service
       final result = await ShiftTimesheetService.clockOutFromShift(
@@ -946,35 +957,54 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       if (!mounted) return;
 
       if (result['success']) {
-        // Proceed with the existing clock-out logic
-        _clockOut();
-
-        // Clear the current shift
-        setState(() {
-          _currentShift = null;
-        });
+        // Reset the clock-out state directly without calling _clockOut() again
+        _resetClockOutState(location);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message']),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
+
+        // Refresh timesheet data
+        _refreshTimesheetData();
+        _checkForActiveShift();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message']),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Handle failure without getting stuck
+        setState(() {
+          _isGettingLocation = false;
+        });
+
+        // Check if it's a state mismatch
+        if (result['message'].toString().toLowerCase().contains('no active clock-in') ||
+            result['message'].toString().toLowerCase().contains('couldn\'t find a valid shift')) {
+          // Force reset UI state when backend says no active session
+          _resetClockOutState(location);
+          _showStateMismatchError();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Clock-out failed: ${result['message']}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
+
+      setState(() {
+        _isGettingLocation = false;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error during clock-out: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -1282,7 +1312,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'We couldn\'t determine your location. You can still clock in without location data.',
+              'Location access is required for clock-in to determine your timezone for accurate time tracking.',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff475569),
@@ -1316,7 +1346,112 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'You can try again to enable location, or proceed without it.',
+                    'Please enable location access and try again.',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: Colors.orange.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _startTeachingSession(); // Retry getting location
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff0386FF),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Try Again',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClockOutWithoutLocationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.location_searching,
+              color: Colors.orange,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Location Unavailable',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'We couldn\'t determine your location for clock-out. You can still proceed without location data.',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff475569),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.info, color: Colors.orange, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Your timezone was already determined during clock-in, so your time tracking will remain accurate.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You can try again to enable location, or proceed with clock-out.',
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       color: Colors.orange.shade600,
@@ -1344,7 +1479,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 child: TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _startTeachingSession(); // Retry getting location
+                    _proceedToClockOut(_currentShift!); // Retry getting location
                   },
                   child: Text(
                     'Try Again',
@@ -1360,15 +1495,15 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    // Proceed with clock-in without location
-                    _proceedWithClockInWithoutLocation();
+                    // Proceed with clock-out without location
+                    _proceedWithClockOutWithoutLocation();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff10B981),
+                    backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
                   ),
                   child: Text(
-                    'Clock In',
+                    'Clock Out',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                     ),
@@ -1382,13 +1517,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     );
   }
 
-  void _proceedWithClockInWithoutLocation() async {
+  void _proceedWithClockOutWithoutLocation() async {
     if (!mounted) return;
 
     if (_currentShift == null) {
+      setState(() {
+        _isGettingLocation = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No valid shift found for clock-in'),
+          content: Text('No active shift found for clock-out'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1397,64 +1535,76 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        setState(() {
+          _isGettingLocation = false;
+        });
+        return;
+      }
 
-      // Create a default location for clock-in without location data
-      final defaultLocation = LocationData(
-        latitude: 0.0,
-        longitude: 0.0,
-        address: 'Location unavailable',
-        neighborhood: 'Clock-in without location',
+      // Create a fallback location for clock-out when location is unavailable
+      final fallbackLocation = LocationData(
+        latitude: _clockInLocation?.latitude ?? 0.0,
+        longitude: _clockInLocation?.longitude ?? 0.0,
+        address: 'Clock-out location unavailable',
+        neighborhood: 'Location not captured',
       );
 
-      // Use the shift-based clock-in service with default location
-      final result = await ShiftTimesheetService.clockInToShift(
+      // Use the shift-based clock-out service with fallback location
+      final result = await ShiftTimesheetService.clockOutFromShift(
         user.uid,
         _currentShift!.id,
-        location: defaultLocation,
+        location: fallbackLocation,
       );
 
       if (!mounted) return;
 
       if (result['success']) {
-        setState(() {
-          _isClockingIn = true;
-          _selectedStudentName = _currentShift!
-              .displayName; // Use shift name instead of student name
-          _clockInTime = DateTime.now();
-          _clockInLocation = defaultLocation;
-          _totalHoursWorked = "00:00:00";
-          _stopwatch.reset();
-          _stopwatch.start();
-          _startTimer();
-          _startAutoLogoutTimer();
-        });
+        // Reset the clock-out state
+        _resetClockOutState(fallbackLocation);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${result['message']} (without location tracking)'),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
           ),
         );
+
+        // Refresh timesheet data
+        _refreshTimesheetData();
+        _checkForActiveShift();
       } else {
+        // Handle failure
+        setState(() {
+          _isGettingLocation = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message']),
+            content: Text('Clock-out failed: ${result['message']}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
     } catch (e) {
       if (!mounted) return;
 
+      setState(() {
+        _isGettingLocation = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error during clock-in: $e'),
+          content: Text('Error during clock-out: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
   }
+
 
   void _showClockOutConfirmation(Map<String, dynamic> entry) {
     showDialog(
@@ -1975,248 +2125,249 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          // Shift information section (if active)
-          if (_currentShift != null)
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Shift information section (if active)
+            if (_currentShift != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  color: const Color(0xff10B981).withOpacity(0.1),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.schedule,
+                              color: const Color(0xff10B981),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _currentShift!.isClockedIn
+                                  ? 'Clocked In'
+                                  : 'Active Shift',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _currentShift!.displayName,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${DateFormat('MMM dd, h:mm a').format(_currentShift!.shiftStart)} - ${DateFormat('h:mm a').format(_currentShift!.shiftEnd)}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff64748B),
+                          ),
+                        ),
+                        if (_currentShift!.studentNames.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Students: ${_currentShift!.studentNames.join(', ')}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff64748B),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // Clock-in section
             Container(
+              height: 250,
               padding: const EdgeInsets.all(16),
               child: Card(
-                color: const Color(0xff10B981).withOpacity(0.1),
-                elevation: 2,
+                color: Colors.white,
+                elevation: 4,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            color: const Color(0xff10B981),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _currentShift!.isClockedIn
-                                ? 'Clocked In'
-                                : 'Active Shift',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff10B981),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
                       Text(
-                        _currentShift!.displayName,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xff1E293B),
+                        "Today's Clock",
+                        style: constants.openSansHebrewTextStyle.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                          fontSize: 18,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${DateFormat('MMM dd, h:mm a').format(_currentShift!.shiftStart)} - ${DateFormat('h:mm a').format(_currentShift!.shiftEnd)}',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xff64748B),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Center(
+                          child: _isClockingIn
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        'Teaching: $_selectedStudentName',
+                                        style: constants.openSansHebrewTextStyle
+                                            .copyWith(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xff0386FF),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _totalHoursWorked,
+                                      style: constants.openSansHebrewTextStyle
+                                          .copyWith(
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    if (_timeUntilAutoLogout.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.orange.withOpacity(0.3),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.timer,
+                                              size: 16,
+                                              color: Colors.orange,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Auto-logout in $_timeUntilAutoLogout',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.orange.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: _clockOut,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(100, 40),
+                                      ),
+                                      child: const Text('Stop'),
+                                    ),
+                                  ],
+                                )
+                              : ElevatedButton(
+                                  onPressed:
+                                      (_isGettingLocation || _isCheckingShift)
+                                          ? null
+                                          : () => _handleClockInOut(),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: (_isGettingLocation ||
+                                            _isCheckingShift)
+                                        ? Colors.grey
+                                        : (_currentShift != null &&
+                                                _currentShift!.isClockedIn)
+                                            ? Colors.red // Show red for clock-out
+                                            : const Color(
+                                                0xff0386FF), // Blue for clock-in
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(100, 40),
+                                  ),
+                                  child: _isCheckingShift
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<Color>(
+                                                        Colors.white),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Text('Checking Shift...'),
+                                          ],
+                                        )
+                                      : _isGettingLocation
+                                          ? Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                            Color>(Colors.white),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                const Text('Getting Location...'),
+                                              ],
+                                            )
+                                          : Text((_currentShift != null &&
+                                                  _currentShift!.isClockedIn)
+                                              ? 'Clock Out'
+                                              : 'Clock In'),
+                                ),
                         ),
                       ),
-                      if (_currentShift!.studentNames.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Students: ${_currentShift!.studentNames.join(', ')}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xff64748B),
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ),
             ),
-
-          // Clock-in section
-          Container(
-            height: 250,
-            padding: const EdgeInsets.all(16),
-            child: Card(
-              color: Colors.white,
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Today's Clock",
-                      style: constants.openSansHebrewTextStyle.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: Center(
-                        child: _isClockingIn
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      'Teaching: $_selectedStudentName',
-                                      style: constants.openSansHebrewTextStyle
-                                          .copyWith(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xff0386FF),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _totalHoursWorked,
-                                    style: constants.openSansHebrewTextStyle
-                                        .copyWith(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  if (_timeUntilAutoLogout.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.orange.withOpacity(0.3),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.timer,
-                                            size: 16,
-                                            color: Colors.orange,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Auto-logout in $_timeUntilAutoLogout',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.orange.shade700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: _clockOut,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size(100, 40),
-                                    ),
-                                    child: const Text('Stop'),
-                                  ),
-                                ],
-                              )
-                            : ElevatedButton(
-                                onPressed:
-                                    (_isGettingLocation || _isCheckingShift)
-                                        ? null
-                                        : () => _handleClockInOut(),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: (_isGettingLocation ||
-                                          _isCheckingShift)
-                                      ? Colors.grey
-                                      : (_currentShift != null &&
-                                              _currentShift!.isClockedIn)
-                                          ? Colors.red // Show red for clock-out
-                                          : const Color(
-                                              0xff0386FF), // Blue for clock-in
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size(100, 40),
-                                ),
-                                child: _isCheckingShift
-                                    ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.white),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text('Checking Shift...'),
-                                        ],
-                                      )
-                                    : _isGettingLocation
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(Colors.white),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Text('Getting Location...'),
-                                            ],
-                                          )
-                                        : Text((_currentShift != null &&
-                                                _currentShift!.isClockedIn)
-                                            ? 'Clock Out'
-                                            : 'Clock In'),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Timesheet section
-          Expanded(
-            child: Padding(
+            // Timesheet section - now with fixed height instead of Expanded
+            Container(
+              height: 600, // Fixed height for the table
               padding: const EdgeInsets.only(top: 16, bottom: 16),
               child: TimesheetTable(
                 clockInEntries: _timesheetEntries,
                 key: _timesheetTableKey,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -9,12 +9,14 @@ class TeacherShiftCalendar extends StatefulWidget {
   final List<TeachingShift> shifts;
   final void Function(TeachingShift shift)? onSelectShift;
   final DateTime? initialDisplayDate;
+  final CalendarView initialView;
 
   const TeacherShiftCalendar({
     super.key,
     required this.shifts,
     this.onSelectShift,
     this.initialDisplayDate,
+    this.initialView = CalendarView.week,
   });
 
   @override
@@ -29,7 +31,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   void initState() {
     super.initState();
     _dataSource = ShiftCalendarDataSource(widget.shifts);
-    _controller.view = CalendarView.timelineWeek;
+    _controller.view = widget.initialView;
   }
 
   @override
@@ -48,8 +50,11 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         Expanded(
           child: SfCalendar(
             controller: _controller,
-            view: CalendarView.timelineWeek,
+            view: widget.initialView,
             allowedViews: const [
+              CalendarView.day,
+              CalendarView.week,
+              CalendarView.workWeek,
               CalendarView.timelineDay,
               CalendarView.timelineWeek,
               CalendarView.timelineWorkWeek,
@@ -57,11 +62,12 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             dataSource: _dataSource,
             showDatePickerButton: true,
             showTodayButton: true,
+            // Increase row height slightly to reduce vertical overflows
             timeSlotViewSettings: const TimeSlotViewSettings(
               startHour: 5,
               endHour: 23,
               timeInterval: Duration(minutes: 30),
-              timeIntervalHeight: 55,
+              timeIntervalHeight: 58,
             ),
             appointmentBuilder: _appointmentBuilder,
             onTap: (details) {
@@ -126,20 +132,72 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     final shift = data.shift;
     final statusColor = _statusColor(shift.status, shift);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: statusColor.withOpacity(0.4), width: 1),
-      ),
-      padding: const EdgeInsets.all(8),
-      child: Column(
+    // Determine available height to avoid overflow on short appointments.
+    final double h = details.bounds.height;
+
+    // Build condensed/expanded variants based on available height.
+    Widget content;
+    if (h < 36) {
+      // Extra-compact: only show the time range, centered.
+      content = Center(
+        child: Text(
+          _timeRange(shift.shiftStart, shift.shiftEnd),
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: statusColor.darken(0.4),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      );
+    } else if (h < 64) {
+      // Compact: time + title (single line each).
+      content = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             children: [
-              const Icon(Icons.bookmark, size: 14, color: Colors.white),
+              Icon(Icons.bookmark, size: 12, color: statusColor.darken(0.2)),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  _timeRange(shift.shiftStart, shift.shiftEnd),
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor.darken(0.4),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            shift.displayName,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    } else {
+      // Comfortable: time + title + coach line.
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bookmark, size: 14, color: statusColor.darken(0.2)),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
@@ -149,6 +207,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
                     fontWeight: FontWeight.w700,
                     color: statusColor.darken(0.4),
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -173,7 +232,21 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      );
+    }
+
+    // Make borders more visible and consistent.
+    return Container(
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: statusColor.darken(0.05),
+          width: 2.0, // thicker, easier to see
+        ),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: content,
     );
   }
 

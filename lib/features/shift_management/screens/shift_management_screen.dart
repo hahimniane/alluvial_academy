@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
@@ -10,6 +11,8 @@ import '../../../core/models/employee_model.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../widgets/create_shift_dialog.dart';
+import '../widgets/teacher_shift_calendar.dart';
+import '../../settings/pay_settings_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
 
@@ -34,6 +37,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   bool _isLoading = true;
   bool _isAdmin = false;
   String? _currentUserId;
+  bool _isCalendarView = false; // Admin can toggle Grid/Week view
 
   // Bulk selection state
   Set<String> _selectedShiftIds = {};
@@ -117,13 +121,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         shiftsStream = ShiftService.getTeacherShifts(_currentUserId!);
       }
 
-      shiftsStream.listen((shifts) {
+      shiftsStream.listen((shifts) async {
         if (mounted) {
           setState(() {
             _allShifts = shifts;
             _categorizeShifts();
             _isLoading = false;
           });
+          
+          // Reload statistics when shifts change
+          await _loadShiftStatistics();
         }
       });
     } catch (e) {
@@ -136,7 +143,19 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   Future<void> _loadShiftStatistics() async {
     try {
-      final stats = await ShiftService.getShiftStatistics();
+      Map<String, dynamic> stats;
+      
+      if (_isAdmin) {
+        // Admins see all shift statistics
+        stats = await ShiftService.getShiftStatistics();
+      } else {
+        // Teachers only see their own shift statistics
+        if (_currentUserId == null) {
+          throw Exception('User ID not available');
+        }
+        stats = await ShiftService.getTeacherShiftStatistics(_currentUserId!);
+      }
+      
       if (mounted) {
         setState(() {
           _shiftStats = stats;
@@ -376,7 +395,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               ],
             ),
           ),
-          // Tabs
+          // View toggle + Tabs
           Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
@@ -384,24 +403,37 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
               ),
             ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: const Color(0xff0386FF),
-              unselectedLabelColor: const Color(0xff6B7280),
-              indicatorColor: const Color(0xff0386FF),
-              labelStyle: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              tabs: [
-                Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
-                Tab(text: 'Today (${_filteredTodayShifts.length})'),
-                Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
-                Tab(text: 'Active (${_filteredActiveShifts.length})'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Toggle aligned right
+                Row(
+                  children: [
+                    const Spacer(),
+                    _buildAdminViewToggle(),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TabBar(
+                  controller: _tabController,
+                  labelColor: const Color(0xff0386FF),
+                  unselectedLabelColor: const Color(0xff6B7280),
+                  indicatorColor: const Color(0xff0386FF),
+                  labelStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  tabs: [
+                    Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
+                    Tab(text: 'Today (${_filteredTodayShifts.length})'),
+                    Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
+                    Tab(text: 'Active (${_filteredActiveShifts.length})'),
+                  ],
+                ),
               ],
             ),
           ),
@@ -411,14 +443,92 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildShiftDataGrid(_filteredAllShifts),
-                _buildShiftDataGrid(_filteredTodayShifts),
-                _buildShiftDataGrid(_filteredUpcomingShifts),
-                _buildShiftDataGrid(_filteredActiveShifts),
+                _isCalendarView
+                    ? _buildShiftCalendar(_filteredAllShifts)
+                    : _buildShiftDataGrid(_filteredAllShifts),
+                _isCalendarView
+                    ? _buildShiftCalendar(_filteredTodayShifts)
+                    : _buildShiftDataGrid(_filteredTodayShifts),
+                _isCalendarView
+                    ? _buildShiftCalendar(_filteredUpcomingShifts)
+                    : _buildShiftDataGrid(_filteredUpcomingShifts),
+                _isCalendarView
+                    ? _buildShiftCalendar(_filteredActiveShifts)
+                    : _buildShiftDataGrid(_filteredActiveShifts),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAdminViewToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xffF3F4F6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildToggleButton(
+            icon: Icons.grid_on,
+            label: 'Grid',
+            selected: !_isCalendarView,
+            onTap: () => setState(() => _isCalendarView = false),
+          ),
+          _buildToggleButton(
+            icon: Icons.calendar_view_week,
+            label: 'Week',
+            selected: _isCalendarView,
+            onTap: () => setState(() => _isCalendarView = true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleButton({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xff0386FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: selected ? Colors.white : const Color(0xff6B7280)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : const Color(0xff6B7280),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftCalendar(List<TeachingShift> shifts) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+      child: TeacherShiftCalendar(
+        shifts: shifts,
+        onSelectShift: _showShiftDetails,
+        initialView: CalendarView.week,
       ),
     );
   }
@@ -506,6 +616,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 builder: (context) =>
                                     const SubjectManagementDialog(),
                               ).then((_) => _loadShiftData());
+                            } else if (value == 'pay_settings') {
+                              showDialog(
+                                context: context,
+                                builder: (context) => const PaySettingsDialog(),
+                              );
                             }
                           },
                           itemBuilder: (context) => [
@@ -517,6 +632,17 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                       size: 20, color: Color(0xff0386FF)),
                                   SizedBox(width: 8),
                                   Text('Manage Subjects'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'pay_settings',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.attach_money,
+                                      size: 20, color: Colors.green),
+                                  SizedBox(width: 8),
+                                  Text('Pay Settings'),
                                 ],
                               ),
                             ),

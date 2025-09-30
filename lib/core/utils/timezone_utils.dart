@@ -55,6 +55,11 @@ class TimezoneUtils {
     if (!_initialized) initializeTimezones();
 
     try {
+      // If timezone is UTC, return as-is
+      if (timezoneId == 'UTC') {
+        return localTime.toUtc();
+      }
+
       final location = tz.getLocation(timezoneId);
       final tzDateTime = tz.TZDateTime(
         location,
@@ -67,9 +72,12 @@ class TimezoneUtils {
         localTime.millisecond,
         localTime.microsecond,
       );
+      print('TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
       return tzDateTime.toUtc();
     } catch (e) {
       print('Error converting from timezone $timezoneId: $e');
+      print('TimezoneUtils: Falling back to treating as local time');
+      // Fallback: treat as local time and convert to UTC
       return localTime;
     }
   }

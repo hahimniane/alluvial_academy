@@ -1480,10 +1480,26 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       );
 
       // Convert admin's local time to UTC for storage
-      final shiftStart =
-          TimezoneUtils.convertToUtc(shiftStartLocal, _adminTimezone);
-      final shiftEnd =
-          TimezoneUtils.convertToUtc(shiftEndLocal, _adminTimezone);
+      print('CreateShiftDialog: Admin timezone: $_adminTimezone');
+      print('CreateShiftDialog: Local shift start: $shiftStartLocal');
+      print('CreateShiftDialog: Local shift end: $shiftEndLocal');
+
+      DateTime shiftStart;
+      DateTime shiftEnd;
+
+      // If timezone detection failed (defaulted to UTC), use local time as-is
+      // This prevents the incorrect 4-hour offset issue
+      if (_adminTimezone == 'UTC' || _adminTimezone.isEmpty) {
+        print('CreateShiftDialog: Using local time directly (timezone detection may have failed)');
+        shiftStart = shiftStartLocal;
+        shiftEnd = shiftEndLocal;
+      } else {
+        shiftStart = TimezoneUtils.convertToUtc(shiftStartLocal, _adminTimezone);
+        shiftEnd = TimezoneUtils.convertToUtc(shiftEndLocal, _adminTimezone);
+      }
+
+      print('CreateShiftDialog: Final shift start: $shiftStart');
+      print('CreateShiftDialog: Final shift end: $shiftEnd');
 
       if (widget.shift == null) {
         // Find teacher UID from email
@@ -1499,13 +1515,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
         final teacherUid = teacherSnapshot.docs.first.id;
 
-        // Find student UIDs from unique identifiers
+        // Find student UIDs and names from unique identifiers
         final studentUids = <String>[];
+        final studentNames = <String>[];
         for (String uniqueId in _selectedStudentIds) {
-          // Extract email from unique identifier (format: email|firstName|lastName)
+          // Extract email and names from unique identifier (format: email|firstName|lastName)
           final parts = uniqueId.split('|');
-          if (parts.isEmpty) continue;
+          if (parts.length < 3) continue;
           final studentEmail = parts[0];
+          final firstName = parts[1];
+          final lastName = parts[2];
 
           final studentSnapshot = await FirebaseFirestore.instance
               .collection('users')
@@ -1515,6 +1534,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
           if (studentSnapshot.docs.isNotEmpty) {
             studentUids.add(studentSnapshot.docs.first.id);
+            // Use the names from the UI selection instead of re-querying the database
+            studentNames.add('$firstName $lastName');
           }
         }
 
@@ -1530,6 +1551,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         await ShiftService.createShift(
           teacherId: teacherUid,
           studentIds: studentUids,
+          studentNames: studentNames,
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
           adminTimezone: _adminTimezone,
@@ -1546,6 +1568,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                   ? _enhancedRecurrence
                   : null,
           recurrenceEndDate: _recurrenceEndDate,
+          originalLocalStart: shiftStartLocal,
+          originalLocalEnd: shiftEndLocal,
         );
       } else {
         // Update existing shift - convert emails back to UIDs
@@ -1573,10 +1597,12 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         final studentUids = <String>[];
         final studentNames = <String>[];
         for (String uniqueId in _selectedStudentIds) {
-          // Extract email from unique identifier (format: email|firstName|lastName)
+          // Extract email and names from unique identifier (format: email|firstName|lastName)
           final parts = uniqueId.split('|');
-          if (parts.isEmpty) continue;
+          if (parts.length < 3) continue;
           final studentEmail = parts[0];
+          final firstName = parts[1];
+          final lastName = parts[2];
 
           final studentSnapshot = await FirebaseFirestore.instance
               .collection('users')
@@ -1585,11 +1611,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               .get();
 
           if (studentSnapshot.docs.isNotEmpty) {
-            final studentData =
-                studentSnapshot.docs.first.data() as Map<String, dynamic>;
             studentUids.add(studentSnapshot.docs.first.id);
-            studentNames.add(
-                '${studentData['first_name']} ${studentData['last_name']}');
+            // Use the names from the UI selection instead of re-querying the database
+            studentNames.add('$firstName $lastName');
           }
         }
 

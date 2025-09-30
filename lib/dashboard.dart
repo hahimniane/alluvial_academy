@@ -1096,7 +1096,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     _buildSideMenuItem(
                       icon: const Icon(Icons.schedule),
                       text: 'My Shifts',
-                      index: 3,
+                      index: 4, // Route to TeacherShiftScreen
                       color: const Color(0xff059669),
                     ),
                     _buildSideMenuItem(
