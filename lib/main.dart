@@ -2,17 +2,51 @@ import 'core/services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:device_preview/device_preview.dart';
+import 'package:provider/provider.dart';
 
-import 'dashboard.dart';
 import 'role_based_dashboard.dart';
 import 'firebase_options.dart';
 import 'core/constants/app_constants.dart';
 import 'screens/landing_page.dart';
 import 'core/utils/timezone_utils.dart';
+import 'features/auth/screens/mobile_login_screen.dart';
+import 'features/dashboard/screens/mobile_dashboard_screen.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/services/theme_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/theme/app_theme.dart';
+import 'core/migrations/shift_wage_migration.dart';
+
+/// Save FCM token if user is already logged in (non-blocking)
+void _saveFCMTokenIfLoggedIn() {
+  // Run in background to avoid blocking app startup
+  Future.delayed(const Duration(seconds: 2), () async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      print('🔍 Checking if user is logged in...');
+      print('🔍 Current user: ${currentUser?.uid}');
+      print('🔍 Current user email: ${currentUser?.email}');
+      
+      if (currentUser != null) {
+        print('✅ User is logged in, attempting to save FCM token...');
+        await NotificationService().saveTokenToFirestore(userId: currentUser.uid);
+        print('✅ FCM token save completed for user: ${currentUser.uid}');
+      } else {
+        print('❌ No user logged in - FCM token will not be saved');
+      }
+    } catch (e) {
+      print('❌ ERROR saving FCM token on launch: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
+    }
+  });
+}
 
 Future<void> main() async {
   // Disable zone error assertions for web in debug mode
@@ -22,13 +56,38 @@ Future<void> main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Lock orientation to portrait only (mobile apps only)
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
+
   // Initialize Firebase before running the app (required for web and all platforms)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize Firebase Cloud Messaging background handler
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
+
   // Initialize timezone database
   TimezoneUtils.initializeTimezones();
+
+  // Initialize Notification Service (only for mobile platforms)
+  if (!kIsWeb) {
+    await NotificationService().initialize();
+    
+    // Save FCM token if user is already logged in
+    _saveFCMTokenIfLoggedIn();
+  }
+
+  // Run one-time shift wage migration
+  // This will update all teacher shifts to $4 per hour
+  await ShiftWageMigration.runMigration();
 
   // Handle Flutter framework errors gracefully (like trackpad gesture assertions)
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -75,68 +134,97 @@ Future<void> main() async {
         runWidget(
           View(
             view: views.first,
-            child: const MyApp(),
+            child: ChangeNotifierProvider(
+              create: (_) => ThemeService(),
+              child: DevicePreview(
+                enabled: kDebugMode, // Only enabled in debug mode
+                builder: (context) => const MyApp(),
+              ),
+            ),
           ),
         );
       } else {
         // Fallback to runApp if no views available
-        runApp(const MyApp());
+        runApp(
+          ChangeNotifierProvider(
+            create: (_) => ThemeService(),
+            child: DevicePreview(
+              enabled: kDebugMode,
+              builder: (context) => const MyApp(),
+            ),
+          ),
+        );
       }
     } catch (e) {
       // If runWidget fails, fallback to runApp
       print('runWidget failed, falling back to runApp: $e');
-      runApp(const MyApp());
+      runApp(
+        ChangeNotifierProvider(
+          create: (_) => ThemeService(),
+          child: DevicePreview(
+            enabled: kDebugMode,
+            builder: (context) => const MyApp(),
+          ),
+        ),
+      );
     }
   } else {
-    runApp(const MyApp());
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => ThemeService(),
+        child: DevicePreview(
+          enabled: kDebugMode, // Only enabled in debug mode
+          builder: (context) => const MyApp(),
+        ),
+      ),
+    );
   }
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  // Determine initial screen based on platform
+  Widget get _initialScreen {
+    print('=== MyApp._initialScreen: kIsWeb = $kIsWeb ===');
+
+    if (!kIsWeb) {
+      final platform = defaultTargetPlatform;
+      final isMobilePlatform =
+          platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+
+      print('=== Platform check: $platform, isMobile=$isMobilePlatform ===');
+      if (isMobilePlatform) {
+        print('=== Returning AuthenticationWrapper for mobile ===');
+        return const AuthenticationWrapper();
+      }
+    }
+
+    // On web or other platforms, show the website landing page
+    print('=== Returning LandingPage ===');
+    return const LandingPage();
+  }
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      scrollBehavior: AppScrollBehavior(),
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xffF8FAFC),
-        canvasColor: const Color(0xffF8FAFC),
-        textTheme: GoogleFonts.openSansTextTheme(
-          Theme.of(context).textTheme,
-        ),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff0386FF),
-          primary: const Color(0xff0386FF),
-          secondary: const Color(0xff0693e3),
-          background: const Color(0xffF8FAFC),
-          surface: Colors.white,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          hoverColor: Colors.transparent,
-          focusColor: const Color(0xff0386FF).withOpacity(0.1),
-        ),
-        popupMenuTheme: PopupMenuThemeData(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(
-              color: Color(0xffE2E8F0),
-              width: 1,
-            ),
-          ),
-          elevation: 8,
-          shadowColor: Colors.black.withOpacity(0.1),
-          textStyle: GoogleFonts.openSans(
-            fontSize: 14,
-            color: const Color(0xff2D3748),
-          ),
-        ),
-        useMaterial3: true,
-      ),
-      home: const LandingPage(),
+    return Consumer<ThemeService>(
+      builder: (context, themeService, child) {
+        return MaterialApp(
+          // DevicePreview configuration
+          locale: DevicePreview.locale(context),
+          builder: DevicePreview.appBuilder,
+          debugShowCheckedModeBanner: false,
+          scrollBehavior: AppScrollBehavior(),
+          
+          // Theme configuration
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeService.themeMode,
+          
+          home: _initialScreen,
+        );
+      },
     );
   }
 }
@@ -323,18 +411,103 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   }
 }
 
-class AuthenticationWrapper extends StatelessWidget {
+class AuthenticationWrapper extends StatefulWidget {
   const AuthenticationWrapper({super.key});
 
   @override
+  State<AuthenticationWrapper> createState() => _AuthenticationWrapperState();
+}
+
+class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
+  bool _isCheckingConnection = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkInternetConnection();
+    // Start monitoring connectivity
+    ConnectivityService.startMonitoring(context);
+  }
+
+  Future<void> _checkInternetConnection() async {
+    final hasInternet = await ConnectivityService.hasInternetConnection();
+    setState(() {
+      _isCheckingConnection = false;
+    });
+
+    if (!hasInternet && mounted) {
+      ConnectivityService.showNoInternetDialog(context);
+    }
+  }
+
+  // Helper to check if running on mobile
+  bool get _isMobile {
+    if (kIsWeb) return false;
+    final platform = defaultTargetPlatform;
+    return platform == TargetPlatform.android ||
+        platform == TargetPlatform.iOS;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Show checking connection screen
+    if (_isCheckingConnection) {
+      return Scaffold(
+        backgroundColor: const Color(0xffF8FAFC),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/Alluwal_Education_Hub_Logo.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Checking connection...',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         // Handle errors gracefully during auth state changes
         if (snapshot.hasError) {
           print('Auth state error: ${snapshot.error}');
-          return const EmployeeHubApp(); // Fallback to landing page
+          return _isMobile ? const MobileLoginScreen() : const EmployeeHubApp();
         }
         // Handle connection states properly
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -425,11 +598,13 @@ class AuthenticationWrapper extends StatelessWidget {
 
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
-          return const RoleBasedDashboard();
+          // On mobile, use mobile dashboard; on web, use role-based dashboard
+          return _isMobile ? const MobileDashboardScreen() : const RoleBasedDashboard();
         }
 
         // Otherwise, they're not signed in
-        return const EmployeeHubApp();
+        // On mobile, show mobile login; on web, show web login
+        return _isMobile ? const MobileLoginScreen() : const EmployeeHubApp();
       },
     );
   }

@@ -1,12 +1,9 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
-// The following imports are only used on web; they are ignored on other platforms
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-// On web, platformViewRegistry lives in dart:ui_web in newer Flutter versions
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:ui_web' as ui;
+// Conditional imports - use actual libraries on web, stubs on other platforms
+import '../../../utility_functions/html_stub.dart' if (dart.library.html) 'dart:html' as html;
+import '../../../utility_functions/ui_web_stub.dart' if (dart.library.html) 'dart:ui_web' as ui;
 
 class ZoomScreen extends StatefulWidget {
   const ZoomScreen({super.key});

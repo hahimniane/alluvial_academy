@@ -36,25 +36,25 @@ class _EditUserScreenState extends State<EditUserScreen>
       'id': 'student',
       'name': 'Student',
       'icon': Icons.school,
-      'color': Color(0xff10B981)
+      'color': const Color(0xff10B981)
     },
     {
       'id': 'teacher',
       'name': 'Teacher',
       'icon': Icons.person_outline,
-      'color': Color(0xff3B82F6)
+      'color': const Color(0xff3B82F6)
     },
     {
       'id': 'parent',
       'name': 'Parent',
       'icon': Icons.family_restroom,
-      'color': Color(0xffF59E0B)
+      'color': const Color(0xffF59E0B)
     },
     {
       'id': 'admin',
       'name': 'Admin',
       'icon': Icons.admin_panel_settings,
-      'color': Color(0xffEF4444)
+      'color': const Color(0xffEF4444)
     },
   ];
 
@@ -159,7 +159,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Text(
                 'User updated successfully!',
@@ -168,7 +168,7 @@ class _EditUserScreenState extends State<EditUserScreen>
               ),
             ],
           ),
-          backgroundColor: Color(0xff10B981),
+          backgroundColor: const Color(0xff10B981),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -181,7 +181,7 @@ class _EditUserScreenState extends State<EditUserScreen>
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.error, color: Colors.white, size: 20),
+              const Icon(Icons.error, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -192,7 +192,7 @@ class _EditUserScreenState extends State<EditUserScreen>
               ),
             ],
           ),
-          backgroundColor: Color(0xffEF4444),
+          backgroundColor: const Color(0xffEF4444),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -461,8 +461,8 @@ class _EditUserScreenState extends State<EditUserScreen>
                           : Icons.pause_circle,
                       size: 16,
                       color: widget.employee.isActive
-                          ? Color(0xff10B981)
-                          : Color(0xffF59E0B),
+                          ? const Color(0xff10B981)
+                          : const Color(0xffF59E0B),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -470,8 +470,8 @@ class _EditUserScreenState extends State<EditUserScreen>
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: widget.employee.isActive
-                            ? Color(0xff10B981)
-                            : Color(0xffF59E0B),
+                            ? const Color(0xff10B981)
+                            : const Color(0xffF59E0B),
                         fontWeight: FontWeight.w500,
                       ),
                     ),

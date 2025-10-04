@@ -382,7 +382,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
     Navigator.of(context)
         .pushReplacement(
       MaterialPageRoute(
-        builder: (context) => FormBuilder(),
+        builder: (context) => const FormBuilder(),
       ),
     )
         .then((_) {

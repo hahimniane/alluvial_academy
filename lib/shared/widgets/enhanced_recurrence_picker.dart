@@ -61,12 +61,12 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
         color: Colors.grey[50],
       ),
       child: DropdownButtonFormField<EnhancedRecurrenceType>(
-        value: _recurrence.type,
-        decoration: InputDecoration(
+        initialValue: _recurrence.type,
+        decoration: const InputDecoration(
           labelText: 'Recurrence Type',
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(16),
-          prefixIcon: const Icon(Icons.repeat, color: Color(0xff0386FF)),
+          contentPadding: EdgeInsets.all(16),
+          prefixIcon: Icon(Icons.repeat, color: Color(0xff0386FF)),
         ),
         items: EnhancedRecurrenceType.values.map((type) {
           return DropdownMenuItem(

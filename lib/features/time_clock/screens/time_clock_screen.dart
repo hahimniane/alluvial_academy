@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../../../core/constants/app_constants.dart' as constants;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/timesheet_table.dart' show TimesheetTable;
+import '../widgets/mobile_timesheet_view.dart' show MobileTimesheetView;
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/shift_monitoring_service.dart';
@@ -49,6 +51,20 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       []; // Legacy list - no longer used for actual timesheet storage
   final GlobalKey<State<TimesheetTable>> _timesheetTableKey =
       GlobalKey<State<TimesheetTable>>();
+
+  // Helper to check if we're on mobile
+  bool get _isMobile {
+    // Check if we're on web first
+    if (kIsWeb) {
+      print('TimeClockScreen: Running on Web');
+      return false;
+    }
+    // Check platform
+    final platform = defaultTargetPlatform;
+    final isMobile = platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    print('TimeClockScreen: Platform=$platform, isMobile=$isMobile');
+    return isMobile;
+  }
 
   @override
   void initState() {
@@ -193,11 +209,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   /// Show a less alarming error when UI state is out of sync with backend
   void _showStateMismatchError() {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
+      const SnackBar(
+        content: Text(
             'Session already closed by system. Timer has been reset.'),
         backgroundColor: Colors.orange,
-        duration: const Duration(seconds: 4),
+        duration: Duration(seconds: 4),
       ),
     );
   }
@@ -289,11 +305,19 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
   void _handleClockInOut() async {
     // Check if we already have a shift and determine action
-    if (_currentShift != null && _currentShift!.isClockedIn) {
-      // Already clocked in, proceed to clock out
+    if (_currentShift != null && _currentShift!.isClockedIn && _currentShift!.canClockOut) {
+      // Already clocked in, proceed directly to clock out
+      print('TimeClockScreen: User is clocked in, proceeding to clock out');
       _proceedToClockOut(_currentShift!);
+    } else if (_isClockingIn) {
+      // Currently in a clocked-in session, clock out
+      print('TimeClockScreen: Currently clocking in, proceeding to clock out');
+      if (_currentShift != null) {
+        _proceedToClockOut(_currentShift!);
+      }
     } else {
       // Need to check for shift and start session
+      print('TimeClockScreen: No active session, checking for shifts to clock in');
       _checkShiftAndStartSession();
     }
   }
@@ -367,7 +391,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.schedule,
               color: Colors.orange,
               size: 24,
@@ -412,7 +436,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.access_time,
               color: Colors.green,
               size: 24,
@@ -713,11 +737,11 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content:
                   Text('Session automatically ended (location not captured)'),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
+              duration: Duration(seconds: 5),
             ),
           );
         }
@@ -736,10 +760,10 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Session automatically ended (error occurred)'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            duration: Duration(seconds: 5),
           ),
         );
       }
@@ -1041,9 +1065,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.location_on,
-              color: const Color(0xff0386FF),
+              color: Color(0xff0386FF),
               size: 24,
             ),
             const SizedBox(width: 8),
@@ -1074,9 +1098,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 children: [
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.place,
-                        color: const Color(0xff10B981),
+                        color: Color(0xff10B981),
                         size: 16,
                       ),
                       const SizedBox(width: 8),
@@ -1102,8 +1126,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   ),
                   if (snap.connectionState == ConnectionState.waiting) ...[
                     const SizedBox(height: 8),
-                    Row(
-                      children: const [
+                    const Row(
+                      children: [
                         SizedBox(
                           width: 14,
                           height: 14,
@@ -1291,7 +1315,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.location_searching,
               color: Colors.orange,
               size: 24,
@@ -1396,7 +1420,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.location_searching,
               color: Colors.orange,
               size: 24,
@@ -2092,9 +2116,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   if (!_isLoadingStudents && localFilteredStudents.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xffF9FAFB),
-                        borderRadius: const BorderRadius.only(
+                      decoration: const BoxDecoration(
+                        color: Color(0xffF9FAFB),
+                        borderRadius: BorderRadius.only(
                           bottomLeft: Radius.circular(16),
                           bottomRight: Radius.circular(16),
                         ),
@@ -2123,251 +2147,283 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Determine button state based on clocking status
+    final bool showClockOutButton = _isClockingIn || 
+                                    (_currentShift != null && 
+                                     _currentShift!.isClockedIn && 
+                                     _currentShift!.canClockOut);
+    final bool showClockInButton = !_isClockingIn && 
+                                   _currentShift != null && 
+                                   !_currentShift!.isClockedIn && 
+                                   _currentShift!.canClockIn;
+    final bool showActionButton = showClockInButton || showClockOutButton;
+    
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Shift information section (if active)
-            if (_currentShift != null)
-              Container(
-                padding: const EdgeInsets.all(16),
+      body: Column(
+        children: [
+          // Scrollable content area - only expand if clocked in
+          if (_isClockingIn || _currentShift != null)
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Shift information section (if active) - Compact version
+                  if (_currentShift != null)
+                    Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: _isMobile ? 12 : 16,
+                  vertical: _isMobile ? 8 : 12,
+                ),
                 child: Card(
                   color: const Color(0xff10B981).withOpacity(0.1),
                   elevation: 2,
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: EdgeInsets.all(_isMobile ? 12 : 16),
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.schedule,
-                              color: const Color(0xff10B981),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _currentShift!.isClockedIn
-                                  ? 'Clocked In'
-                                  : 'Active Shift',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff10B981),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            _currentShift!.isClockedIn ? Icons.access_time_filled : Icons.schedule,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    _currentShift!.isClockedIn ? 'Clocked In' : 'Active Shift',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xff10B981),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  if (_currentShift!.isClockedIn)
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xff10B981),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _currentShift!.displayName,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff1E293B),
+                              const SizedBox(height: 4),
+                              Text(
+                                _currentShift!.displayName,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xff1E293B),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${DateFormat('h:mm a').format(_currentShift!.shiftStart)} - ${DateFormat('h:mm a').format(_currentShift!.shiftEnd)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: const Color(0xff64748B),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${DateFormat('MMM dd, h:mm a').format(_currentShift!.shiftStart)} - ${DateFormat('h:mm a').format(_currentShift!.shiftEnd)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xff64748B),
-                          ),
-                        ),
-                        if (_currentShift!.studentNames.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Students: ${_currentShift!.studentNames.join(', ')}',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: const Color(0xff64748B),
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
                 ),
               ),
 
-            // Clock-in section
-            Container(
-              height: 250,
-              padding: const EdgeInsets.all(16),
-              child: Card(
-                color: Colors.white,
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Today's Clock",
-                        style: constants.openSansHebrewTextStyle.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                          fontSize: 18,
-                        ),
+                  // Show timer card when clocked in
+                  if (_isClockingIn && _currentShift != null)
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: _isMobile ? 12 : 16,
+                        vertical: _isMobile ? 8 : 12,
                       ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: Center(
-                          child: _isClockingIn
-                              ? Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        'Teaching: $_selectedStudentName',
-                                        style: constants.openSansHebrewTextStyle
-                                            .copyWith(
-                                          fontSize: 16,
+                      child: Card(
+                        color: const Color(0xffEFF6FF),
+                        elevation: 2,
+                        child: Padding(
+                          padding: EdgeInsets.all(_isMobile ? 16 : 20),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Teaching: $_selectedStudentName',
+                                style: GoogleFonts.inter(
+                                  fontSize: _isMobile ? 14 : 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff0386FF),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _totalHoursWorked,
+                                style: GoogleFonts.inter(
+                                  fontSize: _isMobile ? 32 : 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xff111827),
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              if (_timeUntilAutoLogout.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.timer,
+                                        size: 18,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Auto-logout in $_timeUntilAutoLogout',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
                                           fontWeight: FontWeight.w600,
-                                          color: const Color(0xff0386FF),
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      _totalHoursWorked,
-                                      style: constants.openSansHebrewTextStyle
-                                          .copyWith(
-                                        fontSize: 36,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                    if (_timeUntilAutoLogout.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orange.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: Colors.orange.withOpacity(0.3),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.timer,
-                                              size: 16,
-                                              color: Colors.orange,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Auto-logout in $_timeUntilAutoLogout',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: Colors.orange.shade700,
-                                              ),
-                                            ),
-                                          ],
+                                          color: Colors.orange.shade700,
                                         ),
                                       ),
                                     ],
-                                    const SizedBox(height: 16),
-                                    ElevatedButton(
-                                      onPressed: _clockOut,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(100, 40),
-                                      ),
-                                      child: const Text('Stop'),
-                                    ),
-                                  ],
-                                )
-                              : ElevatedButton(
-                                  onPressed:
-                                      (_isGettingLocation || _isCheckingShift)
-                                          ? null
-                                          : () => _handleClockInOut(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: (_isGettingLocation ||
-                                            _isCheckingShift)
-                                        ? Colors.grey
-                                        : (_currentShift != null &&
-                                                _currentShift!.isClockedIn)
-                                            ? Colors.red // Show red for clock-out
-                                            : const Color(
-                                                0xff0386FF), // Blue for clock-in
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(100, 40),
                                   ),
-                                  child: _isCheckingShift
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<Color>(
-                                                        Colors.white),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            const Text('Checking Shift...'),
-                                          ],
-                                        )
-                                      : _isGettingLocation
-                                          ? Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                            Color>(Colors.white),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                const Text('Getting Location...'),
-                                              ],
-                                            )
-                                          : Text((_currentShift != null &&
-                                                  _currentShift!.isClockedIn)
-                                              ? 'Clock Out'
-                                              : 'Clock In'),
                                 ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                ],
               ),
             ),
-            // Timesheet section - now with fixed height instead of Expanded
-            Container(
-              height: 600, // Fixed height for the table
-              padding: const EdgeInsets.only(top: 16, bottom: 16),
-              child: TimesheetTable(
-                clockInEntries: _timesheetEntries,
-                key: _timesheetTableKey,
+          // Timesheet section - use mobile or desktop version based on platform
+          // Takes all remaining space
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.only(
+                top: 16, 
+                bottom: showActionButton ? 80 : 16, // Add bottom padding when FAB is visible
+              ),
+              child: Builder(
+                builder: (context) {
+                  print('TimeClockScreen: Rendering timesheet, _isMobile=$_isMobile');
+                  if (_isMobile) {
+                    print('TimeClockScreen: Using MobileTimesheetView');
+                    return const MobileTimesheetView(); // Mobile-friendly card layout
+                  } else {
+                    print('TimeClockScreen: Using TimesheetTable (desktop)');
+                    return TimesheetTable( // Desktop/web table layout
+                      clockInEntries: _timesheetEntries,
+                      key: _timesheetTableKey,
+                    );
+                  }
+                },
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+      // Floating Action Button - always visible when clock in/out is available
+      floatingActionButton: showActionButton
+          ? _buildFloatingClockButton(showClockInButton, showClockOutButton)
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+  
+  Widget _buildFloatingClockButton(bool isClockIn, bool isClockOut) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 56,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isCheckingShift ? null : _handleClockInOut,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isClockIn ? const Color(0xff10B981) : const Color(0xffEF4444),
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: (isClockIn ? const Color(0xff10B981) : const Color(0xffEF4444)).withOpacity(0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
+        child: _isCheckingShift
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Processing...',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isClockIn ? Icons.touch_app : Icons.logout_rounded,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    isClockIn ? 'Tap to Clock In' : 'Tap to Clock Out',
+                    style: GoogleFonts.inter(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

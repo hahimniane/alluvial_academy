@@ -175,6 +175,8 @@ class _FormBuilderState extends State<FormBuilder>
 
 // Forms List View - for managing existing forms
 class FormsListView extends StatefulWidget {
+  const FormsListView({super.key});
+
   @override
   State<FormsListView> createState() => _FormsListViewState();
 }
@@ -255,14 +257,14 @@ class _FormsListViewState extends State<FormsListView> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: statusFilter,
-                    items: [
-                      const DropdownMenuItem(
+                    items: const [
+                      DropdownMenuItem(
                           value: 'all', child: Text('All Forms')),
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                           value: 'active', child: Text('Active')),
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                           value: 'inactive', child: Text('Inactive')),
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                           value: 'drafts', child: Text('📝 Drafts')),
                     ],
                     onChanged: (value) {
@@ -1305,7 +1307,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   bool _isEditMode = false;
 
   // Map to store preview field values
-  Map<String, dynamic> _previewValues = {};
+  final Map<String, dynamic> _previewValues = {};
 
   // Autosave functionality
   Timer? _autosaveTimer;
@@ -1754,7 +1756,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         _lastAutosaveTime = DateTime.now();
       });
 
-      print('FormBuilder: Autosave completed at ${_lastAutosaveTime}');
+      print('FormBuilder: Autosave completed at $_lastAutosaveTime');
     } catch (e) {
       print('FormBuilder: Autosave failed: $e');
     } finally {
@@ -2878,7 +2880,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-                value: field.conditionalLogic!.dependsOnFieldId,
+                initialValue: field.conditionalLogic!.dependsOnFieldId,
                 items: availableFields
                     .map((f) => DropdownMenuItem(
                           value: f.id,
@@ -2929,7 +2931,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-                value: field.conditionalLogic!.condition,
+                initialValue: field.conditionalLogic!.condition,
                 items: _getConditionOptions(dependentField.type),
                 onChanged: (value) {
                   setState(() {
@@ -3035,7 +3037,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
-        value: field.conditionalLogic!.expectedValue as bool?,
+        initialValue: field.conditionalLogic!.expectedValue as bool?,
         items: [
           DropdownMenuItem(
             value: true,
@@ -3076,7 +3078,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
-        value: field.conditionalLogic!.expectedValue as String?,
+        initialValue: field.conditionalLogic!.expectedValue as String?,
         items: options
             .map((option) => DropdownMenuItem(
                   value: option,
@@ -3413,7 +3415,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       case 'dropdown':
         return DropdownButtonFormField<String>(
           decoration: _previewInputDecoration(field.placeholder),
-          value: _previewValues[field.id] as String?,
+          initialValue: _previewValues[field.id] as String?,
           isExpanded: true, // Allow dropdown to expand to full width
           items: field.options.isEmpty
               ? [
@@ -4812,10 +4814,10 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                       controlAffinity: ListTileControlAffinity.leading,
                       dense: true,
                     );
-                  }).toList(),
+                  }),
                 ],
               );
-            }).toList(),
+            }),
         ],
       ),
     );

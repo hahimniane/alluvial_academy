@@ -185,11 +185,11 @@ class ChatUserListItem extends StatelessWidget {
 
   Widget _buildInitialsAvatar() {
     if (user.isGroup) {
-      return Center(
+      return const Center(
         child: Icon(
           Icons.group,
           size: 28,
-          color: const Color(0xff059669),
+          color: Color(0xff059669),
         ),
       );
     }
@@ -211,12 +211,12 @@ class ChatUserListItem extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 24),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xff0386FF),
-            const Color(0xff0366D6),
+            Color(0xff0386FF),
+            Color(0xff0366D6),
           ],
         ),
         borderRadius: BorderRadius.circular(12),

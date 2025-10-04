@@ -1,51 +1,13 @@
 {
   "project_info": {
-    "project_number": "633115721273",
-    "project_id": "alluwalacademy-e32c1",
-    "storage_bucket": "alluwalacademy-e32c1.appspot.com"
+    "project_number": "554077757249",
+    "project_id": "alluwal-academy",
+    "storage_bucket": "alluwal-academy.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:633115721273:android:5d1d3ccc3df8f4776e17e8",
-        "android_client_info": {
-          "package_name": "com.alluwal_academy"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDTpl2IwUOVJsNJOt_H9af4Xt5-GhqYy5Q"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:633115721273:android:3ac3ebbd929224636e17e8",
-        "android_client_info": {
-          "package_name": "com.alluwalacademy"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDTpl2IwUOVJsNJOt_H9af4Xt5-GhqYy5Q"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:633115721273:android:5cb261e370d4ea896e17e8",
+        "mobilesdk_app_id": "1:554077757249:android:5a5c76e677152c4fcc8bc0",
         "android_client_info": {
           "package_name": "com.example.alluwalacademyadmin"
         }
@@ -53,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDTpl2IwUOVJsNJOt_H9af4Xt5-GhqYy5Q"
+          "current_key": "AIzaSyAJ-JHKPs_VQTc8cDfb94h-uYvFPB8vjRM"
         }
       ],
       "services": {

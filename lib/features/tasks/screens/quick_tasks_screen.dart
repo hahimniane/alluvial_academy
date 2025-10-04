@@ -618,8 +618,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   void _fetchUserNameIfMissing(String userId) async {
-    if (_userIdToName.containsKey(userId) || _fetchingUserIds.contains(userId))
+    if (_userIdToName.containsKey(userId) || _fetchingUserIds.contains(userId)) {
       return;
+    }
     _fetchingUserIds.add(userId);
     try {
       final doc = await FirebaseFirestore.instance
@@ -1146,7 +1147,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       }
 
       if (frozenOverdue > 0) {
-        dueDateText = '${frozenOverdue} days overdue • Completed';
+        dueDateText = '$frozenOverdue days overdue • Completed';
       } else {
         dueDateText = 'Completed on time';
       }

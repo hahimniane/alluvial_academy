@@ -1,5 +1,6 @@
 const {onCall, onRequest} = require("firebase-functions/v2/https");
-const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
@@ -2129,5 +2130,737 @@ exports.sendTaskCommentNotification = onCall(async (request) => {
   } catch (error) {
     console.error('sendTaskCommentNotification error:', error);
     throw new functions.https.HttpsError('internal', error.message || 'Unknown error');
+  }
+});
+
+// ===== SHIFT NOTIFICATION FUNCTIONS =====
+
+// Helper function to send FCM notification to a teacher
+const sendFCMNotificationToTeacher = async (teacherId, notification, data) => {
+  try {
+    console.log(`Sending FCM notification to teacher: ${teacherId}`);
+    
+    // Get teacher's FCM tokens from Firestore
+    const teacherDoc = await admin.firestore()
+      .collection('users')
+      .doc(teacherId)
+      .get();
+    
+    if (!teacherDoc.exists) {
+      console.log(`Teacher ${teacherId} not found`);
+      return { success: false, reason: 'Teacher not found' };
+    }
+    
+    const teacherData = teacherDoc.data();
+    const teacherName = `${teacherData.first_name || ''} ${teacherData.last_name || ''}`.trim();
+    const fcmTokens = teacherData.fcmTokens || [];
+    
+    console.log(`\n=== Shift Notification for: ${teacherName} (${teacherId}) ===`);
+    console.log(`FCM Tokens found: ${fcmTokens.length}`);
+    
+    if (fcmTokens.length === 0) {
+      console.log(`⚠️ No FCM tokens found for teacher ${teacherId}`);
+      return { success: false, reason: 'No FCM tokens' };
+    }
+    
+    // Extract just the token strings from the array
+    const tokens = fcmTokens.map(tokenObj => tokenObj.token).filter(t => t);
+    console.log(`Valid tokens extracted: ${tokens.length}`);
+    
+    // Log detailed token information
+    fcmTokens.forEach((tokenData, idx) => {
+      console.log(`  Token ${idx}:`);
+      console.log(`    Platform: ${tokenData.platform || 'unknown'}`);
+      console.log(`    Token: ${tokenData.token ? tokenData.token.substring(0, 30) + '...' : 'null'}`);
+      console.log(`    Last Updated: ${tokenData.lastUpdated || 'unknown'}`);
+    });
+    
+    if (tokens.length === 0) {
+      console.log(`⚠️ No valid tokens found for teacher ${teacherId}`);
+      return { success: false, reason: 'No valid tokens' };
+    }
+    
+    console.log(`\nAttempting to send shift notification to ${tokens.length} token(s)...`);
+    
+    // Send to all devices
+    const message = {
+      notification: notification,
+      data: data,
+      tokens: tokens,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          channelId: 'high_importance_channel'
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    };
+    
+    const response = await admin.messaging().sendEachForMulticast(message);
+    
+    console.log(`\n📱 Shift Notification Result for ${teacherName}:`);
+    console.log(`  Success: ${response.successCount}/${tokens.length}`);
+    console.log(`  Failed: ${response.failureCount}/${tokens.length}`);
+    
+    // Log individual responses
+    response.responses.forEach((resp, idx) => {
+      if (resp.success) {
+        console.log(`  ✅ Token ${idx}: SUCCESS - Message ID: ${resp.messageId}`);
+      } else {
+        console.log(`  ❌ Token ${idx}: FAILED - Error: ${resp.error?.code} - ${resp.error?.message}`);
+      }
+    });
+    
+    return {
+      success: true,
+      successCount: response.successCount,
+      failureCount: response.failureCount
+    };
+  } catch (error) {
+    console.error('Error sending FCM notification:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Helper function to format date/time for notifications
+const formatShiftDateTime = (timestamp) => {
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    return 'Unknown date';
+  }
+};
+
+// 1. On Shift Created - Send notification when new shift is assigned
+exports.onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (event) => {
+    try {
+      const shiftData = event.data.data();
+      const shiftId = event.params.shiftId;
+      
+      console.log(`🎓 New shift created: ${shiftId}`);
+      
+      const teacherId = shiftData.teacher_id;
+      const teacherName = shiftData.teacher_name || 'Teacher';
+      const studentNames = (shiftData.student_names || []).join(', ') || 'students';
+      const subject = shiftData.subject_display_name || shiftData.subject || 'Class';
+      const shiftStart = shiftData.shift_start;
+      const shiftDateTime = formatShiftDateTime(shiftStart);
+      
+      const notification = {
+        title: '🎓 New Shift Assigned',
+        body: `${subject} with ${studentNames} on ${shiftDateTime}`
+      };
+      
+      const data = {
+        type: 'shift',
+        action: 'created',
+        shiftId: shiftId,
+        teacherId: teacherId,
+        shiftStart: shiftStart.toDate().toISOString()
+      };
+      
+      await sendFCMNotificationToTeacher(teacherId, notification, data);
+      
+      console.log(`✅ Shift created notification sent to ${teacherName}`);
+    } catch (error) {
+      console.error('Error in onShiftCreated:', error);
+      // Don't throw - we don't want to fail the shift creation
+    }
+  });
+
+// 2. On Shift Updated - Send notification when shift details change
+exports.onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (event) => {
+    try {
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
+      const shiftId = event.params.shiftId;
+      
+      // Skip if shift was cancelled (handled by onShiftCancelled)
+      if (afterData.status === 'cancelled' && beforeData.status !== 'cancelled') {
+        console.log('Shift cancelled - skipping onShiftUpdated');
+        return;
+      }
+      
+      // Skip if only status changed (to avoid duplicate notifications)
+      if (afterData.status !== beforeData.status) {
+        console.log('Only status changed - skipping onShiftUpdated');
+        return;
+      }
+      
+      console.log(`📝 Shift updated: ${shiftId}`);
+      
+      const teacherId = afterData.teacher_id;
+      const displayName = afterData.custom_name || afterData.auto_generated_name || 'Your shift';
+      const shiftDateTime = formatShiftDateTime(afterData.shift_start);
+      
+      // Detect what changed
+      const changes = [];
+      if (beforeData.shift_start?.toDate().getTime() !== afterData.shift_start?.toDate().getTime()) {
+        changes.push('time changed');
+      }
+      if (JSON.stringify(beforeData.student_ids) !== JSON.stringify(afterData.student_ids)) {
+        changes.push('students changed');
+      }
+      if (beforeData.subject !== afterData.subject) {
+        changes.push('subject changed');
+      }
+      
+      const changesText = changes.length > 0 ? changes.join(', ') : 'details updated';
+      
+      const notification = {
+        title: '📝 Shift Updated',
+        body: `${displayName} on ${shiftDateTime} - ${changesText}`
+      };
+      
+      const data = {
+        type: 'shift',
+        action: 'updated',
+        shiftId: shiftId,
+        teacherId: teacherId,
+        changes: changesText
+      };
+      
+      await sendFCMNotificationToTeacher(teacherId, notification, data);
+      
+      console.log(`✅ Shift updated notification sent`);
+    } catch (error) {
+      console.error('Error in onShiftUpdated:', error);
+    }
+  });
+
+// 3. On Shift Cancelled - Send notification when shift is cancelled
+exports.onShiftCancelled = onDocumentUpdated('teaching_shifts/{shiftId}', async (event) => {
+    try {
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
+      const shiftId = event.params.shiftId;
+      
+      // Only trigger if status changed to cancelled
+      if (afterData.status === 'cancelled' && beforeData.status !== 'cancelled') {
+        console.log(`⚠️ Shift cancelled: ${shiftId}`);
+        
+        const teacherId = afterData.teacher_id;
+        const displayName = afterData.custom_name || afterData.auto_generated_name || 'Your shift';
+        const shiftDateTime = formatShiftDateTime(afterData.shift_start);
+        
+        const notification = {
+          title: '⚠️ Shift Cancelled',
+          body: `${displayName} on ${shiftDateTime} has been cancelled`
+        };
+        
+        const data = {
+          type: 'shift',
+          action: 'cancelled',
+          shiftId: shiftId,
+          teacherId: teacherId
+        };
+        
+        await sendFCMNotificationToTeacher(teacherId, notification, data);
+        
+        console.log(`✅ Shift cancelled notification sent`);
+      }
+    } catch (error) {
+      console.error('Error in onShiftCancelled:', error);
+    }
+  });
+
+// 4. On Shift Deleted - Send notification when shift is completely deleted
+exports.onShiftDeleted = onDocumentDeleted('teaching_shifts/{shiftId}', async (event) => {
+    try {
+      const shiftData = event.data.data();
+      const shiftId = event.params.shiftId;
+      
+      console.log(`🗑️ Shift deleted: ${shiftId}`);
+      
+      const teacherId = shiftData.teacher_id;
+      const displayName = shiftData.custom_name || shiftData.auto_generated_name || 'A shift';
+      const shiftDateTime = formatShiftDateTime(shiftData.shift_start);
+      
+      const notification = {
+        title: '🗑️ Shift Deleted',
+        body: `${displayName} on ${shiftDateTime} has been removed`
+      };
+      
+      const data = {
+        type: 'shift',
+        action: 'deleted',
+        shiftId: shiftId,
+        teacherId: teacherId
+      };
+      
+      await sendFCMNotificationToTeacher(teacherId, notification, data);
+      
+      console.log(`✅ Shift deleted notification sent`);
+    } catch (error) {
+      console.error('Error in onShiftDeleted:', error);
+    }
+  });
+
+// 5. Scheduled Shift Reminders - Runs every 5 minutes to send reminders
+exports.sendScheduledShiftReminders = onSchedule('every 5 minutes', async (event) => {
+    try {
+      console.log('🔔 Running scheduled shift reminders check...');
+      
+      const now = admin.firestore.Timestamp.now();
+      const oneHourFromNow = admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() + 60 * 60 * 1000)
+      );
+      
+      // Get all upcoming shifts in the next hour
+      const upcomingShiftsSnapshot = await admin.firestore()
+        .collection('teaching_shifts')
+        .where('shift_start', '>', now)
+        .where('shift_start', '<=', oneHourFromNow)
+        .where('status', '==', 'scheduled')
+        .get();
+      
+      console.log(`Found ${upcomingShiftsSnapshot.size} upcoming shifts in next hour`);
+      
+      if (upcomingShiftsSnapshot.empty) {
+        console.log('No upcoming shifts - skipping reminders');
+        return;
+      }
+      
+      let remindersSent = 0;
+      
+      for (const shiftDoc of upcomingShiftsSnapshot.docs) {
+        try {
+          const shift = shiftDoc.data();
+          const shiftId = shiftDoc.id;
+          const teacherId = shift.teacher_id;
+          const shiftStart = shift.shift_start.toDate();
+          const minutesUntilShift = Math.floor((shiftStart.getTime() - Date.now()) / 1000 / 60);
+          
+          // Get teacher's notification preferences
+          const teacherDoc = await admin.firestore()
+            .collection('users')
+            .doc(teacherId)
+            .get();
+          
+          if (!teacherDoc.exists) continue;
+          
+          const teacherData = teacherDoc.data();
+          const notifPrefs = teacherData.notificationPreferences || {};
+          const isEnabled = notifPrefs.shiftEnabled !== false; // Default true
+          const reminderMinutes = notifPrefs.shiftMinutes || 15; // Default 15 mins
+          
+          if (!isEnabled) {
+            console.log(`Shift reminders disabled for teacher ${teacherId}`);
+            continue;
+          }
+          
+          // Check if it's time to send reminder (within 1 minute window)
+          const shouldSendReminder = Math.abs(minutesUntilShift - reminderMinutes) <= 2;
+          
+          if (!shouldSendReminder) {
+            console.log(`Not time yet for shift ${shiftId} (${minutesUntilShift} mins vs ${reminderMinutes} mins preference)`);
+            continue;
+          }
+          
+          // Check if we already sent a reminder (to avoid duplicates)
+          const reminderSentKey = `reminder_sent_${reminderMinutes}min`;
+          if (shift[reminderSentKey] === true) {
+            console.log(`Reminder already sent for shift ${shiftId}`);
+            continue;
+          }
+          
+          // Send the reminder
+          const displayName = shift.custom_name || shift.auto_generated_name || 'Your shift';
+          const shiftDateTime = formatShiftDateTime(shift.shift_start);
+          
+          const notification = {
+            title: '🔔 Shift Reminder',
+            body: `${displayName} starts in ${minutesUntilShift} minutes at ${shiftDateTime}`
+          };
+          
+          const data = {
+            type: 'shift',
+            action: 'reminder',
+            shiftId: shiftId,
+            teacherId: teacherId,
+            minutesUntilShift: minutesUntilShift.toString()
+          };
+          
+          const result = await sendFCMNotificationToTeacher(teacherId, notification, data);
+          
+          if (result.success) {
+            // Mark reminder as sent
+            await shiftDoc.ref.update({
+              [reminderSentKey]: true
+            });
+            remindersSent++;
+            console.log(`✅ Reminder sent for shift ${shiftId}`);
+          }
+          
+        } catch (error) {
+          console.error(`Error processing shift reminder:`, error);
+          // Continue with next shift
+        }
+      }
+      
+      console.log(`✅ Scheduled reminders completed: ${remindersSent} reminders sent`);
+    } catch (error) {
+      console.error('Error in sendScheduledShiftReminders:', error);
+    }
+  });
+
+// ===== ADMIN NOTIFICATION SENDER =====
+
+/**
+ * Send custom notifications to users
+ * Allows admin to send notifications to:
+ * - Individual users
+ * - All users of a specific role (teachers, students, parents, admins)
+ * - Selected users from a specific role
+ */
+exports.sendAdminNotification = functions.https.onCall(async (data, context) => {
+  console.log("--- ADMIN NOTIFICATION SENDER ---");
+  
+  try {
+    // Extract data (handle both data.data and direct data formats)
+    const requestData = data.data || data;
+    
+    const {
+      recipientType, // 'individual', 'role', 'selected'
+      recipientRole, // 'teacher', 'student', 'parent', 'admin' (when recipientType is 'role')
+      recipientIds, // Array of user IDs
+      notificationTitle,
+      notificationBody,
+      notificationData, // Optional additional data
+      sendEmail, // Optional: also send email notification
+      adminId, // Admin user ID who is sending the notification
+    } = requestData;
+    
+    console.log('Notification request:', {
+      recipientType,
+      recipientRole,
+      recipientIds: recipientIds?.length || 0,
+      title: notificationTitle,
+      sendEmail,
+      adminId
+    });
+    
+    // Validate required fields
+    if (!notificationTitle || !notificationBody) {
+      throw new functions.https.HttpsError('invalid-argument', 'Notification title and body are required');
+    }
+    
+    if (!recipientType) {
+      throw new functions.https.HttpsError('invalid-argument', 'Recipient type is required');
+    }
+    
+    // Verify admin if adminId is provided
+    if (adminId) {
+      const adminDoc = await admin.firestore()
+        .collection('users')
+        .doc(adminId)
+        .get();
+      
+      if (!adminDoc.exists) {
+        throw new functions.https.HttpsError('permission-denied', 'Admin user not found');
+      }
+      
+      const adminData = adminDoc.data();
+      const isAdmin = adminData.user_type === 'admin' || adminData.is_admin_teacher === true;
+      
+      if (!isAdmin) {
+        throw new functions.https.HttpsError('permission-denied', 'Only administrators can send notifications');
+      }
+      
+      console.log(`Admin ${adminData['e-mail']} (${adminId}) is sending notifications`);
+    }
+    
+    // Get target user IDs based on recipient type
+    let targetUserIds = [];
+    
+    if (recipientType === 'individual' || recipientType === 'selected') {
+      if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Recipient IDs are required for individual/selected notifications');
+      }
+      targetUserIds = recipientIds;
+    } else if (recipientType === 'role') {
+      if (!recipientRole) {
+        throw new functions.https.HttpsError('invalid-argument', 'Recipient role is required when sending to a role');
+      }
+      
+      // Query users by role
+      const usersSnapshot = await admin.firestore()
+        .collection('users')
+        .where('user_type', '==', recipientRole)
+        .where('is_active', '==', true) // Only send to active users
+        .get();
+      
+      targetUserIds = usersSnapshot.docs.map(doc => doc.id);
+      console.log(`Found ${targetUserIds.length} active ${recipientRole}s`);
+    }
+    
+    if (targetUserIds.length === 0) {
+      return {
+        success: false,
+        message: 'No recipients found',
+        totalRecipients: 0
+      };
+    }
+    
+    // Prepare notification data
+    const notification = {
+      title: notificationTitle,
+      body: notificationBody
+    };
+    
+    const messageData = {
+      type: 'admin_notification',
+      timestamp: new Date().toISOString(),
+      ...(notificationData || {})
+    };
+    
+    // Send notifications
+    const results = {
+      totalRecipients: targetUserIds.length,
+      fcmSuccess: 0,
+      fcmFailed: 0,
+      emailsSent: 0,
+      emailsFailed: 0,
+      details: []
+    };
+    
+    // Process each recipient
+    for (const userId of targetUserIds) {
+      const recipientResult = {
+        userId,
+        fcmSent: false,
+        emailSent: false,
+        errors: []
+      };
+      
+      try {
+        // Get user data
+        const userDoc = await admin.firestore()
+          .collection('users')
+          .doc(userId)
+          .get();
+        
+        if (!userDoc.exists) {
+          recipientResult.errors.push('User not found');
+          results.details.push(recipientResult);
+          continue;
+        }
+        
+            const userData = userDoc.data();
+            const userEmail = userData['e-mail'] || userData.email;
+            const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+            
+            console.log(`\n=== Processing user: ${userName} (${userId}) ===`);
+            console.log(`Email: ${userEmail}`);
+            
+            // Send FCM notification
+            const fcmTokens = userData.fcmTokens || [];
+            console.log(`FCM Tokens found: ${fcmTokens.length}`);
+        if (fcmTokens.length > 0) {
+          const tokens = fcmTokens.map(t => t.token).filter(t => t);
+          console.log(`Valid tokens extracted: ${tokens.length}`);
+          
+          // Log detailed token information
+          fcmTokens.forEach((tokenData, idx) => {
+            console.log(`  Token ${idx}:`);
+            console.log(`    Platform: ${tokenData.platform || 'unknown'}`);
+            console.log(`    Token: ${tokenData.token ? tokenData.token.substring(0, 30) + '...' : 'null'}`);
+            console.log(`    Last Updated: ${tokenData.lastUpdated || 'unknown'}`);
+          });
+          
+          if (tokens.length > 0) {
+            try {
+              console.log(`\nAttempting to send FCM message to ${tokens.length} token(s)...`);
+              const fcmMessage = {
+                notification: notification,
+                data: messageData,
+                tokens: tokens,
+                android: {
+                  priority: 'high',
+                  notification: {
+                    sound: 'default',
+                    channelId: 'high_importance_channel'
+                  }
+                },
+                apns: {
+                  payload: {
+                    aps: {
+                      sound: 'default',
+                      badge: 1
+                    }
+                  }
+                }
+              };
+              
+              const response = await admin.messaging().sendEachForMulticast(fcmMessage);
+              
+              console.log(`\n📱 FCM Send Result for ${userName}:`);
+              console.log(`  Success: ${response.successCount}/${tokens.length}`);
+              console.log(`  Failed: ${response.failureCount}/${tokens.length}`);
+              
+              // Log individual responses
+              response.responses.forEach((resp, idx) => {
+                if (resp.success) {
+                  console.log(`  ✅ Token ${idx}: SUCCESS - Message ID: ${resp.messageId}`);
+                } else {
+                  console.log(`  ❌ Token ${idx}: FAILED - Error: ${resp.error?.code} - ${resp.error?.message}`);
+                }
+              });
+              
+              if (response.successCount > 0) {
+                recipientResult.fcmSent = true;
+                results.fcmSuccess++;
+              } else {
+                results.fcmFailed++;
+                recipientResult.errors.push('FCM send failed');
+              }
+              
+              console.log(`FCM sent to ${userName}: ${response.successCount}/${tokens.length} success`);
+            } catch (fcmError) {
+              console.error(`FCM error for ${userId}:`, fcmError);
+              recipientResult.errors.push(`FCM error: ${fcmError.message}`);
+              results.fcmFailed++;
+            }
+          }
+        } else {
+          recipientResult.errors.push('No FCM tokens');
+        }
+        
+        // Send email if requested
+        if (sendEmail && userEmail) {
+          try {
+            const transporter = createTransporter();
+            
+            const mailOptions = {
+              from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+              to: userEmail,
+              subject: `📢 ${notificationTitle}`,
+              html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <meta charset="UTF-8" />
+                  <title>${notificationTitle}</title>
+                  <style>
+                    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+                    .container { max-width: 600px; margin: 0 auto; background-color: white; }
+                    .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 30px 20px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+                    .content { padding: 30px 20px; }
+                    .notification-box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+                    .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+                  </style>
+                </head>
+                <body>
+                  <div class="container">
+                    <div class="header">
+                      <h1>📢 Important Notification</h1>
+                      <p>From Alluwal Education Hub</p>
+                    </div>
+                    
+                    <div class="content">
+                      <p>Dear ${userName || 'User'},</p>
+                      
+                      <div class="notification-box">
+                        <h2 style="margin-top: 0; color: #0386FF;">${notificationTitle}</h2>
+                        <p style="margin: 0; white-space: pre-wrap;">${notificationBody}</p>
+                      </div>
+                      
+                      <p>This notification was sent by the Alluwal Academy administration. If you have any questions, please contact us.</p>
+                      
+                      <p>Best regards,<br>
+                      Alluwal Academy Team</p>
+                    </div>
+                    
+                    <div class="footer">
+                      <p>© ${new Date().getFullYear()} Alluwal Education Hub. All rights reserved.</p>
+                      <p>This is an automated notification. Please do not reply to this email.</p>
+                    </div>
+                  </div>
+                </body>
+                </html>
+              `
+            };
+            
+            await transporter.sendMail(mailOptions);
+            recipientResult.emailSent = true;
+            results.emailsSent++;
+            console.log(`Email sent to ${userName} (${userEmail})`);
+          } catch (emailError) {
+            console.error(`Email error for ${userId}:`, emailError);
+            recipientResult.errors.push(`Email error: ${emailError.message}`);
+            results.emailsFailed++;
+          }
+        }
+        
+      } catch (error) {
+        console.error(`Error processing recipient ${userId}:`, error);
+        recipientResult.errors.push(error.message);
+      }
+      
+      results.details.push(recipientResult);
+    }
+    
+    // Save notification record in Firestore
+    try {
+      await admin.firestore().collection('notification_history').add({
+        sentBy: adminId || 'system',
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        recipientType,
+        recipientRole,
+        recipientIds: targetUserIds,
+        title: notificationTitle,
+        body: notificationBody,
+        additionalData: notificationData || {},
+        emailRequested: sendEmail || false,
+        results: {
+          totalRecipients: results.totalRecipients,
+          fcmSuccess: results.fcmSuccess,
+          fcmFailed: results.fcmFailed,
+          emailsSent: results.emailsSent,
+          emailsFailed: results.emailsFailed
+        }
+      });
+    } catch (error) {
+      console.error('Error saving notification history:', error);
+    }
+    
+    console.log('Notification sending completed:', {
+      totalRecipients: results.totalRecipients,
+      fcmSuccess: results.fcmSuccess,
+      fcmFailed: results.fcmFailed,
+      emailsSent: results.emailsSent,
+      emailsFailed: results.emailsFailed
+    });
+    
+    return {
+      success: true,
+      message: `Notifications sent to ${results.totalRecipients} recipients`,
+      results
+    };
+    
+  } catch (error) {
+    console.error('Error in sendAdminNotification:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', `Failed to send notifications: ${error.message}`);
   }
 });

@@ -43,7 +43,7 @@ class TimesheetEntry {
     required this.status,
     this.teacherId = '',
     this.teacherName = '',
-    this.hourlyRate = 15.0,
+    this.hourlyRate = 4.0,
     this.createdAt,
     this.submittedAt,
     this.approvedAt,

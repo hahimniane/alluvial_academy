@@ -190,7 +190,7 @@ class Task {
         return const EnhancedRecurrence(type: EnhancedRecurrenceType.daily);
       case RecurrenceType.weekly:
         // Default to weekdays for weekly old format
-        return EnhancedRecurrence(
+        return const EnhancedRecurrence(
           type: EnhancedRecurrenceType.weekly,
           selectedWeekdays: [
             WeekDay.monday,

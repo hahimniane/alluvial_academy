@@ -40,7 +40,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   bool _isCalendarView = false; // Admin can toggle Grid/Week view
 
   // Bulk selection state
-  Set<String> _selectedShiftIds = {};
+  final Set<String> _selectedShiftIds = {};
   bool _isSelectionMode = false;
 
   // Teacher deletion state
@@ -1078,7 +1078,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             Text(
               _searchQuery.isEmpty
                   ? 'No shifts found'
-                  : 'No shifts found for "${_searchQuery}"',
+                  : 'No shifts found for "$_searchQuery"',
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -1101,9 +1101,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
 
     return SfDataGridTheme(
-      data: SfDataGridThemeData(
-        headerColor: const Color(0xffF8FAFC),
-        gridLineColor: const Color(0xffE2E8F0),
+      data: const SfDataGridThemeData(
+        headerColor: Color(0xffF8FAFC),
+        gridLineColor: Color(0xffE2E8F0),
         gridLineStrokeWidth: 1,
       ),
       child: SfDataGrid(
@@ -1986,7 +1986,7 @@ class ShiftDataSource extends DataGridSource {
     final actionsCell = row.getCells().firstWhere(
           (cell) => cell.columnName == 'actions',
           orElse: () =>
-              DataGridCell<TeachingShift>(columnName: 'actions', value: null),
+              const DataGridCell<TeachingShift>(columnName: 'actions', value: null),
         );
     return actionsCell.value as TeachingShift?;
   }
@@ -2051,9 +2051,9 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
             // Header
             Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.search,
-                  color: const Color(0xff0386FF),
+                  color: Color(0xff0386FF),
                   size: 24,
                 ),
                 const SizedBox(width: 12),

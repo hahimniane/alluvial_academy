@@ -83,11 +83,11 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
+            content: const Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                const Expanded(
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(
                   child: Text('Website content saved successfully! Changes will appear on the landing page within 30 seconds.'),
                 ),
               ],

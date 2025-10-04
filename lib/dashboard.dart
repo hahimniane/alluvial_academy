@@ -24,6 +24,7 @@ import 'features/shift_management/screens/shift_management_screen.dart';
 import 'features/shift_management/screens/teacher_shift_screen.dart';
 import 'features/website_management/screens/website_management_screen.dart';
 import 'features/zoom/screens/zoom_screen.dart';
+import 'features/notifications/screens/send_notification_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
@@ -125,6 +126,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const ZoomScreen(),
         const TestRoleSystemScreen(),
         const FirestoreDebugScreen(),
+        const SendNotificationScreen(),
       ];
 
   /// Updates the selected index when a navigation item is tapped
@@ -608,7 +610,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                   child: isChangingPassword
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
@@ -1071,6 +1073,12 @@ class _DashboardPageState extends State<DashboardPage> {
                       text: 'Website Management',
                       index: 2,
                       color: const Color(0xff7C3AED),
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.notifications_active),
+                      text: 'Send Notification',
+                      index: 15,
+                      color: const Color(0xffF59E0B),
                     ),
                     // Debug features - only show in debug mode
                     if (kDebugMode) ...[

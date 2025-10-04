@@ -6,7 +6,9 @@ import '../../../core/services/user_role_service.dart';
 import '../../../system_settings_screen.dart';
 import 'package:csv/csv.dart';
 import 'dart:convert';
-import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+// Conditional import - uses dart:html on web, stub on other platforms
+import '../../../utility_functions/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
@@ -30,6 +32,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
+  
+  // Platform detection for responsive layouts
+  bool get _isMobile {
+    if (kIsWeb) return false;
+    final platform = defaultTargetPlatform;
+    return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+  }
 
   @override
   void initState() {
@@ -198,7 +207,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       DateTime hourAgo = now.subtract(const Duration(hours: 1));
 
       for (var doc in usersSnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final role = data['user_type'] ?? data['role'] ?? 'unknown';
         roleCount[role] = (roleCount[role] ?? 0) + 1;
 
@@ -232,7 +241,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       double averageResponseRate = 0.0;
 
       for (var doc in formsSnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final status = data['status'] ?? 'active';
 
         if (status == 'active') {
@@ -244,7 +253,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         // Count submissions for this form
         final formId = doc.id;
         final formResponses = responsesSnapshot.docs.where((response) {
-          final responseData = response.data() as Map<String, dynamic>;
+          final responseData = response.data();
           return responseData['form_id'] == formId;
         }).length;
 
@@ -273,7 +282,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       // Get recent form creations
       final recentForms = formsSnapshot.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final createdAt = data['created_at'] ?? data['createdAt'];
         if (createdAt is Timestamp) {
           return createdAt.toDate().isAfter(dayAgo);
@@ -283,7 +292,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       // Get recent user registrations
       final recentUsers = usersSnapshot.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final createdAt = data['created_at'] ?? data['createdAt'];
         if (createdAt is Timestamp) {
           return createdAt.toDate().isAfter(dayAgo);
@@ -293,7 +302,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       // Get recent form responses
       final recentResponses = responsesSnapshot.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final submittedAt = data['submitted_at'] ?? data['submittedAt'];
         if (submittedAt is Timestamp) {
           return submittedAt.toDate().isAfter(dayAgo);
@@ -385,6 +394,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    // On mobile, don't show the welcome header (only show it on desktop)
+    if (_isMobile) {
+      return _buildDashboardContent();
+    }
+    
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -536,6 +550,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildTeacherDashboard() {
+    if (_isMobile) {
+      return _buildMobileTeacherDashboard();
+    }
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,6 +607,277 @@ class _AdminDashboardState extends State<AdminDashboard> {
               const SizedBox(width: 24),
               Expanded(child: _buildIslamicResourcesCard()),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMobileTeacherDashboard() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Mobile Welcome Header - Assalamu Alaikum
+          _buildMobileTeacherWelcomeHeader(),
+          const SizedBox(height: 20),
+
+          // Mobile Quick Stats (2 columns instead of 5)
+          _buildMobileTeacherQuickStats(),
+          const SizedBox(height: 16),
+
+          // Islamic Calendar Card
+          _buildIslamicCalendarCard(),
+          const SizedBox(height: 16),
+
+          // Profile Card
+          _buildTeacherProfileCard(),
+          const SizedBox(height: 16),
+
+          // My Classes
+          _buildMyClassesModern(),
+          const SizedBox(height: 16),
+
+          // Quick Actions
+          _buildQuickActionsTeacher(),
+          const SizedBox(height: 16),
+
+          // Recent Lessons
+          _buildRecentLessonsCard(),
+          const SizedBox(height: 16),
+
+          // Islamic Resources
+          _buildIslamicResourcesCard(),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMobileTeacherWelcomeHeader() {
+    final firstName = userData?['first_name'] ?? userData?['firstName'] ?? 'Teacher';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xff1E40AF),
+            Color(0xff3B82F6),
+            Color(0xff60A5FA),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff3B82F6).withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  size: 28,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Assalamu Alaikum!',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      firstName,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMobileHeaderStat(
+                  'Students',
+                  '${teacherStats['my_students'] ?? 0}',
+                  Icons.groups_rounded,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMobileHeaderStat(
+                  'Sessions',
+                  '${teacherStats['total_sessions'] ?? 0}',
+                  Icons.school_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMobileHeaderStat(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.white),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMobileTeacherQuickStats() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.5,
+      children: [
+        _buildMobileStatCard(
+          'Quran Sessions',
+          '${((teacherStats['total_sessions'] ?? 0) * 0.6).round()}',
+          Icons.menu_book_rounded,
+          const Color(0xff3B82F6),
+        ),
+        _buildMobileStatCard(
+          'Arabic Lessons',
+          '${((teacherStats['total_sessions'] ?? 0) * 0.3).round()}',
+          Icons.language_rounded,
+          const Color(0xffF59E0B),
+        ),
+        _buildMobileStatCard(
+          'Tasks Done',
+          '${teacherStats['completed_tasks'] ?? 0}',
+          Icons.task_alt_rounded,
+          const Color(0xff10B981),
+        ),
+        _buildMobileStatCard(
+          'Forms',
+          '${teacherStats['accessible_forms'] ?? 0}',
+          Icons.description_rounded,
+          const Color(0xff8B5CF6),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildMobileStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Flexible(
+            flex: 1,
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xff1F2937),
+              ),
+            ),
+          ),
+          Flexible(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -1677,10 +1965,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.arrow_forward_ios_rounded,
               size: 14,
-              color: const Color(0xff9CA3AF),
+              color: Color(0xff9CA3AF),
             ),
           ],
         ),
@@ -1827,7 +2115,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildModernActivityItem(
             'New User Registration',
             _buildRecentUserActivity(),
-            '${_getTimeSinceLastUser()}',
+            _getTimeSinceLastUser(),
             Icons.person_add_rounded,
             const Color(0xff3B82F6),
           ),
@@ -1835,7 +2123,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildModernActivityItem(
             'Form Activity',
             _buildRecentFormActivity(),
-            '${_getTimeSinceLastForm()}',
+            _getTimeSinceLastForm(),
             Icons.assignment_rounded,
             const Color(0xff10B981),
           ),
@@ -1843,7 +2131,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildModernActivityItem(
             'Form Submissions',
             _buildRecentSubmissionActivity(),
-            '${_getTimeSinceLastSubmission()}',
+            _getTimeSinceLastSubmission(),
             Icons.task_alt_rounded,
             const Color(0xffF59E0B),
           ),
@@ -2746,7 +3034,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       print('Error launching URL: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Error opening link'),
             backgroundColor: Colors.red,
           ),
@@ -2868,7 +3156,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(
@@ -2960,18 +3248,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
       int completedFields = 0;
       const totalFields = 6;
 
-      if ((data['full_name'] ?? '').toString().trim().isNotEmpty)
+      if ((data['full_name'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
-      if ((data['professional_title'] ?? '').toString().trim().isNotEmpty)
+      }
+      if ((data['professional_title'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
-      if ((data['biography'] ?? '').toString().trim().isNotEmpty)
+      }
+      if ((data['biography'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
-      if ((data['years_of_experience'] ?? '').toString().trim().isNotEmpty)
+      }
+      if ((data['years_of_experience'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
-      if ((data['specialties'] ?? '').toString().trim().isNotEmpty)
+      }
+      if ((data['specialties'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
-      if ((data['education_certifications'] ?? '').toString().trim().isNotEmpty)
+      }
+      if ((data['education_certifications'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
+      }
 
       return ((completedFields / totalFields) * 100).round();
     } catch (e) {
@@ -3916,7 +4210,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       builder: (context, snapshot) {
                         final percentage = snapshot.data ?? 0;
                         return Text(
-                          'Profile ${percentage}% Complete',
+                          'Profile $percentage% Complete',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -4761,11 +5055,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      'Student: $student',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xff6B7280),
+                    Flexible(
+                      child: Text(
+                        'Student: $student',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff6B7280),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                     const Text(' • '),
@@ -4874,8 +5172,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 class _TeacherProfileDialog extends StatefulWidget {
   final VoidCallback? onProfileUpdated;
 
-  const _TeacherProfileDialog({Key? key, this.onProfileUpdated})
-      : super(key: key);
+  const _TeacherProfileDialog({super.key, this.onProfileUpdated});
 
   @override
   _TeacherProfileDialogState createState() => _TeacherProfileDialogState();
@@ -5124,40 +5421,43 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 12),
-                            ),
-                            child: Text(
-                              'Cancel',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xff6B7280),
+                          Flexible(
+                            child: TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xff6B7280),
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          ElevatedButton(
-                            onPressed: _isSaving ? null : _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xff10B981),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 32, vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: ElevatedButton(
+                              onPressed: _isSaving ? null : _saveProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xff10B981),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                            ),
-                            child: _isSaving
+                              child: _isSaving
                                 ? Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const SizedBox(
-                                        width: 16,
-                                        height: 16,
+                                        width: 14,
+                                        height: 14,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           valueColor:
@@ -5165,11 +5465,11 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
                                                   Colors.white),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 6),
                                       Text(
                                         'Saving...',
                                         style: GoogleFonts.inter(
-                                          fontSize: 16,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -5178,10 +5478,11 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
                                 : Text(
                                     'Save Profile',
                                     style: GoogleFonts.inter(
-                                      fontSize: 16,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                            ),
                           ),
                         ],
                       ),
@@ -5290,7 +5591,7 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
 
       // Calculate and show completion percentage
       int completedFields = 0;
-      final totalFields = 6;
+      const totalFields = 6;
 
       if (_nameController.text.trim().isNotEmpty) completedFields++;
       if (_titleController.text.trim().isNotEmpty) completedFields++;
@@ -5396,8 +5697,7 @@ class _AssignmentDialog extends StatefulWidget {
   final Map<String, dynamic>? existingAssignment;
 
   const _AssignmentDialog(
-      {Key? key, this.onAssignmentCreated, this.existingAssignment})
-      : super(key: key);
+      {super.key, this.onAssignmentCreated, this.existingAssignment});
 
   @override
   _AssignmentDialogState createState() => _AssignmentDialogState();
@@ -6127,47 +6427,58 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     setState(() => _isUploadingFile = true);
 
     try {
-      // Create a file input element for web
-      final html.FileUploadInputElement uploadInput =
-          html.FileUploadInputElement();
-      uploadInput.multiple = false;
-      uploadInput.accept =
-          '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx';
+      if (kIsWeb) {
+        // Create a file input element for web
+        final html.FileUploadInputElement uploadInput =
+            html.FileUploadInputElement();
+        uploadInput.multiple = false;
+        uploadInput.accept =
+            '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx';
 
-      // Trigger file picker
-      uploadInput.click();
+        // Trigger file picker
+        uploadInput.click();
 
-      // Wait for file selection
-      await uploadInput.onChange.first;
+        // Wait for file selection
+        await uploadInput.onChange.first;
 
-      if (uploadInput.files!.isNotEmpty) {
-        final file = uploadInput.files!.first;
+        if (uploadInput.files!.isNotEmpty) {
+          final file = uploadInput.files!.first;
 
-        // Create file object
-        final attachment = {
-          'name': file.name,
-          'size': file.size,
-          'url':
-              'https://example.com/${file.name}', // In real app, upload to Firebase Storage
-          'type': file.type,
-          'lastModified': file.lastModified,
-        };
+          // Create file object
+          final attachment = {
+            'name': file.name,
+            'size': file.size,
+            'url':
+                'https://example.com/${file.name}', // In real app, upload to Firebase Storage
+            'type': file.type,
+            'lastModified': file.lastModified,
+          };
 
-        setState(() {
-          _attachments.add(attachment);
-        });
+          setState(() {
+            _attachments.add(attachment);
+          });
 
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text('File "${file.name}" added successfully!'),
+                  ],
+                ),
+                backgroundColor: const Color(0xff10B981),
+              ),
+            );
+          }
+        }
+      } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text('File "${file.name}" added successfully!'),
-                ],
-              ),
-              backgroundColor: const Color(0xff10B981),
+            const SnackBar(
+              content: Text('File attachment is only supported on web platform'),
+              backgroundColor: Colors.orange,
             ),
           );
         }

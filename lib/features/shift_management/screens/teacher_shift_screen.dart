@@ -8,6 +8,7 @@ import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
 import '../widgets/shift_details_dialog.dart';
+import 'available_shifts_screen.dart';
 
 class TeacherShiftScreen extends StatefulWidget {
   const TeacherShiftScreen({super.key});
@@ -120,6 +121,39 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xff6B7280)),
         actions: [
+          // Available Shifts Button
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AvailableShiftsScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.public, size: 18),
+              label: Text(
+                'Available Shifts',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
           IconButton(
             onPressed: () {
               // Manual refresh by re-setting up the stream
@@ -565,13 +599,56 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
                           shift.displayName,
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xff111827),
                           ),
+                              ),
+                            ),
+                            // Published badge
+                            if (shift.isPublished) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff0386FF).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xff0386FF).withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.public,
+                                      size: 12,
+                                      color: Color(0xff0386FF),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'PUBLISHED',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xff0386FF),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -664,6 +741,34 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                     fontSize: 13,
                     color: const Color(0xff6B7280),
                   ),
+                ),
+              ],
+              // Publish button for scheduled, non-expired, non-published shifts
+              if (shift.status == ShiftStatus.scheduled && 
+                  !shift.hasExpired && 
+                  !shift.isPublished) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _handlePublishShift(shift),
+                        icon: const Icon(Icons.publish, size: 18),
+                        label: Text(
+                          'Publish Shift',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xff0386FF),
+                          side: const BorderSide(color: Color(0xff0386FF)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               if (canClockIn || isActive) ...[
@@ -799,8 +904,238 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   void _showShiftDetails(TeachingShift shift) {
     showDialog(
       context: context,
-      builder: (context) => ShiftDetailsDialog(shift: shift),
+      builder: (context) => ShiftDetailsDialog(
+        shift: shift,
+        onPublishShift: () => _handlePublishShift(shift),
+        onUnpublishShift: () => _handleUnpublishShift(shift),
+      ),
     );
+  }
+
+  Future<void> _handlePublishShift(TeachingShift shift) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.publish, color: Color(0xff0386FF)),
+            const SizedBox(width: 12),
+            Text(
+              'Publish Shift',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to publish this shift? Other teachers will be able to see and claim it.',
+              style: GoogleFonts.inter(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xffFFF4E6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xffF59E0B)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, 
+                    color: Color(0xffF59E0B), 
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You won\'t be responsible for this shift once it\'s claimed by another teacher.',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: const Color(0xff92400E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff6B7280),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff0386FF),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Publish Shift',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) return;
+
+        // Update shift document with publishing information
+        await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(shift.id)
+            .update({
+          'is_published': true,
+          'published_by': currentUser.uid,
+          'published_at': FieldValue.serverTimestamp(),
+          'original_teacher_id': shift.teacherId,
+          'original_teacher_name': shift.teacherName,
+          'last_modified': FieldValue.serverTimestamp(),
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✅ Shift published! Other teachers can now see and claim it.',
+                style: GoogleFonts.inter(),
+              ),
+              backgroundColor: const Color(0xff10B981),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error publishing shift: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '❌ Failed to publish shift. Please try again.',
+                style: GoogleFonts.inter(),
+              ),
+              backgroundColor: const Color(0xffEF4444),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleUnpublishShift(TeachingShift shift) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.unpublished, color: Color(0xffF59E0B)),
+            const SizedBox(width: 12),
+            Text(
+              'Unpublish Shift',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to unpublish this shift? It will no longer be visible to other teachers.',
+          style: GoogleFonts.inter(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff6B7280),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xffF59E0B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Unpublish',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Update shift document to unpublish
+        await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(shift.id)
+            .update({
+          'is_published': false,
+          'published_by': null,
+          'published_at': null,
+          'last_modified': FieldValue.serverTimestamp(),
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✅ Shift unpublished successfully.',
+                style: GoogleFonts.inter(),
+              ),
+              backgroundColor: const Color(0xff0386FF),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error unpublishing shift: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '❌ Failed to unpublish shift. Please try again.',
+                style: GoogleFonts.inter(),
+              ),
+              backgroundColor: const Color(0xffEF4444),
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _clockIn(TeachingShift shift) async {

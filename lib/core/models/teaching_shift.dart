@@ -59,6 +59,13 @@ class TeachingShift {
   final DateTime? clockOutTime;
   final bool isManualOverride; // For admin manual adjustments
 
+  // Shift publishing fields (for teacher shift sharing)
+  final bool isPublished; // Whether the shift is published for other teachers
+  final String? publishedBy; // User ID of the teacher who published it
+  final DateTime? publishedAt; // When the shift was published
+  final String? originalTeacherId; // Original teacher ID (preserved when claimed)
+  final String? originalTeacherName; // Original teacher name (preserved when claimed)
+
   TeachingShift({
     required this.id,
     required this.teacherId,
@@ -87,6 +94,11 @@ class TeachingShift {
     this.clockInTime,
     this.clockOutTime,
     this.isManualOverride = false,
+    this.isPublished = false,
+    this.publishedBy,
+    this.publishedAt,
+    this.originalTeacherId,
+    this.originalTeacherName,
   });
 
   // Get the display name (custom name takes priority over auto-generated)
@@ -130,15 +142,14 @@ class TeachingShift {
     }
   }
 
-  // Check if teacher can clock in (15 minutes before shift until 15 minutes after shift end)
+  // Check if teacher can clock in (ONLY during exact shift time, no grace period)
   bool get canClockIn {
     final nowUtc = DateTime.now().toUtc();
     // Compare in UTC to ensure timezone consistency
     final shiftStartUtc = shiftStart.toUtc();
     final shiftEndUtc = shiftEnd.toUtc();
-    final clockInWindow = shiftStartUtc.subtract(const Duration(minutes: 15));
-    final clockOutWindow = shiftEndUtc.add(const Duration(minutes: 15));
-    return nowUtc.isAfter(clockInWindow) && nowUtc.isBefore(clockOutWindow);
+    // No grace period - must be within exact shift time
+    return nowUtc.isAfter(shiftStartUtc) && nowUtc.isBefore(shiftEndUtc);
   }
 
   // Check if shift is currently active
@@ -150,13 +161,13 @@ class TeachingShift {
     return nowUtc.isAfter(shiftStartUtc) && nowUtc.isBefore(shiftEndUtc);
   }
 
-  // Check if shift has expired (15 minutes after end)
+  // Check if shift has expired (immediately after end time, no grace period)
   bool get hasExpired {
     final nowUtc = DateTime.now().toUtc();
     // Compare in UTC to ensure timezone consistency
     final shiftEndUtc = shiftEnd.toUtc();
-    final expiredTime = shiftEndUtc.add(const Duration(minutes: 15));
-    return nowUtc.isAfter(expiredTime);
+    // No grace period - expires immediately when shift ends
+    return nowUtc.isAfter(shiftEndUtc);
   }
 
   // Check if teacher is currently clocked in
@@ -196,16 +207,16 @@ class TeachingShift {
     return actualHours != null ? actualHours * hourlyRate : totalPayment;
   }
 
-  // Get clock-in window start time (15 minutes before shift)
+  // Get clock-in window start time (exact shift start, no grace period)
   DateTime get clockInWindowStart {
     // Use UTC for consistency
-    return shiftStart.toUtc().subtract(const Duration(minutes: 15));
+    return shiftStart.toUtc();
   }
 
-  // Get clock-out deadline (15 minutes after shift end)
+  // Get clock-out deadline (exact shift end, no grace period)
   DateTime get clockOutDeadline {
     // Use UTC for consistency
-    return shiftEnd.toUtc().add(const Duration(minutes: 15));
+    return shiftEnd.toUtc();
   }
 
   // Generate automatic name based on teacher, subject, and students
@@ -283,6 +294,12 @@ class TeachingShift {
       'clock_out_time':
           clockOutTime != null ? Timestamp.fromDate(clockOutTime!) : null,
       'is_manual_override': isManualOverride,
+      'is_published': isPublished,
+      'published_by': publishedBy,
+      'published_at':
+          publishedAt != null ? Timestamp.fromDate(publishedAt!) : null,
+      'original_teacher_id': originalTeacherId,
+      'original_teacher_name': originalTeacherName,
     };
   }
 
@@ -338,6 +355,13 @@ class TeachingShift {
           ? (data['clock_out_time'] as Timestamp).toDate()
           : null,
       isManualOverride: data['is_manual_override'] ?? false,
+      isPublished: data['is_published'] ?? false,
+      publishedBy: data['published_by'],
+      publishedAt: data['published_at'] != null
+          ? (data['published_at'] as Timestamp).toDate()
+          : null,
+      originalTeacherId: data['original_teacher_id'],
+      originalTeacherName: data['original_teacher_name'],
     );
   }
 
@@ -370,6 +394,11 @@ class TeachingShift {
     DateTime? clockInTime,
     DateTime? clockOutTime,
     bool? isManualOverride,
+    bool? isPublished,
+    String? publishedBy,
+    DateTime? publishedAt,
+    String? originalTeacherId,
+    String? originalTeacherName,
   }) {
     return TeachingShift(
       id: id ?? this.id,
@@ -399,6 +428,11 @@ class TeachingShift {
       clockInTime: clockInTime ?? this.clockInTime,
       clockOutTime: clockOutTime ?? this.clockOutTime,
       isManualOverride: isManualOverride ?? this.isManualOverride,
+      isPublished: isPublished ?? this.isPublished,
+      publishedBy: publishedBy ?? this.publishedBy,
+      publishedAt: publishedAt ?? this.publishedAt,
+      originalTeacherId: originalTeacherId ?? this.originalTeacherId,
+      originalTeacherName: originalTeacherName ?? this.originalTeacherName,
     );
   }
 }

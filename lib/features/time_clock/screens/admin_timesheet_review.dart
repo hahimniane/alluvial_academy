@@ -23,7 +23,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   String _selectedFilter = 'Pending';
   bool _isLoading = true;
   DateTimeRange? _selectedDateRange;
-  Set<String> _selectedTimesheetIds = {};
+  final Set<String> _selectedTimesheetIds = {};
   bool _showBulkActions = false;
 
   // Real-time listener
@@ -110,8 +110,11 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           .doc(data['teacher_id'])
           .get();
 
-      final userData = userDoc.data() as Map<String, dynamic>?;
-      final hourlyRate = userData?['hourly_rate'] as double? ?? 15.0;
+      final userData = userDoc.data();
+      // Get the hourly rate from the timesheet entry first, then fallback to user data
+      final timesheetHourlyRate = data['hourly_rate'] as double?;
+      final userHourlyRate = userData?['hourly_rate'] as double?;
+      final hourlyRate = timesheetHourlyRate ?? userHourlyRate ?? 4.0;
       final userName =
           '${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}'
               .trim();
@@ -1041,7 +1044,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           onSurface: Colors.black87,
                           onSurfaceVariant: Colors.grey.shade700,
                           surface: Colors.white,
-                          surfaceVariant: Colors.grey.shade50,
+                          surfaceContainerHighest: Colors.grey.shade50,
                         ),
                     datePickerTheme: DatePickerThemeData(
                       backgroundColor: Colors.white,
@@ -1372,7 +1375,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.check_box, color: const Color(0xff0386FF)),
+                        const Icon(Icons.check_box, color: Color(0xff0386FF)),
                         const SizedBox(width: 8),
                         Text(
                           '${_selectedTimesheetIds.length} selected',

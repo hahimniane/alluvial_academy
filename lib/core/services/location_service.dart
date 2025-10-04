@@ -306,7 +306,7 @@ class LocationService {
         position.longitude,
       ).timeout(const Duration(seconds: 5));
 
-      if (placemarks != null && placemarks.isNotEmpty) {
+      if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
 
         // Build address string

@@ -126,7 +126,7 @@ class SubjectService {
       });
     } catch (e) {
       print('Error adding subject: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -157,7 +157,7 @@ class SubjectService {
       });
     } catch (e) {
       print('Error updating subject: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -170,7 +170,7 @@ class SubjectService {
       });
     } catch (e) {
       print('Error toggling subject status: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -181,7 +181,7 @@ class SubjectService {
       await toggleSubjectStatus(id, false);
     } catch (e) {
       print('Error deleting subject: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -191,7 +191,7 @@ class SubjectService {
       await _firestore.collection(_collection).doc(id).delete();
     } catch (e) {
       print('Error permanently deleting subject: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -213,7 +213,7 @@ class SubjectService {
       await batch.commit();
     } catch (e) {
       print('Error reordering subjects: $e');
-      throw e;
+      rethrow;
     }
   }
 

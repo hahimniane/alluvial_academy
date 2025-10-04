@@ -1,10 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import '../models/teaching_shift.dart';
 import '../models/employee_model.dart';
 import '../models/enhanced_recurrence.dart';
-import 'settings_service.dart';
+import 'wage_management_service.dart';
 
 class ShiftService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -47,9 +46,8 @@ class ShiftService {
       final teacherName =
           '${teacherData['first_name']} ${teacherData['last_name']}';
       final teacherTimezone = teacherData['timezone'] ?? 'UTC';
-      // Use global hourly rate (admin-set) as the single source of truth.
-      // Falls back to 4.0 if not configured.
-      final hourlyRate = await SettingsService.getGlobalTeacherHourlyRate();
+      // Use effective hourly rate considering overrides
+      final hourlyRate = await WageManagementService.getEffectiveWageForUser(teacherId);
 
       // Get student information
       final finalStudentNames = <String>[];
@@ -526,22 +524,20 @@ class ShiftService {
       final now = DateTime.now();
       print('ShiftService: Performing clock-in update...');
 
-      // Update shift with clock-in time and set status to active if not already
+      // Update shift with clock-in time and set status to active
       final updateData = <String, dynamic>{
         'last_modified': Timestamp.fromDate(now),
+        'status': ShiftStatus.active.name, // Always set to active on clock-in
+        'clock_out_time': null, // Clear any previous clock-out time
       };
 
-      // Only set status to active on first clock-in, don't update clock times for subsequent sessions
-      if (shift.status != ShiftStatus.active) {
-        print('ShiftService: Setting shift status to active (first clock-in)');
-        updateData['status'] = ShiftStatus.active.name;
+      // Set clock_in_time on first clock-in or when re-activating a completed shift
+      if (shift.status != ShiftStatus.active || shift.clockInTime == null) {
+        print('ShiftService: Setting shift status to active (clock-in)');
         updateData['clock_in_time'] = Timestamp.fromDate(now);
       } else {
-        print('ShiftService: Shift already active (subsequent clock-in)');
-        // Clear previous clock_out_time so UI recognises that the teacher is clocked-in again
-        updateData['clock_out_time'] = null;
+        print('ShiftService: Re-activating shift (subsequent session)');
       }
-      // For subsequent clock-ins during the same shift, don't modify clock_in_time
 
       await _shiftsCollection.doc(shiftId).update(updateData);
 
@@ -580,16 +576,17 @@ class ShiftService {
       // Perform clock-out
       final now = DateTime.now();
 
-      // For multiple sessions, we don't modify the shift's clock_out_time
-      // Each timesheet entry tracks its own start/end times
+      // Mark shift as completed when clocking out to allow immediate clock-in to other shifts
+      // This prevents the issue where teachers can't clock in to their next class
+      // because the previous shift is still marked as "active"
       await _shiftsCollection.doc(shiftId).update({
         'last_modified': Timestamp.fromDate(now),
-        // Mark end of the current session so UI knows the user is no longer clocked-in.
         'clock_out_time': Timestamp.fromDate(now),
+        'status': ShiftStatus.completed.name, // Mark as completed to prevent blocking
       });
 
       print(
-          'Clock-out successful at $now (shift remains active for multiple sessions)');
+          'Clock-out successful at $now (shift marked as completed)');
       return true;
     } catch (e) {
       print('Error during clock-out: $e');

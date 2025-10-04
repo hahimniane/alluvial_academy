@@ -153,7 +153,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: field.type,
+                    initialValue: field.type,
                     decoration: const InputDecoration(
                       labelText: 'Field Type',
                     ),

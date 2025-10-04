@@ -55,9 +55,9 @@ class ShiftTimesheetService {
         // CONSISTENT TIME HANDLING - Always use UTC for comparisons
         final shiftStartUtc = shift.shiftStart.toUtc();
         final shiftEndUtc = shift.shiftEnd.toUtc();
-        final clockInWindowUtc =
-            shiftStartUtc.subtract(const Duration(minutes: 15));
-        final clockOutWindowUtc = shiftEndUtc.add(const Duration(minutes: 15));
+        // NO GRACE PERIOD - Clock-in only during exact shift time
+        final clockInWindowUtc = shiftStartUtc;
+        final clockOutWindowUtc = shiftEndUtc;
 
         print('ShiftTimesheetService: Shift ${shift.id}:');
         print('  - Display Name: ${shift.displayName}');
@@ -69,7 +69,7 @@ class ShiftTimesheetService {
         print(
             '  - Current UTC time in window: ${nowUtc.isAfter(clockInWindowUtc) && nowUtc.isBefore(clockOutWindowUtc)}');
 
-        // Allow clock-in during entire shift window
+        // Allow clock-in only during exact shift time (no grace period)
         if (nowUtc.isAfter(clockInWindowUtc) &&
             nowUtc.isBefore(clockOutWindowUtc)) {
           print(
@@ -388,9 +388,9 @@ class ShiftTimesheetService {
       final nowUtc = DateTime.now().toUtc();
       final shiftStartUtc = shift.shiftStart.toUtc();
       final shiftEndUtc = shift.shiftEnd.toUtc();
-      final clockInWindowUtc =
-          shiftStartUtc.subtract(const Duration(minutes: 15));
-      final clockOutWindowUtc = shiftEndUtc.add(const Duration(minutes: 15));
+      // NO GRACE PERIOD - Clock-in only during exact shift time
+      final clockInWindowUtc = shiftStartUtc;
+      final clockOutWindowUtc = shiftEndUtc;
 
       print('ShiftTimesheetService: Clock-in validation:');
       print('  - Current UTC time: $nowUtc');
@@ -404,7 +404,7 @@ class ShiftTimesheetService {
       print(
           '  - Time check: nowUtc.isBefore(clockOutWindowUtc) = ${nowUtc.isBefore(clockOutWindowUtc)}');
 
-      // Allow clock-in during entire shift window
+      // Allow clock-in only during exact shift time (no grace period)
       if (nowUtc.isAfter(clockInWindowUtc) &&
           nowUtc.isBefore(clockOutWindowUtc)) {
         print(
@@ -460,6 +460,7 @@ class ShiftTimesheetService {
       final entryData = {
         'teacher_id': user.uid,
         'teacher_email': user.email,
+        'teacher_name': shift.teacherName,
         'shift_id': shift.id,
         'date': date,
         'student_name': shift.studentNames.isNotEmpty
@@ -468,6 +469,7 @@ class ShiftTimesheetService {
         'start_time': time,
         'end_time': '',
         'total_hours': '00:00',
+        'hourly_rate': shift.hourlyRate,  // Add hourly rate from shift
         'description':
             'Teaching session: ${shift.subjectDisplayName} - ${shift.displayName}',
         'status': 'draft',
@@ -501,7 +503,7 @@ class ShiftTimesheetService {
       };
     } catch (e) {
       print('Error creating timesheet entry: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -577,7 +579,7 @@ class ShiftTimesheetService {
       };
     } catch (e) {
       print('Error updating timesheet entry: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -655,7 +657,7 @@ class ShiftTimesheetService {
       };
     } catch (e) {
       print('Error updating timesheet entry with auto clock-out: $e');
-      throw e;
+      rethrow;
     }
   }
 

@@ -89,7 +89,7 @@ class EnhancedRecurrence {
         return 'Weekly on $dayNames';
       case EnhancedRecurrenceType.monthly:
         if (selectedMonthDays.length <= 3) {
-          final dayNumbers = selectedMonthDays.map((day) => '${day}${_getOrdinalSuffix(day)}').join(', ');
+          final dayNumbers = selectedMonthDays.map((day) => '$day${_getOrdinalSuffix(day)}').join(', ');
           return 'Monthly on $dayNumbers';
         } else {
           return 'Monthly on ${selectedMonthDays.length} selected days';

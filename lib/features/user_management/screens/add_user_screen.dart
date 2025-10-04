@@ -184,14 +184,18 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           String errorMessage = 'Missing required fields in row ${index + 1}: ';
           List<String> missingFields = [];
 
-          if (rowState.firstNameController.text.isEmpty)
+          if (rowState.firstNameController.text.isEmpty) {
             missingFields.add('First name');
-          if (rowState.lastNameController.text.isEmpty)
+          }
+          if (rowState.lastNameController.text.isEmpty) {
             missingFields.add('Last name');
-          if (rowState.kioskCodeController.text.isEmpty)
+          }
+          if (rowState.kioskCodeController.text.isEmpty) {
             missingFields.add('Kiosk code');
-          if (emailRequired && rowState.emailController.text.isEmpty)
+          }
+          if (emailRequired && rowState.emailController.text.isEmpty) {
             missingFields.add('Email');
+          }
           if (guardianRequired &&
               (rowState.selectedGuardianId == null ||
                   rowState.availableGuardians.isEmpty)) {
@@ -246,11 +250,11 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         }
 
         // Parse hourly rate, default to 15.0 if invalid
-        double hourlyRate = 15.0;
+        double hourlyRate = 4.0;
         try {
           hourlyRate = double.parse(rowState.hourlyRateController.text.trim());
         } catch (e) {
-          hourlyRate = 15.0; // Default rate
+          hourlyRate = 4.0; // Default rate
         }
 
         // Detect timezone for admin/teacher users
@@ -1260,7 +1264,7 @@ class _UserInputRowState extends State<UserInputRow> {
     phoneController.clear();
     emailController.clear();
     kioskCodeController.clear();
-    hourlyRateController.text = '15.00';
+    hourlyRateController.text = '4.00';
     countryCode = "1";
     selectedUserType = "Admin";
     isAdultStudent = false;
@@ -1373,7 +1377,7 @@ class _UserInputRowState extends State<UserInputRow> {
           Expanded(
             flex: 2,
             child: DropdownButtonFormField<String>(
-              value: selectedUserType,
+              initialValue: selectedUserType,
               decoration: InputDecoration(
                 hintText: 'User Type',
                 hintStyle: GoogleFonts.openSans(
@@ -1861,7 +1865,7 @@ class _UserInputRowState extends State<UserInputRow> {
                   fontSize: 14,
                   color: const Color(0xff2D3748),
                 ),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
             ),
         ],
