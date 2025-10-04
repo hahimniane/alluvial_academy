@@ -1,6 +1,8 @@
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
+// Conditional import - uses dart:html on web, stub on other platforms
+import 'html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' as xl;
@@ -259,30 +261,34 @@ class ExportHelpers {
       print('Excel file bytes generated: ${fileBytes?.length ?? 0} bytes');
 
       if (fileBytes != null && fileBytes.isNotEmpty) {
-        // Create blob and download
-        final blob = html.Blob([
-          Uint8List.fromList(fileBytes)
-        ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (kIsWeb) {
+          // Create blob and download
+          final blob = html.Blob([
+            Uint8List.fromList(fileBytes)
+          ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
-        final url = html.Url.createObjectUrlFromBlob(blob);
+          final url = html.Url.createObjectUrlFromBlob(blob);
 
-        // Create and configure the anchor element
-        final anchor = html.AnchorElement()
-          ..href = url
-          ..style.display = 'none'
-          ..download = "$baseFileName.xlsx";
+          // Create and configure the anchor element
+          final anchor = html.AnchorElement()
+            ..href = url
+            ..style.display = 'none'
+            ..download = "$baseFileName.xlsx";
 
-        // Add to DOM, click, then remove
-        html.document.body?.children.add(anchor);
-        anchor.click();
-        html.document.body?.children.remove(anchor);
+          // Add to DOM, click, then remove
+          html.document.body?.children.add(anchor);
+          anchor.click();
+          html.document.body?.children.remove(anchor);
 
-        // Clean up URL after a delay to ensure download starts
-        Future.delayed(const Duration(milliseconds: 1000), () {
-          html.Url.revokeObjectUrl(url);
-        });
+          // Clean up URL after a delay to ensure download starts
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            html.Url.revokeObjectUrl(url);
+          });
 
-        print('Excel file exported successfully: $baseFileName.xlsx');
+          print('Excel file exported successfully: $baseFileName.xlsx');
+        } else {
+          print('Excel export is only supported on web platform');
+        }
       } else {
         print('Error: Excel file bytes are null or empty');
       }
@@ -317,28 +323,32 @@ class ExportHelpers {
 
       String csv = const ListToCsvConverter().convert(csvData);
 
-      // Create a Blob
-      final bytes = utf8.encode(csv);
-      final blob = html.Blob([bytes]);
+      if (kIsWeb) {
+        // Create a Blob
+        final bytes = utf8.encode(csv);
+        final blob = html.Blob([bytes]);
 
-      // Create a link element
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement()
-        ..href = url
-        ..style.display = 'none'
-        ..download = "$baseFileName.csv";
+        // Create a link element
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement()
+          ..href = url
+          ..style.display = 'none'
+          ..download = "$baseFileName.csv";
 
-      // Add to DOM, click, then remove
-      html.document.body?.children.add(anchor);
-      anchor.click();
-      html.document.body?.children.remove(anchor);
+        // Add to DOM, click, then remove
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        html.document.body?.children.remove(anchor);
 
-      // Clean up URL after download
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        html.Url.revokeObjectUrl(url);
-      });
+        // Clean up URL after download
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          html.Url.revokeObjectUrl(url);
+        });
 
-      print('CSV file exported successfully: $baseFileName.csv');
+        print('CSV file exported successfully: $baseFileName.csv');
+      } else {
+        print('CSV export is only supported on web platform');
+      }
     } catch (e) {
       print('Error exporting to CSV: $e');
     } finally {

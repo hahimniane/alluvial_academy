@@ -660,10 +660,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.reply,
                         size: 16,
-                        color: const Color(0xff0386FF),
+                        color: Color(0xff0386FF),
                       ),
                       const SizedBox(width: 6),
                       Text(

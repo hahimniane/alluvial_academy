@@ -252,9 +252,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
           prefixIcon: Container(
             margin: const EdgeInsets.all(12),
-            child: Icon(
+            child: const Icon(
               Icons.search,
-              color: const Color(0xff6B7280),
+              color: Color(0xff6B7280),
               size: 20,
             ),
           ),

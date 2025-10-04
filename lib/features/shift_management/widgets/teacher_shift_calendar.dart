@@ -132,13 +132,15 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     final shift = data.shift;
     final statusColor = _statusColor(shift.status, shift);
 
-    // Determine available height to avoid overflow on short appointments.
+    // Determine available height and width to avoid overflow.
     final double h = details.bounds.height;
+    final double w = details.bounds.width;
 
-    // Build condensed/expanded variants based on available height.
+    // Build condensed/expanded variants based on available height and width.
     Widget content;
-    if (h < 36) {
+    if (h < 36 || w < 40) {
       // Extra-compact: only show the time range, centered.
+      // Use this for very narrow appointments (width < 40) or short heights.
       content = Center(
         child: Text(
           _timeRange(shift.shiftStart, shift.shiftEnd),
@@ -160,9 +162,11 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         children: [
           Row(
             children: [
-              Icon(Icons.bookmark, size: 12, color: statusColor.darken(0.2)),
-              const SizedBox(width: 4),
-              Flexible(
+              if (w >= 60) ...[
+                Icon(Icons.bookmark, size: 12, color: statusColor.darken(0.2)),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
                 child: Text(
                   _timeRange(shift.shiftStart, shift.shiftEnd),
                   style: GoogleFonts.inter(
@@ -197,9 +201,11 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         children: [
           Row(
             children: [
-              Icon(Icons.bookmark, size: 14, color: statusColor.darken(0.2)),
-              const SizedBox(width: 4),
-              Flexible(
+              if (w >= 60) ...[
+                Icon(Icons.bookmark, size: 14, color: statusColor.darken(0.2)),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
                 child: Text(
                   _timeRange(shift.shiftStart, shift.shiftEnd),
                   style: GoogleFonts.inter(

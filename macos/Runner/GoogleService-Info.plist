@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyCBkQZ-jRxLF6fWMAHocM8vxgosGOoXVpc</string>
+	<string>AIzaSyCtXZ9gUJ56KFB1QVvwAPdQnXnIr2hH7ig</string>
 	<key>GCM_SENDER_ID</key>
-	<string>633115721273</string>
+	<string>554077757249</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.alluwalacademyadmin.RunnerTests</string>
+	<string>com.example.alluwalacademyadmin</string>
 	<key>PROJECT_ID</key>
-	<string>alluwalacademy-e32c1</string>
+	<string>alluwal-academy</string>
 	<key>STORAGE_BUCKET</key>
-	<string>alluwalacademy-e32c1.appspot.com</string>
+	<string>alluwal-academy.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:633115721273:ios:02985af84438314c6e17e8</string>
+	<string>1:554077757249:ios:3ffdd64aeab91d75cc8bc0</string>
 </dict>
 </plist>

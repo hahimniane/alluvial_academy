@@ -2,9 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/teaching_shift.dart';
-import '../models/employee_model.dart';
 import 'location_service.dart';
-import 'shift_service.dart';
 import 'shift_timesheet_service.dart';
 
 class ShiftMonitoringService {

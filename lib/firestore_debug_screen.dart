@@ -274,7 +274,7 @@ Test Data:
 - Task: Test Status Update Task
 - Status: todo → completed  
 - Updated By: Debug Tester
-- Created By: ${createdByUserId}
+- Created By: $createdByUserId
 - Notification sent to task creator
 
 Function Result: ${result.data}
@@ -392,8 +392,8 @@ This helps us debug the login tracking system.''';
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error, size: 64, color: Colors.red),
-                      SizedBox(height: 16),
+                      const Icon(Icons.error, size: 64, color: Colors.red),
+                      const SizedBox(height: 16),
                       Text('Error: $error'),
                     ],
                   ),
@@ -435,7 +435,7 @@ This helps us debug the login tracking system.''';
                 Container(
                   width: 12,
                   height: 12,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.purple,
                     shape: BoxShape.circle,
                   ),

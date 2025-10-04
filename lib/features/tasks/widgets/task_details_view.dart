@@ -774,7 +774,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.flag,
             size: 12,
             color: Colors.white,

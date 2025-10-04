@@ -1,11 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'location_service.dart';
 import 'location_preference_service.dart';
 import 'prayer_time_service.dart';
 import 'user_role_service.dart';
 import 'timezone_service.dart';
+import 'notification_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -261,6 +263,14 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
+      // Remove FCM token before signing out (mobile only)
+      if (!kIsWeb) {
+        final currentUser = _auth.currentUser;
+        if (currentUser != null) {
+          await NotificationService().removeTokenFromFirestore(userId: currentUser.uid);
+        }
+      }
+      
       return await _auth.signOut();
     } catch (e) {
       print(e.toString());

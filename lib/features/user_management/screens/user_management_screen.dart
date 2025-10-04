@@ -44,9 +44,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   String? _currentFilterType;
   String? _currentStatusFilter;
   String? _currentParentFilter; // For filtering by parent
-  Map<String, List<String>> _parentStudentMap =
+  final Map<String, List<String>> _parentStudentMap =
       {}; // parent ID -> list of student IDs
-  Map<String, String> _studentParentMap =
+  final Map<String, String> _studentParentMap =
       {}; // student ID -> parent ID (for display)
 
   int numberOfUsers = 0;
@@ -422,7 +422,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           builder: (context) => AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.delete_forever, color: Colors.red, size: 28),
+                const Icon(Icons.delete_forever, color: Colors.red, size: 28),
                 const SizedBox(width: 12),
                 Text(
                   'Permanently Delete User',
@@ -447,7 +447,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning, color: Colors.red, size: 20),
+                      const Icon(Icons.warning, color: Colors.red, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1026,15 +1026,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               // Modern Header
               Container(
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xff9333EA),
-                      const Color(0xff7C3AED),
+                      Color(0xff9333EA),
+                      Color(0xff7C3AED),
                     ],
                   ),
                 ),
@@ -1162,10 +1162,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                           width: 56,
                                           height: 56,
                                           decoration: BoxDecoration(
-                                            gradient: LinearGradient(
+                                            gradient: const LinearGradient(
                                               colors: [
-                                                const Color(0xff9333EA),
-                                                const Color(0xff7C3AED),
+                                                Color(0xff9333EA),
+                                                Color(0xff7C3AED),
                                               ],
                                             ),
                                             borderRadius:

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
-import 'dart:ui';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/models/teaching_shift.dart';

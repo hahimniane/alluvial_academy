@@ -27,10 +27,17 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   bool _isSubmitting = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  Map<String, bool> _userFormSubmissions = {}; // Track user form submissions
+  final Map<String, bool> _userFormSubmissions = {}; // Track user form submissions
   String? _currentUserRole;
   String? _currentUserId;
   Map<String, dynamic>? _currentUserData;
+  
+  // Platform detection for responsive layouts
+  bool get _isMobile {
+    if (kIsWeb) return false;
+    final platform = defaultTargetPlatform;
+    return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+  }
 
   @override
   void initState() {
@@ -271,6 +278,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    if (_isMobile) {
+      return _buildMobileLayout();
+    }
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
       body: Row(
@@ -506,6 +516,215 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       ),
     );
   }
+  
+  Widget _buildMobileLayout() {
+    // On mobile, show either the form list OR the selected form
+    if (selectedFormData != null) {
+      // Show the form content with a back button
+      return Scaffold(
+        backgroundColor: const Color(0xffF8FAFC),
+        appBar: AppBar(
+          backgroundColor: const Color(0xff0386FF),
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              setState(() {
+                selectedFormId = null;
+                selectedFormData = null;
+                fieldControllers.clear();
+                fieldValues.clear();
+              });
+            },
+          ),
+          title: Text(
+            selectedFormData!['title'] ?? 'Form',
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        body: _buildFormView(),
+      );
+    }
+    
+    // Show the form list
+    return Scaffold(
+      backgroundColor: const Color(0xffF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xff0386FF),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.description,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Available Forms',
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Search bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search forms...',
+                        hintStyle: GoogleFonts.inter(
+                          color: const Color(0xff6B7280),
+                          fontSize: 14,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Color(0xff6B7280),
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      style: GoogleFonts.inter(fontSize: 14),
+                      onChanged: (value) {
+                        if (mounted) {
+                          setState(() {
+                            searchQuery = value.toLowerCase();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Forms list
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('form')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _buildErrorState('Error loading forms: ${snapshot.error}');
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingState();
+                  }
+
+                  if (!snapshot.hasData) {
+                    return _buildErrorState('No forms data received.');
+                  }
+
+                  if (_currentUserId == null || _currentUserRole == null) {
+                    return _buildLoadingState();
+                  }
+
+                  final forms = snapshot.data!.docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final status = data['status'] ?? 'active';
+                    if (status != 'active') return false;
+                    if (!_canAccessForm(data)) return false;
+                    return data['title']
+                        .toString()
+                        .toLowerCase()
+                        .contains(searchQuery);
+                  }).toList();
+
+                  if (forms.isEmpty) {
+                    return _buildEmptyState();
+                  }
+
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('form_responses')
+                        .where('userId',
+                            isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, responsesSnapshot) {
+                      if (FirebaseAuth.instance.currentUser == null) {
+                        return const Center(
+                          child: Text('Please sign in to view forms'),
+                        );
+                      }
+
+                      if (responsesSnapshot.hasError) {
+                        if (responsesSnapshot.error
+                            .toString()
+                            .contains('permission-denied')) {
+                          return const Center(
+                            child: Text('Please sign in to access forms'),
+                          );
+                        }
+                        return Center(
+                          child: Text('Error: ${responsesSnapshot.error}'),
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: forms.length,
+                        itemBuilder: (context, index) {
+                          final form = forms[index].data() as Map<String, dynamic>;
+                          final formId = forms[index].id;
+                          final hasSubmitted = _userFormSubmissions[formId] ?? false;
+
+                          return _buildFormCard(form, formId, false, hasSubmitted);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildFormCard(
       Map<String, dynamic> form, String formId, bool isSelected,
@@ -639,10 +858,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.access_time,
                       size: 12,
-                      color: const Color(0xff6B7280),
+                      color: Color(0xff6B7280),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -1280,7 +1499,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String label,
   ) {
     return DropdownButtonFormField<String>(
-      value: controller.text.isEmpty ? null : controller.text,
+      initialValue: controller.text.isEmpty ? null : controller.text,
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: GoogleFonts.inter(
@@ -1476,9 +1695,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.info_outline,
-                          color: const Color(0xff6B7280),
+                          color: Color(0xff6B7280),
                           size: 24,
                         ),
                         const SizedBox(height: 8),
@@ -2345,7 +2564,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return [];
     }
 
-    final fieldsMap = fields as Map<String, dynamic>;
+    final fieldsMap = fields;
     final visibleFields = <MapEntry<String, dynamic>>[];
 
     print('FormScreen: Found ${fieldsMap.length} total fields');
@@ -2767,8 +2986,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -2894,7 +3114,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             continue;
           }
 
-          final fieldData = fieldValue as Map<String, dynamic>;
+          final fieldData = fieldValue;
           print('Field $fieldId has data: ${fieldData.keys.toList()}');
 
           // Check if this is an image/signature field with bytes

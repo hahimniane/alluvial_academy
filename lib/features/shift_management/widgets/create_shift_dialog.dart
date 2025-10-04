@@ -982,7 +982,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedSubjectId,
+          initialValue: _selectedSubjectId,
           isExpanded: true,
           decoration: InputDecoration(
             border: OutlineInputBorder(
@@ -1587,7 +1587,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
         final teacherUid = teacherSnapshot.docs.first.id;
         final teacherData =
-            teacherSnapshot.docs.first.data() as Map<String, dynamic>;
+            teacherSnapshot.docs.first.data();
         final teacherName =
             '${teacherData['first_name']} ${teacherData['last_name']}';
         print(

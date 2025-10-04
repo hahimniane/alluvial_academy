@@ -184,7 +184,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       "User",
                       style: openSansHebrewTextStyle.copyWith(fontSize: 24),
                     ),
-                    Expanded(
+                    const Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: UserCard(

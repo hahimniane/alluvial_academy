@@ -29,7 +29,7 @@ class _LandingPageState extends State<LandingPage>
 
   // Dynamic content state
   LandingPageContent? _content;
-  bool _isLoadingContent = false;
+  final bool _isLoadingContent = false;
 
   @override
   void initState() {
@@ -368,7 +368,7 @@ class _LandingPageState extends State<LandingPage>
     final double iconSize = isCompact ? 32.0 : 40.0;
     final double titleFontSize = isCompact ? 24.0 : 28.0;
     final double subtitleFontSize = isCompact ? 14.0 : 16.0;
-    final double bodyFontSize = 16.0; // keep readable
+    const double bodyFontSize = 16.0; // keep readable
     final double gapLarge = isCompact ? 20.0 : 32.0;
     final double gapMedium = isCompact ? 16.0 : 24.0;
 

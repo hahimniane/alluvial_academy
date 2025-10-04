@@ -218,7 +218,7 @@ class PrayerTimeService {
       final prefs = await SharedPreferences.getInstance();
       final today = DateTime.now();
       final cacheKey =
-          '${_cacheKeyPrefix}${today.year}_${today.month}_${today.day}';
+          '$_cacheKeyPrefix${today.year}_${today.month}_${today.day}';
 
       final cacheData = {
         'prayers': prayers
@@ -247,7 +247,7 @@ class PrayerTimeService {
       final prefs = await SharedPreferences.getInstance();
       final today = DateTime.now();
       final cacheKey =
-          '${_cacheKeyPrefix}${today.year}_${today.month}_${today.day}';
+          '$_cacheKeyPrefix${today.year}_${today.month}_${today.day}';
 
       final cachedString = prefs.getString(cacheKey);
       if (cachedString == null) return null;

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/teaching_shift.dart';
 
 class ShiftDetailsDialog extends StatelessWidget {
   final TeachingShift shift;
+  final VoidCallback? onPublishShift;
+  final VoidCallback? onUnpublishShift;
+  final VoidCallback? onClaimShift;
 
   const ShiftDetailsDialog({
     super.key,
     required this.shift,
+    this.onPublishShift,
+    this.onUnpublishShift,
+    this.onClaimShift,
   });
 
   @override
@@ -280,14 +287,100 @@ class ShiftDetailsDialog extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isMyShift = currentUser?.uid == shift.teacherId;
+    final canPublish = isMyShift && 
+                       shift.status == ShiftStatus.scheduled && 
+                       !shift.hasExpired;
+    final isPublished = shift.isPublished;
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: Color(0xffE2E8F0))),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Action buttons on the left
+          Row(
+            children: [
+              // Publish/Unpublish button for shift owner
+              if (canPublish && onPublishShift != null && !isPublished)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onPublishShift!();
+                  },
+                  icon: const Icon(Icons.publish, size: 18),
+                  label: Text(
+                    'Publish Shift',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              if (canPublish && onUnpublishShift != null && isPublished)
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onUnpublishShift!();
+                  },
+                  icon: const Icon(Icons.unpublished, size: 18),
+                  label: Text(
+                    'Unpublish',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xffF59E0B),
+                    side: const BorderSide(color: Color(0xffF59E0B)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              
+              // Claim button for other teachers viewing published shifts
+              if (!isMyShift && isPublished && onClaimShift != null)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onClaimShift!();
+                  },
+                  icon: const Icon(Icons.add_task, size: 18),
+                  label: Text(
+                    'Claim Shift',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          
+          // Close button on the right
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(

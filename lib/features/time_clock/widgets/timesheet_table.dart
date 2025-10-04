@@ -297,7 +297,7 @@ class _TimesheetTableState extends State<TimesheetTable>
       }
     } catch (e) {
       print('Error saving timesheet entry: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -454,11 +454,11 @@ class _TimesheetTableState extends State<TimesheetTable>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
+            content: const Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                const Text('Timesheet submitted for review successfully!'),
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Timesheet submitted for review successfully!'),
               ],
             ),
             backgroundColor: Colors.green,
@@ -1732,9 +1732,9 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             // Modern Header
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xff0386FF),
-                borderRadius: const BorderRadius.only(
+              decoration: const BoxDecoration(
+                color: Color(0xff0386FF),
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
                 ),
@@ -1850,14 +1850,14 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
             Icon(Icons.calendar_today,
-                size: 16, color: const Color(0xff0386FF)),
-            const SizedBox(width: 8),
+                size: 16, color: Color(0xff0386FF)),
+            SizedBox(width: 8),
             Text(
               'Date',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
                 color: Colors.black87,
@@ -1921,8 +1921,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     ),
                   ),
                   const Spacer(),
-                  Icon(Icons.calendar_month,
-                      size: 20, color: const Color(0xff0386FF)),
+                  const Icon(Icons.calendar_month,
+                      size: 20, color: Color(0xff0386FF)),
                 ],
               ),
             ),
@@ -1936,13 +1936,13 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
-            Icon(Icons.person, size: 16, color: const Color(0xff0386FF)),
-            const SizedBox(width: 8),
+            Icon(Icons.person, size: 16, color: Color(0xff0386FF)),
+            SizedBox(width: 8),
             Text(
               'Student',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
                 color: Colors.black87,
@@ -1985,12 +1985,12 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                   ),
                   child: TextFormField(
                     controller: _searchController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Search students...',
                       prefixIcon:
-                          Icon(Icons.search, color: const Color(0xff0386FF)),
+                          Icon(Icons.search, color: Color(0xff0386FF)),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
+                      contentPadding: EdgeInsets.all(16),
                     ),
                     onChanged: _filterStudents,
                   ),
@@ -2010,8 +2010,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.person,
-                            color: const Color(0xff0386FF), size: 20),
+                        const Icon(Icons.person,
+                            color: Color(0xff0386FF), size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -2076,9 +2076,9 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                                 leading: CircleAvatar(
                                   backgroundColor:
                                       const Color(0xff0386FF).withOpacity(0.1),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.person,
-                                    color: const Color(0xff0386FF),
+                                    color: Color(0xff0386FF),
                                     size: 20,
                                   ),
                                 ),
@@ -2156,7 +2156,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       children: [
         Row(
           children: [
-            Icon(Icons.access_time, size: 16, color: const Color(0xff0386FF)),
+            const Icon(Icons.access_time, size: 16, color: Color(0xff0386FF)),
             const SizedBox(width: 8),
             Text(
               label,
@@ -2199,8 +2199,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     ),
                   ),
                   const Spacer(),
-                  Icon(Icons.schedule,
-                      size: 20, color: const Color(0xff0386FF)),
+                  const Icon(Icons.schedule,
+                      size: 20, color: Color(0xff0386FF)),
                 ],
               ),
             ),
@@ -2214,13 +2214,13 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
-            Icon(Icons.coffee, size: 16, color: const Color(0xff0386FF)),
-            const SizedBox(width: 8),
+            Icon(Icons.coffee, size: 16, color: Color(0xff0386FF)),
+            SizedBox(width: 8),
             Text(
               'Break Duration',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
                 color: Colors.black87,
@@ -2238,12 +2238,12 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: DropdownButtonFormField<int>(
-              value: _breakMinutes,
-              decoration: InputDecoration(
+              initialValue: _breakMinutes,
+              decoration: const InputDecoration(
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(16),
+                contentPadding: EdgeInsets.all(16),
                 suffixIcon:
-                    Icon(Icons.expand_more, color: const Color(0xff0386FF)),
+                    Icon(Icons.expand_more, color: Color(0xff0386FF)),
               ),
               onChanged: (value) {
                 setState(() {
@@ -2267,13 +2267,13 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
-            Icon(Icons.notes, size: 16, color: const Color(0xff0386FF)),
-            const SizedBox(width: 8),
+            Icon(Icons.notes, size: 16, color: Color(0xff0386FF)),
+            SizedBox(width: 8),
             Text(
               'Description (Optional)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
                 color: Colors.black87,
@@ -2315,13 +2315,13 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
-            Icon(Icons.location_on, size: 16, color: const Color(0xff10B981)),
-            const SizedBox(width: 8),
+            Icon(Icons.location_on, size: 16, color: Color(0xff10B981)),
+            SizedBox(width: 8),
             Text(
               'Location Information (Required)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
                 color: Colors.black87,
@@ -2398,10 +2398,10 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               if (!_isGettingLocation && _currentLocation == null)
                 TextButton(
                   onPressed: _getCurrentLocation,
-                  child: Text(
+                  child: const Text(
                     'Retry',
                     style: TextStyle(
-                      color: const Color(0xff10B981),
+                      color: Color(0xff10B981),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
