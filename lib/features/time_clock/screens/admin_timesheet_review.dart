@@ -986,7 +986,48 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       ];
     }).toList();
 
-    print('Exporting ${timesheetData.length} timesheet entries for review');
+    // Calculate weekly and monthly totals per teacher
+    final teacherStats = _calculateTeacherTotals(_filteredTimesheets);
+
+    // Add separator and summary sections
+    if (teacherStats.isNotEmpty) {
+      timesheetData.add(List.filled(15, '')); // Empty row separator
+      timesheetData.add(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '']); // Empty row
+      timesheetData.add(['WEEKLY TOTALS BY TEACHER', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+      timesheetData.add(['Teacher', 'Week Starting', 'Total Hours', 'Total Payment', '', '', '', '', '', '', '', '', '', '', '']);
+
+      // Add weekly totals
+      teacherStats.forEach((teacherName, stats) {
+        stats['weekly'].forEach((weekStart, totals) {
+          timesheetData.add([
+            teacherName,
+            weekStart,
+            totals['hours'] ?? '00:00',
+            '\$${totals['payment']?.toStringAsFixed(2) ?? '0.00'}',
+            '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        });
+      });
+
+      timesheetData.add(List.filled(15, '')); // Empty row separator
+      timesheetData.add(['MONTHLY TOTALS BY TEACHER', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+      timesheetData.add(['Teacher', 'Month', 'Total Hours', 'Total Payment', '', '', '', '', '', '', '', '', '', '', '']);
+
+      // Add monthly totals
+      teacherStats.forEach((teacherName, stats) {
+        stats['monthly'].forEach((month, totals) {
+          timesheetData.add([
+            teacherName,
+            month,
+            totals['hours'] ?? '00:00',
+            '\$${totals['payment']?.toStringAsFixed(2) ?? '0.00'}',
+            '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        });
+      });
+    }
+
+    print('Exporting ${_filteredTimesheets.length} timesheet entries for review with teacher totals');
 
     String fileName = 'timesheet_review';
     if (_selectedDateRange != null) {
@@ -1003,6 +1044,92 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       timesheetData,
       fileName,
     );
+  }
+
+  /// Calculate weekly and monthly totals for each teacher
+  Map<String, Map<String, dynamic>> _calculateTeacherTotals(List<TimesheetEntry> entries) {
+    final Map<String, Map<String, dynamic>> teacherStats = {};
+
+    for (var entry in entries) {
+      final teacherName = entry.teacherName;
+
+      // Initialize teacher stats if needed
+      if (!teacherStats.containsKey(teacherName)) {
+        teacherStats[teacherName] = {
+          'weekly': <String, Map<String, dynamic>>{},
+          'monthly': <String, Map<String, dynamic>>{},
+        };
+      }
+
+      // Parse entry date
+      DateTime? entryDate = _parseEntryDate(entry.date);
+      if (entryDate == null) continue;
+
+      // Calculate week starting date (Monday)
+      final weekday = entryDate.weekday;
+      final weekStart = entryDate.subtract(Duration(days: weekday - 1));
+      final weekKey = DateFormat('MMM dd, yyyy').format(weekStart);
+
+      // Calculate month key
+      final monthKey = DateFormat('MMMM yyyy').format(entryDate);
+
+      // Parse total hours
+      double hours = _parseHoursToDecimal(entry.totalHours);
+      double payment = _calculatePayment(entry);
+
+      // Update weekly totals
+      if (!teacherStats[teacherName]!['weekly'].containsKey(weekKey)) {
+        teacherStats[teacherName]!['weekly'][weekKey] = {
+          'totalMinutes': 0,
+          'payment': 0.0,
+        };
+      }
+      teacherStats[teacherName]!['weekly'][weekKey]['totalMinutes'] += (hours * 60).round();
+      teacherStats[teacherName]!['weekly'][weekKey]['payment'] += payment;
+
+      // Update monthly totals
+      if (!teacherStats[teacherName]!['monthly'].containsKey(monthKey)) {
+        teacherStats[teacherName]!['monthly'][monthKey] = {
+          'totalMinutes': 0,
+          'payment': 0.0,
+        };
+      }
+      teacherStats[teacherName]!['monthly'][monthKey]['totalMinutes'] += (hours * 60).round();
+      teacherStats[teacherName]!['monthly'][monthKey]['payment'] += payment;
+    }
+
+    // Convert minutes back to HH:MM format
+    teacherStats.forEach((teacherName, stats) {
+      stats['weekly'].forEach((weekKey, totals) {
+        final totalMinutes = totals['totalMinutes'] as int;
+        final hours = totalMinutes ~/ 60;
+        final minutes = totalMinutes % 60;
+        totals['hours'] = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+      });
+
+      stats['monthly'].forEach((monthKey, totals) {
+        final totalMinutes = totals['totalMinutes'] as int;
+        final hours = totalMinutes ~/ 60;
+        final minutes = totalMinutes % 60;
+        totals['hours'] = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+      });
+    });
+
+    return teacherStats;
+  }
+
+  /// Parse hours string (HH:MM) to decimal hours
+  double _parseHoursToDecimal(String hoursString) {
+    try {
+      final parts = hoursString.split(':');
+      if (parts.length != 2) return 0.0;
+
+      final hours = int.parse(parts[0]);
+      final minutes = int.parse(parts[1]);
+      return hours + (minutes / 60.0);
+    } catch (e) {
+      return 0.0;
+    }
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
