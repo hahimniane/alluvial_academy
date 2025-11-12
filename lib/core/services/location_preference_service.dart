@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class LocationPreferenceService {
   static const String _hasAskedForLocationKey = 'has_asked_for_location';
   static const String _locationPermissionDeniedKey =
@@ -14,7 +16,7 @@ class LocationPreferenceService {
       await prefs.setInt(
           _lastLocationRequestKey, DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
-      print('LocationPreferenceService: Error marking location asked: $e');
+      AppLogger.error('LocationPreferenceService: Error marking location asked: $e');
     }
   }
 
@@ -33,7 +35,7 @@ class LocationPreferenceService {
 
       return lastRequestTime.isAfter(hourAgo);
     } catch (e) {
-      print('LocationPreferenceService: Error checking location asked: $e');
+      AppLogger.error('LocationPreferenceService: Error checking location asked: $e');
       return false;
     }
   }
@@ -44,7 +46,7 @@ class LocationPreferenceService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_locationPermissionDeniedKey, true);
     } catch (e) {
-      print('LocationPreferenceService: Error marking location denied: $e');
+      AppLogger.error('LocationPreferenceService: Error marking location denied: $e');
     }
   }
 
@@ -54,7 +56,7 @@ class LocationPreferenceService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(_locationPermissionDeniedKey) ?? false;
     } catch (e) {
-      print('LocationPreferenceService: Error checking location denied: $e');
+      AppLogger.error('LocationPreferenceService: Error checking location denied: $e');
       return false;
     }
   }
@@ -67,7 +69,7 @@ class LocationPreferenceService {
       await prefs.remove(_locationPermissionDeniedKey);
       await prefs.remove(_lastLocationRequestKey);
     } catch (e) {
-      print('LocationPreferenceService: Error clearing preferences: $e');
+      AppLogger.error('LocationPreferenceService: Error clearing preferences: $e');
     }
   }
 

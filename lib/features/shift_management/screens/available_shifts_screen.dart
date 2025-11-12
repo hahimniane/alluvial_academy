@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../widgets/shift_details_dialog.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class AvailableShiftsScreen extends StatefulWidget {
   const AvailableShiftsScreen({super.key});
 
@@ -50,7 +52,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
         });
       }
     } catch (e) {
-      print('Error loading available shifts: $e');
+      AppLogger.error('Error loading available shifts: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -198,7 +200,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
         
         _loadAvailableShifts(); // Refresh list
       } catch (e) {
-        print('Error claiming shift: $e');
+        AppLogger.error('Error claiming shift: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

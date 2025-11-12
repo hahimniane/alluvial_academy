@@ -402,6 +402,10 @@ class ShiftDetailsDialog extends StatelessWidget {
         return const Color(0xff0386FF);
       case ShiftStatus.active:
         return const Color(0xff10B981);
+      case ShiftStatus.partiallyCompleted:
+        return const Color(0xffF97316);
+      case ShiftStatus.fullyCompleted:
+        return const Color(0xff6366F1);
       case ShiftStatus.completed:
         return const Color(0xff6B7280);
       case ShiftStatus.missed:
@@ -417,6 +421,10 @@ class ShiftDetailsDialog extends StatelessWidget {
         return Icons.schedule;
       case ShiftStatus.active:
         return Icons.play_circle_fill;
+      case ShiftStatus.partiallyCompleted:
+        return Icons.timelapse;
+      case ShiftStatus.fullyCompleted:
+        return Icons.check_circle;
       case ShiftStatus.completed:
         return Icons.check_circle;
       case ShiftStatus.missed:

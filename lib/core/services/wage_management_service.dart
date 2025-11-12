@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'settings_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 enum WageType { global, role, individual }
 
 class WageManagementService {
@@ -46,7 +48,7 @@ class WageManagementService {
       
       return roleWages;
     } catch (e) {
-      print('Error getting role wages: $e');
+      AppLogger.error('Error getting role wages: $e');
       return {};
     }
   }
@@ -78,7 +80,7 @@ class WageManagementService {
       
       return individualWages;
     } catch (e) {
-      print('Error getting individual wages: $e');
+      AppLogger.error('Error getting individual wages: $e');
       return {};
     }
   }
@@ -124,7 +126,7 @@ class WageManagementService {
       // Fall back to global wage
       return await getGlobalWage();
     } catch (e) {
-      print('Error getting effective wage for user: $e');
+      AppLogger.error('Error getting effective wage for user: $e');
       return await getGlobalWage();
     }
   }
@@ -253,7 +255,7 @@ class WageManagementService {
         'timesheets': timesheetsUpdated,
       };
     } catch (e) {
-      print('Error applying wage updates: $e');
+      AppLogger.error('Error applying wage updates: $e');
       return {
         'shifts': shiftsUpdated,
         'timesheets': timesheetsUpdated,
@@ -279,7 +281,7 @@ class WageManagementService {
       
       return roles.toList()..sort();
     } catch (e) {
-      print('Error getting available roles: $e');
+      AppLogger.error('Error getting available roles: $e');
       return ['Teacher', 'Admin', 'Student']; // Default roles
     }
   }
@@ -312,7 +314,7 @@ class WageManagementService {
       users.sort((a, b) => a['name'].compareTo(b['name']));
       return users;
     } catch (e) {
-      print('Error getting users: $e');
+      AppLogger.error('Error getting users: $e');
       return [];
     }
   }

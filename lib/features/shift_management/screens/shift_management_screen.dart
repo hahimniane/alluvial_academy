@@ -16,6 +16,8 @@ import '../../settings/pay_settings_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ShiftManagementScreen extends StatefulWidget {
   const ShiftManagementScreen({super.key});
 
@@ -88,7 +90,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
       }
     } catch (e) {
-      print('Error initializing user role: $e');
+      AppLogger.error('Error initializing user role: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -134,7 +136,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
       });
     } catch (e) {
-      print('Error loading shift data: $e');
+      AppLogger.error('Error loading shift data: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -162,16 +164,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         });
       }
     } catch (e) {
-      print('Error loading shift statistics: $e');
+      AppLogger.error('Error loading shift statistics: $e');
     }
   }
 
   Future<void> _loadTeachers() async {
-    print('ShiftManagement: Loading teachers using ShiftService...');
+    AppLogger.error('ShiftManagement: Loading teachers using ShiftService...');
     try {
       // Use the same method as CreateShiftDialog
       final teachers = await ShiftService.getAvailableTeachers();
-      print(
+      AppLogger.debug(
           'ShiftManagement: ShiftService returned ${teachers.length} teachers');
 
       // Build email to document ID mapping by querying each teacher's document
@@ -186,14 +188,14 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
           if (teacherSnapshot.docs.isNotEmpty) {
             emailToIdMap[teacher.email] = teacherSnapshot.docs.first.id;
-            print(
+            AppLogger.debug(
                 'ShiftManagement: ✅ Mapped ${teacher.email} -> ${teacherSnapshot.docs.first.id}');
           } else {
-            print(
+            AppLogger.error(
                 'ShiftManagement: ❌ No document found for email: ${teacher.email}');
           }
         } catch (e) {
-          print('ShiftManagement: Error mapping teacher email to ID: $e');
+          AppLogger.error('ShiftManagement: Error mapping teacher email to ID: $e');
         }
       }
 
@@ -202,15 +204,15 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _availableTeachers = teachers;
           _teacherEmailToIdMap = emailToIdMap;
         });
-        print(
+        AppLogger.info(
             'ShiftManagement: ✅ Successfully loaded ${teachers.length} teachers');
         for (final teacher in teachers) {
-          print(
+          AppLogger.error(
               'ShiftManagement: Teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
         }
       }
     } catch (e) {
-      print('ShiftManagement: ❌ Error loading teachers: $e');
+      AppLogger.error('ShiftManagement: ❌ Error loading teachers: $e');
     }
   }
 
@@ -621,6 +623,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 context: context,
                                 builder: (context) => const PaySettingsDialog(),
                               );
+                            } else if (value == 'dst_adjustment') {
+                              _showDSTAdjustmentDialog();
                             }
                           },
                           itemBuilder: (context) => [
@@ -643,6 +647,17 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                       size: 20, color: Colors.green),
                                   SizedBox(width: 8),
                                   Text('Pay Settings'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'dst_adjustment',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.access_time,
+                                      size: 20, color: Colors.orange),
+                                  SizedBox(width: 8),
+                                  Text('DST Time Adjustment'),
                                 ],
                               ),
                             ),
@@ -1765,6 +1780,422 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
       }
     }
+  }
+
+  Future<void> _showDSTAdjustmentDialog() async {
+    // Show confirmation dialog for DST adjustment
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.access_time,
+                color: Colors.orange,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Daylight Saving Time Adjustment',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This will adjust ALL future scheduled shifts by 1 hour',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: Colors.amber.shade900,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Select Adjustment:',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // DST Options
+            InkWell(
+              onTap: () => _performDSTAdjustment(1),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.add_circle_outline,
+                        color: Color(0xff10B981), size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Spring Forward (+1 hour)',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff111827),
+                            ),
+                          ),
+                          Text(
+                            'Move all shifts 1 hour later',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xff6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward,
+                        color: Color(0xff6B7280), size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _performDSTAdjustment(-1),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.remove_circle_outline,
+                        color: Color(0xffF59E0B), size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Fall Back (-1 hour)',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff111827),
+                            ),
+                          ),
+                          Text(
+                            'Move all shifts 1 hour earlier',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xff6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_back,
+                        color: Color(0xff6B7280), size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline,
+                      color: Color(0xff0386FF), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Only scheduled shifts that haven\'t started yet will be adjusted. Completed or active shifts will not be affected.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff0386FF),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: const Color(0xff6B7280),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDSTAdjustment(int hours) async {
+    // Close the dialog
+    Navigator.pop(context);
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Text(
+              hours > 0
+                ? 'Adding $hours hour to all future shifts...'
+                : 'Subtracting ${-hours} hour from all future shifts...',
+              style: GoogleFonts.inter(),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Get current user ID for tracking
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      // Call the DST adjustment service
+      final result = await ShiftService.adjustAllShiftTimes(
+        adjustmentHours: hours,
+        onlyFutureShifts: true,
+        adminUserId: currentUser?.uid,
+      );
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Show results dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: result['success'] == true
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    result['success'] == true
+                        ? Icons.check_circle
+                        : Icons.error,
+                    color: result['success'] == true
+                        ? Colors.green
+                        : Colors.red,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'DST Adjustment Complete',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  result['message'] ?? 'Adjustment completed',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Statistics
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xffE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildStatRow('Total Shifts Found',
+                          '${result['totalShifts'] ?? 0}'),
+                      const Divider(height: 16),
+                      _buildStatRow('Shifts Adjusted',
+                          '${result['adjustedShifts'] ?? 0}',
+                          color: Colors.green),
+                      const Divider(height: 16),
+                      _buildStatRow('Shifts Skipped',
+                          '${result['skippedShifts'] ?? 0}',
+                          color: Colors.orange),
+                    ],
+                  ),
+                ),
+                if (result['errors'] != null &&
+                    (result['errors'] as List).isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Errors:',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ...((result['errors'] as List).take(3).map((error) =>
+                          Text(
+                            '• $error',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.red.shade700,
+                            ),
+                          )
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Reload shift data to show updated times
+                  _loadShiftData();
+                  _loadShiftStatistics();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff0386FF),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  'Done',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adjusting shifts: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildStatRow(String label, String value, {Color? color}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: color ?? const Color(0xff111827),
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class FirestoreDebugScreen extends StatefulWidget {
   const FirestoreDebugScreen({super.key});
 
@@ -51,7 +52,7 @@ class _FirestoreDebugScreenState extends State<FirestoreDebugScreen> {
           return data;
         }).toList();
       } catch (e) {
-        print('No Users collection found: $e');
+        AppLogger.debug('No Users collection found: $e');
       }
 
       if (mounted) {

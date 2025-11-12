@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 // Conditional import - uses dart:html on web, stub on other platforms
-import 'html_stub.dart' if (dart.library.html) 'dart:html' as html;
+import 'dart:html' if (dart.library.io) 'html_stub.dart' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' as xl;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 enum ExportFormat { csv, excel }
 
@@ -20,13 +22,13 @@ class ExportHelpers {
     List<List<String>> data,
     String baseFileName,
   ) {
-    print(
+    AppLogger.debug(
         'ExportHelpers.showExportDialog called with baseFileName: $baseFileName, headers: ${headers.length}, data rows: ${data.length}');
 
     // Check if there's any data to export and add sample data if empty
     List<List<String>> exportData = data;
     if (data.isEmpty) {
-      print('No real data found, creating sample data for testing');
+      AppLogger.debug('No real data found, creating sample data for testing');
       // Create sample data for testing
       exportData = [
         ['Sample', 'Data', 'Row', '1'],
@@ -144,7 +146,7 @@ class ExportHelpers {
     return InkWell(
       onTap: () {
         if (_isExporting) {
-          print('Export already in progress, ignoring duplicate request');
+          AppLogger.debug('Export already in progress, ignoring duplicate request');
           return;
         }
         Navigator.of(context).pop();
@@ -212,15 +214,22 @@ class ExportHelpers {
     List<List<String>> data,
     String baseFileName,
   ) {
+    AppLogger.debug('═══════════════════════════════════════');
+    AppLogger.debug('_exportToExcel called');
+    AppLogger.debug('Base filename: $baseFileName');
+    AppLogger.debug('Headers count: ${headers.length}');
+    AppLogger.debug('Data rows count: ${data.length}');
+    AppLogger.debug('Is already exporting: $_isExporting');
+    AppLogger.debug('═══════════════════════════════════════');
+    
     if (_isExporting) {
-      print('Export already in progress, skipping Excel export');
+      AppLogger.debug('⚠️ Export already in progress, skipping Excel export');
       return;
     }
 
     _isExporting = true;
     try {
-      print(
-          'Starting Excel export with ${headers.length} headers and ${data.length} rows');
+      AppLogger.debug('Starting Excel export with ${headers.length} headers and ${data.length} rows');
 
       // Create a new Excel document
       var excel = xl.Excel.createExcel();
@@ -233,7 +242,7 @@ class ExportHelpers {
         sheet
             .cell(xl.CellIndex.indexByString('${String.fromCharCode(65 + i)}1'))
             .value = xl.TextCellValue(headers[i]);
-        print(
+        AppLogger.debug(
             'Added header: ${headers[i]} at column ${String.fromCharCode(65 + i)}1');
       }
 
@@ -246,28 +255,31 @@ class ExportHelpers {
           String cellAddress =
               '${String.fromCharCode(65 + colIndex)}${rowIndex + 2}'; // +2 because row 1 is headers
           sheet.cell(xl.CellIndex.indexByString(cellAddress)).value =
-              xl.TextCellValue(row[colIndex] ?? '');
+              xl.TextCellValue(row[colIndex]);
         }
         if (rowIndex < 3) {
-          print('Added data row ${rowIndex + 1}: ${row.take(3).join(", ")}...');
+          AppLogger.debug('Added data row ${rowIndex + 1}: ${row.take(3).join(", ")}...');
         }
       }
 
-      print('Data added to Excel sheet. Generating file...');
+      AppLogger.debug('Data added to Excel sheet. Generating file...');
 
       // Generate Excel file bytes
       List<int>? fileBytes = excel.save();
 
-      print('Excel file bytes generated: ${fileBytes?.length ?? 0} bytes');
+      AppLogger.debug('Excel file bytes generated: ${fileBytes?.length ?? 0} bytes');
+      AppLogger.debug('Platform check - kIsWeb: $kIsWeb');
 
       if (fileBytes != null && fileBytes.isNotEmpty) {
         if (kIsWeb) {
+          AppLogger.debug('Creating blob for web download...');
           // Create blob and download
           final blob = html.Blob([
             Uint8List.fromList(fileBytes)
           ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
           final url = html.Url.createObjectUrlFromBlob(blob);
+          AppLogger.info('Blob URL created: $url');
 
           // Create and configure the anchor element
           final anchor = html.AnchorElement()
@@ -275,8 +287,11 @@ class ExportHelpers {
             ..style.display = 'none'
             ..download = "$baseFileName.xlsx";
 
+          AppLogger.debug('Creating download link with filename: $baseFileName.xlsx');
+
           // Add to DOM, click, then remove
           html.document.body?.children.add(anchor);
+          AppLogger.debug('Anchor added to DOM, triggering click...');
           anchor.click();
           html.document.body?.children.remove(anchor);
 
@@ -285,16 +300,16 @@ class ExportHelpers {
             html.Url.revokeObjectUrl(url);
           });
 
-          print('Excel file exported successfully: $baseFileName.xlsx');
+          AppLogger.info('✓ Excel file exported successfully: $baseFileName.xlsx');
         } else {
-          print('Excel export is only supported on web platform');
+          AppLogger.error('❌ Excel export is only supported on web platform');
         }
       } else {
-        print('Error: Excel file bytes are null or empty');
+        AppLogger.error('❌ Error: Excel file bytes are null or empty');
       }
     } catch (e, stackTrace) {
-      print('Error exporting to Excel: $e');
-      print('Stack trace: $stackTrace');
+      AppLogger.error('Error exporting to Excel: $e');
+      AppLogger.error('Stack trace: $stackTrace');
     } finally {
       // Reset the exporting flag after a delay
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -310,7 +325,7 @@ class ExportHelpers {
     String baseFileName,
   ) {
     if (_isExporting) {
-      print('Export already in progress, skipping CSV export');
+      AppLogger.debug('Export already in progress, skipping CSV export');
       return;
     }
 
@@ -345,12 +360,12 @@ class ExportHelpers {
           html.Url.revokeObjectUrl(url);
         });
 
-        print('CSV file exported successfully: $baseFileName.csv');
+        AppLogger.error('CSV file exported successfully: $baseFileName.csv');
       } else {
-        print('CSV export is only supported on web platform');
+        AppLogger.error('CSV export is only supported on web platform');
       }
     } catch (e) {
-      print('Error exporting to CSV: $e');
+      AppLogger.error('Error exporting to CSV: $e');
     } finally {
       // Reset the exporting flag after a delay
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -399,7 +414,7 @@ class ExportHelpers {
       _exportToExcel(headers, rows, 'form_responses');
     } catch (e) {
       // Fall back silently; callers can handle errors if needed
-      print('exportFormResponsesToExcel failed: $e');
+      AppLogger.error('exportFormResponsesToExcel failed: $e');
     }
   }
 }

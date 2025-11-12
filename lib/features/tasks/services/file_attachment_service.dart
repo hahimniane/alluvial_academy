@@ -10,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:universal_html/html.dart' as html;
 import '../models/task.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class FileAttachmentService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = const Uuid();
@@ -17,7 +19,7 @@ class FileAttachmentService {
   // Simple test function to verify file picker works
   Future<bool> testFilePicker() async {
     try {
-      print('Testing file picker...');
+      AppLogger.debug('Testing file picker...');
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: FileType.any,
@@ -25,14 +27,14 @@ class FileAttachmentService {
       );
 
       if (result != null && result.files.isNotEmpty) {
-        print('Test successful: ${result.files.first.name}');
+        AppLogger.error('Test successful: ${result.files.first.name}');
         return true;
       } else {
-        print('Test: No file selected');
+        AppLogger.error('Test: No file selected');
         return false;
       }
     } catch (e) {
-      print('Test failed: $e');
+      AppLogger.error('Test failed: $e');
       return false;
     }
   }
@@ -40,7 +42,7 @@ class FileAttachmentService {
   // Pick file(s) for upload
   Future<List<PlatformFile>?> pickFiles() async {
     try {
-      print('Starting file picker...');
+      AppLogger.error('Starting file picker...');
 
       // Use a more web-friendly approach with fallback
       FilePickerResult? result;
@@ -89,7 +91,7 @@ class FileAttachmentService {
         );
       }
 
-      print('File picker result: ${result?.files.length ?? 0} files selected');
+      AppLogger.debug('File picker result: ${result?.files.length ?? 0} files selected');
 
       if (result != null && result.files.isNotEmpty) {
         // Filter files by size and type
@@ -110,10 +112,10 @@ class FileAttachmentService {
           final typeOk = allowedExtensions.contains(extension);
 
           if (!typeOk) {
-            print('File ${file.name} rejected: unsupported type ($extension)');
+            AppLogger.debug('File ${file.name} rejected: unsupported type ($extension)');
           }
           if (!sizeOk) {
-            print('File ${file.name} rejected: too large (${file.size} bytes)');
+            AppLogger.debug('File ${file.name} rejected: too large (${file.size} bytes)');
           }
 
           return sizeOk && typeOk;
@@ -126,18 +128,18 @@ class FileAttachmentService {
 
         if (validFiles.length != result.files.length) {
           final rejected = result.files.length - validFiles.length;
-          print(
+          AppLogger.debug(
               '$rejected files were excluded due to size or type restrictions');
         }
 
-        print('${validFiles.length} valid files selected');
+        AppLogger.error('${validFiles.length} valid files selected');
         return validFiles;
       }
 
-      print('No files selected');
+      AppLogger.error('No files selected');
       return null;
     } catch (e) {
-      print('File picker error: $e');
+      AppLogger.error('File picker error: $e');
       throw Exception('Failed to pick files: ${e.toString()}');
     }
   }
@@ -234,7 +236,7 @@ class FileAttachmentService {
   // Web-specific download implementation
   Future<void> _downloadFileWeb(TaskAttachment attachment) async {
     try {
-      print('Starting download for: ${attachment.originalName}');
+      AppLogger.debug('Starting download for: ${attachment.originalName}');
 
       // Method 1: Try to fetch file and create blob download
       try {
@@ -259,17 +261,17 @@ class FileAttachmentService {
           // Clean up the blob URL
           html.Url.revokeObjectUrl(url);
 
-          print('Download completed for: ${attachment.originalName}');
+          AppLogger.error('Download completed for: ${attachment.originalName}');
           return; // Success, exit early
         }
       } catch (fetchError) {
-        print('Fetch method failed: $fetchError');
+        AppLogger.error('Fetch method failed: $fetchError');
       }
 
       // Method 2: Try direct download with proper headers
       _tryDirectDownload(attachment);
     } catch (e) {
-      print('All download methods failed: $e');
+      AppLogger.error('All download methods failed: $e');
       // Final fallback
       _fallbackDownload(attachment);
     }
@@ -300,9 +302,9 @@ class FileAttachmentService {
         anchor.remove();
       });
 
-      print('Direct download triggered for: ${attachment.originalName}');
+      AppLogger.error('Direct download triggered for: ${attachment.originalName}');
     } catch (e) {
-      print('Direct download failed: $e');
+      AppLogger.error('Direct download failed: $e');
       _fallbackDownload(attachment);
     }
   }
@@ -310,7 +312,7 @@ class FileAttachmentService {
   // Fallback download method
   void _fallbackDownload(TaskAttachment attachment) {
     try {
-      print('Trying iframe fallback for: ${attachment.originalName}');
+      AppLogger.debug('Trying iframe fallback for: ${attachment.originalName}');
 
       // Method 3: Create iframe to trigger download
       final iframe = html.IFrameElement();
@@ -326,14 +328,14 @@ class FileAttachmentService {
         iframe.remove();
       });
 
-      print('Iframe fallback triggered for: ${attachment.originalName}');
+      AppLogger.debug('Iframe fallback triggered for: ${attachment.originalName}');
 
       // Wait a bit and then try a final method if needed
       Future.delayed(const Duration(seconds: 1), () {
         _finalDownloadAttempt(attachment);
       });
     } catch (e) {
-      print('Iframe fallback failed: $e');
+      AppLogger.error('Iframe fallback failed: $e');
       _finalDownloadAttempt(attachment);
     }
   }
@@ -341,7 +343,7 @@ class FileAttachmentService {
   // Final download attempt with forced headers
   void _finalDownloadAttempt(TaskAttachment attachment) {
     try {
-      print('Final download attempt for: ${attachment.originalName}');
+      AppLogger.debug('Final download attempt for: ${attachment.originalName}');
 
       // Create a form to POST and trigger download
       final form = html.FormElement();
@@ -358,11 +360,11 @@ class FileAttachmentService {
         form.remove();
       });
 
-      print(
+      AppLogger.error(
           'Form submission download triggered for: ${attachment.originalName}');
     } catch (e) {
-      print('Final download attempt failed: $e');
-      print('Opening in new tab as last resort');
+      AppLogger.error('Final download attempt failed: $e');
+      AppLogger.error('Opening in new tab as last resort');
       // Last resort: open in new tab with download hint
       html.window.open('${attachment.downloadUrl}?download=true', '_blank');
     }
@@ -376,7 +378,7 @@ class FileAttachmentService {
           .child('task_attachments/$taskId/${attachment.fileName}');
       await storageRef.delete();
     } catch (e) {
-      print('Failed to delete file from storage: ${e.toString()}');
+      AppLogger.error('Failed to delete file from storage: ${e.toString()}');
       // Don't throw error as the file might already be deleted
     }
   }

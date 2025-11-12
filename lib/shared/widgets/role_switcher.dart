@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/user_role_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class RoleSwitcher extends StatefulWidget {
   final Function(String)? onRoleChanged;
   final EdgeInsets? padding;
@@ -57,7 +59,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
         });
       }
     } catch (e) {
-      print('Error loading role data: $e');
+      AppLogger.error('Error loading role data: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -86,7 +88,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
           final newHasDualRoles = (userType == 'admin') || (isAdminTeacher && userType == 'teacher');
 
           if (newHasDualRoles != _hasDualRoles) {
-            print(
+            AppLogger.debug(
                 'Role change detected: hasDualRoles changed from $_hasDualRoles to $newHasDualRoles');
 
             // Reload role data when dual role status changes
@@ -122,7 +124,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
         }
       },
       onError: (error) {
-        print('Error listening to user changes: $error');
+        AppLogger.error('Error listening to user changes: $error');
       },
     );
   }
@@ -174,7 +176,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
         widget.onRoleChanged?.call(newRole);
       }
     } catch (e) {
-      print('Error switching role: $e');
+      AppLogger.error('Error switching role: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

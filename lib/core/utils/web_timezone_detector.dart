@@ -1,6 +1,8 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 @JS('Intl.DateTimeFormat')
 external JSFunction get DateTimeFormat;
 
@@ -34,7 +36,7 @@ String detectWebTimezone() {
     final options = formatter.resolvedOptions() as ResolvedOptions;
     return options.timeZone;
   } catch (e) {
-    print('Error detecting web timezone: $e');
+    AppLogger.error('Error detecting web timezone: $e');
     return 'UTC';
   }
 }

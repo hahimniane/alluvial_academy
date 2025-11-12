@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class SendNotificationScreen extends StatefulWidget {
   const SendNotificationScreen({super.key});
 
@@ -134,12 +136,12 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
         throw Exception('User not authenticated');
       }
       
-      print('Sending notification as user: ${currentUser.uid}');
+      AppLogger.debug('Sending notification as user: ${currentUser.uid}');
       
       // Debug: Show FCM tokens for selected recipients
       if (_recipientType == 'individual' || _recipientType == 'selected') {
-        print('=== FCM Token Debug ===');
-        print('Selected user IDs: $_selectedUserIds');
+        AppLogger.debug('=== FCM Token Debug ===');
+        AppLogger.debug('Selected user IDs: $_selectedUserIds');
         
         for (final userId in _selectedUserIds) {
           try {
@@ -154,9 +156,9 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
               final userName = '${userData['first_name']} ${userData['last_name']}';
               final userEmail = userData['e-mail'] ?? userData['email'];
               
-              print('User: $userName ($userEmail)');
-              print('  User ID: $userId');
-              print('  FCM Tokens: ${fcmTokens?.length ?? 0} tokens');
+              AppLogger.debug('User: $userName ($userEmail)');
+              AppLogger.debug('  User ID: $userId');
+              AppLogger.debug('  FCM Tokens: ${fcmTokens?.length ?? 0} tokens');
               
               if (fcmTokens != null && fcmTokens.isNotEmpty) {
                 for (var i = 0; i < fcmTokens.length; i++) {
@@ -165,17 +167,17 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                   final platform = tokenData['platform'] ?? 'unknown';
                   final lastUpdated = tokenData['lastUpdated'];
                   
-                  print('  Token $i: ${token?.substring(0, 20)}... (platform: $platform, updated: $lastUpdated)');
+                  AppLogger.info('  Token $i: ${token?.substring(0, 20)}... (platform: $platform, updated: $lastUpdated)');
                 }
               } else {
-                print('  ⚠️ No FCM tokens found for this user!');
+                AppLogger.error('  ⚠️ No FCM tokens found for this user!');
               }
             }
           } catch (e) {
-            print('Error fetching FCM token info for $userId: $e');
+            AppLogger.error('Error fetching FCM token info for $userId: $e');
           }
         }
-        print('=== End FCM Token Debug ===');
+        AppLogger.error('=== End FCM Token Debug ===');
       }
       
       final functions = FirebaseFunctions.instance;

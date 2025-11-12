@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/services/user_role_service.dart';
 import 'dashboard.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class RoleBasedDashboard extends StatefulWidget {
   const RoleBasedDashboard({super.key});
 
@@ -25,7 +27,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
 
   Future<void> _loadUserRole() async {
     try {
-      print('=== Loading User Role ===');
+      AppLogger.debug('=== Loading User Role ===');
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
 
@@ -37,9 +39,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
         });
       }
 
-      print('Role loaded successfully: $role');
+      AppLogger.error('Role loaded successfully: $role');
     } catch (e) {
-      print('Error loading user role: $e');
+      AppLogger.error('Error loading user role: $e');
       if (mounted) {
         setState(() {
           error = e.toString();

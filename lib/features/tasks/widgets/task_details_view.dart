@@ -9,6 +9,8 @@ import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
 import 'task_comments_section.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TaskDetailsView extends StatefulWidget {
   final Task task;
   final VoidCallback onTaskUpdated;
@@ -379,7 +381,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                   onPressed: _isUploadingFile
                       ? null
                       : () {
-                          print('Add Files button clicked');
+                          AppLogger.debug('Add Files button clicked');
                           _pickAndUploadFiles();
                         },
                   icon: _isUploadingFile
@@ -900,18 +902,18 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
   }
 
   Future<void> _pickAndUploadFiles() async {
-    print('_pickAndUploadFiles called');
+    AppLogger.debug('_pickAndUploadFiles called');
 
     try {
       if (mounted) {
         setState(() => _isUploadingFile = true);
       }
 
-      print('Calling file service to pick files...');
+      AppLogger.debug('Calling file service to pick files...');
       final files = await _fileService.pickFiles();
 
       if (files == null || files.isEmpty) {
-        print('No files selected or user cancelled');
+        AppLogger.debug('No files selected or user cancelled');
         if (mounted) {
           setState(() => _isUploadingFile = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -931,12 +933,12 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         return;
       }
 
-      print('${files.length} files selected, starting upload...');
+      AppLogger.debug('${files.length} files selected, starting upload...');
       int successfulUploads = 0;
 
       for (final file in files) {
         try {
-          print('Uploading file: ${file.name}');
+          AppLogger.debug('Uploading file: ${file.name}');
           final attachment =
               await _fileService.uploadFile(file, widget.task.id);
           await _taskService.addAttachmentToTask(widget.task.id, attachment);
@@ -961,9 +963,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           }
 
           successfulUploads++;
-          print('Successfully uploaded: ${file.name}');
+          AppLogger.error('Successfully uploaded: ${file.name}');
         } catch (e) {
-          print('Failed to upload ${file.name}: $e');
+          AppLogger.error('Failed to upload ${file.name}: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -1007,7 +1009,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         );
       }
     } catch (e) {
-      print('Error in _pickAndUploadFiles: $e');
+      AppLogger.error('Error in _pickAndUploadFiles: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

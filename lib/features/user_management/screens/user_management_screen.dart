@@ -19,6 +19,8 @@ import '../../../utility_functions/export_helpers.dart';
 import '../../../core/services/user_role_service.dart';
 import 'edit_user_screen.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
 
@@ -61,10 +63,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     data.then((querySnapshot) {
       for (var docSnapshot in querySnapshot.docs) {
         String? countryCode = docSnapshot.data()['country_code'];
-        print('Country Code: $countryCode');
+        AppLogger.error('Country Code: $countryCode');
       }
     }).catchError((error) {
-      print("Error fetching data: $error");
+      AppLogger.error("Error fetching data: $error");
     });
   }
 
@@ -166,9 +168,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         final studentEmail = data['e-mail'] as String?;
         final guardianIds = data['guardian_ids'] as List<dynamic>?;
 
-        print(
+        AppLogger.debug(
             'Student: ${data['first_name']} ${data['last_name']} (ID: $studentId, Email: $studentEmail)');
-        print('  Guardian IDs: $guardianIds');
+        AppLogger.debug('  Guardian IDs: $guardianIds');
 
         if (guardianIds != null && guardianIds.isNotEmpty) {
           // For each guardian, add this student to their list
@@ -184,16 +186,16 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         }
       }
 
-      print('=== Parent-Student Mapping Debug ===');
+      AppLogger.debug('=== Parent-Student Mapping Debug ===');
       _parentStudentMap.forEach((parentId, studentIds) {
-        print(
+        AppLogger.debug(
             'Parent $parentId has ${studentIds.length} students: $studentIds');
       });
 
-      print(
+      AppLogger.error(
           'Loaded parent-student relationships: ${_parentStudentMap.length} parents');
     } catch (e) {
-      print('Error loading parent-student relationships: $e');
+      AppLogger.error('Error loading parent-student relationships: $e');
     }
   }
 
@@ -928,7 +930,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   }
 
   void _exportData() {
-    print(
+    AppLogger.debug(
         '_exportData called. _filteredEmployees length: ${_allEmployees.length}');
 
     List<String> headers = [
@@ -961,9 +963,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             ])
         .toList();
 
-    print('userData length: ${userData.length}');
+    AppLogger.debug('userData length: ${userData.length}');
     if (userData.isNotEmpty) {
-      print('First user data: ${userData[0]}');
+      AppLogger.debug('First user data: ${userData[0]}');
     }
 
     ExportHelpers.showExportDialog(

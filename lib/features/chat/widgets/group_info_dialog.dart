@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/chat_service.dart';
 import '../models/chat_user.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class GroupInfoDialog extends StatefulWidget {
   final ChatUser groupChat;
 
@@ -29,12 +31,12 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
 
   Future<void> _loadMemberInfo() async {
     if (widget.groupChat.participants != null) {
-      print('GroupInfoDialog: Loading member info for ${widget.groupChat.participants!.length} participants');
-      print('GroupInfoDialog: Participant IDs: ${widget.groupChat.participants!}');
+      AppLogger.debug('GroupInfoDialog: Loading member info for ${widget.groupChat.participants!.length} participants');
+      AppLogger.debug('GroupInfoDialog: Participant IDs: ${widget.groupChat.participants!}');
       
       final names = await _chatService.getUserNames(widget.groupChat.participants!);
       
-      print('GroupInfoDialog: Fetched names: $names');
+      AppLogger.debug('GroupInfoDialog: Fetched names: $names');
       
       setState(() {
         memberNames = names;
@@ -44,9 +46,9 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
         isLoading = false;
       });
       
-      print('GroupInfoDialog: Creator name: $creatorName');
+      AppLogger.debug('GroupInfoDialog: Creator name: $creatorName');
     } else {
-      print('GroupInfoDialog: No participants found');
+      AppLogger.debug('GroupInfoDialog: No participants found');
       setState(() {
         isLoading = false;
       });

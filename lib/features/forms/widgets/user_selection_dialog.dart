@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class UserSelectionDialog extends StatefulWidget {
   final List<String> selectedUserIds;
   final Function(List<String>) onUsersSelected;
@@ -59,7 +61,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading users: $e');
+      AppLogger.error('Error loading users: $e');
       setState(() => _isLoading = false);
     }
   }

@@ -6,8 +6,6 @@
     <!-- Location permissions for clock-in/clock-out tracking -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <!-- For Android 10+ background location (if needed) -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     
     <!-- Firebase Cloud Messaging permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

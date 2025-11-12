@@ -9,6 +9,8 @@ import 'user_role_service.dart';
 import 'timezone_service.dart';
 import 'notification_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -39,12 +41,12 @@ class AuthService {
 
         // Update timezone on login (non-blocking)
         TimezoneService.updateUserTimezoneOnLogin().catchError((e) {
-          print('AuthService: Failed to update timezone: $e');
+          AppLogger.error('AuthService: Failed to update timezone: $e');
         });
 
         // Initialize location and prayer times for teachers (non-blocking)
         _initializeTeacherServices(user).catchError((e) {
-          print('AuthService: Background teacher initialization failed: $e');
+          AppLogger.error('AuthService: Background teacher initialization failed: $e');
         });
       }
 
@@ -53,7 +55,7 @@ class AuthService {
       // Re-throw FirebaseAuthException to preserve error codes
       rethrow;
     } catch (e) {
-      print('AuthService error: $e');
+      AppLogger.error('AuthService error: $e');
       // Throw a generic FirebaseAuthException for other errors
       throw FirebaseAuthException(
         code: 'unknown-error',
@@ -69,20 +71,20 @@ class AuthService {
       final role = await UserRoleService.getCurrentUserRole();
 
       if (role?.toLowerCase() == 'teacher') {
-        print('AuthService: Initializing services for teacher ${user.uid}');
+        AppLogger.error('AuthService: Initializing services for teacher ${user.uid}');
 
         // Fetch location in background - completely fire and forget
         _fetchLocationInBackground(user).catchError((e) {
-          print('AuthService: Background location fetch failed: $e');
+          AppLogger.error('AuthService: Background location fetch failed: $e');
         });
 
         // Pre-load prayer times - fire and forget
         _preloadPrayerTimesInBackground().catchError((e) {
-          print('AuthService: Background prayer time pre-load failed: $e');
+          AppLogger.error('AuthService: Background prayer time pre-load failed: $e');
         });
       }
     } catch (e) {
-      print('AuthService: Error initializing teacher services: $e');
+      AppLogger.error('AuthService: Error initializing teacher services: $e');
       // Don't block login if these fail
     }
   }
@@ -90,7 +92,7 @@ class AuthService {
   // Fetch location in background without blocking login
   Future<void> _fetchLocationInBackground(User user) async {
     try {
-      print('AuthService: Fetching location for teacher...');
+      AppLogger.debug('AuthService: Fetching location for teacher...');
 
       // Add a delay to ensure the UI has settled and user has navigated
       await Future.delayed(const Duration(seconds: 2));
@@ -99,7 +101,7 @@ class AuthService {
       final shouldSkip =
           await LocationPreferenceService.shouldSkipLocationRequest();
       if (shouldSkip) {
-        print(
+        AppLogger.debug(
             'AuthService: Skipping location request based on user preferences');
         return;
       }
@@ -107,20 +109,20 @@ class AuthService {
       // Request location permission and get current location with timeout
       final location = await LocationService.getCurrentLocation(interactive: false)
           .timeout(const Duration(seconds: 10), onTimeout: () {
-        print('AuthService: Location request timed out');
+        AppLogger.debug('AuthService: Location request timed out');
         return null;
       });
 
       if (location != null) {
-        print('AuthService: Location obtained: ${location.address}');
+        AppLogger.debug('AuthService: Location obtained: ${location.address}');
 
         // Optionally store location in user profile for future use
         await _updateUserLocation(user, location);
       } else {
-        print('AuthService: Could not get location');
+        AppLogger.error('AuthService: Could not get location');
       }
     } catch (e) {
-      print('AuthService: Error fetching location: $e');
+      AppLogger.error('AuthService: Error fetching location: $e');
       // Silent fail - this is background initialization
     }
   }
@@ -128,11 +130,11 @@ class AuthService {
   // Pre-load prayer times in background
   Future<void> _preloadPrayerTimesInBackground() async {
     try {
-      print('AuthService: Pre-loading prayer times...');
+      AppLogger.error('AuthService: Pre-loading prayer times...');
       await PrayerTimeService.initializeInBackground();
-      print('AuthService: Prayer times pre-loaded successfully');
+      AppLogger.error('AuthService: Prayer times pre-loaded successfully');
     } catch (e) {
-      print('AuthService: Error pre-loading prayer times: $e');
+      AppLogger.error('AuthService: Error pre-loading prayer times: $e');
     }
   }
 
@@ -152,9 +154,9 @@ class AuthService {
         },
       });
 
-      print('AuthService: User location updated in Firestore');
+      AppLogger.error('AuthService: User location updated in Firestore');
     } catch (e) {
-      print('AuthService: Error updating user location: $e');
+      AppLogger.error('AuthService: Error updating user location: $e');
     }
   }
 
@@ -173,12 +175,12 @@ class AuthService {
         await userDoc.reference.update({
           'last_login': FieldValue.serverTimestamp(),
         });
-        print('AuthService: Last login time updated for ${user.email}');
+        AppLogger.error('AuthService: Last login time updated for ${user.email}');
       } else {
-        print('AuthService: User document not found for ${user.email}');
+        AppLogger.error('AuthService: User document not found for ${user.email}');
       }
     } catch (e) {
-      print('AuthService: Error updating last login time: $e');
+      AppLogger.error('AuthService: Error updating last login time: $e');
     }
   }
 
@@ -191,7 +193,7 @@ class AuthService {
       User? user = result.user;
       return user;
     } catch (e) {
-      print(e.toString());
+      AppLogger.error(e.toString());
       return null;
     }
   }
@@ -219,7 +221,7 @@ class AuthService {
           displayName = '$firstName $lastName'.trim();
         }
       } catch (e) {
-        print('AuthService: Could not fetch user display name: $e');
+        AppLogger.error('AuthService: Could not fetch user display name: $e');
         // Continue without display name
       }
 
@@ -228,9 +230,9 @@ class AuthService {
         'displayName': displayName,
       });
 
-      print('AuthService: Custom password reset email sent to $email');
+      AppLogger.error('AuthService: Custom password reset email sent to $email');
     } on FirebaseFunctionsException catch (e) {
-      print(
+      AppLogger.error(
           'AuthService: Password reset function error: ${e.code} - ${e.message}');
 
       // Convert function errors to auth errors for consistent handling
@@ -252,7 +254,7 @@ class AuthService {
             'Unable to send password reset email. Please try again later.',
       );
     } catch (e) {
-      print('AuthService: Unexpected error in password reset: $e');
+      AppLogger.error('AuthService: Unexpected error in password reset: $e');
       throw FirebaseAuthException(
         code: 'unknown-error',
         message: 'An unexpected error occurred. Please try again later.',
@@ -273,7 +275,7 @@ class AuthService {
       
       return await _auth.signOut();
     } catch (e) {
-      print(e.toString());
+      AppLogger.error(e.toString());
       return;
     }
   }

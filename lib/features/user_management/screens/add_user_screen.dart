@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
 import '../../../core/utils/timezone_utils.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
 
@@ -68,7 +70,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
       return querySnapshot.docs.isEmpty;
     } catch (e) {
-      print('Error checking kiosk code uniqueness: $e');
+      AppLogger.error('Error checking kiosk code uniqueness: $e');
       return false;
     }
   }
@@ -121,38 +123,38 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
       _isLoading = true;
     });
 
-    print('Handle continue called');
+    AppLogger.debug('Handle continue called');
     List<Map<String, dynamic>> usersData = [];
     bool allValid = true;
 
     for (var index in userRows) {
-      print('\nChecking row $index');
+      AppLogger.debug('\nChecking row $index');
       final key = rowKeys[index];
       if (key == null) {
-        print('Key for row $index is null');
+        AppLogger.debug('Key for row $index is null');
         continue;
       }
 
       final rowState = key.currentState;
       if (rowState == null) {
-        print('Row state for row $index is null');
+        AppLogger.debug('Row state for row $index is null');
         continue;
       }
 
-      print('Row $index field values:');
-      print('First Name: "${rowState.firstNameController.text}"');
-      print('Last Name: "${rowState.lastNameController.text}"');
-      print('Phone: "${rowState.phoneController.text}"');
-      print('Email: "${rowState.emailController.text}"');
-      print('Country Code: "${rowState.countryCode}"');
-      print('User Type: "${rowState.selectedUserType}"');
+      AppLogger.debug('Row $index field values:');
+      AppLogger.debug('First Name: "${rowState.firstNameController.text}"');
+      AppLogger.debug('Last Name: "${rowState.lastNameController.text}"');
+      AppLogger.debug('Phone: "${rowState.phoneController.text}"');
+      AppLogger.debug('Email: "${rowState.emailController.text}"');
+      AppLogger.debug('Country Code: "${rowState.countryCode}"');
+      AppLogger.debug('User Type: "${rowState.selectedUserType}"');
 
       // Check if any field is populated
       if (rowState.firstNameController.text.isNotEmpty ||
           rowState.lastNameController.text.isNotEmpty ||
           rowState.phoneController.text.isNotEmpty ||
           rowState.emailController.text.isNotEmpty) {
-        print('Row $index has some fields populated');
+        AppLogger.debug('Row $index has some fields populated');
 
         // Check validation based on user type
         bool emailRequired = true;
@@ -176,7 +178,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                         rowState.availableGuardians.isEmpty));
 
         if (missingRequiredFields) {
-          print('Row $index is incomplete');
+          AppLogger.info('Row $index is incomplete');
           allValid = false;
           setState(() {
             _isLoading = false;
@@ -225,7 +227,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           return;
         }
 
-        print('Row $index is complete, adding to usersData');
+        AppLogger.info('Row $index is complete, adding to usersData');
         final fullPhoneNumber = rowState.phoneController.text.trim().isNotEmpty
             ? "${rowState.countryCode}${rowState.phoneController.text.trim()}"
             : "";
@@ -291,16 +293,16 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
         usersData.add(userData);
       } else {
-        print('Row $index has no fields populated');
+        AppLogger.debug('Row $index has no fields populated');
       }
     }
 
-    print('\nFinal validation:');
-    print('All valid: $allValid');
-    print('Users data length: ${usersData.length}');
+    AppLogger.debug('\nFinal validation:');
+    AppLogger.debug('All valid: $allValid');
+    AppLogger.debug('Users data length: ${usersData.length}');
 
     if (usersData.isEmpty) {
-      print('No users data to save');
+      AppLogger.debug('No users data to save');
       setState(() {
         _isLoading = false;
       });
@@ -372,8 +374,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
     // Create users using Firebase Functions
     try {
-      print('Calling Firebase Function to create users...');
-      print('Users data to create: ${usersData.length}');
+      AppLogger.debug('Calling Firebase Function to create users...');
+      AppLogger.debug('Users data to create: ${usersData.length}');
 
       // Transform data to match Firebase Functions expected format
       List<Map<String, dynamic>> transformedUsers = usersData.map((userData) {
@@ -390,9 +392,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         };
       }).toList();
 
-      print('Transformed user data: ${transformedUsers.length} users');
+      AppLogger.debug('Transformed user data: ${transformedUsers.length} users');
       for (int i = 0; i < transformedUsers.length; i++) {
-        print('User ${i + 1}: ${transformedUsers[i]}');
+        AppLogger.debug('User ${i + 1}: ${transformedUsers[i]}');
       }
 
       // Call Firebase Function based on user type and number of users
@@ -437,7 +439,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           }
 
           final result = await callable.call(studentData);
-          print('Student creation result: ${result.data}');
+          AppLogger.debug('Student creation result: ${result.data}');
 
           // Store email notification info for success message
           _emailNotificationInfo = null;
@@ -450,7 +452,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                 'sent': emailsSent,
                 'total': emailsToGuardians
               };
-              print(
+              AppLogger.debug(
                   'Email notifications: $emailsSent/$emailsToGuardians guardians notified');
             }
           }
@@ -458,7 +460,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           // Use createUserWithEmail function for regular users
           final callable = functions.httpsCallable('createUserWithEmail');
           final result = await callable.call(userData);
-          print('Regular user creation result: ${result.data}');
+          AppLogger.debug('Regular user creation result: ${result.data}');
           _emailNotificationInfo = null; // Clear for non-student users
         }
 
@@ -473,9 +475,9 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
               'lastName': user['lastName'],
               'role': user['userType'],
             });
-            print('Welcome email sent successfully');
+            AppLogger.error('Welcome email sent successfully');
           } catch (emailError) {
-            print('Failed to send welcome email: $emailError');
+            AppLogger.error('Failed to send welcome email: $emailError');
             // Don't fail the entire operation if email fails
           }
         }
@@ -488,7 +490,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'users': transformedUsers,
         });
 
-        print('Multiple users creation result: ${result.data}');
+        AppLogger.debug('Multiple users creation result: ${result.data}');
 
         // Send welcome emails to all users
         try {
@@ -502,14 +504,14 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                 'lastName': user['last_name'],
                 'role': user['user_type'], // Use correct field name
               });
-              print('Welcome email sent to ${user['e-mail']}');
+              AppLogger.error('Welcome email sent to ${user['e-mail']}');
             } catch (emailError) {
-              print(
+              AppLogger.error(
                   'Failed to send welcome email to ${user['e-mail']}: $emailError');
             }
           }
         } catch (e) {
-          print('Failed to send welcome emails: $e');
+          AppLogger.error('Failed to send welcome emails: $e');
         }
       }
 
@@ -579,14 +581,14 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
 
       Navigator.pop(context);
     } catch (e) {
-      print("Error creating users: $e");
+      AppLogger.error("Error creating users: $e");
 
       String errorMessage = 'Error creating users: ';
       if (e is FirebaseFunctionsException) {
         errorMessage += e.message ?? e.code;
-        print('Firebase Functions Error Code: ${e.code}');
-        print('Firebase Functions Error Message: ${e.message}');
-        print('Firebase Functions Error Details: ${e.details}');
+        AppLogger.error('Firebase Functions Error Code: ${e.code}');
+        AppLogger.error('Firebase Functions Error Message: ${e.message}');
+        AppLogger.error('Firebase Functions Error Details: ${e.details}');
       } else {
         errorMessage += e.toString();
       }
@@ -645,7 +647,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         }).toList();
       });
     } catch (e) {
-      print('Error loading guardians: $e');
+      AppLogger.error('Error loading guardians: $e');
     }
   }
 
@@ -1174,7 +1176,7 @@ class _UserInputRowState extends State<UserInputRow> {
         });
       }
     } catch (e) {
-      print('Error loading guardians: $e');
+      AppLogger.error('Error loading guardians: $e');
     }
   }
 

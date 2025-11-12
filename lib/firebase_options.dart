@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAJ-JHKPs_VQTc8cDfb94h-uYvFPB8vjRM',
-    appId: '1:554077757249:android:5a5c76e677152c4fcc8bc0',
+    appId: '1:554077757249:android:60fab9887caa6295cc8bc0',
     messagingSenderId: '554077757249',
     projectId: 'alluwal-academy',
     storageBucket: 'alluwal-academy.firebasestorage.app',

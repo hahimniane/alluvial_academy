@@ -5,6 +5,8 @@ import '../core/models/form_draft.dart';
 import '../debug_firestore_screen.dart';
 import 'form_builder.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// Screen for managing form drafts
 class DraftManagementScreen extends StatefulWidget {
   const DraftManagementScreen({super.key});
@@ -147,7 +149,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         }
 
         if (snapshot.hasError) {
-          print('DraftManagementScreen: Error in stream: ${snapshot.error}');
+          AppLogger.error('DraftManagementScreen: Error in stream: ${snapshot.error}');
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

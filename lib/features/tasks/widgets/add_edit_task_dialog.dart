@@ -10,6 +10,8 @@ import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class AddEditTaskDialog extends StatefulWidget {
   final Task? task;
 
@@ -103,7 +105,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
       setState(() {
         _isLoading = false;
       });
-      print('Error fetching users: $e');
+      AppLogger.error('Error fetching users: $e');
     }
   }
 
@@ -423,9 +425,11 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
                   children: [
                     Icon(Icons.person_add_outlined, color: Colors.grey[400]),
                     const SizedBox(width: 12),
-                    Text(
-                      'No assignees selected. Tap "Add Assignees" to select team members.',
-                      style: TextStyle(color: Colors.grey[600]),
+                    Expanded(
+                      child: Text(
+                        'No assignees selected. Tap "Add Assignees" to select team members.',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
                     ),
                   ],
                 )

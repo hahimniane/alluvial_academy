@@ -7,6 +7,8 @@ import '../../../utility_functions/export_helpers.dart';
 import '../../../core/services/user_role_service.dart';
 import '../widgets/form_submissions_dialog.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class FormResponsesScreen extends StatefulWidget {
   const FormResponsesScreen({super.key});
 
@@ -70,7 +72,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
 
       await _loadFormResponses();
     } catch (e) {
-      print('Error loading user data: $e');
+      AppLogger.error('Error loading user data: $e');
       await _loadFormResponses();
     }
   }
@@ -88,7 +90,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
       };
       // DEBUG: Template count
       // ignore: avoid_print
-      print('[FormResponses] Loaded ${_formTemplates.length} form templates');
+      AppLogger.info('[FormResponses] Loaded ${_formTemplates.length} form templates');
 
       // Always aggregate counts across all responses to ensure "Entries" is accurate
       Query query = FirebaseFirestore.instance
@@ -99,7 +101,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
           _allResponses = responsesSnapshot.docs;
       // DEBUG: Responses count
       // ignore: avoid_print
-      print('[FormResponses] Loaded ${_allResponses.length} form_responses documents');
+      AppLogger.info('[FormResponses] Loaded ${_allResponses.length} form_responses documents');
 
       // Aggregate entries per form (count every document with a valid formId)
       _formIdToEntries = {};
@@ -116,12 +118,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
       }
       // DEBUG: Aggregation summary
       // ignore: avoid_print
-      print('[FormResponses] Aggregated entries for ${_formIdToEntries.length} forms (missing formId: $missingFormId)');
+      AppLogger.debug('[FormResponses] Aggregated entries for ${_formIdToEntries.length} forms (missing formId: $missingFormId)');
       int shown = 0;
       _formIdToEntries.forEach((id, count) {
         if (shown < 5) {
           final title = (_formTemplates[id]?.data() as Map<String, dynamic>?)?['title'] ?? 'Unknown';
-          print('  - $id → $count entries | $title');
+          AppLogger.debug('  - $id → $count entries | $title');
           shown++;
         }
       });
@@ -653,13 +655,13 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     final agg = _formIdToEntries[formId] ?? 0;
     if (agg > 0) {
       // ignore: avoid_print
-      print('[FormResponses] entries(agg) formId=$formId -> $agg');
+      AppLogger.debug('[FormResponses] entries(agg) formId=$formId -> $agg');
       return agg;
     }
     final rc = formData['responseCount'];
     if (rc is int && rc > 0) {
       // ignore: avoid_print
-      print('[FormResponses] entries(responseCount) formId=$formId -> $rc');
+      AppLogger.debug('[FormResponses] entries(responseCount) formId=$formId -> $rc');
       return rc;
     }
     // If a responses map exists on the form doc
@@ -667,12 +669,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     if (responsesObj is Map) {
       final len = responsesObj.length;
       // ignore: avoid_print
-      print('[FormResponses] entries(responsesMap) formId=$formId -> $len');
+      AppLogger.debug('[FormResponses] entries(responsesMap) formId=$formId -> $len');
       return len;
     }
     // Fallback to aggregated count from loaded responses
     // ignore: avoid_print
-    print('[FormResponses] entries(fallback) formId=$formId -> 0');
+    AppLogger.debug('[FormResponses] entries(fallback) formId=$formId -> 0');
     return 0;
   }
 

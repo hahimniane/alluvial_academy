@@ -5,6 +5,8 @@ import '../models/task.dart';
 import '../../../core/services/user_role_service.dart';
 import 'file_attachment_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TaskService {
   final CollectionReference _taskCollection =
       FirebaseFirestore.instance.collection('tasks');
@@ -43,16 +45,16 @@ class TaskService {
   Future<void> _sendTaskAssignmentNotifications(Task task) async {
     try {
       // Debug logging
-      print('TaskService: Sending notifications for task:');
-      print('  - Task ID: ${task.id}');
-      print('  - Task Title: ${task.title}');
-      print('  - Assigned To: ${task.assignedTo}');
-      print('  - Assigned To Length: ${task.assignedTo.length}');
+      AppLogger.debug('TaskService: Sending notifications for task:');
+      AppLogger.debug('  - Task ID: ${task.id}');
+      AppLogger.debug('  - Task Title: ${task.title}');
+      AppLogger.debug('  - Assigned To: ${task.assignedTo}');
+      AppLogger.debug('  - Assigned To Length: ${task.assignedTo.length}');
 
       // Get the current user (task creator) information
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
-        print('TaskService: No current user found');
+        AppLogger.debug('TaskService: No current user found');
         return;
       }
 
@@ -75,7 +77,7 @@ class TaskService {
           }
         }
       } catch (e) {
-        print('Error getting creator name: $e');
+        AppLogger.error('Error getting creator name: $e');
         // Fall back to email or default
         assignedByName = currentUser.email ?? 'System Administrator';
       }
@@ -91,11 +93,11 @@ class TaskService {
       };
 
       // Debug logging for function data
-      print('TaskService: Function data being sent:');
-      print('  - taskId: ${functionData['taskId']}');
-      print('  - taskTitle: ${functionData['taskTitle']}');
-      print('  - assignedUserIds: ${functionData['assignedUserIds']}');
-      print(
+      AppLogger.debug('TaskService: Function data being sent:');
+      AppLogger.debug('  - taskId: ${functionData['taskId']}');
+      AppLogger.debug('  - taskTitle: ${functionData['taskTitle']}');
+      AppLogger.debug('  - assignedUserIds: ${functionData['assignedUserIds']}');
+      AppLogger.debug(
           '  - assignedUserIds type: ${functionData['assignedUserIds'].runtimeType}');
 
       // Call the Cloud Function
@@ -103,17 +105,17 @@ class TaskService {
           _functions.httpsCallable('sendTaskAssignmentNotification');
       final result = await callable.call(functionData);
 
-      print('Email notification result: ${result.data}');
+      AppLogger.debug('Email notification result: ${result.data}');
 
       // Log the results
       if (result.data['success']) {
         final emailsSent = result.data['emailsSent'] ?? 0;
         final emailsFailed = result.data['emailsFailed'] ?? 0;
-        print(
+        AppLogger.error(
             'Task assignment notifications sent - Success: $emailsSent, Failed: $emailsFailed');
       }
     } catch (e) {
-      print('Error sending task assignment notifications: $e');
+      AppLogger.error('Error sending task assignment notifications: $e');
       // Don't throw - email failure shouldn't prevent task creation
     }
   }
@@ -151,7 +153,7 @@ class TaskService {
           }
         }
       } catch (e) {
-        print('Error getting updater name: $e');
+        AppLogger.error('Error getting updater name: $e');
         assignedByName = currentUser.email ?? 'System Administrator';
       }
 
@@ -170,9 +172,9 @@ class TaskService {
           _functions.httpsCallable('sendTaskAssignmentNotification');
       final result = await callable.call(functionData);
 
-      print('Email notification result for task update: ${result.data}');
+      AppLogger.error('Email notification result for task update: ${result.data}');
     } catch (e) {
-      print('Error sending task update notifications: $e');
+      AppLogger.error('Error sending task update notifications: $e');
       // Don't throw - email failure shouldn't prevent task update
     }
   }
@@ -203,7 +205,7 @@ class TaskService {
           }
         }
       } catch (e) {
-        print('Error getting updater name: $e');
+        AppLogger.error('Error getting updater name: $e');
         updatedByName = currentUser.email ?? 'Unknown User';
       }
 
@@ -224,9 +226,9 @@ class TaskService {
           _functions.httpsCallable('sendTaskStatusUpdateNotification');
       final result = await callable.call(functionData);
 
-      print('Status update email notification result: ${result.data}');
+      AppLogger.error('Status update email notification result: ${result.data}');
     } catch (e) {
-      print('Error sending task status update notifications: $e');
+      AppLogger.error('Error sending task status update notifications: $e');
       // Don't throw - email failure shouldn't prevent task update
     }
   }
@@ -236,11 +238,11 @@ class TaskService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      print(
+      AppLogger.debug(
           'TaskService: getTasks() found ${snapshot.docs.length} tasks in database');
       final tasks =
           snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
-      print('TaskService: Converted to ${tasks.length} task objects');
+      AppLogger.debug('TaskService: Converted to ${tasks.length} task objects');
       return tasks;
     });
   }
@@ -270,25 +272,25 @@ class TaskService {
       // Ensure user is authenticated before checking role
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
-        print('TaskService: No authenticated user found');
+        AppLogger.debug('TaskService: No authenticated user found');
         return Stream.value([]);
       }
 
-      print('TaskService: Getting tasks for user: ${currentUser.uid}');
+      AppLogger.debug('TaskService: Getting tasks for user: ${currentUser.uid}');
       final isAdmin = await UserRoleService.isAdmin();
-      print('TaskService: User is admin: $isAdmin');
+      AppLogger.debug('TaskService: User is admin: $isAdmin');
 
       // Admins can see all tasks
       if (isAdmin) {
-        print('TaskService: Returning all tasks for admin');
+        AppLogger.debug('TaskService: Returning all tasks for admin');
         return getTasks();
       }
 
       // Non-admins only see tasks assigned to them
-      print('TaskService: Returning assigned tasks for non-admin');
+      AppLogger.error('TaskService: Returning assigned tasks for non-admin');
       return getAssignedTasks();
     } catch (e) {
-      print('TaskService: Error getting role-based tasks: $e');
+      AppLogger.error('TaskService: Error getting role-based tasks: $e');
       // Fallback to assigned tasks if role check fails
       return getAssignedTasks();
     }

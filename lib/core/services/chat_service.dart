@@ -2,6 +2,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -41,7 +43,7 @@ class ChatService {
 
       return chatRef.id;
     } catch (e) {
-      print('Error creating chat: $e');
+      AppLogger.error('Error creating chat: $e');
       rethrow;
     }
   }
@@ -73,7 +75,7 @@ class ChatService {
         'updated_at': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error sending message: $e');
+      AppLogger.error('Error sending message: $e');
       rethrow;
     }
   }
@@ -114,7 +116,7 @@ class ChatService {
         'read_by': FieldValue.arrayUnion([userId])
       });
     } catch (e) {
-      print('Error marking message as read: $e');
+      AppLogger.error('Error marking message as read: $e');
       rethrow;
     }
   }

@@ -5,6 +5,8 @@ enum ShiftStatus {
   scheduled,
   active,
   completed,
+  partiallyCompleted,
+  fullyCompleted,
   missed,
   cancelled,
 }
@@ -28,6 +30,9 @@ enum RecurrencePattern {
 }
 
 class TeachingShift {
+  // Grace period allowed after shift end before marking as missed
+  static const Duration clockInGracePeriod = Duration(minutes: 15);
+
   final String id;
   final String teacherId;
   final String teacherName;
@@ -58,6 +63,12 @@ class TeachingShift {
   final DateTime? clockInTime;
   final DateTime? clockOutTime;
   final bool isManualOverride; // For admin manual adjustments
+  final String? lastClockInPlatform; // Platform used for last clock-in (web, android, ios)
+  final DateTime? activatedAt; // When the shift window officially opened
+  final bool autoClockOut; // Whether the system performed clock-out
+  final String? autoClockOutReason; // Reason for system clock-out
+  final String? completionState; // human-readable completion summary (e.g. partial/full)
+  final int? workedMinutes; // Total minutes worked across timesheets
 
   // Shift publishing fields (for teacher shift sharing)
   final bool isPublished; // Whether the shift is published for other teachers
@@ -94,6 +105,12 @@ class TeachingShift {
     this.clockInTime,
     this.clockOutTime,
     this.isManualOverride = false,
+    this.lastClockInPlatform,
+    this.activatedAt,
+    this.autoClockOut = false,
+    this.autoClockOutReason,
+    this.completionState,
+    this.workedMinutes,
     this.isPublished = false,
     this.publishedBy,
     this.publishedAt,
@@ -107,6 +124,39 @@ class TeachingShift {
   // Get shift duration in hours
   double get shiftDurationHours {
     return shiftEnd.difference(shiftStart).inMinutes / 60.0;
+  }
+
+  int get scheduledDurationMinutes {
+    return shiftEnd.difference(shiftStart).inMinutes;
+  }
+
+  bool get hasWorked => (workedMinutes ?? 0) > 0;
+
+  bool get hasWorkedFull =>
+      workedMinutes != null && workedMinutes! >= scheduledDurationMinutes;
+
+  bool get hasWorkedPartially =>
+      workedMinutes != null &&
+      workedMinutes! > 0 &&
+      workedMinutes! < scheduledDurationMinutes;
+
+  double? get workedRatio {
+    if (workedMinutes == null) return null;
+    final sched = scheduledDurationMinutes;
+    if (sched <= 0) return null;
+    return workedMinutes! / sched;
+  }
+
+  ShiftStatus deriveCompletionStatus({int toleranceMinutes = 1}) {
+    if (!hasWorked) {
+      return ShiftStatus.missed;
+    }
+    final sched = scheduledDurationMinutes;
+    if (workedMinutes != null &&
+        workedMinutes! + toleranceMinutes >= sched) {
+      return ShiftStatus.fullyCompleted;
+    }
+    return ShiftStatus.partiallyCompleted;
   }
 
   // Calculate total payment for this shift
@@ -142,14 +192,16 @@ class TeachingShift {
     }
   }
 
-  // Check if teacher can clock in (ONLY during exact shift time, no grace period)
+  // Check if teacher can clock in (strict shift window, minute-level accuracy)
   bool get canClockIn {
     final nowUtc = DateTime.now().toUtc();
-    // Compare in UTC to ensure timezone consistency
     final shiftStartUtc = shiftStart.toUtc();
     final shiftEndUtc = shiftEnd.toUtc();
-    // No grace period - must be within exact shift time
-    return nowUtc.isAfter(shiftStartUtc) && nowUtc.isBefore(shiftEndUtc);
+
+    final isOnOrAfterStart = !nowUtc.isBefore(shiftStartUtc);
+    final isOnOrBeforeEnd = !nowUtc.isAfter(shiftEndUtc);
+
+    return isOnOrAfterStart && isOnOrBeforeEnd;
   }
 
   // Check if shift is currently active
@@ -186,6 +238,44 @@ class TeachingShift {
   bool get needsAutoLogout {
     return isClockedIn && hasExpired;
   }
+  
+  // Latest time a teacher can still clock in before shift is considered missed.
+  // The deadline is capped by the start of the next shift for the same teacher
+  // to avoid interfering with back-to-back schedules.
+  DateTime clockInGraceDeadline({DateTime? nextShiftStartUtc}) {
+    final shiftEndUtc = shiftEnd.toUtc();
+
+    if (nextShiftStartUtc != null) {
+      final gap = nextShiftStartUtc.difference(shiftEndUtc);
+
+      if (gap.isNegative || gap == Duration.zero) {
+        // Next shift starts immediately (or overlaps) — no grace period.
+        return shiftEndUtc;
+      }
+
+      final effectiveGrace = gap < clockInGracePeriod ? gap : clockInGracePeriod;
+      return shiftEndUtc.add(effectiveGrace);
+    }
+
+    return shiftEndUtc.add(clockInGracePeriod);
+  }
+  
+  // Check if shift should be marked as missed
+  // Only true if the grace period after shift end has passed and teacher never clocked in
+  bool shouldBeMarkedAsMissed({
+    DateTime? nowUtcOverride,
+    DateTime? nextShiftStartUtc,
+  }) {
+    final nowUtc = (nowUtcOverride ?? DateTime.now()).toUtc();
+    final shiftStartUtc = shiftStart.toUtc();
+    final graceDeadline = clockInGraceDeadline(nextShiftStartUtc: nextShiftStartUtc);
+    final hasStarted = nowUtc.isAfter(shiftStartUtc);
+    final isAfterGraceWindow = nowUtc.isAfter(graceDeadline);
+    final neverClockedIn = clockInTime == null;
+    final isScheduled = status == ShiftStatus.scheduled;
+    
+    return hasStarted && isAfterGraceWindow && neverClockedIn && isScheduled;
+  }
 
   // Get actual shift duration based on clock-in/out times
   Duration? get actualShiftDuration {
@@ -207,7 +297,7 @@ class TeachingShift {
     return actualHours != null ? actualHours * hourlyRate : totalPayment;
   }
 
-  // Get clock-in window start time (exact shift start, no grace period)
+  // Get clock-in window start time (exact shift start, no grace)
   DateTime get clockInWindowStart {
     // Use UTC for consistency
     return shiftStart.toUtc();
@@ -294,6 +384,12 @@ class TeachingShift {
       'clock_out_time':
           clockOutTime != null ? Timestamp.fromDate(clockOutTime!) : null,
       'is_manual_override': isManualOverride,
+      'last_clock_in_platform': lastClockInPlatform,
+      'activated_at': activatedAt != null ? Timestamp.fromDate(activatedAt!) : null,
+      'auto_clock_out': autoClockOut,
+      'auto_clock_out_reason': autoClockOutReason,
+      'completion_state': completionState,
+      'worked_minutes': workedMinutes,
       'is_published': isPublished,
       'published_by': publishedBy,
       'published_at':
@@ -355,6 +451,14 @@ class TeachingShift {
           ? (data['clock_out_time'] as Timestamp).toDate()
           : null,
       isManualOverride: data['is_manual_override'] ?? false,
+      lastClockInPlatform: data['last_clock_in_platform'],
+      activatedAt: data['activated_at'] != null
+          ? (data['activated_at'] as Timestamp).toDate()
+          : null,
+      autoClockOut: data['auto_clock_out'] ?? false,
+      autoClockOutReason: data['auto_clock_out_reason'],
+      completionState: data['completion_state'],
+      workedMinutes: data['worked_minutes'],
       isPublished: data['is_published'] ?? false,
       publishedBy: data['published_by'],
       publishedAt: data['published_at'] != null
@@ -394,6 +498,12 @@ class TeachingShift {
     DateTime? clockInTime,
     DateTime? clockOutTime,
     bool? isManualOverride,
+    String? lastClockInPlatform,
+    DateTime? activatedAt,
+    bool? autoClockOut,
+    String? autoClockOutReason,
+    String? completionState,
+    int? workedMinutes,
     bool? isPublished,
     String? publishedBy,
     DateTime? publishedAt,
@@ -428,6 +538,12 @@ class TeachingShift {
       clockInTime: clockInTime ?? this.clockInTime,
       clockOutTime: clockOutTime ?? this.clockOutTime,
       isManualOverride: isManualOverride ?? this.isManualOverride,
+      lastClockInPlatform: lastClockInPlatform ?? this.lastClockInPlatform,
+      activatedAt: activatedAt ?? this.activatedAt,
+      autoClockOut: autoClockOut ?? this.autoClockOut,
+      autoClockOutReason: autoClockOutReason ?? this.autoClockOutReason,
+      completionState: completionState ?? this.completionState,
+      workedMinutes: workedMinutes ?? this.workedMinutes,
       isPublished: isPublished ?? this.isPublished,
       publishedBy: publishedBy ?? this.publishedBy,
       publishedAt: publishedAt ?? this.publishedAt,

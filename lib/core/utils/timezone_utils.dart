@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:intl/intl.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 import 'web_timezone_detector.dart'
     if (dart.library.io) 'web_timezone_detector_stub.dart';
 
@@ -32,7 +34,7 @@ class TimezoneUtils {
     try {
       return detectWebTimezone();
     } catch (e) {
-      print('Error detecting web timezone: $e');
+      AppLogger.error('Error detecting web timezone: $e');
       return 'UTC';
     }
   }
@@ -45,7 +47,7 @@ class TimezoneUtils {
       final location = tz.getLocation(timezoneId);
       return tz.TZDateTime.from(utcTime.toUtc(), location);
     } catch (e) {
-      print('Error converting to timezone $timezoneId: $e');
+      AppLogger.error('Error converting to timezone $timezoneId: $e');
       return utcTime;
     }
   }
@@ -72,11 +74,11 @@ class TimezoneUtils {
         localTime.millisecond,
         localTime.microsecond,
       );
-      print('TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
+      AppLogger.error('TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
       return tzDateTime.toUtc();
     } catch (e) {
-      print('Error converting from timezone $timezoneId: $e');
-      print('TimezoneUtils: Falling back to treating as local time');
+      AppLogger.error('Error converting from timezone $timezoneId: $e');
+      AppLogger.error('TimezoneUtils: Falling back to treating as local time');
       // Fallback: treat as local time and convert to UTC
       return localTime;
     }

@@ -1,17 +1,156 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../models/teaching_shift.dart';
 import '../models/employee_model.dart';
 import '../models/enhanced_recurrence.dart';
 import 'wage_management_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ShiftService {
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static FirebaseFunctions get _functions => FirebaseFunctions.instance;
 
   // Collection reference
   static CollectionReference get _shiftsCollection =>
       _firestore.collection('teaching_shifts');
+
+  /// Check if a shift overlaps with any existing shift for the same teacher
+  static Future<bool> hasConflictingShift({
+    required String teacherId,
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    String? excludeShiftId, // For updates, exclude the current shift
+  }) async {
+    try {
+      AppLogger.debug('ShiftService: Checking for overlapping shifts...');
+      AppLogger.debug('  Teacher ID: $teacherId');
+      AppLogger.debug('  New Shift: $shiftStart to $shiftEnd');
+
+      // Normalize day boundaries in the same timezone context as the shift.
+      // When shifts are stored in UTC we keep the boundaries in UTC as well.
+      final isUtc = shiftStart.isUtc;
+      final startOfDay = isUtc
+          ? DateTime.utc(shiftStart.year, shiftStart.month, shiftStart.day)
+          : DateTime(shiftStart.year, shiftStart.month, shiftStart.day);
+      final endOfDay = isUtc
+          ? DateTime.utc(shiftStart.year, shiftStart.month, shiftStart.day)
+              .add(const Duration(days: 1))
+          : startOfDay.add(const Duration(days: 1));
+
+      // Expand the search window by one day on each side to safely capture
+      // cross-midnight shifts (e.g. 11:30 PM - 1:00 AM).
+      final rangeStart = startOfDay.subtract(const Duration(days: 1));
+      final rangeEnd = endOfDay.add(const Duration(days: 1));
+
+      AppLogger.debug('  Query window: $rangeStart → $rangeEnd');
+
+      List<QueryDocumentSnapshot> docs;
+      try {
+        final snapshot = await _shiftsCollection
+            .where('teacher_id', isEqualTo: teacherId)
+            .where('shift_start',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(rangeStart))
+            .where('shift_start',
+                isLessThan: Timestamp.fromDate(rangeEnd))
+            .get();
+        docs = snapshot.docs;
+      } on FirebaseException catch (firestoreError) {
+        final missingIndex = firestoreError.code == 'failed-precondition' &&
+            (firestoreError.message?.contains('index') ?? false);
+        AppLogger.error(
+            'ShiftService: Firestore query failed (${firestoreError.code}): ${firestoreError.message}');
+
+        if (missingIndex) {
+          // If the composite index (teacher_id + shift_start) is missing, fall
+          // back to scanning all shifts for the teacher so the conflict check
+          // still runs (at the cost of extra reads).
+          AppLogger.debug(
+              'ShiftService: Missing composite index for teacher_id + shift_start. Falling back to full teacher scan.');
+          final fallbackSnapshot = await _shiftsCollection
+              .where('teacher_id', isEqualTo: teacherId)
+              .get();
+          docs = fallbackSnapshot.docs;
+        } else {
+          rethrow;
+        }
+      }
+
+      if (docs.isEmpty) {
+        AppLogger.debug('ShiftService: ✅ No shifts found in query window');
+        return false;
+      }
+
+      AppLogger.debug(
+          'ShiftService: Found ${docs.length} potential existing shifts for overlap analysis');
+
+      // Check each shift for overlap
+      for (var doc in docs) {
+        // Skip if this is the shift we're updating
+        if (excludeShiftId != null && doc.id == excludeShiftId) {
+          continue;
+        }
+
+        final existingShift = TeachingShift.fromFirestore(doc);
+        
+        // Check if shifts overlap
+        // Two shifts overlap if:
+        // - New shift starts before existing ends AND
+        // - New shift ends after existing starts
+        final overlaps = shiftStart.isBefore(existingShift.shiftEnd) && 
+                        shiftEnd.isAfter(existingShift.shiftStart);
+
+        if (overlaps) {
+          AppLogger.debug('ShiftService: ❌ OVERLAP DETECTED!');
+          AppLogger.debug('  Existing shift: ${existingShift.displayName}');
+          AppLogger.debug('  Existing time: ${existingShift.shiftStart} to ${existingShift.shiftEnd}');
+          AppLogger.debug('  New shift time: $shiftStart to $shiftEnd');
+          AppLogger.error('  Status: ${existingShift.status.name}');
+          return true;
+        }
+      }
+
+      AppLogger.error('ShiftService: ✅ No overlapping shifts found');
+      return false;
+    } catch (e) {
+      AppLogger.error('ShiftService: Error checking for conflicts: $e');
+      // Propagate the error so shift creation is blocked until validation succeeds.
+      rethrow;
+    }
+  }
+
+  static Future<void> _scheduleShiftLifecycleTasks(TeachingShift shift,
+      {bool cancel = false}) async {
+    try {
+      final callable =
+          _functions.httpsCallable('scheduleShiftLifecycle');
+      final payload = {
+        'shiftId': shift.id,
+        'teacherId': shift.teacherId,
+        'shiftStart': shift.shiftStart.toUtc().toIso8601String(),
+        'shiftEnd': shift.shiftEnd.toUtc().toIso8601String(),
+        'status': shift.status.name,
+        'cancel': cancel,
+        'adminTimezone': shift.adminTimezone,
+        'teacherTimezone': shift.teacherTimezone,
+      };
+      AppLogger.debug(
+          'ShiftService: Scheduling lifecycle tasks for shift ${shift.id} (cancel=$cancel)');
+      await callable.call(payload);
+      AppLogger.error('ShiftService: Lifecycle tasks scheduled successfully');
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error(
+          'ShiftService: Cloud Functions error while scheduling lifecycle tasks: ${e.code} ${e.message}');
+      rethrow;
+    } catch (e) {
+      AppLogger.error(
+          'ShiftService: Unexpected error while scheduling lifecycle tasks: $e');
+      rethrow;
+    }
+  }
 
   /// Create a new teaching shift
   static Future<String> createShift({
@@ -36,6 +175,20 @@ class ShiftService {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) throw Exception('User not authenticated');
+
+      // Check for conflicting shifts at the exact same time
+      final hasConflict = await hasConflictingShift(
+        teacherId: teacherId,
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
+      );
+
+      if (hasConflict) {
+        throw Exception(
+          'This shift overlaps with an existing shift for this teacher. '
+          'Please choose a different time that doesn\'t overlap with existing shifts.'
+        );
+      }
 
       // Get teacher information
       final teacherDoc =
@@ -102,7 +255,20 @@ class ShiftService {
         notes: notes,
       );
 
-      await shiftDoc.set(shift.toFirestore());
+      try {
+        await shiftDoc.set(shift.toFirestore());
+        await _scheduleShiftLifecycleTasks(shift);
+      } catch (scheduleError) {
+        // Roll back the created shift if scheduling fails so we don't leave
+        // orphaned records without lifecycle automation.
+        try {
+          await shiftDoc.delete();
+        } catch (cleanupError) {
+          AppLogger.error(
+              'ShiftService: Failed to delete shift after scheduling error: $cleanupError');
+        }
+        rethrow;
+      }
 
       // Create recurring shifts if specified
       final effectiveRecurrence =
@@ -116,10 +282,10 @@ class ShiftService {
         await _createRecurringShifts(shift, endDate, originalLocalStart, originalLocalEnd);
       }
 
-      print('Shift created successfully: ${shift.displayName}');
+      AppLogger.error('Shift created successfully: ${shift.displayName}');
       return shiftDoc.id;
     } catch (e) {
-      print('Error creating shift: $e');
+      AppLogger.error('Error creating shift: $e');
       throw Exception('Failed to create shift: $e');
     }
   }
@@ -134,13 +300,12 @@ class ShiftService {
     try {
       final List<TeachingShift> recurringShifts = [];
       final enhancedRecurrence = baseShift.enhancedRecurrence;
-      final shiftDuration = baseShift.shiftEnd.difference(baseShift.shiftStart);
 
       // Use enhanced recurrence if available, otherwise fall back to old pattern
       if (enhancedRecurrence.type != EnhancedRecurrenceType.none) {
-        print(
+        AppLogger.debug(
             'Creating recurring shifts for base shift: ${baseShift.shiftStart} to ${baseShift.shiftEnd}');
-        print(
+        AppLogger.debug(
             'Selected weekdays: ${enhancedRecurrence.selectedWeekdays.map((d) => d.name).join(', ')}');
 
         // Generate occurrences using enhanced recurrence
@@ -150,7 +315,7 @@ class ShiftService {
           100, // Max occurrences
         );
 
-        print('Generated ${occurrences.length} occurrence dates');
+        AppLogger.debug('Generated ${occurrences.length} occurrence dates');
 
         for (final occurrence in occurrences) {
           if (occurrence.isAfter(endDate)) break;
@@ -184,8 +349,20 @@ class ShiftService {
             localEndTime.millisecond,
           );
 
+          // Check if a shift already exists at this exact time
+          final hasConflict = await hasConflictingShift(
+            teacherId: baseShift.teacherId,
+            shiftStart: shiftStart,
+            shiftEnd: shiftEnd,
+          );
+
+          if (hasConflict) {
+            AppLogger.debug('Skipping recurring shift - conflict detected at $shiftStart');
+            continue; // Skip this occurrence
+          }
+
           // Debug logging to track time preservation
-          print(
+          AppLogger.debug(
               'Creating recurring shift: ${occurrence.toString().substring(0, 10)} ${shiftStart.hour}:${shiftStart.minute.toString().padLeft(2, '0')} - ${shiftEnd.hour}:${shiftEnd.minute.toString().padLeft(2, '0')}');
 
           // Create recurring shift
@@ -252,14 +429,26 @@ class ShiftService {
             localEndTime.millisecond,
           );
 
-          final recurringShift = baseShift.copyWith(
-            id: _shiftsCollection.doc().id,
+          // Check for conflicts before creating
+          final hasConflict = await hasConflictingShift(
+            teacherId: baseShift.teacherId,
             shiftStart: nextShiftStart,
             shiftEnd: nextShiftEnd,
-            createdAt: DateTime.now(),
           );
 
-          recurringShifts.add(recurringShift);
+          if (!hasConflict) {
+            final recurringShift = baseShift.copyWith(
+              id: _shiftsCollection.doc().id,
+              shiftStart: nextShiftStart,
+              shiftEnd: nextShiftEnd,
+              createdAt: DateTime.now(),
+            );
+
+            recurringShifts.add(recurringShift);
+          } else {
+            AppLogger.debug('Skipping recurring shift - conflict detected at $nextShiftStart');
+          }
+
           currentDate = nextDate;
           createdCount++;
         }
@@ -273,11 +462,17 @@ class ShiftService {
           batch.set(docRef, shift.toFirestore());
         }
         await batch.commit();
-        print(
+        AppLogger.debug(
+            'ShiftService: Scheduling lifecycle tasks for ${recurringShifts.length} recurring shifts');
+        final schedulingFutures = recurringShifts
+            .map((shift) => _scheduleShiftLifecycleTasks(shift))
+            .toList();
+        await Future.wait(schedulingFutures);
+        AppLogger.error(
             'Created ${recurringShifts.length} recurring shifts using ${enhancedRecurrence.type != EnhancedRecurrenceType.none ? "enhanced" : "legacy"} recurrence');
       }
     } catch (e) {
-      print('Error creating recurring shifts: $e');
+      AppLogger.error('Error creating recurring shifts: $e');
     }
   }
 
@@ -328,7 +523,7 @@ class ShiftService {
           .map((doc) => TeachingShift.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting today\'s shifts: $e');
+      AppLogger.error('Error getting today\'s shifts: $e');
       return [];
     }
   }
@@ -353,7 +548,7 @@ class ShiftService {
 
       return null;
     } catch (e) {
-      print('Error getting current active shift: $e');
+      AppLogger.error('Error getting current active shift: $e');
       return null;
     }
   }
@@ -366,9 +561,15 @@ class ShiftService {
         'status': status.name,
         'last_modified': Timestamp.fromDate(DateTime.now()),
       });
-      print('Shift status updated to: ${status.name}');
+      final snapshot = await _shiftsCollection.doc(shiftId).get();
+      if (snapshot.exists) {
+        final shift = TeachingShift.fromFirestore(snapshot);
+        final shouldCancel = status == ShiftStatus.cancelled;
+        await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
+      }
+      AppLogger.error('Shift status updated to: ${status.name}');
     } catch (e) {
-      print('Error updating shift status: $e');
+      AppLogger.error('Error updating shift status: $e');
       throw Exception('Failed to update shift status');
     }
   }
@@ -376,10 +577,24 @@ class ShiftService {
   /// Delete a shift
   static Future<void> deleteShift(String shiftId) async {
     try {
+      TeachingShift? existingShift;
+      final snapshot = await _shiftsCollection.doc(shiftId).get();
+      if (snapshot.exists) {
+        existingShift = TeachingShift.fromFirestore(snapshot);
+      }
+      if (existingShift != null) {
+        try {
+          await _scheduleShiftLifecycleTasks(existingShift, cancel: true);
+        } catch (scheduleError) {
+          AppLogger.error(
+              'ShiftService: Warning - unable to cancel lifecycle tasks for shift $shiftId: $scheduleError');
+        }
+      }
+
       await _shiftsCollection.doc(shiftId).delete();
-      print('Shift deleted successfully');
+      AppLogger.error('Shift deleted successfully');
     } catch (e) {
-      print('Error deleting shift: $e');
+      AppLogger.error('Error deleting shift: $e');
       throw Exception('Failed to delete shift');
     }
   }
@@ -387,19 +602,31 @@ class ShiftService {
   /// Delete multiple shifts at once
   static Future<void> deleteMultipleShifts(List<String> shiftIds) async {
     try {
-      print('ShiftService: Deleting ${shiftIds.length} shifts');
+      AppLogger.debug('ShiftService: Deleting ${shiftIds.length} shifts');
 
       // Use a batch to delete all shifts atomically
       final batch = FirebaseFirestore.instance.batch();
+      final schedulingFutures = <Future<void>>[];
 
       for (String shiftId in shiftIds) {
-        batch.delete(_shiftsCollection.doc(shiftId));
+        final docRef = _shiftsCollection.doc(shiftId);
+        final snapshot = await docRef.get();
+        if (snapshot.exists) {
+        final shift = TeachingShift.fromFirestore(snapshot);
+        schedulingFutures.add(_scheduleShiftLifecycleTasks(shift, cancel: true)
+            .catchError((error) => AppLogger.error(
+                'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
+        }
+        batch.delete(docRef);
       }
 
       await batch.commit();
-      print('ShiftService: Successfully deleted ${shiftIds.length} shifts');
+      if (schedulingFutures.isNotEmpty) {
+        await Future.wait(schedulingFutures);
+      }
+      AppLogger.error('ShiftService: Successfully deleted ${shiftIds.length} shifts');
     } catch (e) {
-      print('Error deleting multiple shifts: $e');
+      AppLogger.error('Error deleting multiple shifts: $e');
       throw Exception('Failed to delete multiple shifts');
     }
   }
@@ -407,7 +634,7 @@ class ShiftService {
   /// Delete all shifts for a specific teacher
   static Future<int> deleteAllShiftsByTeacher(String teacherId) async {
     try {
-      print('ShiftService: Deleting all shifts for teacher: $teacherId');
+      AppLogger.debug('ShiftService: Deleting all shifts for teacher: $teacherId');
 
       // Get all shifts for this teacher
       final querySnapshot = await _shiftsCollection
@@ -415,25 +642,33 @@ class ShiftService {
           .get();
 
       if (querySnapshot.docs.isEmpty) {
-        print('ShiftService: No shifts found for teacher: $teacherId');
+        AppLogger.debug('ShiftService: No shifts found for teacher: $teacherId');
         return 0;
       }
 
       // Use a batch to delete all shifts atomically
       final batch = FirebaseFirestore.instance.batch();
+      final schedulingFutures = <Future<void>>[];
 
       for (QueryDocumentSnapshot doc in querySnapshot.docs) {
+      final shift = TeachingShift.fromFirestore(doc);
+      schedulingFutures.add(_scheduleShiftLifecycleTasks(shift, cancel: true)
+          .catchError((error) => AppLogger.error(
+              'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
         batch.delete(doc.reference);
       }
 
       await batch.commit();
+      if (schedulingFutures.isNotEmpty) {
+        await Future.wait(schedulingFutures);
+      }
 
       final deletedCount = querySnapshot.docs.length;
-      print(
+      AppLogger.error(
           'ShiftService: Successfully deleted $deletedCount shifts for teacher: $teacherId');
       return deletedCount;
     } catch (e) {
-      print('Error deleting shifts by teacher: $e');
+      AppLogger.error('Error deleting shifts by teacher: $e');
       throw Exception('Failed to delete teacher shifts');
     }
   }
@@ -442,56 +677,58 @@ class ShiftService {
   static Future<void> updateShift(TeachingShift shift) async {
     try {
       await _shiftsCollection.doc(shift.id).update(shift.toFirestore());
-      print('Shift updated successfully');
+      final shouldCancel = shift.status == ShiftStatus.cancelled;
+      await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
+      AppLogger.error('Shift updated successfully');
     } catch (e) {
-      print('Error updating shift: $e');
+      AppLogger.error('Error updating shift: $e');
       throw Exception('Failed to update shift');
     }
   }
 
   /// Clock in to a shift
-  static Future<bool> clockIn(String teacherId, String shiftId) async {
+  static Future<bool> clockIn(String teacherId, String shiftId, {String? platform}) async {
     try {
-      print(
+      AppLogger.debug(
           'ShiftService: Attempting clock-in for teacher $teacherId, shift $shiftId');
 
       final doc = await _shiftsCollection.doc(shiftId).get();
       if (!doc.exists) {
-        print('ShiftService: ❌ Shift not found: $shiftId');
+        AppLogger.debug('ShiftService: ❌ Shift not found: $shiftId');
         return false;
       }
 
-      print('ShiftService: ✅ Shift document found');
+      AppLogger.debug('ShiftService: ✅ Shift document found');
       final shift = TeachingShift.fromFirestore(doc);
 
       // Validation checks
       if (shift.teacherId != teacherId) {
-        print(
+        AppLogger.debug(
             'ShiftService: ❌ Teacher ID mismatch: expected ${shift.teacherId}, got $teacherId');
         return false;
       }
 
-      print('ShiftService: ✅ Teacher ID matches');
+      AppLogger.debug('ShiftService: ✅ Teacher ID matches');
 
       // Allow clock-in if within time window (15 min before to 15 min after shift)
-      print('ShiftService: Checking clock-in window...');
-      print('ShiftService: shift.canClockIn = ${shift.canClockIn}');
+      AppLogger.debug('ShiftService: Checking clock-in window...');
+      AppLogger.debug('ShiftService: shift.canClockIn = ${shift.canClockIn}');
       if (!shift.canClockIn) {
-        print('ShiftService: ❌ Clock-in window not available');
-        print('ShiftService: Current time: ${DateTime.now()}');
-        print('ShiftService: Shift start: ${shift.shiftStart}');
-        print('ShiftService: Shift end: ${shift.shiftEnd}');
+        AppLogger.debug('ShiftService: ❌ Clock-in window not available');
+        AppLogger.debug('ShiftService: Current time: ${DateTime.now()}');
+        AppLogger.debug('ShiftService: Shift start: ${shift.shiftStart}');
+        AppLogger.debug('ShiftService: Shift end: ${shift.shiftEnd}');
         return false;
       }
 
-      print('ShiftService: ✅ Clock-in window is available');
+      AppLogger.debug('ShiftService: ✅ Clock-in window is available');
 
       // Allow multiple clock-ins within the same shift window
       // Remove status and isClockedIn checks to enable multiple entries
 
       // Check if teacher has any OTHER ongoing sessions (not just "active" status)
       // We only block if the teacher is actually clocked in to another shift.
-      print('ShiftService: Checking for other ongoing sessions...');
+      AppLogger.debug('ShiftService: Checking for other ongoing sessions...');
       final activeShiftsSnapshot = await _shiftsCollection
           .where('teacher_id', isEqualTo: teacherId)
           .where('status', isEqualTo: 'active')
@@ -505,24 +742,24 @@ class ShiftService {
           .where((s) => s.isClockedIn && !s.needsAutoLogout)
           .toList();
 
-      print(
+      AppLogger.debug(
           'ShiftService: Found ${activeShiftsSnapshot.docs.length} total active-status shifts');
-      print(
+      AppLogger.debug(
           'ShiftService: Found ${otherOngoingSessions.length} other ongoing sessions that block clock-in');
 
       if (otherOngoingSessions.isNotEmpty) {
-        print('ShiftService: ❌ Teacher has another ongoing session');
+        AppLogger.debug('ShiftService: ❌ Teacher has another ongoing session');
         for (var otherShift in otherOngoingSessions) {
-          print('ShiftService: Blocking due to shift: ${otherShift.id}');
+          AppLogger.debug('ShiftService: Blocking due to shift: ${otherShift.id}');
         }
         return false;
       }
 
-      print('ShiftService: ✅ No conflicting active shifts');
+      AppLogger.debug('ShiftService: ✅ No conflicting active shifts');
 
       // Perform clock-in
       final now = DateTime.now();
-      print('ShiftService: Performing clock-in update...');
+      AppLogger.debug('ShiftService: Performing clock-in update...');
 
       // Update shift with clock-in time and set status to active
       final updateData = <String, dynamic>{
@@ -533,18 +770,24 @@ class ShiftService {
 
       // Set clock_in_time on first clock-in or when re-activating a completed shift
       if (shift.status != ShiftStatus.active || shift.clockInTime == null) {
-        print('ShiftService: Setting shift status to active (clock-in)');
+        AppLogger.debug('ShiftService: Setting shift status to active (clock-in)');
         updateData['clock_in_time'] = Timestamp.fromDate(now);
       } else {
-        print('ShiftService: Re-activating shift (subsequent session)');
+        AppLogger.debug('ShiftService: Re-activating shift (subsequent session)');
+      }
+
+      // Store platform information if provided
+      if (platform != null) {
+        updateData['last_clock_in_platform'] = platform;
+        AppLogger.debug('ShiftService: Recording clock-in platform: $platform');
       }
 
       await _shiftsCollection.doc(shiftId).update(updateData);
 
-      print('ShiftService: ✅ Clock-in successful at $now');
+      AppLogger.error('ShiftService: ✅ Clock-in successful at $now');
       return true;
     } catch (e) {
-      print('ShiftService: ❌ Exception during clock-in: $e');
+      AppLogger.error('ShiftService: ❌ Exception during clock-in: $e');
       return false;
     }
   }
@@ -552,12 +795,12 @@ class ShiftService {
   /// Clock out from a shift
   static Future<bool> clockOut(String teacherId, String shiftId) async {
     try {
-      print(
+      AppLogger.debug(
           'ShiftService: Attempting clock-out for teacher $teacherId, shift $shiftId');
 
       final doc = await _shiftsCollection.doc(shiftId).get();
       if (!doc.exists) {
-        print('Shift not found: $shiftId');
+        AppLogger.debug('Shift not found: $shiftId');
         return false;
       }
 
@@ -565,7 +808,7 @@ class ShiftService {
 
       // Validation checks
       if (shift.teacherId != teacherId) {
-        print(
+        AppLogger.debug(
             'Teacher ID mismatch: expected ${shift.teacherId}, got $teacherId');
         return false;
       }
@@ -582,14 +825,12 @@ class ShiftService {
       await _shiftsCollection.doc(shiftId).update({
         'last_modified': Timestamp.fromDate(now),
         'clock_out_time': Timestamp.fromDate(now),
-        'status': ShiftStatus.completed.name, // Mark as completed to prevent blocking
       });
 
-      print(
-          'Clock-out successful at $now (shift marked as completed)');
+      AppLogger.error('Clock-out successful at $now');
       return true;
     } catch (e) {
-      print('Error during clock-out: $e');
+      AppLogger.error('Error during clock-out: $e');
       return false;
     }
   }
@@ -611,7 +852,7 @@ class ShiftService {
           shift.status == ShiftStatus.scheduled &&
           !shift.isClockedIn;
     } catch (e) {
-      print('Error checking clock-in eligibility: $e');
+      AppLogger.error('Error checking clock-in eligibility: $e');
       return false;
     }
   }
@@ -619,36 +860,30 @@ class ShiftService {
   /// Auto-logout expired shifts (for teachers who didn't clock out)
   static Future<void> autoLogoutExpiredShifts() async {
     try {
-      final now = DateTime.now();
       final snapshot =
           await _shiftsCollection.where('status', isEqualTo: 'active').get();
 
-      final batch = _firestore.batch();
       int expiredCount = 0;
 
       for (final doc in snapshot.docs) {
         final shift = TeachingShift.fromFirestore(doc);
 
         if (shift.needsAutoLogout) {
-          // Auto clock-out expired shifts
-          batch.update(doc.reference, {
-            'status': ShiftStatus.completed.name,
-            'clock_out_time': Timestamp.fromDate(shift.clockOutDeadline),
-            'last_modified': Timestamp.fromDate(now),
-            'is_manual_override': true, // Mark as auto-logout
-          });
-          expiredCount++;
-          print(
-              'Auto-logout shift ${shift.id} - teacher clocked in at ${shift.clockInTime} but didn\'t clock out by ${shift.clockOutDeadline}');
+          try {
+            await _scheduleShiftLifecycleTasks(shift);
+            expiredCount++;
+            AppLogger.error(
+                'Auto-logout lifecycle sync requested for shift ${shift.id} (clock-in at ${shift.clockInTime})');
+          } catch (e) {
+            AppLogger.error(
+                'ShiftService: Error scheduling lifecycle sync for expired shift ${shift.id}: $e');
+          }
         }
       }
 
-      if (expiredCount > 0) {
-        await batch.commit();
-        print('Auto-logged out $expiredCount expired shifts');
-      }
+      AppLogger.error('Auto-logout processed $expiredCount expired shifts');
     } catch (e) {
-      print('Error auto-logging out expired shifts: $e');
+      AppLogger.error('Error auto-logging out expired shifts: $e');
     }
   }
 
@@ -665,7 +900,7 @@ class ShiftService {
 
       return shifts;
     } catch (e) {
-      print('Error getting shifts needing auto-logout: $e');
+      AppLogger.error('Error getting shifts needing auto-logout: $e');
       return [];
     }
   }
@@ -673,31 +908,31 @@ class ShiftService {
   /// Get available teachers for shift assignment
   static Future<List<Employee>> getAvailableTeachers() async {
     try {
-      print('ShiftService: Querying for teachers...');
+      AppLogger.debug('ShiftService: Querying for teachers...');
       final snapshot = await _firestore
           .collection('users')
           .where('user_type', isEqualTo: 'teacher')
           .where('is_active', isEqualTo: true)
           .get();
 
-      print(
+      AppLogger.debug(
           'ShiftService: Teachers query returned ${snapshot.docs.length} documents');
 
       if (snapshot.docs.isEmpty) {
         // Try without the is_active filter to see if that's the issue
-        print(
+        AppLogger.debug(
             'ShiftService: Retrying teachers query without is_active filter...');
         final retrySnapshot = await _firestore
             .collection('users')
             .where('user_type', isEqualTo: 'teacher')
             .get();
-        print(
+        AppLogger.debug(
             'ShiftService: Retry returned ${retrySnapshot.docs.length} teacher documents');
 
         // Print first few docs for debugging
         for (int i = 0; i < retrySnapshot.docs.length && i < 3; i++) {
           final doc = retrySnapshot.docs[i];
-          print('Teacher doc $i: ${doc.data()}');
+          AppLogger.debug('Teacher doc $i: ${doc.data()}');
         }
 
         return EmployeeDataSource.mapSnapshotToEmployeeList(retrySnapshot);
@@ -705,7 +940,7 @@ class ShiftService {
 
       return EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
     } catch (e) {
-      print('Error getting available teachers: $e');
+      AppLogger.error('Error getting available teachers: $e');
       return [];
     }
   }
@@ -713,31 +948,31 @@ class ShiftService {
   /// Get available students for shift assignment
   static Future<List<Employee>> getAvailableStudents() async {
     try {
-      print('ShiftService: Querying for students...');
+      AppLogger.debug('ShiftService: Querying for students...');
       final snapshot = await _firestore
           .collection('users')
           .where('user_type', isEqualTo: 'student')
           .where('is_active', isEqualTo: true)
           .get();
 
-      print(
+      AppLogger.debug(
           'ShiftService: Students query returned ${snapshot.docs.length} documents');
 
       if (snapshot.docs.isEmpty) {
         // Try without the is_active filter to see if that's the issue
-        print(
+        AppLogger.debug(
             'ShiftService: Retrying students query without is_active filter...');
         final retrySnapshot = await _firestore
             .collection('users')
             .where('user_type', isEqualTo: 'student')
             .get();
-        print(
+        AppLogger.debug(
             'ShiftService: Retry returned ${retrySnapshot.docs.length} student documents');
 
         // Print first few docs for debugging
         for (int i = 0; i < retrySnapshot.docs.length && i < 3; i++) {
           final doc = retrySnapshot.docs[i];
-          print('Student doc $i: ${doc.data()}');
+          AppLogger.debug('Student doc $i: ${doc.data()}');
         }
 
         return EmployeeDataSource.mapSnapshotToEmployeeList(retrySnapshot);
@@ -745,7 +980,7 @@ class ShiftService {
 
       return EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
     } catch (e) {
-      print('Error getting available students: $e');
+      AppLogger.error('Error getting available students: $e');
       return [];
     }
   }
@@ -789,8 +1024,12 @@ class ShiftService {
             shifts.where((s) => s.status == ShiftStatus.scheduled).length,
         'active_shifts':
             shifts.where((s) => s.status == ShiftStatus.active).length,
-        'completed_shifts':
-            shifts.where((s) => s.status == ShiftStatus.completed).length,
+        'completed_shifts': shifts
+            .where((s) =>
+                s.status == ShiftStatus.completed ||
+                s.status == ShiftStatus.partiallyCompleted ||
+                s.status == ShiftStatus.fullyCompleted)
+            .length,
         'missed_shifts':
             shifts.where((s) => s.status == ShiftStatus.missed).length,
         'today_shifts': shifts
@@ -803,7 +1042,7 @@ class ShiftService {
             .length,
       };
     } catch (e) {
-      print('Error getting shift statistics: $e');
+      AppLogger.error('Error getting shift statistics: $e');
       return {};
     }
   }
@@ -828,8 +1067,12 @@ class ShiftService {
             shifts.where((s) => s.status == ShiftStatus.scheduled).length,
         'active_shifts':
             shifts.where((s) => s.status == ShiftStatus.active).length,
-        'completed_shifts':
-            shifts.where((s) => s.status == ShiftStatus.completed).length,
+        'completed_shifts': shifts
+            .where((s) =>
+                s.status == ShiftStatus.completed ||
+                s.status == ShiftStatus.partiallyCompleted ||
+                s.status == ShiftStatus.fullyCompleted)
+            .length,
         'missed_shifts':
             shifts.where((s) => s.status == ShiftStatus.missed).length,
         'today_shifts': shifts
@@ -842,7 +1085,7 @@ class ShiftService {
             .length,
       };
     } catch (e) {
-      print('Error getting teacher shift statistics: $e');
+      AppLogger.error('Error getting teacher shift statistics: $e');
       return {};
     }
   }
@@ -854,7 +1097,7 @@ class ShiftService {
     int? limitDays,
   }) async {
     try {
-      print('ShiftService: Getting shifts for teacher $teacherId');
+      AppLogger.debug('ShiftService: Getting shifts for teacher $teacherId');
 
       // Temporarily remove orderBy to avoid index requirement
       var query = _shiftsCollection.where('teacher_id', isEqualTo: teacherId);
@@ -867,23 +1110,23 @@ class ShiftService {
       }
 
       final snapshot = await query.get();
-      print('ShiftService: Found ${snapshot.docs.length} shifts for teacher');
+      AppLogger.debug('ShiftService: Found ${snapshot.docs.length} shifts for teacher');
 
       // Debug: Print ALL shift documents for this teacher
       if (snapshot.docs.isNotEmpty) {
-        print(
+        AppLogger.debug(
             'ShiftService: All ${snapshot.docs.length} shifts for teacher $teacherId:');
         for (int i = 0; i < snapshot.docs.length; i++) {
           final doc = snapshot.docs[i];
           final data = doc.data() as Map<String, dynamic>;
-          print('  ${i + 1}. Shift ID: ${doc.id}');
-          print('     Teacher ID: ${data['teacher_id']}');
-          print('     Name: ${data['auto_generated_name']}');
-          print('     Subject: ${data['subject']}');
-          print('     Date: ${data['shift_start']}');
-          print('     Recurrence: ${data['recurrence']}');
-          print('     Created: ${data['created_at']}');
-          print('');
+          AppLogger.debug('  ${i + 1}. Shift ID: ${doc.id}');
+          AppLogger.debug('     Teacher ID: ${data['teacher_id']}');
+          AppLogger.debug('     Name: ${data['auto_generated_name']}');
+          AppLogger.debug('     Subject: ${data['subject']}');
+          AppLogger.debug('     Date: ${data['shift_start']}');
+          AppLogger.debug('     Recurrence: ${data['recurrence']}');
+          AppLogger.info('     Created: ${data['created_at']}');
+          AppLogger.debug('');
         }
 
         // Check for duplicates
@@ -894,14 +1137,14 @@ class ShiftService {
           duplicateNames[name] = (duplicateNames[name] ?? 0) + 1;
         }
 
-        print('ShiftService: Duplicate analysis:');
+        AppLogger.debug('ShiftService: Duplicate analysis:');
         duplicateNames.forEach((name, count) {
           if (count > 1) {
-            print('  - "$name" appears $count times');
+            AppLogger.debug('  - "$name" appears $count times');
           }
         });
       } else {
-        print('ShiftService: No shifts found for teacher_id: $teacherId');
+        AppLogger.debug('ShiftService: No shifts found for teacher_id: $teacherId');
       }
 
       final shifts =
@@ -923,7 +1166,7 @@ class ShiftService {
 
       return shifts;
     } catch (e) {
-      print('Error getting shifts for teacher: $e');
+      AppLogger.error('Error getting shifts for teacher: $e');
       return [];
     }
   }
@@ -946,7 +1189,7 @@ class ShiftService {
       final activeShift = await getCurrentActiveShift(teacherId);
       return activeShift != null;
     } catch (e) {
-      print('Error checking active shift: $e');
+      AppLogger.error('Error checking active shift: $e');
       return false;
     }
   }
@@ -954,13 +1197,13 @@ class ShiftService {
   /// Clean up duplicate shifts for a teacher (EMERGENCY FUNCTION)
   static Future<void> cleanupDuplicateShifts(String teacherId) async {
     try {
-      print('ShiftService: Starting cleanup for teacher $teacherId');
+      AppLogger.debug('ShiftService: Starting cleanup for teacher $teacherId');
 
       final snapshot = await _shiftsCollection
           .where('teacher_id', isEqualTo: teacherId)
           .get();
 
-      print('ShiftService: Found ${snapshot.docs.length} total shifts');
+      AppLogger.debug('ShiftService: Found ${snapshot.docs.length} total shifts');
 
       // Group by auto_generated_name and date
       final shiftGroups = <String, List<QueryDocumentSnapshot>>{};
@@ -983,7 +1226,7 @@ class ShiftService {
 
       for (var group in shiftGroups.values) {
         if (group.length > 1) {
-          print('Found ${group.length} duplicates of same shift');
+          AppLogger.debug('Found ${group.length} duplicates of same shift');
           // Keep the first one, delete the rest
           for (int i = 1; i < group.length; i++) {
             batch.delete(group[i].reference);
@@ -994,13 +1237,138 @@ class ShiftService {
 
       if (deletedCount > 0) {
         await batch.commit();
-        print('ShiftService: Deleted $deletedCount duplicate shifts');
+        AppLogger.error('ShiftService: Deleted $deletedCount duplicate shifts');
       } else {
-        print('ShiftService: No duplicates found to clean up');
+        AppLogger.error('ShiftService: No duplicates found to clean up');
       }
     } catch (e) {
-      print('Error cleaning up duplicate shifts: $e');
+      AppLogger.error('Error cleaning up duplicate shifts: $e');
       throw Exception('Failed to cleanup duplicate shifts');
+    }
+  }
+
+  /// Adjust all future/scheduled shifts by the specified number of hours
+  /// This is useful for daylight saving time adjustments
+  /// @param adjustmentHours: Positive to add hours, negative to subtract hours
+  /// @param onlyFutureShifts: If true, only adjusts shifts that haven't started yet
+  static Future<Map<String, dynamic>> adjustAllShiftTimes({
+    required int adjustmentHours,
+    bool onlyFutureShifts = true,
+    String? adminUserId,
+  }) async {
+    try {
+      AppLogger.debug('ShiftService: Starting DST adjustment of $adjustmentHours hour(s)');
+
+      final now = DateTime.now().toUtc();
+      int totalShifts = 0;
+      int adjustedShifts = 0;
+      int skippedShifts = 0;
+      List<String> errors = [];
+
+      // Build query based on parameters
+      Query query = _shiftsCollection;
+
+      if (onlyFutureShifts) {
+        // Only get shifts that haven't started yet
+        query = query.where('shift_start', isGreaterThan: Timestamp.fromDate(now));
+      }
+
+      // Only get scheduled shifts (not completed, cancelled, or missed)
+      query = query.where('status', isEqualTo: 'scheduled');
+
+      final snapshot = await query.get();
+      totalShifts = snapshot.docs.length;
+
+      AppLogger.debug('ShiftService: Found $totalShifts shifts to potentially adjust');
+
+      if (totalShifts == 0) {
+        return {
+          'success': true,
+          'totalShifts': 0,
+          'adjustedShifts': 0,
+          'skippedShifts': 0,
+          'message': 'No eligible shifts found for DST adjustment',
+        };
+      }
+
+      // Process shifts in batches to avoid timeout
+      const batchSize = 500;
+      WriteBatch batch = _firestore.batch();
+      int batchCount = 0;
+
+      for (var doc in snapshot.docs) {
+        try {
+          final shift = TeachingShift.fromFirestore(doc);
+
+          // Skip if shift is not scheduled
+          if (shift.status != ShiftStatus.scheduled) {
+            skippedShifts++;
+            AppLogger.debug('Skipping non-scheduled shift: ${shift.id}');
+            continue;
+          }
+
+          // Skip if shift has already been clocked in
+          if (shift.clockInTime != null) {
+            skippedShifts++;
+            AppLogger.debug('Skipping clocked-in shift: ${shift.id}');
+            continue;
+          }
+
+          // Adjust the shift times
+          final adjustedStartTime = shift.shiftStart.add(Duration(hours: adjustmentHours));
+          final adjustedEndTime = shift.shiftEnd.add(Duration(hours: adjustmentHours));
+
+          // Update the document
+          batch.update(doc.reference, {
+            'shift_start': Timestamp.fromDate(adjustedStartTime),
+            'shift_end': Timestamp.fromDate(adjustedEndTime),
+            'last_modified': Timestamp.now(),
+            'dst_adjustment_applied': true,
+            'dst_adjustment_hours': adjustmentHours,
+            'dst_adjustment_date': Timestamp.now(),
+            'dst_adjusted_by': adminUserId ?? 'system',
+          });
+
+          adjustedShifts++;
+          batchCount++;
+
+          // Commit batch if it reaches the limit
+          if (batchCount >= batchSize) {
+            await batch.commit();
+            batch = _firestore.batch();
+            batchCount = 0;
+            AppLogger.debug('ShiftService: Committed batch of $batchSize shifts');
+          }
+        } catch (e) {
+          AppLogger.error('Error processing shift ${doc.id}: $e');
+          errors.add('Shift ${doc.id}: $e');
+          skippedShifts++;
+        }
+      }
+
+      // Commit remaining batch
+      if (batchCount > 0) {
+        await batch.commit();
+        AppLogger.debug('ShiftService: Committed final batch of $batchCount shifts');
+      }
+
+      final message = adjustmentHours > 0
+        ? 'Added $adjustmentHours hour(s) to $adjustedShifts shifts'
+        : 'Subtracted ${-adjustmentHours} hour(s) from $adjustedShifts shifts';
+
+      AppLogger.error('ShiftService: DST adjustment complete. $message');
+
+      return {
+        'success': errors.isEmpty,
+        'totalShifts': totalShifts,
+        'adjustedShifts': adjustedShifts,
+        'skippedShifts': skippedShifts,
+        'errors': errors,
+        'message': message,
+      };
+    } catch (e) {
+      AppLogger.error('ShiftService: Error during DST adjustment: $e');
+      throw Exception('Failed to adjust shift times: $e');
     }
   }
 }

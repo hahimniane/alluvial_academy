@@ -2,6 +2,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class NotificationPreferencesService {
   // Keys for shift notifications (local cache)
   static const String _shiftNotificationEnabledKey = 'shift_notification_enabled';
@@ -49,7 +51,7 @@ class NotificationPreferencesService {
       
       return true;
     } catch (e) {
-      print('Error getting shift notification enabled status: $e');
+      AppLogger.error('Error getting shift notification enabled status: $e');
       return true;
     }
   }
@@ -70,10 +72,10 @@ class NotificationPreferencesService {
             'lastUpdated': FieldValue.serverTimestamp(),
           }
         }, SetOptions(merge: true));
-        print('✅ Shift notification enabled ($enabled) saved to Firestore');
+        AppLogger.error('✅ Shift notification enabled ($enabled) saved to Firestore');
       }
     } catch (e) {
-      print('Error setting shift notification enabled status: $e');
+      AppLogger.error('Error setting shift notification enabled status: $e');
     }
   }
 
@@ -104,7 +106,7 @@ class NotificationPreferencesService {
       
       return defaultShiftNotificationMinutes;
     } catch (e) {
-      print('Error getting shift notification time: $e');
+      AppLogger.error('Error getting shift notification time: $e');
       return defaultShiftNotificationMinutes;
     }
   }
@@ -125,10 +127,10 @@ class NotificationPreferencesService {
             'lastUpdated': FieldValue.serverTimestamp(),
           }
         }, SetOptions(merge: true));
-        print('✅ Shift notification time ($minutes min) saved to Firestore');
+        AppLogger.error('✅ Shift notification time ($minutes min) saved to Firestore');
       }
     } catch (e) {
-      print('Error setting shift notification time: $e');
+      AppLogger.error('Error setting shift notification time: $e');
     }
   }
 
@@ -159,7 +161,7 @@ class NotificationPreferencesService {
       
       return true;
     } catch (e) {
-      print('Error getting task notification enabled status: $e');
+      AppLogger.error('Error getting task notification enabled status: $e');
       return true;
     }
   }
@@ -180,10 +182,10 @@ class NotificationPreferencesService {
             'lastUpdated': FieldValue.serverTimestamp(),
           }
         }, SetOptions(merge: true));
-        print('✅ Task notification enabled ($enabled) saved to Firestore');
+        AppLogger.error('✅ Task notification enabled ($enabled) saved to Firestore');
       }
     } catch (e) {
-      print('Error setting task notification enabled status: $e');
+      AppLogger.error('Error setting task notification enabled status: $e');
     }
   }
 
@@ -214,7 +216,7 @@ class NotificationPreferencesService {
       
       return defaultTaskNotificationDays;
     } catch (e) {
-      print('Error getting task notification time: $e');
+      AppLogger.error('Error getting task notification time: $e');
       return defaultTaskNotificationDays;
     }
   }
@@ -235,10 +237,10 @@ class NotificationPreferencesService {
             'lastUpdated': FieldValue.serverTimestamp(),
           }
         }, SetOptions(merge: true));
-        print('✅ Task notification time ($days days) saved to Firestore');
+        AppLogger.error('✅ Task notification time ($days days) saved to Firestore');
       }
     } catch (e) {
-      print('Error setting task notification time: $e');
+      AppLogger.error('Error setting task notification time: $e');
     }
   }
 
@@ -251,7 +253,7 @@ class NotificationPreferencesService {
       await prefs.remove(_taskNotificationEnabledKey);
       await prefs.remove(_taskNotificationTimeKey);
     } catch (e) {
-      print('Error clearing notification preferences: $e');
+      AppLogger.error('Error clearing notification preferences: $e');
     }
   }
 

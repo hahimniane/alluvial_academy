@@ -4,6 +4,8 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/services/timezone_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ShiftTimeDisplay extends StatefulWidget {
   final TeachingShift shift;
   final bool showDate;
@@ -40,7 +42,7 @@ class _ShiftTimeDisplayState extends State<ShiftTimeDisplay> {
         });
       }
     } catch (e) {
-      print('ShiftTimeDisplay: Error loading user timezone: $e');
+      AppLogger.error('ShiftTimeDisplay: Error loading user timezone: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
