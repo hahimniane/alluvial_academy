@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'location_preference_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class LocationData {
   final double latitude;
   final double longitude;
@@ -29,13 +31,13 @@ class LocationService {
   static Future<LocationData?> getCurrentLocation(
       {bool interactive = true}) async {
     try {
-      print(
+      AppLogger.debug(
           'LocationService: getCurrentLocation called (web=$kIsWeb, interactive=$interactive)');
       // Return cached location if still valid (within 5 minutes)
       if (_cachedLocation != null &&
           _cacheTime != null &&
           DateTime.now().difference(_cacheTime!) < _cacheValidDuration) {
-        print('LocationService: Using cached location');
+        AppLogger.debug('LocationService: Using cached location');
         return _cachedLocation;
       }
 
@@ -45,9 +47,9 @@ class LocationService {
         serviceEnabled = await Geolocator.isLocationServiceEnabled();
       } catch (e) {
         // Ignore platform-specific errors here
-        print('LocationService: Error checking service enabled: $e');
+        AppLogger.error('LocationService: Error checking service enabled: $e');
       }
-      print('LocationService: Location services enabled: $serviceEnabled');
+      AppLogger.error('LocationService: Location services enabled: $serviceEnabled');
       // On web, browsers handle enablement; don't hard-fail if reported disabled
       if (!kIsWeb && !serviceEnabled) {
         throw Exception(
@@ -57,20 +59,20 @@ class LocationService {
       // Handle permissions more gracefully
       LocationPermission permission =
           await _ensureLocationPermission(interactive: interactive);
-      print('LocationService: Final permission status: $permission');
+      AppLogger.debug('LocationService: Final permission status: $permission');
 
       // On web, allow proceeding to trigger the browser prompt via getCurrentPosition
       // Only gate on permission for non-web platforms.
       if (!kIsWeb &&
           permission != LocationPermission.whileInUse &&
           permission != LocationPermission.always) {
-        print('LocationService: No valid permissions (mobile/desktop).');
+        AppLogger.debug('LocationService: No valid permissions (mobile/desktop).');
         return null; // Return null instead of throwing
       }
       if (kIsWeb &&
           (permission == LocationPermission.denied ||
               permission == LocationPermission.deniedForever)) {
-        print(
+        AppLogger.debug(
             'LocationService: Web platform with permission=$permission; proceeding to request position to trigger prompt');
       }
 
@@ -82,7 +84,7 @@ class LocationService {
             'Unable to get your location. Please ensure GPS is enabled and try moving to an open area.');
       }
 
-      print(
+      AppLogger.debug(
           'LocationService: Got position: ${position.latitude}, ${position.longitude}');
 
       // Get address from coordinates with timeout and fallback
@@ -99,17 +101,17 @@ class LocationService {
       _cachedLocation = locationData;
       _cacheTime = DateTime.now();
 
-      print(
+      AppLogger.error(
           'LocationService: Successfully created LocationData: ${locationData.neighborhood}');
       return locationData;
     } catch (e) {
-      print('LocationService: Error getting location: $e');
+      AppLogger.error('LocationService: Error getting location: $e');
 
       // Return null instead of throwing for some recoverable errors
       if (e.toString().toLowerCase().contains('timeout') ||
           e.toString().toLowerCase().contains('network') ||
           e.toString().toLowerCase().contains('unavailable')) {
-        print('LocationService: Recoverable error, returning null');
+        AppLogger.error('LocationService: Recoverable error, returning null');
         return null;
       }
 
@@ -123,7 +125,7 @@ class LocationService {
       {bool interactive = true}) async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
-      print('LocationService: Initial permission check: $permission');
+      AppLogger.debug('LocationService: Initial permission check: $permission');
 
       if (permission == LocationPermission.denied) {
         // Only throttle repeated prompts on non-web or when not interactive
@@ -131,7 +133,7 @@ class LocationService {
           final shouldSkip =
               await LocationPreferenceService.shouldSkipLocationRequest();
           if (shouldSkip) {
-            print(
+            AppLogger.debug(
                 'LocationService: Skipping permission request based on user preferences');
             return LocationPermission.denied;
           }
@@ -139,12 +141,12 @@ class LocationService {
 
         // If not interactive (e.g., background), don't trigger browser prompt on web
         if (kIsWeb && !interactive) {
-          print(
+          AppLogger.debug(
               'LocationService: Web non-interactive context - not requesting permission');
           return LocationPermission.denied;
         }
 
-        print('LocationService: Permission denied, requesting...');
+        AppLogger.debug('LocationService: Permission denied, requesting...');
 
         // Mark that we're asking for permission
         await LocationPreferenceService.markLocationAsked();
@@ -153,28 +155,28 @@ class LocationService {
         try {
           permission = await Geolocator.requestPermission()
               .timeout(const Duration(seconds: 30), onTimeout: () {
-            print('LocationService: Permission request timed out');
+            AppLogger.error('LocationService: Permission request timed out');
             return LocationPermission.denied;
           });
         } catch (e) {
-          print('LocationService: Permission request failed: $e');
+          AppLogger.error('LocationService: Permission request failed: $e');
           return LocationPermission.denied;
         }
 
-        print('LocationService: Permission after request: $permission');
+        AppLogger.error('LocationService: Permission after request: $permission');
 
         if (permission == LocationPermission.denied) {
           // Mark permission as denied to avoid asking again soon (non-web)
           if (!kIsWeb) {
             await LocationPreferenceService.markLocationDenied();
           }
-          print('LocationService: Permission was denied by user');
+          AppLogger.debug('LocationService: Permission was denied by user');
           return permission;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        print('LocationService: Permission denied forever');
+        AppLogger.debug('LocationService: Permission denied forever');
         // On web there is no app settings concept; avoid sticky denial flag
         if (!kIsWeb) {
           await LocationPreferenceService.markLocationDenied();
@@ -187,19 +189,19 @@ class LocationService {
           permission != LocationPermission.always &&
           permission != LocationPermission.denied &&
           permission != LocationPermission.deniedForever) {
-        print('LocationService: Unexpected permission status: $permission');
+        AppLogger.error('LocationService: Unexpected permission status: $permission');
       }
 
       return permission;
     } catch (e) {
-      print('LocationService: Permission handling error: $e');
+      AppLogger.error('LocationService: Permission handling error: $e');
       return LocationPermission.denied;
     }
   }
 
   /// Get position with multiple fallback strategies and better error handling
   static Future<Position?> _getPositionWithFallbacks() async {
-    print('LocationService: Starting position acquisition with fallbacks...');
+    AppLogger.debug('LocationService: Starting position acquisition with fallbacks...');
 
     // Strategy 1: Try last known position first (not supported on web)
     if (!kIsWeb) {
@@ -216,44 +218,44 @@ class LocationService {
 
           // Use recent last known position (within 2 hours)
           if (timeDiff.inHours < 2) {
-            print(
+            AppLogger.error(
                 'LocationService: Using recent last known position (${timeDiff.inMinutes} min old)');
             return lastKnown;
           }
         }
       } catch (e) {
-        print('LocationService: Last known position failed: $e');
+        AppLogger.error('LocationService: Last known position failed: $e');
       }
     }
 
     // Strategy 2: Quick medium accuracy location
     try {
-      print('LocationService: Trying medium accuracy position...');
+      AppLogger.error('LocationService: Trying medium accuracy position...');
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
         timeLimit: const Duration(seconds: 8),
         forceAndroidLocationManager: false,
       ).timeout(const Duration(seconds: 10));
 
-      print('LocationService: Got medium accuracy position');
+      AppLogger.error('LocationService: Got medium accuracy position');
       return position;
     } catch (e) {
-      print('LocationService: Medium accuracy attempt failed: $e');
+      AppLogger.error('LocationService: Medium accuracy attempt failed: $e');
     }
 
     // Strategy 3: Low accuracy with longer timeout
     try {
-      print('LocationService: Trying low accuracy position...');
+      AppLogger.error('LocationService: Trying low accuracy position...');
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.low,
         timeLimit: const Duration(seconds: 12),
         forceAndroidLocationManager: false,
       ).timeout(const Duration(seconds: 15));
 
-      print('LocationService: Got low accuracy position');
+      AppLogger.error('LocationService: Got low accuracy position');
       return position;
     } catch (e) {
-      print('LocationService: Low accuracy attempt failed: $e');
+      AppLogger.error('LocationService: Low accuracy attempt failed: $e');
     }
 
     // Strategy 4: Use any available last known position as final fallback (not on web)
@@ -264,30 +266,30 @@ class LocationService {
         );
 
         if (lastKnown != null) {
-          print(
+          AppLogger.error(
               'LocationService: Using any available last known position as final fallback');
           return lastKnown;
         }
       } catch (e) {
-        print('LocationService: Final last known position attempt failed: $e');
+        AppLogger.error('LocationService: Final last known position attempt failed: $e');
       }
     }
 
     // Strategy 5: Lowest accuracy with maximum timeout
     try {
-      print('LocationService: Final attempt with lowest accuracy...');
+      AppLogger.error('LocationService: Final attempt with lowest accuracy...');
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.lowest,
         timeLimit: const Duration(seconds: 15),
       ).timeout(const Duration(seconds: 18));
 
-      print('LocationService: Got lowest accuracy position');
+      AppLogger.error('LocationService: Got lowest accuracy position');
       return position;
     } catch (e) {
-      print('LocationService: Final attempt failed: $e');
+      AppLogger.error('LocationService: Final attempt failed: $e');
     }
 
-    print('LocationService: All position acquisition strategies failed');
+    AppLogger.error('LocationService: All position acquisition strategies failed');
     return null;
   }
 
@@ -339,7 +341,7 @@ class LocationService {
         }
       }
     } catch (e) {
-      print('LocationService: Geocoding failed, using coordinates: $e');
+      AppLogger.error('LocationService: Geocoding failed, using coordinates: $e');
       // Use more descriptive coordinate display as fallback
       address =
           'Location: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
@@ -359,7 +361,7 @@ class LocationService {
           neighborhood = fb['neighborhood'] ?? neighborhood;
         }
       } catch (e) {
-        print('LocationService: Fallback reverse geocode failed: $e');
+        AppLogger.error('LocationService: Fallback reverse geocode failed: $e');
       }
     }
 
@@ -373,7 +375,7 @@ class LocationService {
     try {
       return await Geolocator.isLocationServiceEnabled();
     } catch (e) {
-      print('LocationService: Error checking if location service enabled: $e');
+      AppLogger.error('LocationService: Error checking if location service enabled: $e');
       return false;
     }
   }
@@ -382,7 +384,7 @@ class LocationService {
     try {
       return await Geolocator.checkPermission();
     } catch (e) {
-      print('LocationService: Error checking permission: $e');
+      AppLogger.error('LocationService: Error checking permission: $e');
       return LocationPermission.denied;
     }
   }
@@ -391,7 +393,7 @@ class LocationService {
     try {
       return await Geolocator.requestPermission();
     } catch (e) {
-      print('LocationService: Error requesting permission: $e');
+      AppLogger.error('LocationService: Error requesting permission: $e');
       return LocationPermission.denied;
     }
   }
@@ -400,7 +402,7 @@ class LocationService {
     try {
       Geolocator.openLocationSettings();
     } catch (e) {
-      print('LocationService: Error opening location settings: $e');
+      AppLogger.error('LocationService: Error opening location settings: $e');
     }
   }
 
@@ -408,7 +410,7 @@ class LocationService {
     try {
       Geolocator.openAppSettings();
     } catch (e) {
-      print('LocationService: Error opening app settings: $e');
+      AppLogger.error('LocationService: Error opening app settings: $e');
     }
   }
 
@@ -424,7 +426,7 @@ class LocationService {
       return permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always;
     } catch (e) {
-      print('LocationService: Error checking permission: $e');
+      AppLogger.error('LocationService: Error checking permission: $e');
       return false;
     }
   }
@@ -434,7 +436,7 @@ class LocationService {
     try {
       bool hasPermission = await hasLocationPermission();
       if (!hasPermission) {
-        print('LocationService: No valid permissions for simple position');
+        AppLogger.debug('LocationService: No valid permissions for simple position');
         return null;
       }
 
@@ -443,11 +445,11 @@ class LocationService {
         timeLimit: const Duration(seconds: 5),
       ).timeout(const Duration(seconds: 7));
 
-      print(
+      AppLogger.error(
           'LocationService: Simple position: ${position.latitude}, ${position.longitude}');
       return position;
     } catch (e) {
-      print('LocationService: Simple position failed: $e');
+      AppLogger.error('LocationService: Simple position failed: $e');
       return null;
     }
   }
@@ -456,7 +458,7 @@ class LocationService {
   static void clearCache() {
     _cachedLocation = null;
     _cacheTime = null;
-    print('LocationService: Cache cleared');
+    AppLogger.debug('LocationService: Cache cleared');
   }
 
   /// Calculate distance between two coordinates in meters
@@ -469,7 +471,7 @@ class LocationService {
   static Future<LocationData?> coordinatesToLocation(
       double? latitude, double? longitude) async {
     if (latitude == null || longitude == null) {
-      print(
+      AppLogger.error(
           'Error converting coordinates to location: Null coordinates provided');
       return null;
     }
@@ -538,10 +540,10 @@ class LocationService {
           neighborhood: neighborhood,
         );
       } else {
-        print('No placemarks found for coordinates: $latitude, $longitude');
+        AppLogger.error('No placemarks found for coordinates: $latitude, $longitude');
       }
     } catch (e) {
-      print('Error converting coordinates to location: $e');
+      AppLogger.error('Error converting coordinates to location: $e');
     }
 
     // Try network reverse geocoding fallback
@@ -557,7 +559,7 @@ class LocationService {
         );
       }
     } catch (e) {
-      print('Reverse geocoding (Nominatim) failed: $e');
+      AppLogger.error('Reverse geocoding (Nominatim) failed: $e');
     }
 
     // Return coordinates as fallback if all else fails
@@ -637,7 +639,7 @@ class LocationService {
         }
       }
     } catch (e) {
-      print('Error getting location display: $e');
+      AppLogger.error('Error getting location display: $e');
     }
 
     // Fallback to coordinates if geocoding fails
@@ -696,18 +698,18 @@ class LocationService {
   /// Test geocoding with specific coordinates for debugging
   static Future<void> testCoordinateConversion(double lat, double lng) async {
     try {
-      print('Testing conversion for coordinates: $lat, $lng');
+      AppLogger.debug('Testing conversion for coordinates: $lat, $lng');
       LocationData? result = await coordinatesToLocation(lat, lng);
       if (result != null) {
-        print('Address: ${result.address}');
-        print('Neighborhood: ${result.neighborhood}');
-        print(
+        AppLogger.debug('Address: ${result.address}');
+        AppLogger.debug('Neighborhood: ${result.neighborhood}');
+        AppLogger.error(
             'Display: ${formatLocationForDisplay(result.address, result.neighborhood)}');
       } else {
-        print('Geocoding returned null');
+        AppLogger.error('Geocoding returned null');
       }
     } catch (e) {
-      print('Error in test conversion: $e');
+      AppLogger.error('Error in test conversion: $e');
     }
   }
 
@@ -716,9 +718,9 @@ class LocationService {
     try {
       // This method can be called periodically to update older entries
       // that might have coordinates but no address data
-      print('Background location conversion completed');
+      AppLogger.error('Background location conversion completed');
     } catch (e) {
-      print('Error in batch location conversion: $e');
+      AppLogger.error('Error in batch location conversion: $e');
     }
   }
 

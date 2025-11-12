@@ -9,6 +9,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'core/services/user_role_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class FormScreen extends StatefulWidget {
   const FormScreen({super.key});
 
@@ -51,9 +52,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     );
 
     // Add debugging for production
-    print(
+    AppLogger.debug(
         'FormScreen: Initializing in ${kDebugMode ? 'debug' : 'production'} mode');
-    print('FormScreen: Auth state - ${FirebaseAuth.instance.currentUser?.uid}');
+    AppLogger.debug('FormScreen: Auth state - ${FirebaseAuth.instance.currentUser?.uid}');
 
     _loadUserFormSubmissions();
     _loadCurrentUserData();
@@ -81,7 +82,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         });
       }
     } catch (e) {
-      print('Error loading user form submissions: $e');
+      AppLogger.error('Error loading user form submissions: $e');
     }
   }
 
@@ -89,7 +90,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     try {
       final User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
-        print('FormScreen: No authenticated user found');
+        AppLogger.debug('FormScreen: No authenticated user found');
         if (mounted) {
           setState(() {
             _currentUserId = null;
@@ -100,7 +101,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         return;
       }
 
-      print('FormScreen: Loading data for user: ${currentUser.uid}');
+      AppLogger.debug('FormScreen: Loading data for user: ${currentUser.uid}');
 
       // Get user role and data with timeout and retry logic
       String? userRole;
@@ -110,9 +111,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Try to get user role with timeout
         userRole = await UserRoleService.getCurrentUserRole()
             .timeout(const Duration(seconds: 15));
-        print('FormScreen: User role loaded: $userRole');
+        AppLogger.info('FormScreen: User role loaded: $userRole');
       } catch (e) {
-        print('FormScreen: Error getting user role: $e');
+        AppLogger.error('FormScreen: Error getting user role: $e');
         userRole = 'student'; // Safe fallback
       }
 
@@ -120,9 +121,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Try to get user data with timeout
         userData = await UserRoleService.getCurrentUserData()
             .timeout(const Duration(seconds: 15));
-        print('FormScreen: User data loaded: ${userData?.keys}');
+        AppLogger.info('FormScreen: User data loaded: ${userData?.keys}');
       } catch (e) {
-        print('FormScreen: Error getting user data: $e');
+        AppLogger.error('FormScreen: Error getting user data: $e');
         // Continue without user data
       }
 
@@ -134,12 +135,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         });
       }
 
-      print('FormScreen: Current user loaded successfully:');
-      print('- User ID: $_currentUserId');
-      print('- User Role: $_currentUserRole');
-      print('- User Data keys: ${_currentUserData?.keys}');
+      AppLogger.info('FormScreen: Current user loaded successfully:');
+      AppLogger.debug('- User ID: $_currentUserId');
+      AppLogger.debug('- User Role: $_currentUserRole');
+      AppLogger.debug('- User Data keys: ${_currentUserData?.keys}');
     } catch (e) {
-      print('FormScreen: Critical error loading current user data: $e');
+      AppLogger.error('FormScreen: Critical error loading current user data: $e');
       // Set safe fallback state
       if (mounted) {
         setState(() {
@@ -184,7 +185,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
     // If no permissions are set or permissions is null, it's a public form
     if (permissions == null || permissions.isEmpty) {
-      print('Form "$formTitle": Public access (no permissions set)');
+      AppLogger.debug('Form "$formTitle": Public access (no permissions set)');
       return true;
     }
 
@@ -192,7 +193,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
     // Public forms are accessible to everyone
     if (permissionType == null || permissionType == 'public') {
-      print('Form "$formTitle": Public access');
+      AppLogger.debug('Form "$formTitle": Public access');
       return true;
     }
 
@@ -201,29 +202,29 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final allowedRole = permissions['role'] as String?;
       final allowedUsers = permissions['users'] as List<dynamic>?;
 
-      print('Form "$formTitle": Restricted access - checking permissions');
-      print('- User role: $_currentUserRole, Required role: $allowedRole');
-      print('- User ID: $_currentUserId, Allowed users: $allowedUsers');
+      AppLogger.debug('Form "$formTitle": Restricted access - checking permissions');
+      AppLogger.debug('- User role: $_currentUserRole, Required role: $allowedRole');
+      AppLogger.debug('- User ID: $_currentUserId, Allowed users: $allowedUsers');
 
       // Check if user's role matches the allowed role
       if (allowedRole != null && _roleMatches(allowedRole, _currentUserRole)) {
-        print('Form "$formTitle": Access granted by role match');
+        AppLogger.debug('Form "$formTitle": Access granted by role match');
         return true;
       }
 
       // Check if user is specifically allowed
       if (allowedUsers != null && allowedUsers.contains(_currentUserId)) {
-        print('Form "$formTitle": Access granted by user ID match');
+        AppLogger.debug('Form "$formTitle": Access granted by user ID match');
         return true;
       }
 
       // If neither role nor specific user access matches, deny access
-      print('Form "$formTitle": Access denied - no role or user match');
+      AppLogger.debug('Form "$formTitle": Access denied - no role or user match');
       return false;
     }
 
     // Unknown permission type, deny access by default
-    print(
+    AppLogger.debug(
         'Form "$formTitle": Access denied - unknown permission type: $permissionType');
     return false;
   }
@@ -400,7 +401,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     builder: (context, snapshot) {
                       // Enhanced error handling
                       if (snapshot.hasError) {
-                        print('FormScreen: Firestore error: ${snapshot.error}');
+                        AppLogger.error('FormScreen: Firestore error: ${snapshot.error}');
                         return _buildErrorState(
                             'Error loading forms: ${snapshot.error}');
                       }
@@ -410,19 +411,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       }
 
                       if (!snapshot.hasData) {
-                        print('FormScreen: No snapshot data received');
+                        AppLogger.debug('FormScreen: No snapshot data received');
                         return _buildErrorState(
                             'No forms data received. Please check your connection.');
                       }
 
                       // Show loading state if user data is not loaded yet
                       if (_currentUserId == null || _currentUserRole == null) {
-                        print(
+                        AppLogger.info(
                             'FormScreen: User data not loaded yet - userId: $_currentUserId, role: $_currentUserRole');
                         return _buildLoadingState();
                       }
 
-                      print(
+                      AppLogger.debug(
                           'FormScreen: Processing ${snapshot.data!.docs.length} forms from Firestore');
 
                       final forms = snapshot.data!.docs.where((doc) {
@@ -1163,7 +1164,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
                               // Safety check: if controller doesn't exist, create one
                               if (controller == null) {
-                                print(
+                                AppLogger.debug(
                                     'FormScreen: Missing controller for field $fieldKey, creating one');
                                 fieldControllers[fieldKey] =
                                     TextEditingController();
@@ -1202,7 +1203,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                               );
                             } catch (e) {
                               // Fallback for any field rendering errors
-                              print(
+                              AppLogger.error(
                                   'FormScreen: Error rendering field ${fieldEntry.key}: $e');
                               return Container(
                                 padding: const EdgeInsets.all(16),
@@ -2523,16 +2524,16 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Create new controllers for form fields
         final fields = formData['fields'] as Map<String, dynamic>?;
         if (fields != null) {
-          print('FormScreen: Creating controllers for ${fields.length} fields');
+          AppLogger.debug('FormScreen: Creating controllers for ${fields.length} fields');
           fields.forEach((fieldId, fieldData) {
-            print(
+            AppLogger.debug(
                 'FormScreen: Creating controller for field: $fieldId (type: ${fieldId.runtimeType})');
             fieldControllers[fieldId] = TextEditingController();
           });
-          print(
+          AppLogger.debug(
               'FormScreen: Controllers created for keys: ${fieldControllers.keys.toList()}');
         } else {
-          print(
+          AppLogger.debug(
               'FormScreen: No fields found in form data for controller creation');
         }
       });
@@ -2544,66 +2545,66 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   // Get fields that should be visible based on conditional logic
   List<MapEntry<String, dynamic>> _getVisibleFields() {
     if (selectedFormData == null) {
-      print('FormScreen: No form data selected');
+      AppLogger.debug('FormScreen: No form data selected');
       return [];
     }
 
-    print('FormScreen: Selected form data keys: ${selectedFormData!.keys}');
+    AppLogger.debug('FormScreen: Selected form data keys: ${selectedFormData!.keys}');
 
     final fields = selectedFormData!['fields'];
     if (fields == null) {
-      print('FormScreen: No fields found in form data');
-      print('FormScreen: Form data structure: $selectedFormData');
+      AppLogger.debug('FormScreen: No fields found in form data');
+      AppLogger.debug('FormScreen: Form data structure: $selectedFormData');
       return [];
     }
 
     if (fields is! Map<String, dynamic>) {
-      print(
+      AppLogger.debug(
           'FormScreen: Fields is not a Map<String, dynamic>, type: ${fields.runtimeType}');
-      print('FormScreen: Fields content: $fields');
+      AppLogger.debug('FormScreen: Fields content: $fields');
       return [];
     }
 
     final fieldsMap = fields;
     final visibleFields = <MapEntry<String, dynamic>>[];
 
-    print('FormScreen: Found ${fieldsMap.length} total fields');
-    print('FormScreen: Field keys: ${fieldsMap.keys.toList()}');
+    AppLogger.debug('FormScreen: Found ${fieldsMap.length} total fields');
+    AppLogger.debug('FormScreen: Field keys: ${fieldsMap.keys.toList()}');
 
     // Sort fields by order first
     final sortedEntries = fieldsMap.entries.toList()
       ..sort((a, b) {
         final aOrder = (a.value as Map<String, dynamic>)['order'] as int? ?? 0;
         final bOrder = (b.value as Map<String, dynamic>)['order'] as int? ?? 0;
-        print(
+        AppLogger.debug(
             'FormScreen: Field ${a.key} has order $aOrder, Field ${b.key} has order $bOrder');
         return aOrder.compareTo(bOrder);
       });
 
-    print('FormScreen: Final field order after sorting:');
+    AppLogger.debug('FormScreen: Final field order after sorting:');
     for (var i = 0; i < sortedEntries.length; i++) {
       final entry = sortedEntries[i];
       final order = (entry.value as Map<String, dynamic>)['order'] as int? ?? 0;
       final label =
           (entry.value as Map<String, dynamic>)['label'] ?? 'No label';
-      print('  ${i + 1}. ${entry.key}: "$label" (order: $order)');
+      AppLogger.debug('  ${i + 1}. ${entry.key}: "$label" (order: $order)');
     }
 
     for (var fieldEntry in sortedEntries) {
       try {
         if (_shouldShowField(fieldEntry.key, fieldEntry.value)) {
           visibleFields.add(fieldEntry);
-          print('FormScreen: Field ${fieldEntry.key} is visible');
+          AppLogger.debug('FormScreen: Field ${fieldEntry.key} is visible');
         } else {
-          print(
+          AppLogger.debug(
               'FormScreen: Field ${fieldEntry.key} is hidden by conditional logic');
         }
       } catch (e) {
-        print('FormScreen: Error processing field ${fieldEntry.key}: $e');
+        AppLogger.error('FormScreen: Error processing field ${fieldEntry.key}: $e');
       }
     }
 
-    print('FormScreen: ${visibleFields.length} fields are visible');
+    AppLogger.debug('FormScreen: ${visibleFields.length} fields are visible');
     return visibleFields;
   }
 
@@ -2613,7 +2614,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
     // If no conditional logic, always show
     if (conditionalLogic == null) {
-      // print('FormScreen: Field $fieldId has no conditional logic, showing');
+      // AppLogger.debug('FormScreen: Field $fieldId has no conditional logic, showing');
       return true;
     }
 
@@ -2715,9 +2716,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
     // Test basic Firebase Storage connectivity
     try {
-      print('=== Testing Firebase Storage Connectivity ===');
+      AppLogger.debug('=== Testing Firebase Storage Connectivity ===');
       final storage = FirebaseStorage.instance;
-      print('Storage bucket: ${storage.bucket}');
+      AppLogger.debug('Storage bucket: ${storage.bucket}');
 
       // Test with a tiny file first
       final testData = Uint8List.fromList([1, 2, 3, 4, 5]); // 5 bytes
@@ -2725,81 +2726,81 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           .ref()
           .child('test_${DateTime.now().millisecondsSinceEpoch}.txt');
 
-      print('Attempting small test upload...');
+      AppLogger.debug('Attempting small test upload...');
       final uploadTask = testRef.putData(testData);
 
       // Monitor the upload task state
       uploadTask.snapshotEvents.listen((snapshot) {
-        print('Test upload state: ${snapshot.state}');
-        print(
+        AppLogger.debug('Test upload state: ${snapshot.state}');
+        AppLogger.debug(
             'Test upload progress: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
       });
 
       final testUpload = await uploadTask.timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          print('Test upload task final state: ${uploadTask.snapshot.state}');
-          print(
+          AppLogger.debug('Test upload task final state: ${uploadTask.snapshot.state}');
+          AppLogger.debug(
               'Test upload bytes transferred: ${uploadTask.snapshot.bytesTransferred}');
           throw Exception('Test upload timeout');
         },
       );
 
-      print('Test upload successful! Cleaning up...');
-      await testRef.delete().catchError((e) => print('Cleanup error: $e'));
-      print('=== Storage connectivity test PASSED ===');
+      AppLogger.info('Test upload successful! Cleaning up...');
+      await testRef.delete().catchError((e) => AppLogger.error('Cleanup error: $e'));
+      AppLogger.debug('=== Storage connectivity test PASSED ===');
     } catch (e) {
-      print('=== Storage connectivity test FAILED ===');
-      print('Error: $e');
-      print('Error type: ${e.runtimeType}');
+      AppLogger.error('=== Storage connectivity test FAILED ===');
+      AppLogger.error('Error: $e');
+      AppLogger.error('Error type: ${e.runtimeType}');
       if (e.toString().contains('XMLHttpRequest')) {
-        print(
+        AppLogger.debug(
             'CORS/Network issue detected - this is common in web development');
       } else if (e.toString().contains('permission')) {
-        print('Permission issue detected');
+        AppLogger.debug('Permission issue detected');
       } else if (e.toString().contains('network')) {
-        print('Network connectivity issue detected');
+        AppLogger.debug('Network connectivity issue detected');
       }
-      print('This indicates a fundamental connectivity issue');
-      print('Possible solutions:');
-      print('1. Check Firebase Storage is enabled in Firebase Console');
-      print('2. Check network/firewall settings');
-      print('3. Try from a different network');
-      print('4. Check CORS configuration');
+      AppLogger.debug('This indicates a fundamental connectivity issue');
+      AppLogger.debug('Possible solutions:');
+      AppLogger.debug('1. Check Firebase Storage is enabled in Firebase Console');
+      AppLogger.debug('2. Check network/firewall settings');
+      AppLogger.debug('3. Try from a different network');
+      AppLogger.debug('4. Check CORS configuration');
       return null;
     }
 
     // Verify authentication status
     final currentUser = FirebaseAuth.instance.currentUser;
-    print('=== Authentication Status ===');
-    print('User logged in: ${currentUser != null}');
-    print('User ID: ${currentUser?.uid}');
-    print('User email: ${currentUser?.email}');
-    print(
+    AppLogger.debug('=== Authentication Status ===');
+    AppLogger.debug('User logged in: ${currentUser != null}');
+    AppLogger.debug('User ID: ${currentUser?.uid}');
+    AppLogger.debug('User email: ${currentUser?.email}');
+    AppLogger.debug(
         'Auth token: ${currentUser?.refreshToken != null ? "Available" : "Missing"}');
-    print('=============================');
+    AppLogger.debug('=============================');
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        print(
+        AppLogger.debug(
             'Starting image upload for: $fileName (attempt $attempt/$maxRetries)');
 
         final User? currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) {
-          print('Error: User not logged in');
+          AppLogger.error('Error: User not logged in');
           throw Exception('User not logged in');
         }
 
-        print('User ID: ${currentUser.uid}');
-        print(
+        AppLogger.debug('User ID: ${currentUser.uid}');
+        AppLogger.debug(
             'Original image size: ${imageBytes.length} bytes (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB)');
 
         // Compress image if it's larger than 500KB
         Uint8List finalImageBytes = imageBytes;
         if (imageBytes.length > 500 * 1024) {
-          print('Compressing image...');
+          AppLogger.debug('Compressing image...');
           finalImageBytes = await _compressImage(imageBytes, fileName);
-          print(
+          AppLogger.debug(
               'Compressed image size: ${finalImageBytes.length} bytes (${(finalImageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB)');
         }
 
@@ -2811,7 +2812,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             .child(currentUser.uid)
             .child('${timestamp}_$fileName');
 
-        print('Storage path: ${storageRef.fullPath}');
+        AppLogger.debug('Storage path: ${storageRef.fullPath}');
 
         // Set metadata to improve upload reliability
         final metadata = SettableMetadata(
@@ -2829,36 +2830,36 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         // Dynamic timeout based on final file size (minimum 60 seconds, +30 seconds per MB)
         final timeoutSeconds =
             60 + (finalImageBytes.length / (1024 * 1024) * 30).ceil();
-        print(
+        AppLogger.debug(
             'Setting timeout to $timeoutSeconds seconds for ${(finalImageBytes.length / (1024 * 1024)).toStringAsFixed(1)}MB file');
 
         final snapshot = await uploadTask.timeout(
           Duration(seconds: timeoutSeconds),
           onTimeout: () {
-            print(
+            AppLogger.debug(
                 'Upload timeout after $timeoutSeconds seconds (attempt $attempt)');
             throw Exception('Upload timeout on attempt $attempt');
           },
         );
 
-        print('Upload completed, getting download URL...');
+        AppLogger.debug('Upload completed, getting download URL...');
 
         // Get the download URL
         final downloadURL = await snapshot.ref.getDownloadURL();
-        print('Download URL obtained: $downloadURL');
+        AppLogger.debug('Download URL obtained: $downloadURL');
 
         return downloadURL;
       } catch (e) {
-        print('Error uploading image (attempt $attempt): $e');
+        AppLogger.error('Error uploading image (attempt $attempt): $e');
 
         if (attempt == maxRetries) {
-          print('All upload attempts failed');
+          AppLogger.error('All upload attempts failed');
           return null;
         }
 
         // Wait before retrying
         await Future.delayed(Duration(seconds: attempt * 2));
-        print('Retrying upload...');
+        AppLogger.debug('Retrying upload...');
       }
     }
 
@@ -2891,23 +2892,23 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       // If the image is very large, we'll reduce quality significantly
       if (imageBytes.length > 2 * 1024 * 1024) {
         // > 2MB
-        print(
+        AppLogger.debug(
             'Image is very large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), applying maximum compression');
         // For very large images, we'll return a significantly reduced version
         // This is a simplified approach - you might want to integrate image compression library
         return _reduceImageSize(imageBytes, 0.3); // 30% quality
       } else if (imageBytes.length > 1024 * 1024) {
         // > 1MB
-        print(
+        AppLogger.debug(
             'Image is large (${(imageBytes.length / (1024 * 1024)).toStringAsFixed(2)}MB), applying medium compression');
         return _reduceImageSize(imageBytes, 0.6); // 60% quality
       } else {
-        print('Image size is acceptable, applying light compression');
+        AppLogger.debug('Image size is acceptable, applying light compression');
         return _reduceImageSize(imageBytes, 0.8); // 80% quality
       }
     } catch (e) {
-      print('Error compressing image: $e');
-      print('Returning original image');
+      AppLogger.error('Error compressing image: $e');
+      AppLogger.debug('Returning original image');
       return imageBytes;
     }
   }
@@ -2916,9 +2917,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     // This is a simplified size reduction
     // In a real implementation, you would use image processing libraries
     // For now, we'll just return the original bytes with a warning
-    print(
+    AppLogger.debug(
         'Note: Image compression not fully implemented. Consider using image processing library.');
-    print('Returning original image bytes for now.');
+    AppLogger.debug('Returning original image bytes for now.');
     return imageBytes;
   }
 
@@ -3019,7 +3020,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
-      print('Form validation failed');
+      AppLogger.error('Form validation failed');
       return;
     }
 
@@ -3071,12 +3072,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       );
 
       if (shouldResubmit != true) {
-        print('User cancelled resubmission');
+        AppLogger.debug('User cancelled resubmission');
         return;
       }
     }
 
-    print('Starting form submission...');
+    AppLogger.debug('Starting form submission...');
     if (mounted) {
       setState(() => _isSubmitting = true);
     }
@@ -3094,16 +3095,16 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
       final responses = <String, dynamic>{};
 
-      print('Processing form fields...');
-      print('Field controllers: ${fieldControllers.keys.toList()}');
-      print('Field values: ${fieldValues.keys.toList()}');
+      AppLogger.debug('Processing form fields...');
+      AppLogger.debug('Field controllers: ${fieldControllers.keys.toList()}');
+      AppLogger.debug('Field values: ${fieldValues.keys.toList()}');
 
       // Process each field and upload images to Firebase Storage
       for (var entry in fieldControllers.entries) {
         final fieldId = entry.key;
         final controller = entry.value;
 
-        print('Processing field: $fieldId');
+        AppLogger.debug('Processing field: $fieldId');
 
         if (fieldValues.containsKey(fieldId)) {
           final fieldValue = fieldValues[fieldId];
@@ -3115,11 +3116,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           }
 
           final fieldData = fieldValue;
-          print('Field $fieldId has data: ${fieldData.keys.toList()}');
+          AppLogger.debug('Field $fieldId has data: ${fieldData.keys.toList()}');
 
           // Check if this is an image/signature field with bytes
           if (fieldData.containsKey('bytes') && fieldData['bytes'] != null) {
-            print('Uploading image for field: $fieldId');
+            AppLogger.debug('Uploading image for field: $fieldId');
             _showSnackBar(
                 'Uploading ${fieldData['fileName']} (${(fieldData['size'] / (1024 * 1024)).toStringAsFixed(1)}MB)...',
                 isError: false);
@@ -3131,7 +3132,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             );
 
             if (downloadURL != null) {
-              print('Image uploaded successfully for field: $fieldId');
+              AppLogger.info('Image uploaded successfully for field: $fieldId');
               responses[fieldId] = {
                 'fileName': fieldData['fileName'],
                 'downloadURL': downloadURL,
@@ -3140,7 +3141,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 'uploadedAt': FieldValue.serverTimestamp(),
               };
             } else {
-              print('Failed to upload image for field: $fieldId');
+              AppLogger.error('Failed to upload image for field: $fieldId');
 
               // Show dialog asking user what to do
               if (mounted) {
@@ -3190,7 +3191,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
                 if (shouldContinue == true) {
                   // Submit without the image
-                  print(
+                  AppLogger.debug(
                       'User chose to submit without image for field: $fieldId');
                   responses[fieldId] = {
                     'fileName': fieldData['fileName'],
@@ -3215,7 +3216,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             }
           } else {
             // For other field values
-            print('Field $fieldId: storing non-image data');
+            AppLogger.debug('Field $fieldId: storing non-image data');
             responses[fieldId] = fieldData;
           }
         } else {
@@ -3233,23 +3234,23 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 .map((e) => e.trim())
                 .where((e) => e.isNotEmpty)
                 .toList();
-            print(
+            AppLogger.debug(
                 'Field $fieldId: storing multi-select values: $selectedValues');
             responses[fieldId] = selectedValues;
           } else {
-            print('Field $fieldId: storing text value: ${controller.text}');
+            AppLogger.debug('Field $fieldId: storing text value: ${controller.text}');
             responses[fieldId] = controller.text;
           }
         }
       }
 
-      print('All fields processed, submitting to Firestore...');
-      print('Form data to submit:');
-      print('- FormId: $selectedFormId');
-      print('- UserId: ${currentUser.uid}');
-      print('- UserEmail: ${currentUser.email}');
-      print('- Responses: ${responses.keys.toList()}');
-      print('- Response data: $responses');
+      AppLogger.debug('All fields processed, submitting to Firestore...');
+      AppLogger.debug('Form data to submit:');
+      AppLogger.debug('- FormId: $selectedFormId');
+      AppLogger.debug('- UserId: ${currentUser.uid}');
+      AppLogger.debug('- UserEmail: ${currentUser.email}');
+      AppLogger.debug('- Responses: ${responses.keys.toList()}');
+      AppLogger.debug('- Response data: $responses');
 
       // Get user data for names
       final userData = await FirebaseFirestore.instance
@@ -3274,12 +3275,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       }).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          print('Firestore submission timeout after 30 seconds');
+          AppLogger.debug('Firestore submission timeout after 30 seconds');
           throw Exception('Firestore submission timeout');
         },
       );
 
-      print(
+      AppLogger.info(
           'Form submitted to Firestore successfully! Document ID: ${docRef.id}');
       _showSnackBar('Form submitted successfully!', isError: false);
 
@@ -3290,27 +3291,27 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         });
       }
 
-      print('Clearing form...');
+      AppLogger.debug('Clearing form...');
       // Clear form
       _resetForm();
-      print('Form cleared successfully!');
+      AppLogger.info('Form cleared successfully!');
     } catch (e) {
-      print('Error in form submission: $e');
-      print('Stack trace: ${StackTrace.current}');
+      AppLogger.error('Error in form submission: $e');
+      AppLogger.debug('Stack trace: ${StackTrace.current}');
       _showSnackBar('Error submitting form: ${e.toString()}', isError: true);
     } finally {
-      print('Resetting submission state...');
+      AppLogger.debug('Resetting submission state...');
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
-      print('Submission state reset complete');
+      AppLogger.debug('Submission state reset complete');
     }
   }
 
   void _showSnackBar(String message, {required bool isError}) {
     // Check if widget is still mounted before showing snackbar
     if (!mounted) {
-      print('Widget not mounted, skipping snackbar: $message');
+      AppLogger.debug('Widget not mounted, skipping snackbar: $message');
       return;
     }
 
@@ -3334,8 +3335,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         ),
       );
     } catch (e) {
-      print('Error showing snackbar: $e');
-      print('Message was: $message');
+      AppLogger.error('Error showing snackbar: $e');
+      AppLogger.debug('Message was: $message');
     }
   }
 

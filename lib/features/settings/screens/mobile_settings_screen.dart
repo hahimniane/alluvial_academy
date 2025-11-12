@@ -7,6 +7,8 @@ import '../../../core/services/profile_picture_service.dart';
 import '../../../core/services/theme_service.dart';
 import 'notification_preferences_screen.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class MobileSettingsScreen extends StatefulWidget {
   const MobileSettingsScreen({super.key});
 
@@ -38,7 +40,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      AppLogger.error('Error loading user data: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -79,7 +81,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         );
       }
     } catch (e) {
-      print('Error uploading profile picture: $e');
+      AppLogger.error('Error uploading profile picture: $e');
       if (mounted) {
         setState(() => _isUploadingPicture = false);
         
@@ -117,7 +119,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         );
       }
     } catch (e) {
-      print('Error removing profile picture: $e');
+      AppLogger.error('Error removing profile picture: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -9,6 +9,8 @@ import '../models/timesheet_entry.dart';
 import '../../../core/services/location_service.dart';
 import '../../../utility_functions/export_helpers.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TimesheetTable extends StatefulWidget {
   final List<dynamic>? clockInEntries;
 
@@ -68,7 +70,7 @@ class _TimesheetTableState extends State<TimesheetTable>
   // Public method to manually refresh data
   void refreshData() {
     if (mounted) {
-      print('TimesheetTable: Refreshing data from Firebase...');
+      AppLogger.debug('TimesheetTable: Refreshing data from Firebase...');
       _loadTimesheetData();
     }
   }
@@ -84,7 +86,7 @@ class _TimesheetTableState extends State<TimesheetTable>
 
   void _loadTimesheetData() {
     // Load saved timesheet entries from Firebase first
-    print('TimesheetTable: Loading timesheet entries from Firebase...');
+    AppLogger.debug('TimesheetTable: Loading timesheet entries from Firebase...');
     _loadSavedTimesheetEntries().then((savedEntries) {
       if (!mounted) return;
 
@@ -140,27 +142,27 @@ class _TimesheetTableState extends State<TimesheetTable>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        print('TimesheetTable: ❌ No authenticated user found');
+        AppLogger.debug('TimesheetTable: ❌ No authenticated user found');
         return [];
       }
 
-      print('TimesheetTable: 🔍 Loading timesheets for user: ${user.uid}');
-      print('TimesheetTable: 📧 User email: ${user.email}');
+      AppLogger.debug('TimesheetTable: 🔍 Loading timesheets for user: ${user.uid}');
+      AppLogger.debug('TimesheetTable: 📧 User email: ${user.email}');
 
       final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection('timesheet_entries')
           .where('teacher_id', isEqualTo: user.uid)
           .get();
 
-      print(
+      AppLogger.debug(
           'TimesheetTable: 📊 Found ${querySnapshot.docs.length} timesheet documents');
 
       if (querySnapshot.docs.isEmpty) {
-        print('TimesheetTable: ⚠️ No timesheet entries found for this teacher');
-        print('TimesheetTable: 💡 This could mean:');
-        print('  - Teacher hasn\'t clocked in/out yet');
-        print('  - Firestore security rules are blocking access');
-        print('  - teacher_id field doesn\'t match user.uid');
+        AppLogger.debug('TimesheetTable: ⚠️ No timesheet entries found for this teacher');
+        AppLogger.debug('TimesheetTable: 💡 This could mean:');
+        AppLogger.debug('  - Teacher hasn\'t clocked in/out yet');
+        AppLogger.debug('  - Firestore security rules are blocking access');
+        AppLogger.debug('  - teacher_id field doesn\'t match user.uid');
         return [];
       }
 
@@ -168,12 +170,12 @@ class _TimesheetTableState extends State<TimesheetTable>
       for (QueryDocumentSnapshot doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
 
-        print('TimesheetTable: 📝 Processing document ${doc.id}:');
-        print('  - Date: ${data['date']}');
-        print('  - Student: ${data['student_name']}');
-        print('  - Start: ${data['start_time']}');
-        print('  - End: ${data['end_time']}');
-        print('  - Status: ${data['status']}');
+        AppLogger.debug('TimesheetTable: 📝 Processing document ${doc.id}:');
+        AppLogger.debug('  - Date: ${data['date']}');
+        AppLogger.debug('  - Student: ${data['student_name']}');
+        AppLogger.debug('  - Start: ${data['start_time']}');
+        AppLogger.debug('  - End: ${data['end_time']}');
+        AppLogger.debug('  - Status: ${data['status']}');
 
         entries.add(TimesheetEntry(
           documentId: doc.id, // Include the document ID
@@ -204,12 +206,12 @@ class _TimesheetTableState extends State<TimesheetTable>
         }
       });
 
-      print(
+      AppLogger.error(
           'TimesheetTable: ✅ Successfully loaded ${entries.length} timesheet entries');
       return entries;
     } catch (e) {
-      print('TimesheetTable: ❌ Error loading timesheet entries: $e');
-      print('TimesheetTable: 🔧 Stack trace: ${StackTrace.current}');
+      AppLogger.error('TimesheetTable: ❌ Error loading timesheet entries: $e');
+      AppLogger.error('TimesheetTable: 🔧 Stack trace: ${StackTrace.current}');
 
       // Show user-friendly error message
       if (mounted) {
@@ -286,17 +288,17 @@ class _TimesheetTableState extends State<TimesheetTable>
             .collection('timesheet_entries')
             .doc(entry.documentId!)
             .update(entryData);
-        print('Timesheet entry updated successfully');
+        AppLogger.info('Timesheet entry updated successfully');
       } else {
         // Create new entry
         entryData['created_at'] = FieldValue.serverTimestamp();
         await FirebaseFirestore.instance
             .collection('timesheet_entries')
             .add(entryData);
-        print('Timesheet entry created successfully');
+        AppLogger.error('Timesheet entry created successfully');
       }
     } catch (e) {
-      print('Error saving timesheet entry: $e');
+      AppLogger.error('Error saving timesheet entry: $e');
       rethrow;
     }
   }
@@ -1516,7 +1518,7 @@ class TimesheetDataSource extends DataGridSource {
           return locationName;
         }
       } catch (e) {
-        print('Error converting coordinates to location: $e');
+        AppLogger.error('Error converting coordinates to location: $e');
         // Continue to fallback logic below
       }
     }
@@ -1660,7 +1662,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
         _isLoadingStudents = false;
       });
     } catch (e) {
-      print('Error loading students: $e');
+      AppLogger.error('Error loading students: $e');
       setState(() {
         _isLoadingStudents = false;
       });
@@ -1877,7 +1879,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                 initialDate = DateTime.now();
               }
 
-              print('Showing date picker with initialDate: $initialDate');
+              AppLogger.debug('Showing date picker with initialDate: $initialDate');
 
               final date = await showDatePicker(
                 context: context,
@@ -1896,7 +1898,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                 },
               );
 
-              print('Date picker returned: $date');
+              AppLogger.debug('Date picker returned: $date');
 
               if (date != null) {
                 setState(() {

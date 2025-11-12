@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/timesheet_entry.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// Mobile-friendly timesheet view using cards instead of table
 class MobileTimesheetView extends StatefulWidget {
   final List<dynamic>? clockInEntries;
@@ -96,7 +98,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
           );
           entries.add(entry);
         } catch (e) {
-          print('Error parsing entry: $e');
+          AppLogger.error('Error parsing entry: $e');
         }
       }
 
@@ -108,24 +110,24 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
           final dateB = DateFormat('MMM dd, yyyy').parse(b.date);
           return dateB.compareTo(dateA);
         } catch (e) {
-          print('MobileTimesheetView: Error parsing date "${a.date}" or "${b.date}": $e');
+          AppLogger.error('MobileTimesheetView: Error parsing date "${a.date}" or "${b.date}": $e');
           return 0;
         }
       });
 
-      print('MobileTimesheetView: Loaded ${entries.length} total entries');
+      AppLogger.error('MobileTimesheetView: Loaded ${entries.length} total entries');
 
       // Apply filters
       entries = _applyFilters(entries);
       
-      print('MobileTimesheetView: After filters (Time: $_selectedTimeFilter, Status: $_selectedStatusFilter): ${entries.length} entries');
+      AppLogger.debug('MobileTimesheetView: After filters (Time: $_selectedTimeFilter, Status: $_selectedStatusFilter): ${entries.length} entries');
 
       setState(() {
         _timesheetData = entries;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading timesheet: $e');
+      AppLogger.error('Error loading timesheet: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -163,11 +165,11 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                 entryDate.month == today.month &&
                 entryDate.day == today.day;
             if (match) {
-              print('MobileTimesheetView: Entry "${entry.date}" matches Today filter');
+              AppLogger.error('MobileTimesheetView: Entry "${entry.date}" matches Today filter');
             }
             return match;
           } catch (e) {
-            print('MobileTimesheetView: Error parsing date "${entry.date}": $e');
+            AppLogger.error('MobileTimesheetView: Error parsing date "${entry.date}": $e');
             return false;
           }
         }).toList();
@@ -180,7 +182,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
             final date = DateFormat('MMM dd, yyyy').parse(entry.date);
             return date.isAfter(weekStart.subtract(const Duration(days: 1)));
           } catch (e) {
-            print('MobileTimesheetView: Error parsing date "${entry.date}": $e');
+            AppLogger.error('MobileTimesheetView: Error parsing date "${entry.date}": $e');
             return false;
           }
         }).toList();
@@ -191,7 +193,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
             final date = DateFormat('MMM dd, yyyy').parse(entry.date);
             return date.year == today.year && date.month == today.month;
           } catch (e) {
-            print('MobileTimesheetView: Error parsing date "${entry.date}": $e');
+            AppLogger.error('MobileTimesheetView: Error parsing date "${entry.date}": $e');
             return false;
           }
         }).toList();

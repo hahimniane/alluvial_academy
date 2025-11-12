@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/form_draft.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// Service for managing form drafts in Firestore
 class FormDraftService {
   static const String _collection = 'form_drafts';
@@ -39,13 +41,13 @@ class FormDraftService {
       if (draftId != null) {
         // Update existing draft
         await _firestore.collection(_collection).doc(draftId).update(draftData);
-        print('FormDraftService: Updated draft $draftId');
+        AppLogger.info('FormDraftService: Updated draft $draftId');
         return draftId;
       } else {
         // Create new draft
         draftData['createdAt'] = Timestamp.fromDate(now);
         final docRef = await _firestore.collection(_collection).add(draftData);
-        print('FormDraftService: Created new draft ${docRef.id}');
+        AppLogger.error('FormDraftService: Created new draft ${docRef.id}');
 
         // Clean up old drafts if we exceed 10 drafts
         await _limitUserDrafts();
@@ -53,7 +55,7 @@ class FormDraftService {
         return docRef.id;
       }
     } catch (e) {
-      print('FormDraftService: Error saving draft: $e');
+      AppLogger.error('FormDraftService: Error saving draft: $e');
       rethrow;
     }
   }
@@ -66,7 +68,7 @@ class FormDraftService {
 
       return FormDraft.fromFirestore(doc);
     } catch (e) {
-      print('FormDraftService: Error getting draft: $e');
+      AppLogger.error('FormDraftService: Error getting draft: $e');
       return null;
     }
   }
@@ -85,7 +87,7 @@ class FormDraftService {
         .limit(10) // Limit to 10 most recent drafts
         .snapshots()
         .handleError((error) {
-      print('FormDraftService: Error in getUserDrafts stream: $error');
+      AppLogger.error('FormDraftService: Error in getUserDrafts stream: $error');
       return <QuerySnapshot>[];
     }).map((snapshot) {
       try {
@@ -93,7 +95,7 @@ class FormDraftService {
             .map((doc) => FormDraft.fromFirestore(doc))
             .toList();
       } catch (e) {
-        print('FormDraftService: Error parsing drafts: $e');
+        AppLogger.error('FormDraftService: Error parsing drafts: $e');
         return <FormDraft>[];
       }
     });
@@ -103,9 +105,9 @@ class FormDraftService {
   Future<void> deleteDraft(String draftId) async {
     try {
       await _firestore.collection(_collection).doc(draftId).delete();
-      print('FormDraftService: Deleted draft $draftId');
+      AppLogger.error('FormDraftService: Deleted draft $draftId');
     } catch (e) {
-      print('FormDraftService: Error deleting draft: $e');
+      AppLogger.error('FormDraftService: Error deleting draft: $e');
       rethrow;
     }
   }
@@ -127,9 +129,9 @@ class FormDraftService {
       }
 
       await batch.commit();
-      print('FormDraftService: Deleted all drafts for user ${user.uid}');
+      AppLogger.error('FormDraftService: Deleted all drafts for user ${user.uid}');
     } catch (e) {
-      print('FormDraftService: Error deleting all drafts: $e');
+      AppLogger.error('FormDraftService: Error deleting all drafts: $e');
       rethrow;
     }
   }
@@ -154,9 +156,9 @@ class FormDraftService {
       }
 
       await batch.commit();
-      print('FormDraftService: Cleaned up ${snapshot.docs.length} old drafts');
+      AppLogger.error('FormDraftService: Cleaned up ${snapshot.docs.length} old drafts');
     } catch (e) {
-      print('FormDraftService: Error cleaning up old drafts: $e');
+      AppLogger.error('FormDraftService: Error cleaning up old drafts: $e');
     }
   }
 
@@ -178,7 +180,7 @@ class FormDraftService {
 
       return FormDraft.fromFirestore(snapshot.docs.first);
     } catch (e) {
-      print('FormDraftService: Error getting draft for form: $e');
+      AppLogger.error('FormDraftService: Error getting draft for form: $e');
       return null;
     }
   }
@@ -207,9 +209,9 @@ class FormDraftService {
     // Sort by order to maintain proper field sequence
     converted.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
 
-    print('FormDraftService: Converted ${converted.length} fields from draft');
+    AppLogger.debug('FormDraftService: Converted ${converted.length} fields from draft');
     for (var field in converted) {
-      print('  - Field ${field['id']}: ${field['type']} (${field['label']})');
+      AppLogger.debug('  - Field ${field['id']}: ${field['type']} (${field['label']})');
     }
 
     return converted;
@@ -239,11 +241,11 @@ class FormDraftService {
         }
 
         await batch.commit();
-        print(
+        AppLogger.error(
             'FormDraftService: Cleaned up ${docsToDelete.length} old drafts to maintain 10 draft limit');
       }
     } catch (e) {
-      print('FormDraftService: Error limiting user drafts: $e');
+      AppLogger.error('FormDraftService: Error limiting user drafts: $e');
       // Don't rethrow as this is a cleanup operation
     }
   }
@@ -253,11 +255,11 @@ class FormDraftService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        print('FormDraftService: No authenticated user for connection test');
+        AppLogger.debug('FormDraftService: No authenticated user for connection test');
         return false;
       }
 
-      print('FormDraftService: Testing connection for user ${user.uid}');
+      AppLogger.debug('FormDraftService: Testing connection for user ${user.uid}');
 
       // Try to read from the collection
       final snapshot = await _firestore
@@ -266,11 +268,11 @@ class FormDraftService {
           .limit(1)
           .get();
 
-      print(
+      AppLogger.error(
           'FormDraftService: Connection test successful, found ${snapshot.docs.length} documents');
       return true;
     } catch (e) {
-      print('FormDraftService: Connection test failed: $e');
+      AppLogger.error('FormDraftService: Connection test failed: $e');
       return false;
     }
   }

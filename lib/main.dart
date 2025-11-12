@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'core/services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,28 +24,37 @@ import 'core/services/connectivity_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
-import 'core/migrations/shift_wage_migration.dart';
+import 'core/services/version_service.dart';
+import 'core/widgets/version_check_wrapper.dart';
+import 'core/utils/app_logger.dart';
+
+// NOTE: The legacy shift wage migration has been permanently disabled.
+// If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
+// from a separate maintenance script instead of during app startup.
 
 /// Save FCM token if user is already logged in (non-blocking)
 void _saveFCMTokenIfLoggedIn() {
   // Run in background to avoid blocking app startup
-  Future.delayed(const Duration(seconds: 2), () async {
+  // iOS needs more time for APNs token -> FCM token conversion
+  final delay = (!kIsWeb && Platform.isIOS) ? const Duration(seconds: 5) : const Duration(seconds: 2);
+  
+  Future.delayed(delay, () async {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
-      print('🔍 Checking if user is logged in...');
-      print('🔍 Current user: ${currentUser?.uid}');
-      print('🔍 Current user email: ${currentUser?.email}');
+      AppLogger.debug('🔍 Checking if user is logged in...');
+      AppLogger.debug('🔍 Current user: ${currentUser?.uid}');
+      AppLogger.debug('🔍 Current user email: ${currentUser?.email}');
       
       if (currentUser != null) {
-        print('✅ User is logged in, attempting to save FCM token...');
+        AppLogger.info('✅ User is logged in, attempting to save FCM token...');
         await NotificationService().saveTokenToFirestore(userId: currentUser.uid);
-        print('✅ FCM token save completed for user: ${currentUser.uid}');
+        AppLogger.info('✅ FCM token save completed for user: ${currentUser.uid}');
       } else {
-        print('❌ No user logged in - FCM token will not be saved');
+        AppLogger.warning('❌ No user logged in - FCM token will not be saved');
       }
     } catch (e) {
-      print('❌ ERROR saving FCM token on launch: $e');
-      print('❌ Stack trace: ${StackTrace.current}');
+      AppLogger.error('❌ ERROR saving FCM token on launch: $e');
+      AppLogger.error('❌ Stack trace: ${StackTrace.current}');
     }
   });
 }
@@ -85,9 +96,15 @@ Future<void> main() async {
     _saveFCMTokenIfLoggedIn();
   }
 
-  // Run one-time shift wage migration
-  // This will update all teacher shifts to $4 per hour
-  await ShiftWageMigration.runMigration();
+  // Initialize Version Service and Remote Config (for force update)
+  if (!kIsWeb) {
+    await VersionService.initialize();
+  }
+
+  // Shift wage migration intentionally disabled.
+  if (kDebugMode) {
+    AppLogger.debug('Shift wage migration is disabled on startup.');
+  }
 
   // Handle Flutter framework errors gracefully (like trackpad gesture assertions)
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -98,7 +115,7 @@ Future<void> main() async {
             .contains('!identical(kind, PointerDeviceKind.trackpad)')) {
       // Silently ignore trackpad gesture assertion errors
       if (kDebugMode) {
-        print('Ignoring trackpad gesture assertion: ${details.exception}');
+        AppLogger.debug('Ignoring trackpad gesture assertion: ${details.exception}');
       }
       return;
     }
@@ -112,7 +129,7 @@ Future<void> main() async {
           msg.contains('Assertion failed') ||
           msg.contains('org-dartlang-sdk')) {
         if (kDebugMode) {
-          print('Ignoring web inspector/engine error: $msg');
+          AppLogger.debug('Ignoring web inspector/engine error: $msg');
         }
         return;
       }
@@ -157,7 +174,7 @@ Future<void> main() async {
       }
     } catch (e) {
       // If runWidget fails, fallback to runApp
-      print('runWidget failed, falling back to runApp: $e');
+      AppLogger.error('runWidget failed, falling back to runApp: $e');
       runApp(
         ChangeNotifierProvider(
           create: (_) => ThemeService(),
@@ -169,15 +186,17 @@ Future<void> main() async {
       );
     }
   } else {
-    runApp(
-      ChangeNotifierProvider(
-        create: (_) => ThemeService(),
-        child: DevicePreview(
-          enabled: kDebugMode, // Only enabled in debug mode
-          builder: (context) => const MyApp(),
+      runApp(
+        ChangeNotifierProvider(
+          create: (_) => ThemeService(),
+          child: VersionCheckWrapper(
+            child: DevicePreview(
+              enabled: kDebugMode, // Only enabled in debug mode
+              builder: (context) => const MyApp(),
+            ),
+          ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -186,22 +205,22 @@ class MyApp extends StatelessWidget {
 
   // Determine initial screen based on platform
   Widget get _initialScreen {
-    print('=== MyApp._initialScreen: kIsWeb = $kIsWeb ===');
+    AppLogger.debug('=== MyApp._initialScreen: kIsWeb = $kIsWeb ===');
 
     if (!kIsWeb) {
       final platform = defaultTargetPlatform;
       final isMobilePlatform =
           platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 
-      print('=== Platform check: $platform, isMobile=$isMobilePlatform ===');
+      AppLogger.debug('=== Platform check: $platform, isMobile=$isMobilePlatform ===');
       if (isMobilePlatform) {
-        print('=== Returning AuthenticationWrapper for mobile ===');
+        AppLogger.debug('=== Returning AuthenticationWrapper for mobile ===');
         return const AuthenticationWrapper();
       }
     }
 
     // On web or other platforms, show the website landing page
-    print('=== Returning LandingPage ===');
+    AppLogger.debug('=== Returning LandingPage ===');
     return const LandingPage();
   }
 
@@ -280,7 +299,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
           await firestore.disableNetwork();
           await firestore.enableNetwork();
         } catch (firestoreError) {
-          print('Firestore initialization error: $firestoreError');
+          AppLogger.error('Firestore initialization error: $firestoreError');
           // Continue anyway - might be a temporary issue
         }
       }
@@ -289,7 +308,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
         _initialized = true;
       });
     } catch (e) {
-      print('Firebase initialization error: $e');
+      AppLogger.error('Firebase initialization error: $e');
       setState(() {
         _error = true;
       });
@@ -506,7 +525,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       builder: (context, snapshot) {
         // Handle errors gracefully during auth state changes
         if (snapshot.hasError) {
-          print('Auth state error: ${snapshot.error}');
+          AppLogger.error('Auth state error: ${snapshot.error}');
           return _isMobile ? const MobileLoginScreen() : const EmployeeHubApp();
         }
         // Handle connection states properly

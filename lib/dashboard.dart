@@ -3,6 +3,7 @@ import 'features/dashboard/screens/admin_dashboard_screen.dart';
 import 'features/chat/screens/chat_page.dart';
 import 'form_screen.dart';
 import 'features/forms/screens/form_responses_screen.dart';
+import 'features/forms/screens/my_submissions_screen.dart';
 import 'job_scheduling.dart';
 import 'features/time_clock/screens/time_clock_screen.dart';
 import 'features/time_clock/screens/admin_timesheet_review.dart';
@@ -27,6 +28,8 @@ import 'features/zoom/screens/zoom_screen.dart';
 import 'features/notifications/screens/send_notification_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
+
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Constants for the Dashboard
 class DashboardConstants {
@@ -82,7 +85,7 @@ class _DashboardPageState extends State<DashboardPage> {
         });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      AppLogger.error('Error loading user data: $e');
     }
   }
 
@@ -96,7 +99,7 @@ class _DashboardPageState extends State<DashboardPage> {
         });
       }
     } catch (e) {
-      print('Error loading sidebar state: $e');
+      AppLogger.error('Error loading sidebar state: $e');
     }
   }
 
@@ -105,7 +108,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('sidebar_collapsed', _isSideMenuCollapsed);
     } catch (e) {
-      print('Error saving sidebar state: $e');
+      AppLogger.error('Error saving sidebar state: $e');
     }
   }
 
@@ -127,6 +130,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const TestRoleSystemScreen(),
         const FirestoreDebugScreen(),
         const SendNotificationScreen(),
+        const MySubmissionsScreen(), // New: Teacher's own form submissions
       ];
 
   /// Updates the selected index when a navigation item is tapped
@@ -238,9 +242,9 @@ class _DashboardPageState extends State<DashboardPage> {
       // Now sign out from Firebase Auth
       await FirebaseAuth.instance.signOut();
 
-      print('Sign out completed successfully');
+      AppLogger.error('Sign out completed successfully');
     } catch (e) {
-      print('Sign out error: $e');
+      AppLogger.error('Sign out error: $e');
       // Even if there's an error, ensure we're on the landing page
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -762,7 +766,7 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Builds the animated logo with hover effect
   Widget _buildAnimatedLogo() {
     return GestureDetector(
-      onTap: () => print('Logo clicked'),
+      onTap: () => AppLogger.debug('Logo clicked'),
       child: MouseRegion(
         onEnter: (_) {
           if (mounted) setState(() => _isHovered = true);
@@ -1124,6 +1128,12 @@ class _DashboardPageState extends State<DashboardPage> {
                       text: 'Forms',
                       index: 8,
                       color: DashboardConstants.formsIconColor,
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.assignment_turned_in),
+                      text: 'My Submissions',
+                      index: 16, // Route to MySubmissionsScreen
+                      color: const Color(0xff8B5CF6),
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.task_alt),

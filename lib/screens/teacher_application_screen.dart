@@ -6,6 +6,7 @@ import 'package:country_picker/country_picker.dart';
 import 'package:flutter/foundation.dart';
 import '../shared/widgets/persistent_app_bar.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class TeacherApplicationScreen extends StatefulWidget {
   const TeacherApplicationScreen({super.key});
 
@@ -605,7 +606,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               _phoneNumber = phone.number;
               _countryCode = phone.countryCode;
             });
-            print('Phone updated: ${phone.completeNumber}, Country Code: ${phone.countryCode}');
+            AppLogger.debug('Phone updated: ${phone.completeNumber}, Country Code: ${phone.countryCode}');
           },
           validator: (phone) {
             if (phone == null || phone.number.isEmpty) {
@@ -838,7 +839,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
       }
 
       if (kDebugMode) {
-        print('Application submitted successfully with ID: ${docRef.id}');
+        AppLogger.info('Application submitted successfully with ID: ${docRef.id}');
       }
 
       if (mounted) {
@@ -846,8 +847,8 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error submitting application: $e');
-        print('Error type: ${e.runtimeType}');
+        AppLogger.error('Error submitting application: $e');
+        AppLogger.error('Error type: ${e.runtimeType}');
       }
       
       if (mounted) {
@@ -888,7 +889,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
           }
         } catch (castError) {
           if (kDebugMode) {
-            print('Error casting exception: $castError');
+            AppLogger.error('Error casting exception: $castError');
           }
           // Fallback to string-based error handling
           final errorString = e.toString().toLowerCase();

@@ -5,6 +5,8 @@ import '../models/task_comment.dart';
 import '../models/task.dart';
 import '../services/task_comment_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TaskCommentsSection extends StatefulWidget {
   final Task task;
 
@@ -67,9 +69,9 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
       }
     } catch (e) {
       // Log error to console for debugging
-      print('🚨 TaskCommentsSection._submitComment() Error: $e');
+      AppLogger.error('🚨 TaskCommentsSection._submitComment() Error: $e');
       if (e is Exception) {
-        print('🚨 Exception details: ${e.toString()}');
+        AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
       
       if (mounted) {
@@ -136,9 +138,9 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
         }
       } catch (e) {
         // Log error to console for debugging
-        print('🚨 TaskCommentsSection._deleteComment() Error: $e');
+        AppLogger.error('🚨 TaskCommentsSection._deleteComment() Error: $e');
         if (e is Exception) {
-          print('🚨 Exception details: ${e.toString()}');
+          AppLogger.error('🚨 Exception details: ${e.toString()}');
         }
         
         if (mounted) {
@@ -427,12 +429,12 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
 
             if (snapshot.hasError) {
               // Log error to console for debugging
-              print('🚨 TaskCommentsSection StreamBuilder Error: ${snapshot.error}');
+              AppLogger.error('🚨 TaskCommentsSection StreamBuilder Error: ${snapshot.error}');
               if (snapshot.error is Exception) {
-                print('🚨 Exception details: ${snapshot.error.toString()}');
+                AppLogger.error('🚨 Exception details: ${snapshot.error.toString()}');
               }
               if (snapshot.stackTrace != null) {
-                print('🚨 Stack trace: ${snapshot.stackTrace}');
+                AppLogger.debug('🚨 Stack trace: ${snapshot.stackTrace}');
               }
               
               return Center(

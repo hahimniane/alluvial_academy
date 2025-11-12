@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class Employee {
   Employee({
     required this.firstName,
@@ -78,7 +80,7 @@ class EmployeeDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'LastLogin', value: e.lastLogin),
       ]);
     }).toList();
-    print('the update method was called ');
+    AppLogger.debug('the update method was called ');
     notifyListeners();
   }
 

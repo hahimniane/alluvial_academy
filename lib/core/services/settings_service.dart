@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class SettingsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _collection = 'app_settings';
@@ -18,7 +20,7 @@ class SettingsService {
       final num? raw = data['teacher_hourly_rate'] as num?;
       return (raw ?? defaultTeacherHourlyRate).toDouble();
     } catch (e) {
-      print('SettingsService: Error fetching hourly rate: $e');
+      AppLogger.error('SettingsService: Error fetching hourly rate: $e');
       return defaultTeacherHourlyRate;
     }
   }
@@ -30,9 +32,9 @@ class SettingsService {
         'teacher_hourly_rate': rate,
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      print('SettingsService: Updated teacher hourly rate to $rate');
+      AppLogger.error('SettingsService: Updated teacher hourly rate to $rate');
     } catch (e) {
-      print('SettingsService: Error updating hourly rate: $e');
+      AppLogger.error('SettingsService: Error updating hourly rate: $e');
       rethrow;
     }
   }

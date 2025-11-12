@@ -10,6 +10,8 @@ import '../../../core/services/user_role_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
 
@@ -71,13 +73,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       try {
         final currentAdmin = await UserRoleService.isAdmin();
         if (currentAdmin != _isAdmin) {
-          print(
+          AppLogger.error(
               'QuickTasks: Role change detected! Admin: $_isAdmin -> $currentAdmin');
           // Role has changed, reload tasks
           _loadUserRoleAndTasks();
         }
       } catch (e) {
-        print('QuickTasks: Error checking role changes: $e');
+        AppLogger.error('QuickTasks: Error checking role changes: $e');
       }
     });
   }
@@ -119,10 +121,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           }
         });
 
-        print('Tasks loaded successfully. Admin: $isAdmin');
+        AppLogger.error('Tasks loaded successfully. Admin: $isAdmin');
       }
     } catch (e) {
-      print('Error loading user role and tasks: $e');
+      AppLogger.error('Error loading user role and tasks: $e');
 
       if (mounted) {
         setState(() {
@@ -840,13 +842,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       stream: _taskStream,
       builder: (context, snapshot) {
         // Debug logging
-        print('StreamBuilder state: ${snapshot.connectionState}');
-        print('Has data: ${snapshot.hasData}');
-        print(
+        AppLogger.debug('StreamBuilder state: ${snapshot.connectionState}');
+        AppLogger.debug('Has data: ${snapshot.hasData}');
+        AppLogger.debug(
             'Data length: ${snapshot.hasData ? snapshot.data!.length : 'N/A'}');
-        print('Has error: ${snapshot.hasError}');
+        AppLogger.error('Has error: ${snapshot.hasError}');
         if (snapshot.hasError) {
-          print('Error: ${snapshot.error}');
+          AppLogger.error('Error: ${snapshot.error}');
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1020,27 +1022,36 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             padding: const EdgeInsets.all(8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
               children: [
                 _buildCardHeader(task),
-                const SizedBox(height: 3),
+                const SizedBox(height: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildTaskTitle(task),
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 4),
                       Expanded(
-                        child: _buildTaskDescription(task),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: _buildTaskDescription(task),
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      _buildDueDateSection(
-                          task, daysUntilDue, isOverdue, isDueSoon),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.bottomLeft,
+                        child: _buildDueDateSection(
+                          task,
+                          daysUntilDue,
+                          isOverdue,
+                          isDueSoon,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 8),
                 _buildCardFooter(task),
               ],
             ),
@@ -1111,7 +1122,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         fontWeight: FontWeight.bold,
         color: Color(0xFF1A202C),
       ),
-      maxLines: 2,
+      maxLines: 3,
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -1455,19 +1466,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     final crossAxisCount = _getCrossAxisCount(context);
     final width = MediaQuery.of(context).size.width;
 
-    // Higher aspect ratio = shorter/smaller cards
+    // Lower aspect ratio = taller card
     if (crossAxisCount == 1) {
       // Single column on mobile
-      if (width < 400) return 2.2; // Very small screens
-      return 2.5; // Regular mobile screens
+      if (width < 400) return 1.4; // Very small screens
+      return 1.6; // Regular mobile screens
     }
     if (crossAxisCount == 2) {
       // Two columns on tablet
-      if (width < 800) return 2.0; // Small tablets
-      return 2.3; // Regular tablets
+      if (width < 800) return 1.45; // Small tablets
+      return 1.55; // Regular tablets
     }
-    if (crossAxisCount == 3) return 1.8; // Three columns
-    return 1.6; // Four columns on large desktop
+    if (crossAxisCount == 3) return 1.45; // Three columns
+    return 1.35; // Four columns on large desktop
   }
 
   String _getStatusLabel(TaskStatus status) {

@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:554077757249:android:5a5c76e677152c4fcc8bc0",
+        "mobilesdk_app_id": "1:554077757249:android:60fab9887caa6295cc8bc0",
         "android_client_info": {
-          "package_name": "com.example.alluwalacademyadmin"
+          "package_name": "org.alluvaleducationhub.academy"
         }
       },
       "oauth_client": [],

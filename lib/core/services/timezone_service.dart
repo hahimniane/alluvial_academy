@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/timezone_utils.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TimezoneService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -34,11 +36,11 @@ class TimezoneService {
           'timezone': detectedTimezone,
           'timezone_last_updated': FieldValue.serverTimestamp(),
         });
-        print(
+        AppLogger.error(
             'Updated user timezone from $storedTimezone to $detectedTimezone');
       }
     } catch (e) {
-      print('Error updating user timezone: $e');
+      AppLogger.error('Error updating user timezone: $e');
     }
   }
 
@@ -51,7 +53,7 @@ class TimezoneService {
       final userData = userDoc.data() as Map<String, dynamic>;
       return userData['timezone'] as String?;
     } catch (e) {
-      print('Error getting user timezone: $e');
+      AppLogger.error('Error getting user timezone: $e');
       return null;
     }
   }
@@ -77,7 +79,7 @@ class TimezoneService {
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
       return userData['timezone'] ?? TimezoneUtils.detectUserTimezone();
     } catch (e) {
-      print('Error getting current user timezone: $e');
+      AppLogger.error('Error getting current user timezone: $e');
       return TimezoneUtils.detectUserTimezone();
     }
   }

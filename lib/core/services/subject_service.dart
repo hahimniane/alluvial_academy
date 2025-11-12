@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/subject.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class SubjectService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _collection = 'subjects';
@@ -33,7 +35,7 @@ class SubjectService {
       final snapshot = await _firestore.collection(_collection).limit(1).get();
 
       if (snapshot.docs.isEmpty) {
-        print('Initializing default subjects...');
+        AppLogger.debug('Initializing default subjects...');
         final batch = _firestore.batch();
 
         for (final subjectData in DefaultSubjects.subjects) {
@@ -46,10 +48,10 @@ class SubjectService {
         }
 
         await batch.commit();
-        print('Default subjects initialized successfully');
+        AppLogger.error('Default subjects initialized successfully');
       }
     } catch (e) {
-      print('Error initializing default subjects: $e');
+      AppLogger.error('Error initializing default subjects: $e');
     }
   }
 
@@ -84,7 +86,7 @@ class SubjectService {
 
       return snapshot.docs.map((doc) => Subject.fromFirestore(doc)).toList();
     } catch (e) {
-      print('Error fetching subjects: $e');
+      AppLogger.error('Error fetching subjects: $e');
       return [];
     }
   }
@@ -100,7 +102,7 @@ class SubjectService {
 
       return snapshot.docs.map((doc) => Subject.fromFirestore(doc)).toList();
     } catch (e) {
-      print('Error fetching active subjects: $e');
+      AppLogger.error('Error fetching active subjects: $e');
       return [];
     }
   }
@@ -125,7 +127,7 @@ class SubjectService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error adding subject: $e');
+      AppLogger.error('Error adding subject: $e');
       rethrow;
     }
   }
@@ -156,7 +158,7 @@ class SubjectService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error updating subject: $e');
+      AppLogger.error('Error updating subject: $e');
       rethrow;
     }
   }
@@ -169,7 +171,7 @@ class SubjectService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error toggling subject status: $e');
+      AppLogger.error('Error toggling subject status: $e');
       rethrow;
     }
   }
@@ -180,7 +182,7 @@ class SubjectService {
       // Instead of deleting, we'll just deactivate it
       await toggleSubjectStatus(id, false);
     } catch (e) {
-      print('Error deleting subject: $e');
+      AppLogger.error('Error deleting subject: $e');
       rethrow;
     }
   }
@@ -190,7 +192,7 @@ class SubjectService {
     try {
       await _firestore.collection(_collection).doc(id).delete();
     } catch (e) {
-      print('Error permanently deleting subject: $e');
+      AppLogger.error('Error permanently deleting subject: $e');
       rethrow;
     }
   }
@@ -212,7 +214,7 @@ class SubjectService {
 
       await batch.commit();
     } catch (e) {
-      print('Error reordering subjects: $e');
+      AppLogger.error('Error reordering subjects: $e');
       rethrow;
     }
   }
@@ -228,7 +230,7 @@ class SubjectService {
 
       return null;
     } catch (e) {
-      print('Error fetching subject by ID: $e');
+      AppLogger.error('Error fetching subject by ID: $e');
       return null;
     }
   }
@@ -250,7 +252,7 @@ class SubjectService {
                   false))
           .toList();
     } catch (e) {
-      print('Error searching subjects: $e');
+      AppLogger.error('Error searching subjects: $e');
       return [];
     }
   }

@@ -9,6 +9,8 @@ import '../screens/group_creation_screen.dart';
 import '../../../core/services/user_role_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
 
@@ -627,7 +629,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       try {
         await _chatService.getOrCreateIndividualChat(user.id);
       } catch (e) {
-        print('Error creating chat: $e');
+        AppLogger.error('Error creating chat: $e');
       }
     }
 

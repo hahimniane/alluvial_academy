@@ -13,6 +13,8 @@ import 'shared/widgets/header_widget.dart';
 import 'core/models/employee_model.dart';
 import 'utility_functions/export_helpers.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
 
@@ -39,10 +41,10 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       for (var docSnapshot in querySnapshot.docs) {
         // Accessing the 'country_code' field in each document
         String? countryCode = docSnapshot.data()['country_code'];
-        print('Country Code: $countryCode');
+        AppLogger.error('Country Code: $countryCode');
       }
     }).catchError((error) {
-      print("Error fetching data: $error");
+      AppLogger.error("Error fetching data: $error");
     });
   }
 
@@ -72,9 +74,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   //             .contains(searchTerm.toLowerCase());
   //       }).toList();
   //     }
-  //     print('sorted employes');
+  //     AppLogger.debug('sorted employes');
   //     for (var employee in _filteredEmployees) {
-  //       print("Employee is ${employee.firstName}");
+  //       AppLogger.debug("Employee is ${employee.firstName}");
   //     }
 
   //     _employeeDataSource!.updateDataSource(_filteredEmployees);
@@ -107,7 +109,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   }
 
   void _exportData() {
-    print('_exportData called. _allEmployees length: ${_allEmployees.length}');
+    AppLogger.debug('_exportData called. _allEmployees length: ${_allEmployees.length}');
 
     List<String> headers = [
       "First Name",
@@ -139,9 +141,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             ])
         .toList();
 
-    print('userData length: ${userData.length}');
+    AppLogger.debug('userData length: ${userData.length}');
     if (userData.isNotEmpty) {
-      print('First user data: ${userData[0]}');
+      AppLogger.debug('First user data: ${userData[0]}');
     }
 
     ExportHelpers.showExportDialog(
@@ -217,17 +219,17 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       .collection('users')
                       .snapshots(),
                   builder: (context, snapshot) {
-                    print(
+                    AppLogger.debug(
                         "Current connection state: ${snapshot.connectionState}");
-                    print("Has data: ${snapshot.hasData}");
-                    print("Has error: ${snapshot.hasError}");
+                    AppLogger.debug("Has data: ${snapshot.hasData}");
+                    AppLogger.error("Has error: ${snapshot.hasError}");
 
-                    print(
+                    AppLogger.debug(
                         "Stream connection state: ${snapshot.connectionState}");
                     numberOfUsers = 3;
-                    print(snapshot.data?.docs[0].id);
+                    AppLogger.debug(snapshot.data?.docs[0].id);
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      print('waiting');
+                      AppLogger.debug('waiting');
                       // _allEmployees =
                       //     EmployeeDataSource.mapSnapshotToEmployeeList(
                       //         snapshot.data!);

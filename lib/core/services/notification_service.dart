@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// Background message handler - must be a top-level function
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -127,11 +129,19 @@ class NotificationService {
         ?.createNotificationChannel(channel);
   }
 
-  /// Get FCM token
+  /// Get FCM token (with retry for iOS)
   Future<void> _getFCMToken() async {
     try {
       _fcmToken = await _firebaseMessaging.getToken();
       debugPrint('FCM Token: $_fcmToken');
+      
+      // On iOS, token might be null initially - retry after a delay
+      if (_fcmToken == null && Platform.isIOS) {
+        debugPrint('⏳ iOS: Token null on first attempt, retrying in 3 seconds...');
+        await Future.delayed(const Duration(seconds: 3));
+        _fcmToken = await _firebaseMessaging.getToken();
+        debugPrint('FCM Token after retry: $_fcmToken');
+      }
       
       // Token will be saved on app launch via main.dart
       // No need to save here as it happens too early in the init process
@@ -222,14 +232,17 @@ class NotificationService {
   /// Setup listener for token refresh
   void _setupTokenRefreshListener() {
     _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-      debugPrint('FCM Token refreshed: $newToken');
+      debugPrint('🔄 FCM Token refreshed: $newToken');
       _fcmToken = newToken;
       
       // Automatically update token if user is logged in
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
+        debugPrint('🔄 Auto-saving refreshed token for user: ${currentUser.uid}');
         await saveTokenToFirestore(userId: currentUser.uid);
-        debugPrint('Refreshed FCM token saved to Firestore');
+        debugPrint('✅ Refreshed FCM token saved to Firestore');
+      } else {
+        debugPrint('⚠️ Token refreshed but no user logged in - will save on next login');
       }
     });
   }
@@ -290,27 +303,47 @@ class NotificationService {
   /// Save FCM token to Firestore with platform information
   Future<void> saveTokenToFirestore({String? userId}) async {
     try {
-      print('📱 saveTokenToFirestore called');
+      AppLogger.debug('📱 saveTokenToFirestore called');
       
-      final token = _fcmToken;
-      print('📱 FCM Token: ${token?.substring(0, 20)}...');
+      var token = _fcmToken;
+      
+      // If token is null (common on iOS on first launch), try to get it now
+      if (token == null) {
+        AppLogger.debug('⚠️ Token is null, attempting to fetch now...');
+        token = await _firebaseMessaging.getToken();
+        _fcmToken = token;
+        
+        // On iOS, wait a bit and retry if still null
+        if (token == null && Platform.isIOS) {
+          AppLogger.debug('⏳ iOS: Token still null, waiting 3 seconds and retrying...');
+          await Future.delayed(const Duration(seconds: 3));
+          token = await _firebaseMessaging.getToken();
+          _fcmToken = token;
+        }
+      }
+      
+      AppLogger.debug('📱 FCM Token: ${token != null ? "${token.substring(0, 20)}..." : "null"}');
       
       if (token == null) {
-        print('❌ No FCM token available to save');
+        AppLogger.debug('❌ No FCM token available to save after retries');
+        if (Platform.isIOS) {
+          AppLogger.debug('❌ iOS: Make sure APNs is configured and device has network connectivity');
+          AppLogger.info('❌ iOS: Token will be saved automatically when it becomes available via token refresh listener');
+        }
         return;
       }
 
       // Get user ID - either from parameter or current auth user
       final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
-      print('📱 User ID: $uid');
+      AppLogger.debug('📱 User ID: $uid');
       
       if (uid == null) {
-        print('❌ No user ID available - user not logged in');
+        AppLogger.debug('❌ No user ID available - user not logged in');
         return;
       }
 
       final platform = _getPlatformName();
-      print('📱 Platform: $platform');
+      AppLogger.debug('📱 Platform: $platform');
       
       // Use Timestamp.now() for array elements (serverTimestamp doesn't work in arrays)
       final now = Timestamp.now();
@@ -324,24 +357,24 @@ class NotificationService {
 
       // Get reference to user document
       final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-      print('📱 Checking if user document exists...');
+      AppLogger.debug('📱 Checking if user document exists...');
       
       final userDoc = await userRef.get();
-      print('📱 User document exists: ${userDoc.exists}');
+      AppLogger.debug('📱 User document exists: ${userDoc.exists}');
 
       if (!userDoc.exists) {
-        print('📱 User document does not exist, creating with FCM token');
+        AppLogger.debug('📱 User document does not exist, creating with FCM token');
         // Create user document with token
         await userRef.set({
           'fcmTokens': [tokenData],
           'lastTokenUpdate': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-        print('✅ Created user document with FCM token');
+        AppLogger.info('✅ Created user document with FCM token');
       } else {
         // Get existing tokens
         final data = userDoc.data();
         final existingTokens = data?['fcmTokens'] as List<dynamic>? ?? [];
-        print('📱 Existing tokens count: ${existingTokens.length}');
+        AppLogger.debug('📱 Existing tokens count: ${existingTokens.length}');
 
         // Check if this exact token already exists for this platform
         final tokenExists = existingTokens.any((t) => 
@@ -349,7 +382,7 @@ class NotificationService {
           t['token'] == token && 
           t['platform'] == platform
         );
-        print('📱 Token already exists: $tokenExists');
+        AppLogger.debug('📱 Token already exists: $tokenExists');
 
         if (tokenExists) {
           // Update the timestamp for existing token
@@ -368,22 +401,22 @@ class NotificationService {
             'fcmTokens': updatedTokens,
             'lastTokenUpdate': FieldValue.serverTimestamp(),
           });
-          print('✅ Updated existing FCM token for $platform');
+          AppLogger.info('✅ Updated existing FCM token for $platform');
         } else {
           // Add new token to the array
-          print('📱 Adding new token to array...');
+          AppLogger.debug('📱 Adding new token to array...');
           await userRef.update({
             'fcmTokens': FieldValue.arrayUnion([tokenData]),
             'lastTokenUpdate': FieldValue.serverTimestamp(),
           });
-          print('✅ Added new FCM token for $platform');
+          AppLogger.error('✅ Added new FCM token for $platform');
         }
       }
 
-      print('✅ FCM Token saved successfully to Firestore for user $uid on $platform');
+      AppLogger.error('✅ FCM Token saved successfully to Firestore for user $uid on $platform');
     } catch (e, stackTrace) {
-      print('❌ Error saving FCM token to Firestore: $e');
-      print('❌ Stack trace: $stackTrace');
+      AppLogger.error('❌ Error saving FCM token to Firestore: $e');
+      AppLogger.error('❌ Stack trace: $stackTrace');
     }
   }
 

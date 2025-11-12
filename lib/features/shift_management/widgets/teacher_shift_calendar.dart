@@ -62,12 +62,40 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             dataSource: _dataSource,
             showDatePickerButton: true,
             showTodayButton: true,
-            // Increase row height slightly to reduce vertical overflows
+            // Increase row height and spacing for better visibility
             timeSlotViewSettings: const TimeSlotViewSettings(
-              startHour: 5,
+              startHour: 3,
               endHour: 23,
-              timeInterval: Duration(minutes: 30),
-              timeIntervalHeight: 58,
+              timeInterval: Duration(minutes: 60),
+              timeIntervalHeight: 80,
+              timeIntervalWidth: 60,
+              timeTextStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            // Add cell borders and spacing
+            cellBorderColor: const Color(0xffE5E7EB),
+            // Make header more visible
+            headerStyle: const CalendarHeaderStyle(
+              textStyle: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff111827),
+              ),
+            ),
+            // Style view header (day names)
+            viewHeaderStyle: const ViewHeaderStyle(
+              dayTextStyle: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff374151),
+              ),
+              dateTextStyle: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff111827),
+              ),
             ),
             appointmentBuilder: _appointmentBuilder,
             onTap: (details) {
@@ -125,134 +153,85 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
     );
   }
 
-  /// Custom appointment widget styled similar to the provided screenshot.
+  /// Custom appointment widget with improved readability for mobile
   Widget _appointmentBuilder(
       BuildContext context, CalendarAppointmentDetails details) {
     final data = details.appointments.first as ShiftAppointment;
     final shift = data.shift;
     final statusColor = _statusColor(shift.status, shift);
 
-    // Determine available height and width to avoid overflow.
-    final double h = details.bounds.height;
-    final double w = details.bounds.width;
-
-    // Build condensed/expanded variants based on available height and width.
-    Widget content;
-    if (h < 36 || w < 40) {
-      // Extra-compact: only show the time range, centered.
-      // Use this for very narrow appointments (width < 40) or short heights.
-      content = Center(
-        child: Text(
-          _timeRange(shift.shiftStart, shift.shiftEnd),
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: statusColor.darken(0.4),
+    // Constrain to fixed height - card won't expand vertically
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        height: 62, // Reduced height to fit content
+        margin: const EdgeInsets.only(top: 2, bottom: 2, left: 1, right: 1),
+        decoration: BoxDecoration(
+          color: statusColor,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.25),
+            width: 1,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
-      );
-    } else if (h < 64) {
-      // Compact: time + title (single line each).
-      content = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              if (w >= 60) ...[
-                Icon(Icons.bookmark, size: 12, color: statusColor.darken(0.2)),
-                const SizedBox(width: 4),
-              ],
-              Expanded(
-                child: Text(
+        // Use ClipRRect to prevent any overflow
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Time - without icon to save space
+                Text(
                   _timeRange(shift.shiftStart, shift.shiftEnd),
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: statusColor.darken(0.4),
+                    color: Colors.white,
                   ),
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            shift.displayName,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff111827),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      );
-    } else {
-      // Comfortable: time + title + coach line.
-      content = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              if (w >= 60) ...[
-                Icon(Icons.bookmark, size: 14, color: statusColor.darken(0.2)),
-                const SizedBox(width: 4),
-              ],
-              Expanded(
-                child: Text(
-                  _timeRange(shift.shiftStart, shift.shiftEnd),
+                const SizedBox(height: 2),
+                // Shift name
+                Text(
+                  shift.displayName,
                   style: GoogleFonts.inter(
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor.darken(0.4),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            shift.displayName,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff111827),
+                const SizedBox(height: 1),
+                // Subject
+                Text(
+                  shift.effectiveSubjectDisplayName,
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
+                ),
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(
-            'Coach: ${shift.teacherName}',
-            style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff374151)),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      );
-    }
-
-    // Make borders more visible and consistent.
-    return Container(
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: statusColor.darken(0.05),
-          width: 2.0, // thicker, easier to see
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: content,
     );
   }
 
@@ -264,6 +243,10 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
         return const Color(0xffF59E0B); // amber
       case ShiftStatus.active:
         return const Color(0xff10B981); // green
+      case ShiftStatus.partiallyCompleted:
+        return const Color(0xffF97316); // orange for partial completion
+      case ShiftStatus.fullyCompleted:
+        return const Color(0xff6366F1); // indigo
       case ShiftStatus.completed:
         return const Color(0xff6366F1); // indigo
       case ShiftStatus.missed:
@@ -317,6 +300,10 @@ class ShiftAppointment {
         return const Color(0xffF59E0B);
       case ShiftStatus.active:
         return const Color(0xff10B981);
+      case ShiftStatus.partiallyCompleted:
+        return const Color(0xffF97316);
+      case ShiftStatus.fullyCompleted:
+        return const Color(0xff6366F1);
       case ShiftStatus.completed:
         return const Color(0xff6366F1);
       case ShiftStatus.missed:
@@ -327,15 +314,3 @@ class ShiftAppointment {
   }
 }
 
-extension _ColorShade on Color {
-  Color darken([double amount = .1]) {
-    assert(amount >= 0 && amount <= 1);
-    final f = 1 - amount;
-    return Color.fromARGB(
-      alpha,
-      (red * f).round(),
-      (green * f).round(),
-      (blue * f).round(),
-    );
-  }
-}

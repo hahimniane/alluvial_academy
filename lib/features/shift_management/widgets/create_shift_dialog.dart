@@ -12,6 +12,8 @@ import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import 'subject_management_dialog.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class CreateShiftDialog extends StatefulWidget {
   final TeachingShift? shift; // For editing existing shift
   final VoidCallback onShiftCreated;
@@ -80,9 +82,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           _adminTimezone = timezone;
         });
       }
-      print('CreateShiftDialog: Loaded admin timezone: $timezone');
+      AppLogger.error('CreateShiftDialog: Loaded admin timezone: $timezone');
     } catch (e) {
-      print('CreateShiftDialog: Error loading admin timezone: $e');
+      AppLogger.error('CreateShiftDialog: Error loading admin timezone: $e');
     }
   }
 
@@ -101,7 +103,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         });
       }
     } catch (e) {
-      print('CreateShiftDialog: Error loading subjects: $e');
+      AppLogger.error('CreateShiftDialog: Error loading subjects: $e');
     }
   }
 
@@ -116,49 +118,49 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
   Future<void> _loadAvailableUsers() async {
     try {
-      print('CreateShiftDialog: Loading available users...');
+      AppLogger.debug('CreateShiftDialog: Loading available users...');
 
       // Try the ShiftService first
       var teachers = await ShiftService.getAvailableTeachers();
       var students = await ShiftService.getAvailableStudents();
 
-      print(
+      AppLogger.debug(
           'CreateShiftDialog: ShiftService returned ${teachers.length} teachers and ${students.length} students');
 
       // If ShiftService returns empty, try loading all employees and filter locally
       if (teachers.isEmpty && students.isEmpty) {
-        print(
+        AppLogger.debug(
             'CreateShiftDialog: ShiftService returned empty, trying direct Firestore query...');
 
         try {
           final snapshot =
               await FirebaseFirestore.instance.collection('users').get();
-          print(
+          AppLogger.debug(
               'CreateShiftDialog: Found ${snapshot.docs.length} total employees');
 
           final allEmployees =
               EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
-          print('CreateShiftDialog: Mapped ${allEmployees.length} employees');
+          AppLogger.debug('CreateShiftDialog: Mapped ${allEmployees.length} employees');
 
           teachers =
               allEmployees.where((emp) => emp.userType == 'teacher').toList();
           students =
               allEmployees.where((emp) => emp.userType == 'student').toList();
 
-          print(
+          AppLogger.debug(
               'CreateShiftDialog: Filtered to ${teachers.length} teachers and ${students.length} students');
 
           // Debug: Print first teacher and student if found
           if (teachers.isNotEmpty) {
-            print(
+            AppLogger.debug(
                 'First teacher: ${teachers.first.firstName} ${teachers.first.lastName} (${teachers.first.email})');
           }
           if (students.isNotEmpty) {
-            print(
+            AppLogger.error(
                 'First student: ${students.first.firstName} ${students.first.lastName} (${students.first.email})');
           }
         } catch (e) {
-          print('CreateShiftDialog: Error with direct query: $e');
+          AppLogger.error('CreateShiftDialog: Error with direct query: $e');
         }
       }
 
@@ -167,7 +169,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           _availableTeachers = teachers;
           _availableStudents = students;
         });
-        print(
+        AppLogger.info(
             'CreateShiftDialog: State updated with teachers: ${_availableTeachers.length}, students: ${_availableStudents.length}');
 
         // Load student codes for the students
@@ -182,13 +184,13 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         _convertUidsToEmails();
       }
     } catch (e) {
-      print('CreateShiftDialog: Error loading available users: $e');
+      AppLogger.error('CreateShiftDialog: Error loading available users: $e');
     }
   }
 
   Future<void> _loadStudentCodes() async {
     try {
-      print('CreateShiftDialog: Loading student codes...');
+      AppLogger.error('CreateShiftDialog: Loading student codes...');
       final Map<String, String> studentCodesMap = {};
 
       for (final student in _availableStudents) {
@@ -203,7 +205,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
           if (studentSnapshot.docs.isNotEmpty) {
             final studentData = studentSnapshot.docs.first.data();
-            print(
+            AppLogger.debug(
                 'CreateShiftDialog: Student data for ${student.firstName}: ${studentData.keys.toList()}');
 
             // Check all possible field names for student code
@@ -220,20 +222,20 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
             if (studentCode != null && studentCode.isNotEmpty) {
               studentCodesMap[student.email] = studentCode;
-              print(
+              AppLogger.debug(
                   'CreateShiftDialog: ✅ Found student code for ${student.firstName} ${student.lastName}: "$studentCode"');
             } else {
-              print(
+              AppLogger.debug(
                   'CreateShiftDialog: ❌ No student code found for ${student.firstName} ${student.lastName}');
-              print(
+              AppLogger.debug(
                   'CreateShiftDialog: Available fields with "student/code/id": ${studentData.keys.where((k) => k.toLowerCase().contains("student") || k.toLowerCase().contains("code") || k.toLowerCase().contains("id")).toList()}');
             }
           } else {
-            print(
+            AppLogger.error(
                 'CreateShiftDialog: ⚠️ No documents found for email: ${student.email}');
           }
         } catch (e) {
-          print(
+          AppLogger.error(
               'CreateShiftDialog: Error loading student code for ${student.email}: $e');
         }
       }
@@ -243,16 +245,16 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           _studentCodes = studentCodesMap;
           _studentCodesLoaded = true;
         });
-        print(
+        AppLogger.info(
             'CreateShiftDialog: Loaded ${_studentCodes.length} student codes');
-        print('CreateShiftDialog: Student codes map: $_studentCodes');
+        AppLogger.debug('CreateShiftDialog: Student codes map: $_studentCodes');
         // Sample output for verification
         _studentCodes.forEach((email, code) {
-          print('  - $email → $code');
+          AppLogger.error('  - $email → $code');
         });
       }
     } catch (e) {
-      print('CreateShiftDialog: Error loading student codes: $e');
+      AppLogger.error('CreateShiftDialog: Error loading student codes: $e');
     }
   }
 
@@ -274,7 +276,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             setState(() {
               _selectedTeacherId = teacherEmail;
             });
-            print(
+            AppLogger.debug(
                 'CreateShiftDialog: Converted teacher UID ${shift.teacherId} to email $teacherEmail');
           }
         }
@@ -303,11 +305,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           setState(() {
             _selectedStudentIds = studentIdentifiers.toSet();
           });
-          print(
+          AppLogger.error(
               'CreateShiftDialog: Converted ${shift.studentIds.length} student UIDs to ${studentIdentifiers.length} unique identifiers');
         }
       } catch (e) {
-        print('CreateShiftDialog: Error converting UIDs to emails: $e');
+        AppLogger.error('CreateShiftDialog: Error converting UIDs to emails: $e');
       }
     }
   }
@@ -546,7 +548,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                 onTap: () {
                                   setState(() {
                                     _selectedTeacherId = teacher.email;
-                                    print(
+                                    AppLogger.debug(
                                         'Selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
                                   });
                                 },
@@ -574,7 +576,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                         onChanged: (value) {
                                           setState(() {
                                             _selectedTeacherId = value;
-                                            print(
+                                            AppLogger.debug(
                                                 'Radio selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
                                           });
                                         },
@@ -791,7 +793,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                           final studentCode = _studentCodes[student.email];
                           if (index < 3) {
                             // Only print first 3 to avoid spam
-                            print(
+                            AppLogger.debug(
                                 'CreateShiftDialog: Displaying student ${student.firstName} ${student.lastName}, code: $studentCode');
                           }
 
@@ -800,14 +802,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                               setState(() {
                                 if (isSelected) {
                                   _selectedStudentIds.remove(uniqueStudentId);
-                                  print(
+                                  AppLogger.debug(
                                       'Deselected student: ${student.firstName} ${student.lastName} (${student.email})');
                                 } else {
                                   _selectedStudentIds.add(uniqueStudentId);
-                                  print(
+                                  AppLogger.debug(
                                       'Selected student: ${student.firstName} ${student.lastName} (${student.email})');
                                 }
-                                print(
+                                AppLogger.debug(
                                     'Currently selected: $_selectedStudentIds');
                               });
                             },
@@ -825,15 +827,15 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                         if (checked == true) {
                                           _selectedStudentIds
                                               .add(uniqueStudentId);
-                                          print(
+                                          AppLogger.debug(
                                               'Checkbox selected student: ${student.firstName} ${student.lastName} (${student.email})');
                                         } else {
                                           _selectedStudentIds
                                               .remove(uniqueStudentId);
-                                          print(
+                                          AppLogger.debug(
                                               'Checkbox deselected student: ${student.firstName} ${student.lastName} (${student.email})');
                                         }
-                                        print(
+                                        AppLogger.debug(
                                             'Currently selected: $_selectedStudentIds');
                                       });
                                     },
@@ -877,6 +879,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: RichText(
+                                                maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 text: TextSpan(
                                                   children: [
@@ -1480,9 +1483,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       );
 
       // Convert admin's local time to UTC for storage
-      print('CreateShiftDialog: Admin timezone: $_adminTimezone');
-      print('CreateShiftDialog: Local shift start: $shiftStartLocal');
-      print('CreateShiftDialog: Local shift end: $shiftEndLocal');
+      AppLogger.debug('CreateShiftDialog: Admin timezone: $_adminTimezone');
+      AppLogger.debug('CreateShiftDialog: Local shift start: $shiftStartLocal');
+      AppLogger.debug('CreateShiftDialog: Local shift end: $shiftEndLocal');
 
       DateTime shiftStart;
       DateTime shiftEnd;
@@ -1490,7 +1493,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       // If timezone detection failed (defaulted to UTC), use local time as-is
       // This prevents the incorrect 4-hour offset issue
       if (_adminTimezone == 'UTC' || _adminTimezone.isEmpty) {
-        print('CreateShiftDialog: Using local time directly (timezone detection may have failed)');
+        AppLogger.error('CreateShiftDialog: Using local time directly (timezone detection may have failed)');
         shiftStart = shiftStartLocal;
         shiftEnd = shiftEndLocal;
       } else {
@@ -1498,8 +1501,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         shiftEnd = TimezoneUtils.convertToUtc(shiftEndLocal, _adminTimezone);
       }
 
-      print('CreateShiftDialog: Final shift start: $shiftStart');
-      print('CreateShiftDialog: Final shift end: $shiftEnd');
+      AppLogger.debug('CreateShiftDialog: Final shift start: $shiftStart');
+      AppLogger.debug('CreateShiftDialog: Final shift end: $shiftEnd');
 
       if (widget.shift == null) {
         // Find teacher UID from email
@@ -1590,7 +1593,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             teacherSnapshot.docs.first.data();
         final teacherName =
             '${teacherData['first_name']} ${teacherData['last_name']}';
-        print(
+        AppLogger.debug(
             'CreateShiftDialog: Update - converted teacher email $_selectedTeacherId to UID $teacherUid, name: $teacherName');
 
         // Find student UIDs and names from unique identifiers
@@ -1617,7 +1620,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           }
         }
 
-        print(
+        AppLogger.debug(
             'CreateShiftDialog: Update - converted ${_selectedStudentIds.length} student emails to ${studentUids.length} UIDs and ${studentNames.length} names');
 
         // Find selected subject for update
@@ -1654,11 +1657,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           recurrenceEndDate: _recurrenceEndDate,
         );
 
-        print('CreateShiftDialog: Updating shift with:');
-        print('  - Teacher: $teacherName ($teacherUid)');
-        print(
+        AppLogger.debug('CreateShiftDialog: Updating shift with:');
+        AppLogger.debug('  - Teacher: $teacherName ($teacherUid)');
+        AppLogger.debug(
             '  - Students: ${studentNames.join(', ')} (${studentUids.join(', ')})');
-        print('  - Auto name: $autoGeneratedName');
+        AppLogger.debug('  - Auto name: $autoGeneratedName');
 
         await ShiftService.updateShift(updatedShift);
       }

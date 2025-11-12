@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TaskComment {
   final String id;
   final String taskId;
@@ -25,10 +27,10 @@ class TaskComment {
 
   factory TaskComment.fromFirestore(DocumentSnapshot doc) {
     try {
-      print('🔥 TaskComment.fromFirestore() - Parsing document: ${doc.id}');
+      AppLogger.debug('🔥 TaskComment.fromFirestore() - Parsing document: ${doc.id}');
 
       Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      print('🔥 Document data keys: ${data.keys.toList()}');
+      AppLogger.debug('🔥 Document data keys: ${data.keys.toList()}');
 
       final comment = TaskComment(
         id: doc.id,
@@ -44,13 +46,13 @@ class TaskComment {
         isEdited: data['isEdited'] ?? false,
       );
 
-      print(
+      AppLogger.error(
           '✅ TaskComment.fromFirestore() - Successfully parsed comment from ${comment.authorName}');
       return comment;
     } catch (e) {
-      print(
+      AppLogger.error(
           '🚨 TaskComment.fromFirestore() - Error parsing document ${doc.id}: $e');
-      print('🚨 Document data: ${doc.data()}');
+      AppLogger.error('🚨 Document data: ${doc.data()}');
       rethrow;
     }
   }

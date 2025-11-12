@@ -6,6 +6,8 @@ import 'dart:async';
 import '../core/services/form_draft_service.dart';
 import '../core/models/form_draft.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class FormBuilder extends StatefulWidget {
   const FormBuilder({super.key});
 
@@ -43,7 +45,7 @@ class _FormBuilderState extends State<FormBuilder>
 
   /// Resume editing a draft by switching to the form builder tab and restoring state
   void _resumeFromDraft(FormDraft draft) {
-    print(
+    AppLogger.debug(
         'FormBuilder: Resuming draft ${draft.id} with ${draft.fields.length} fields');
 
     setState(() {
@@ -1404,7 +1406,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
 
     // Check if draftToRestore changed from null to a draft
     if (oldWidget.draftToRestore == null && widget.draftToRestore != null) {
-      print(
+      AppLogger.info(
           'FormBuilderView: Draft parameter updated, restoring draft ${widget.draftToRestore!.id}');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _restoreFromDraftDirectly(widget.draftToRestore!);
@@ -1573,7 +1575,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
 
   /// Restore form from draft directly (called from initState)
   void _restoreFromDraftDirectly(FormDraft draft) {
-    print(
+    AppLogger.debug(
         'FormBuilder: Restoring draft ${draft.id} with ${draft.fields.length} raw fields');
 
     // Convert draft fields back to FormFieldData objects
@@ -1604,7 +1606,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       _hasUnsavedChanges = false;
     });
 
-    print(
+    AppLogger.debug(
         'FormBuilder: Restored ${fields.length} fields from draft ${draft.id}');
 
     // Notify parent that draft has been restored
@@ -1756,9 +1758,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         _lastAutosaveTime = DateTime.now();
       });
 
-      print('FormBuilder: Autosave completed at $_lastAutosaveTime');
+      AppLogger.error('FormBuilder: Autosave completed at $_lastAutosaveTime');
     } catch (e) {
-      print('FormBuilder: Autosave failed: $e');
+      AppLogger.error('FormBuilder: Autosave failed: $e');
     } finally {
       setState(() {
         _isSavingDraft = false;
@@ -1770,7 +1772,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
   Future<void> _saveProgress() async {
     if (_isSavingDraft || _isSaving) return;
 
-    print('FormBuilder: Saving progress - current draft ID: $_currentDraftId');
+    AppLogger.debug('FormBuilder: Saving progress - current draft ID: $_currentDraftId');
 
     setState(() {
       _isSavingDraft = true;
@@ -1794,7 +1796,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
         };
       }
 
-      print('FormBuilder: Prepared ${fieldsMap.length} fields for saving');
+      AppLogger.debug('FormBuilder: Prepared ${fieldsMap.length} fields for saving');
 
       // Save draft
       final resultDraftId = await _draftService.saveDraft(
@@ -1809,7 +1811,7 @@ class _FormBuilderViewState extends State<FormBuilderView> {
       );
 
       _currentDraftId = resultDraftId;
-      print('FormBuilder: Saved with draft ID: $_currentDraftId');
+      AppLogger.info('FormBuilder: Saved with draft ID: $_currentDraftId');
 
       setState(() {
         _hasUnsavedChanges = false;
@@ -3715,9 +3717,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
             await _draftService.deleteDraft(_currentDraftId!);
             _currentDraftId = null;
             _hasUnsavedChanges = false;
-            print('FormBuilder: Draft cleaned up after successful update');
+            AppLogger.error('FormBuilder: Draft cleaned up after successful update');
           } catch (e) {
-            print('FormBuilder: Failed to clean up draft: $e');
+            AppLogger.error('FormBuilder: Failed to clean up draft: $e');
           }
         }
       } else {
@@ -3777,9 +3779,9 @@ class _FormBuilderViewState extends State<FormBuilderView> {
           try {
             await _draftService.deleteDraft(_currentDraftId!);
             _currentDraftId = null;
-            print('FormBuilder: Draft cleaned up after successful creation');
+            AppLogger.error('FormBuilder: Draft cleaned up after successful creation');
           } catch (e) {
-            print('FormBuilder: Failed to clean up draft: $e');
+            AppLogger.error('FormBuilder: Failed to clean up draft: $e');
           }
         }
 
@@ -4534,7 +4536,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading users: $e');
+      AppLogger.error('Error loading users: $e');
       setState(() {
         isLoading = false;
       });
@@ -4621,7 +4623,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading all users: $e');
+      AppLogger.error('Error loading all users: $e');
       setState(() {
         isLoading = false;
       });

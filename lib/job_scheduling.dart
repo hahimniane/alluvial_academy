@@ -1,30 +1,3 @@
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
-
-// class JobSchedulingScreen extends StatelessWidget {
-//   const JobSchedulingScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: Center(
-//         child: FutureBuilder<QuerySnapshot>(
-//             future: FirebaseFirestore.instance.collection('users').get(),
-//             builder: (context, snapshot) {
-//               if (snapshot.connectionState == ConnectionState.waiting) {
-//                 return Text("waiting");
-//               } else if (snapshot.connectionState == ConnectionState.done) {
-//                 return Text("Done");
-//               } else if (snapshot.connectionState == ConnectionState.active) {
-//                 return Text("active");
-//               }
-//               return Text("don't know what happened in the else ");
-//             }),
-//       ),
-//     );
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';

@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class UserRoleService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -53,7 +55,7 @@ class UserRoleService {
 
       return roles.toList();
     } catch (e) {
-      print('Error getting available roles: $e');
+      AppLogger.error('Error getting available roles: $e');
       return [];
     }
   }
@@ -75,7 +77,7 @@ class UserRoleService {
       // Fallback to primary role
       return await getPrimaryRole();
     } catch (e) {
-      print('Error getting active role: $e');
+      AppLogger.error('Error getting active role: $e');
       return await getPrimaryRole();
     }
   }
@@ -85,7 +87,7 @@ class UserRoleService {
     try {
       final User? currentUser = _auth.currentUser;
       if (currentUser == null) {
-        print('No authenticated user found');
+        AppLogger.debug('No authenticated user found');
         return null;
       }
 
@@ -98,7 +100,7 @@ class UserRoleService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        print('No user document found for email: ${currentUser.email}');
+        AppLogger.debug('No user document found for email: ${currentUser.email}');
         return null;
       }
 
@@ -109,7 +111,7 @@ class UserRoleService {
 
       return userType;
     } catch (e) {
-      print('Error getting user role: $e');
+      AppLogger.error('Error getting user role: $e');
       return null;
     }
   }
@@ -124,17 +126,17 @@ class UserRoleService {
     try {
       final availableRoles = await getAvailableRoles();
       if (!availableRoles.contains(newRole)) {
-        print('User does not have access to role: $newRole');
+        AppLogger.debug('User does not have access to role: $newRole');
         return false;
       }
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_activeRoleKey, newRole);
 
-      print('Active role switched to: $newRole');
+      AppLogger.error('Active role switched to: $newRole');
       return true;
     } catch (e) {
-      print('Error switching active role: $e');
+      AppLogger.error('Error switching active role: $e');
       return false;
     }
   }
@@ -177,7 +179,7 @@ class UserRoleService {
 
       return userData;
     } catch (e) {
-      print('Error getting user data: $e');
+      AppLogger.error('Error getting user data: $e');
       return null;
     }
   }
@@ -263,7 +265,7 @@ class UserRoleService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        print('User not found: $userEmail');
+        AppLogger.debug('User not found: $userEmail');
         return false;
       }
 
@@ -272,7 +274,7 @@ class UserRoleService {
       final currentRole = userData['user_type'] as String?;
 
       if (currentRole != 'teacher') {
-        print('Can only promote teachers to admin-teacher role');
+        AppLogger.debug('Can only promote teachers to admin-teacher role');
         return false;
       }
 
@@ -281,10 +283,10 @@ class UserRoleService {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      print('Successfully promoted $userEmail to admin-teacher');
+      AppLogger.error('Successfully promoted $userEmail to admin-teacher');
       return true;
     } catch (e) {
-      print('Error promoting user to admin-teacher: $e');
+      AppLogger.error('Error promoting user to admin-teacher: $e');
       return false;
     }
   }
@@ -299,7 +301,7 @@ class UserRoleService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        print('User not found: $userEmail');
+        AppLogger.debug('User not found: $userEmail');
         return false;
       }
 
@@ -309,10 +311,10 @@ class UserRoleService {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      print('Successfully revoked admin privileges for $userEmail');
+      AppLogger.error('Successfully revoked admin privileges for $userEmail');
       return true;
     } catch (e) {
-      print('Error revoking admin privileges: $e');
+      AppLogger.error('Error revoking admin privileges: $e');
       return false;
     }
   }
@@ -329,7 +331,7 @@ class UserRoleService {
       if (userQuery.docs.isEmpty) return null;
       return userQuery.docs.first.id;
     } catch (e) {
-      print('Error getting user document ID: $e');
+      AppLogger.error('Error getting user document ID: $e');
       return null;
     }
   }
@@ -348,7 +350,7 @@ class UserRoleService {
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
       return userData['is_admin_teacher'] as bool? ?? false;
     } catch (e) {
-      print('Error checking admin-teacher status: $e');
+      AppLogger.error('Error checking admin-teacher status: $e');
       return false;
     }
   }
@@ -363,7 +365,7 @@ class UserRoleService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        print('User not found: $userEmail');
+        AppLogger.debug('User not found: $userEmail');
         return false;
       }
 
@@ -374,10 +376,10 @@ class UserRoleService {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
-      print('Successfully deactivated user: $userEmail');
+      AppLogger.error('Successfully deactivated user: $userEmail');
       return true;
     } catch (e) {
-      print('Error deactivating user: $e');
+      AppLogger.error('Error deactivating user: $e');
       return false;
     }
   }
@@ -392,7 +394,7 @@ class UserRoleService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        print('User not found: $userEmail');
+        AppLogger.debug('User not found: $userEmail');
         return false;
       }
 
@@ -404,10 +406,10 @@ class UserRoleService {
         'deactivated_at': FieldValue.delete(), // Remove deactivation timestamp
       });
 
-      print('Successfully activated user: $userEmail');
+      AppLogger.error('Successfully activated user: $userEmail');
       return true;
     } catch (e) {
-      print('Error activating user: $e');
+      AppLogger.error('Error activating user: $e');
       return false;
     }
   }
@@ -427,7 +429,7 @@ class UserRoleService {
       return userData['is_active'] as bool? ??
           true; // Default to active if field doesn't exist
     } catch (e) {
-      print('Error checking user active status: $e');
+      AppLogger.error('Error checking user active status: $e');
       return true; // Default to active on error
     }
   }
@@ -435,13 +437,13 @@ class UserRoleService {
   /// Permanently delete a user account from both Firebase Auth and Firestore using Cloud Function
   static Future<bool> deleteUser(String userEmail) async {
     try {
-      print(
+      AppLogger.debug(
           'UserRoleService: Calling cloud function to delete user: $userEmail');
 
       // Get current user's email for admin verification
       final currentUser = _auth.currentUser;
       if (currentUser == null || currentUser.email == null) {
-        print('UserRoleService: No authenticated user found');
+        AppLogger.debug('UserRoleService: No authenticated user found');
         throw Exception('You must be logged in to delete users');
       }
 
@@ -455,31 +457,31 @@ class UserRoleService {
 
       final data = result.data;
       if (data['success'] == true) {
-        print(
+        AppLogger.info(
             'UserRoleService: Successfully deleted user via cloud function: $userEmail');
-        print('UserRoleService: Deleted from Auth: ${data['deletedFromAuth']}');
-        print(
+        AppLogger.info('UserRoleService: Deleted from Auth: ${data['deletedFromAuth']}');
+        AppLogger.info(
             'UserRoleService: Deleted from Firestore: ${data['deletedFromFirestore']}');
         return true;
       } else {
-        print('UserRoleService: Cloud function returned unsuccessful result');
+        AppLogger.error('UserRoleService: Cloud function returned unsuccessful result');
         return false;
       }
     } catch (e) {
-      print('UserRoleService: Error calling delete user cloud function: $e');
+      AppLogger.error('UserRoleService: Error calling delete user cloud function: $e');
 
       // Check if this is a Firebase Functions error with more details
       if (e.toString().contains('failed-precondition')) {
-        print('UserRoleService: User must be deactivated before deletion');
+        AppLogger.debug('UserRoleService: User must be deactivated before deletion');
         throw Exception('User must be archived before permanent deletion');
       } else if (e.toString().contains('permission-denied')) {
-        print('UserRoleService: Permission denied - user is not an admin');
+        AppLogger.debug('UserRoleService: Permission denied - user is not an admin');
         throw Exception('Only administrators can delete users');
       } else if (e.toString().contains('not-found')) {
-        print('UserRoleService: User not found');
+        AppLogger.debug('UserRoleService: User not found');
         throw Exception('User not found in the system');
       } else {
-        print('UserRoleService: Unknown error: $e');
+        AppLogger.error('UserRoleService: Unknown error: $e');
         throw Exception('Failed to delete user: ${e.toString()}');
       }
     }

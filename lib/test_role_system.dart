@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'core/services/user_role_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class TestRoleSystemScreen extends StatefulWidget {
   const TestRoleSystemScreen({super.key});
 
@@ -121,7 +122,7 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
     });
 
     try {
-      print('=== Loading User Role ===');
+      AppLogger.debug('=== Loading User Role ===');
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
 
@@ -131,9 +132,9 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
         isLoading = false;
       });
 
-      print('Role loaded successfully: $role');
+      AppLogger.info('Role loaded successfully: $role');
     } catch (e) {
-      print('Error loading role: $e');
+      AppLogger.error('Error loading role: $e');
       setState(() {
         error = e.toString();
         isLoading = false;

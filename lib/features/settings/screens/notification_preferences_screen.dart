@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/notification_preferences_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
 
@@ -47,7 +49,7 @@ class _NotificationPreferencesScreenState
         });
       }
     } catch (e) {
-      print('Error loading notification preferences: $e');
+      AppLogger.error('Error loading notification preferences: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -80,7 +82,7 @@ class _NotificationPreferencesScreenState
         );
       }
     } catch (e) {
-      print('Error saving notification preferences: $e');
+      AppLogger.error('Error saving notification preferences: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

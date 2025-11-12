@@ -4,6 +4,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../models/task_comment.dart';
 import '../models/task.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TaskCommentService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -15,16 +17,16 @@ class TaskCommentService {
     required Task task,
   }) async {
     try {
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.addComment() - Starting for taskId: $taskId');
 
       final user = _auth.currentUser;
       if (user == null) {
-        print('🚨 TaskCommentService.addComment() - User not authenticated');
+        AppLogger.debug('🚨 TaskCommentService.addComment() - User not authenticated');
         throw Exception('User not authenticated');
       }
 
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.addComment() - Getting user data for uid: ${user.uid}');
 
       // Get user information
@@ -35,7 +37,7 @@ class TaskCommentService {
       final fullName = '$firstName $lastName'.trim();
       final email = userData['e-mail'] ?? user.email ?? '';
 
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.addComment() - User data retrieved: $fullName');
 
       // Create comment
@@ -49,28 +51,28 @@ class TaskCommentService {
         createdAt: DateTime.now(),
       );
 
-      print('🔥 TaskCommentService.addComment() - Adding comment to Firestore');
+      AppLogger.debug('🔥 TaskCommentService.addComment() - Adding comment to Firestore');
 
       // Add to Firestore
       final docRef = await _firestore
           .collection('task_comments')
           .add(taskComment.toFirestore());
 
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.addComment() - Comment added with ID: ${docRef.id}');
 
       // Send email notifications to relevant users
-      print('🔥 TaskCommentService.addComment() - Sending notifications');
+      AppLogger.debug('🔥 TaskCommentService.addComment() - Sending notifications');
       await _sendCommentNotifications(
         taskComment.copyWith(id: docRef.id),
         task,
       );
 
-      print('✅ TaskCommentService.addComment() - Successfully completed');
+      AppLogger.error('✅ TaskCommentService.addComment() - Successfully completed');
     } catch (e) {
-      print('🚨 TaskCommentService.addComment() - Error: $e');
+      AppLogger.error('🚨 TaskCommentService.addComment() - Error: $e');
       if (e is Exception) {
-        print('🚨 Exception details: ${e.toString()}');
+        AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
       rethrow; // Re-throw to let the UI handle it
     }
@@ -78,7 +80,7 @@ class TaskCommentService {
 
   /// Get comments for a specific task
   static Stream<List<TaskComment>> getTaskComments(String taskId) {
-    print(
+    AppLogger.debug(
         '🔥 TaskCommentService.getTaskComments() - Getting comments for taskId: $taskId');
 
     return _firestore
@@ -87,16 +89,16 @@ class TaskCommentService {
         .orderBy('createdAt', descending: false)
         .snapshots()
         .map((snapshot) {
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.getTaskComments() - Received ${snapshot.docs.length} comments');
       try {
         final comments =
             snapshot.docs.map((doc) => TaskComment.fromFirestore(doc)).toList();
-        print(
+        AppLogger.error(
             '✅ TaskCommentService.getTaskComments() - Successfully parsed ${comments.length} comments');
         return comments;
       } catch (e) {
-        print(
+        AppLogger.error(
             '🚨 TaskCommentService.getTaskComments() - Error parsing comments: $e');
         return <TaskComment>[];
       }
@@ -109,16 +111,16 @@ class TaskCommentService {
     required String newComment,
   }) async {
     try {
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.updateComment() - Starting for commentId: $commentId');
 
       final user = _auth.currentUser;
       if (user == null) {
-        print('🚨 TaskCommentService.updateComment() - User not authenticated');
+        AppLogger.debug('🚨 TaskCommentService.updateComment() - User not authenticated');
         throw Exception('User not authenticated');
       }
 
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.updateComment() - Updating comment in Firestore');
 
       await _firestore.collection('task_comments').doc(commentId).update({
@@ -127,11 +129,11 @@ class TaskCommentService {
         'isEdited': true,
       });
 
-      print('✅ TaskCommentService.updateComment() - Successfully completed');
+      AppLogger.error('✅ TaskCommentService.updateComment() - Successfully completed');
     } catch (e) {
-      print('🚨 TaskCommentService.updateComment() - Error: $e');
+      AppLogger.error('🚨 TaskCommentService.updateComment() - Error: $e');
       if (e is Exception) {
-        print('🚨 Exception details: ${e.toString()}');
+        AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
       rethrow; // Re-throw to let the UI handle it
     }
@@ -140,25 +142,25 @@ class TaskCommentService {
   /// Delete a comment
   static Future<void> deleteComment(String commentId) async {
     try {
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.deleteComment() - Starting for commentId: $commentId');
 
       final user = _auth.currentUser;
       if (user == null) {
-        print('🚨 TaskCommentService.deleteComment() - User not authenticated');
+        AppLogger.debug('🚨 TaskCommentService.deleteComment() - User not authenticated');
         throw Exception('User not authenticated');
       }
 
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService.deleteComment() - Deleting comment from Firestore');
 
       await _firestore.collection('task_comments').doc(commentId).delete();
 
-      print('✅ TaskCommentService.deleteComment() - Successfully completed');
+      AppLogger.error('✅ TaskCommentService.deleteComment() - Successfully completed');
     } catch (e) {
-      print('🚨 TaskCommentService.deleteComment() - Error: $e');
+      AppLogger.error('🚨 TaskCommentService.deleteComment() - Error: $e');
       if (e is Exception) {
-        print('🚨 Exception details: ${e.toString()}');
+        AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
       rethrow; // Re-throw to let the UI handle it
     }
@@ -170,10 +172,10 @@ class TaskCommentService {
     Task task,
   ) async {
     try {
-      print(
+      AppLogger.debug(
           '🔥 TaskCommentService._sendCommentNotifications() - Starting notification process');
-      print('🔥 Task: ${task.title} (ID: ${task.id})');
-      print('🔥 Comment by: ${comment.authorName}');
+      AppLogger.debug('🔥 Task: ${task.title} (ID: ${task.id})');
+      AppLogger.debug('🔥 Comment by: ${comment.authorName}');
 
       // Call HTTPS callable function to send email directly
       final functions = FirebaseFunctions.instance;
@@ -188,25 +190,25 @@ class TaskCommentService {
         'commentDate': comment.createdAt.toIso8601String(),
       };
 
-      print('🔥 Calling sendTaskCommentNotification with payload:');
-      print('  - taskId: ${payload['taskId']}');
-      print('  - commentAuthorId: ${payload['commentAuthorId']}');
-      print('  - commentAuthorName: ${payload['commentAuthorName']}');
-      print('  - commentText: ${payload['commentText']}');
+      AppLogger.debug('🔥 Calling sendTaskCommentNotification with payload:');
+      AppLogger.debug('  - taskId: ${payload['taskId']}');
+      AppLogger.debug('  - commentAuthorId: ${payload['commentAuthorId']}');
+      AppLogger.debug('  - commentAuthorName: ${payload['commentAuthorName']}');
+      AppLogger.debug('  - commentText: ${payload['commentText']}');
 
       final result = await callable.call(payload);
-      print('✅ sendTaskCommentNotification result: ${result.data}');
+      AppLogger.debug('✅ sendTaskCommentNotification result: ${result.data}');
 
       if (result.data['success'] == true) {
         final recipients = result.data['recipients'] as List?;
-        print('✅ Email sent successfully to: ${recipients?.join(', ')}');
+        AppLogger.error('✅ Email sent successfully to: ${recipients?.join(', ')}');
       } else {
-        print('❌ Email sending failed: ${result.data['reason']}');
+        AppLogger.error('❌ Email sending failed: ${result.data['reason']}');
       }
     } catch (e) {
-      print('🚨 TaskCommentService._sendCommentNotifications() - Error: $e');
+      AppLogger.error('🚨 TaskCommentService._sendCommentNotifications() - Error: $e');
       if (e is Exception) {
-        print('🚨 Exception details: ${e.toString()}');
+        AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
       // Don't rethrow here as notification failures shouldn't block comment creation
     }
@@ -245,7 +247,7 @@ class TaskCommentService {
           .get();
       return snapshot.docs.length;
     } catch (e) {
-      print('Error getting comment count: $e');
+      AppLogger.error('Error getting comment count: $e');
       return 0;
     }
   }

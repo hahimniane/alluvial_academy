@@ -4,6 +4,8 @@ import '../models/chat_message.dart';
 import '../models/chat_user.dart';
 import '../../../core/services/user_role_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -85,7 +87,7 @@ class ChatService {
 
         return chatUsers;
       } catch (e) {
-        print('Error in getUserChats: $e');
+        AppLogger.error('Error in getUserChats: $e');
         return <ChatUser>[];
       }
     });
@@ -278,24 +280,24 @@ class ChatService {
     }
 
     try {
-      print(
+      AppLogger.debug(
           'ChatService: Creating group chat - Name: $groupName, Participants: ${participantIds.length}');
 
       // Use UserRoleService to get the current active role (respects role switching)
       final userRole = await UserRoleService.getCurrentUserRole();
 
-      print('ChatService: Current user active role: $userRole');
+      AppLogger.debug('ChatService: Current user active role: $userRole');
 
       // Also check the actual Firestore document for debugging
       final currentUserDoc =
           await _firestore.collection('users').doc(currentUserId).get();
       if (currentUserDoc.exists) {
         final userData = currentUserDoc.data() ?? {};
-        print(
+        AppLogger.debug(
             'ChatService: User document data - user_type: ${userData['user_type']}, is_admin_teacher: ${userData['is_admin_teacher']}');
-        print('ChatService: User UID: $currentUserId');
+        AppLogger.debug('ChatService: User UID: $currentUserId');
       } else {
-        print(
+        AppLogger.error(
             'ChatService: ERROR - User document does not exist for UID: $currentUserId');
       }
 
@@ -310,7 +312,7 @@ class ChatService {
         participantIds.add(currentUserId!);
       }
 
-      print('ChatService: Final participants list: $participantIds');
+      AppLogger.debug('ChatService: Final participants list: $participantIds');
 
       final groupDoc = await _firestore.collection('chats').add({
         'chat_type': 'group',
@@ -323,10 +325,10 @@ class ChatService {
         'created_by': currentUserId,
       });
 
-      print('ChatService: Group created successfully with ID: ${groupDoc.id}');
+      AppLogger.error('ChatService: Group created successfully with ID: ${groupDoc.id}');
       return groupDoc.id;
     } catch (e) {
-      print('ChatService: Error creating group chat: $e');
+      AppLogger.error('ChatService: Error creating group chat: $e');
       // Re-throw the exception instead of silently returning null
       rethrow;
     }
@@ -491,14 +493,14 @@ class ChatService {
     if (userIds.isEmpty) return {};
 
     try {
-      print('ChatService: getUserNames called with IDs: $userIds');
+      AppLogger.debug('ChatService: getUserNames called with IDs: $userIds');
 
       final userDocs = await _firestore
           .collection('users')
           .where(FieldPath.documentId, whereIn: userIds)
           .get();
 
-      print('ChatService: Found ${userDocs.docs.length} user documents');
+      AppLogger.debug('ChatService: Found ${userDocs.docs.length} user documents');
 
       final userNames = <String, String>{};
       for (var doc in userDocs.docs) {
@@ -512,14 +514,14 @@ class ChatService {
             : (email.isNotEmpty ? email : 'Unknown User');
 
         userNames[doc.id] = displayName;
-        print(
+        AppLogger.debug(
             'ChatService: User ${doc.id} -> $displayName (firstName: $firstName, lastName: $lastName, email: $email)');
       }
 
-      print('ChatService: Final userNames map: $userNames');
+      AppLogger.error('ChatService: Final userNames map: $userNames');
       return userNames;
     } catch (e) {
-      print('Error fetching user names: $e');
+      AppLogger.error('Error fetching user names: $e');
       return {};
     }
   }

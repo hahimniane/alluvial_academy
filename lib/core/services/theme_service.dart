@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// Service to manage app theme (light/dark mode)
 class ThemeService extends ChangeNotifier {
   static const String _themeKey = 'theme_mode';
@@ -27,7 +29,7 @@ class ThemeService extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Error loading theme: $e');
+      AppLogger.error('Error loading theme: $e');
     }
   }
   
@@ -53,7 +55,7 @@ class ThemeService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_themeKey, _themeMode.toString());
     } catch (e) {
-      print('Error saving theme: $e');
+      AppLogger.error('Error saving theme: $e');
     }
   }
 }

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/landing_page_content.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class LandingPageService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -12,7 +14,7 @@ class LandingPageService {
 
   // Return static content without remote fetch – used for the public landing page.
   static Future<LandingPageContent> getLandingPageContent() async {
-    print('LandingPageService: Returning static default landing page content');
+    AppLogger.debug('LandingPageService: Returning static default landing page content');
     return LandingPageContent.defaultContent();
   }
 
@@ -40,9 +42,9 @@ class LandingPageService {
           .doc(_documentId)
           .set(content.toFirestore(), SetOptions(merge: true));
 
-      print('Landing page content saved successfully');
+      AppLogger.error('Landing page content saved successfully');
     } catch (e) {
-      print('Error saving landing page content: $e');
+      AppLogger.error('Error saving landing page content: $e');
       throw Exception('Failed to save landing page content: $e');
     }
   }
@@ -171,7 +173,7 @@ class LandingPageService {
               })
           .toList();
     } catch (e) {
-      print('Error loading content history: $e');
+      AppLogger.error('Error loading content history: $e');
       return [];
     }
   }
@@ -193,9 +195,9 @@ class LandingPageService {
         'backup_by': currentUser?.uid ?? 'unknown',
       });
 
-      print('Content backup created successfully');
+      AppLogger.error('Content backup created successfully');
     } catch (e) {
-      print('Error creating content backup: $e');
+      AppLogger.error('Error creating content backup: $e');
     }
   }
 

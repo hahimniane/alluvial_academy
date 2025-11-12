@@ -7,9 +7,14 @@ import '../../time_clock/screens/time_clock_screen.dart';
 import './admin_dashboard_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../../form_screen.dart';
+import '../../forms/screens/my_submissions_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
+import '../../notifications/screens/mobile_notification_screen.dart';
+import '../../user_management/screens/mobile_user_management_screen.dart';
+
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Navigation item data
 class _NavItemData {
@@ -55,7 +60,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      AppLogger.error('Error loading user data: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -291,19 +296,32 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   // Build screens based on user role
   List<Widget> get _screens {
     final role = _userRole?.toLowerCase();
-    
+
     // ONLY Teachers get time clock, shifts, forms
     if (role == 'teacher') {
       return [
         const AdminDashboard(refreshTrigger: 0),
         const FormScreen(),
+        const MySubmissionsScreen(),
         const TimeClockScreen(),
         const TeacherShiftScreen(),
         const QuickTasksScreen(),
       ];
     }
-    
-    // Admins, Students, and Parents get Chat
+
+    // Admins get additional admin features
+    if (role == 'admin') {
+      return [
+        const AdminDashboard(refreshTrigger: 0),
+        const FormScreen(),
+        const MobileNotificationScreen(),
+        const MobileUserManagementScreen(),
+        const ChatPage(),
+        const QuickTasksScreen(),
+      ];
+    }
+
+    // Students and Parents get basic features
     return [
       const AdminDashboard(refreshTrigger: 0),
       const ChatPage(),
@@ -314,19 +332,32 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   // Get navigation items based on role
   List<_NavItemData> get _navItems {
     final role = _userRole?.toLowerCase();
-    
+
     // ONLY Teachers get Clock, Shifts, and Forms tabs
     if (role == 'teacher') {
       return [
         _NavItemData(Icons.home_rounded, 'Home', 0),
-        _NavItemData(Icons.description_rounded, 'Forms', 1),
-        _NavItemData(Icons.access_time_rounded, 'Clock', 2),
-        _NavItemData(Icons.calendar_today_rounded, 'Shifts', 3),
-        _NavItemData(Icons.task_alt_rounded, 'Tasks', 4),
+        _NavItemData(Icons.description_rounded, 'Fill', 1),
+        _NavItemData(Icons.assignment_turned_in_rounded, 'My Forms', 2),
+        _NavItemData(Icons.access_time_rounded, 'Clock', 3),
+        _NavItemData(Icons.calendar_today_rounded, 'Shifts', 4),
+        _NavItemData(Icons.task_alt_rounded, 'Tasks', 5),
       ];
     }
-    
-    // Everyone else (Admin, Students, Parents) get Chat
+
+    // Admins get admin features
+    if (role == 'admin') {
+      return [
+        _NavItemData(Icons.home_rounded, 'Home', 0),
+        _NavItemData(Icons.description_rounded, 'Forms', 1),
+        _NavItemData(Icons.notifications_rounded, 'Notify', 2),
+        _NavItemData(Icons.people_rounded, 'Users', 3),
+        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 4),
+        _NavItemData(Icons.task_alt_rounded, 'Tasks', 5),
+      ];
+    }
+
+    // Students and Parents get basic features
     return [
       _NavItemData(Icons.home_rounded, 'Home', 0),
       _NavItemData(Icons.chat_bubble_rounded, 'Chat', 1),

@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// Service to handle profile picture uploads
 class ProfilePictureService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -22,7 +24,7 @@ class ProfilePictureService {
       );
       return image;
     } catch (e) {
-      print('Error picking image: $e');
+      AppLogger.error('Error picking image: $e');
       return null;
     }
   }
@@ -70,10 +72,10 @@ class ProfilePictureService {
         'profile_picture_updated_at': FieldValue.serverTimestamp(),
       });
 
-      print('Profile picture uploaded successfully: $downloadUrl');
+      AppLogger.error('Profile picture uploaded successfully: $downloadUrl');
       return downloadUrl;
     } catch (e) {
-      print('Error uploading profile picture: $e');
+      AppLogger.error('Error uploading profile picture: $e');
       rethrow;
     }
   }
@@ -91,9 +93,9 @@ class ProfilePictureService {
       final Reference ref = _storage.ref().child('profile_pictures/$path');
       await ref.delete();
       
-      print('Old profile picture deleted successfully');
+      AppLogger.error('Old profile picture deleted successfully');
     } catch (e) {
-      print('Error deleting old profile picture: $e');
+      AppLogger.error('Error deleting old profile picture: $e');
       // Don't throw - it's okay if old picture deletion fails
     }
   }
@@ -110,7 +112,7 @@ class ProfilePictureService {
       final data = doc.data();
       return data?['profile_picture_url'] as String?;
     } catch (e) {
-      print('Error getting profile picture URL: $e');
+      AppLogger.error('Error getting profile picture URL: $e');
       return null;
     }
   }
@@ -139,9 +141,9 @@ class ProfilePictureService {
         'profile_picture_updated_at': FieldValue.serverTimestamp(),
       });
 
-      print('Profile picture removed successfully');
+      AppLogger.error('Profile picture removed successfully');
     } catch (e) {
-      print('Error removing profile picture: $e');
+      AppLogger.error('Error removing profile picture: $e');
       rethrow;
     }
   }

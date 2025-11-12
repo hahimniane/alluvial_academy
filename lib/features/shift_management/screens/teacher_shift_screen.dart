@@ -10,6 +10,8 @@ import '../../../core/services/location_service.dart';
 import '../widgets/shift_details_dialog.dart';
 import 'available_shifts_screen.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class TeacherShiftScreen extends StatefulWidget {
   const TeacherShiftScreen({super.key});
 
@@ -34,19 +36,19 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   void _setupShiftStream() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      print('TeacherShiftScreen: No authenticated user found');
+      AppLogger.debug('TeacherShiftScreen: No authenticated user found');
       setState(() => _isLoading = false);
       return;
     }
 
-    print(
+    AppLogger.debug(
         'TeacherShiftScreen: Setting up real-time stream for user UID: ${user.uid}');
-    print('TeacherShiftScreen: User email: ${user.email}');
+    AppLogger.debug('TeacherShiftScreen: User email: ${user.email}');
 
     // Listen to real-time shifts stream
     ShiftService.getTeacherShifts(user.uid).listen(
       (shifts) {
-        print(
+        AppLogger.debug(
             'TeacherShiftScreen: Stream update - received ${shifts.length} shifts');
         if (mounted) {
           setState(() {
@@ -56,7 +58,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         }
       },
       onError: (error) {
-        print('Error in teacher shifts stream: $error');
+        AppLogger.error('Error in teacher shifts stream: $error');
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -96,8 +98,13 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 shift.isCurrentlyActive || shift.status == ShiftStatus.active)
             .toList();
       case 'completed':
+        const completedStatuses = {
+          ShiftStatus.completed,
+          ShiftStatus.partiallyCompleted,
+          ShiftStatus.fullyCompleted,
+        };
         return _shifts
-            .where((shift) => shift.status == ShiftStatus.completed)
+            .where((shift) => completedStatuses.contains(shift.status))
             .toList();
       default:
         return _shifts;
@@ -269,7 +276,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         .where((s) => s.isCurrentlyActive || s.status == ShiftStatus.active)
         .length;
     final completedShifts =
-        _shifts.where((s) => s.status == ShiftStatus.completed).length;
+        _shifts
+            .where((s) =>
+                s.status == ShiftStatus.completed ||
+                s.status == ShiftStatus.partiallyCompleted ||
+                s.status == ShiftStatus.fullyCompleted)
+            .length;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -546,7 +558,16 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     String statusText;
     IconData statusIcon;
 
-    if (needsAutoLogout) {
+    if (shift.status == ShiftStatus.cancelled) {
+      statusColor = Colors.grey;
+      statusText = 'CANCELLED';
+      statusIcon = Icons.do_not_disturb_on;
+    } else if (shift.status == ShiftStatus.missed ||
+        (hasExpired && shift.status == ShiftStatus.scheduled)) {
+      statusColor = Colors.red;
+      statusText = 'MISSED';
+      statusIcon = Icons.cancel;
+    } else if (needsAutoLogout) {
       statusColor = Colors.red;
       statusText = 'AUTO-LOGOUT PENDING';
       statusIcon = Icons.warning;
@@ -554,18 +575,20 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       statusColor = Colors.green;
       statusText = 'CLOCKED IN';
       statusIcon = Icons.play_circle;
+    } else if (shift.status == ShiftStatus.partiallyCompleted) {
+      statusColor = Colors.orange;
+      statusText = 'PARTIAL COMPLETION';
+      statusIcon = Icons.timelapse;
+    } else if (shift.status == ShiftStatus.fullyCompleted ||
+        shift.status == ShiftStatus.completed) {
+      statusColor = Colors.purple;
+      statusText =
+          shift.autoClockOut ? 'AUTO-COMPLETED' : 'COMPLETED';
+      statusIcon = Icons.check_circle;
     } else if (canClockIn) {
       statusColor = Colors.orange;
       statusText = 'READY TO CLOCK IN';
       statusIcon = Icons.access_time;
-    } else if (hasExpired && shift.status == ShiftStatus.scheduled) {
-      statusColor = Colors.red;
-      statusText = 'MISSED';
-      statusIcon = Icons.cancel;
-    } else if (shift.status == ShiftStatus.completed) {
-      statusColor = Colors.purple;
-      statusText = shift.clockOutTime != null ? 'COMPLETED' : 'AUTO-COMPLETED';
-      statusIcon = Icons.check_circle;
     } else {
       statusColor = Colors.blue;
       statusText = 'SCHEDULED';
@@ -1028,7 +1051,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           );
         }
       } catch (e) {
-        print('Error publishing shift: $e');
+        AppLogger.error('Error publishing shift: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1122,7 +1145,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           );
         }
       } catch (e) {
-        print('Error unpublishing shift: $e');
+        AppLogger.error('Error unpublishing shift: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

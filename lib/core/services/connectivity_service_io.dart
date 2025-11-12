@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 /// IO platform implementation for internet connectivity check
 Future<bool> checkInternetConnection() async {
   try {
@@ -12,7 +14,7 @@ Future<bool> checkInternetConnection() async {
   } on TimeoutException catch (_) {
     return false;
   } catch (e) {
-    print('Error checking internet: $e');
+    AppLogger.error('Error checking internet: $e');
     return false;
   }
 }

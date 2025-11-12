@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/wage_management_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key});
 
@@ -51,7 +52,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       _roleWages = await WageManagementService.getRoleWages();
       _individualWages = await WageManagementService.getIndividualWages();
     } catch (e) {
-      print('Error loading wage settings: $e');
+      AppLogger.error('Error loading wage settings: $e');
     }
     setState(() => _isLoadingWages = false);
   }

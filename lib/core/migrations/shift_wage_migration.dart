@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class ShiftWageMigration {
   static const String _migrationKey = 'shift_wage_migration_4_dollar_per_hour_completed';
   static const double _hourlyRate = 4.0; // $4 per hour
@@ -13,11 +15,11 @@ class ShiftWageMigration {
       final hasRun = prefs.getBool(_migrationKey) ?? false;
       
       if (hasRun) {
-        print('✅ Shift wage migration already completed. Skipping.');
+        AppLogger.info('✅ Shift wage migration already completed. Skipping.');
         return;
       }
 
-      print('🔄 Starting shift wage migration to \$$_hourlyRate per hour...');
+      AppLogger.debug('🔄 Starting shift wage migration to \$$_hourlyRate per hour...');
       
       // Get all teaching shifts
       final firestore = FirebaseFirestore.instance;
@@ -30,7 +32,7 @@ class ShiftWageMigration {
       
       final querySnapshot = await shiftsCollection.get();
       
-      print('📊 Found ${querySnapshot.docs.length} shifts to update');
+      AppLogger.debug('📊 Found ${querySnapshot.docs.length} shifts to update');
       
       for (final doc in querySnapshot.docs) {
         final data = doc.data();
@@ -59,7 +61,7 @@ class ShiftWageMigration {
           if (updateCount % 500 == 0) {
             await batch.commit();
             batchCount++;
-            print('  ✓ Batch $batchCount committed (500 shifts)');
+            AppLogger.debug('  ✓ Batch $batchCount committed (500 shifts)');
             batch = firestore.batch(); // Start new batch
           }
         }
@@ -68,19 +70,19 @@ class ShiftWageMigration {
       // Commit any remaining updates
       if (updateCount % 500 != 0) {
         await batch.commit();
-        print('  ✓ Final batch committed (${updateCount % 500} shifts)');
+        AppLogger.debug('  ✓ Final batch committed (${updateCount % 500} shifts)');
       }
       
       // Mark migration as completed
       await prefs.setBool(_migrationKey, true);
       
-      print('✅ Shift wage migration completed successfully!');
-      print('📊 Total shifts updated: $updateCount');
-      print('💵 All shifts now have hourly rate: \$$_hourlyRate per hour');
+      AppLogger.info('✅ Shift wage migration completed successfully!');
+      AppLogger.error('📊 Total shifts updated: $updateCount');
+      AppLogger.error('💵 All shifts now have hourly rate: \$$_hourlyRate per hour');
       
     } catch (e) {
-      print('❌ Error during shift wage migration: $e');
-      print('⚠️  Migration will retry on next app start');
+      AppLogger.error('❌ Error during shift wage migration: $e');
+      AppLogger.error('⚠️  Migration will retry on next app start');
     }
   }
   
@@ -94,6 +96,13 @@ class ShiftWageMigration {
   static Future<void> resetMigration() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_migrationKey);
-    print('🔄 Migration reset. Will run on next app start.');
+    AppLogger.debug('🔄 Migration reset. Will run on next app start.');
   }
 }
+
+
+
+
+
+
+

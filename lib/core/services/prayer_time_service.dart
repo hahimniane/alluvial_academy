@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'location_service.dart';
 
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class PrayerTime {
   final String name;
   final DateTime time;
@@ -29,7 +31,7 @@ class PrayerTimeService {
     try {
       // Check cache first
       if (_isValidCache()) {
-        print('PrayerTimeService: Using cached prayer times');
+        AppLogger.debug('PrayerTimeService: Using cached prayer times');
         return _cachedPrayers!;
       }
 
@@ -41,16 +43,16 @@ class PrayerTimeService {
       try {
         location = await LocationService.getCurrentLocation(interactive: false)
             .timeout(const Duration(seconds: 15), onTimeout: () {
-          print('PrayerTimeService: Location request timed out');
+          AppLogger.error('PrayerTimeService: Location request timed out');
           return null;
         });
       } catch (e) {
-        print('PrayerTimeService: Location service error: $e');
+        AppLogger.error('PrayerTimeService: Location service error: $e');
         location = null;
       }
 
       if (location == null) {
-        print(
+        AppLogger.error(
             'PrayerTimeService: Could not get location, using cached or default times');
         return fallbackPrayers ?? _getDefaultPrayerTimes();
       }
@@ -69,7 +71,7 @@ class PrayerTimeService {
       // Fallback to cached data or default times
       return fallbackPrayers ?? _getDefaultPrayerTimes();
     } catch (e) {
-      print('PrayerTimeService: Error getting prayer times: $e');
+      AppLogger.error('PrayerTimeService: Error getting prayer times: $e');
       // Try to get cached data or return default times
       final cachedPrayers = await _getCachedPrayerTimes();
       return cachedPrayers ?? _getDefaultPrayerTimes();
@@ -107,7 +109,7 @@ class PrayerTimeService {
 
       return 'Fajr tomorrow';
     } catch (e) {
-      print('PrayerTimeService: Error getting next prayer: $e');
+      AppLogger.error('PrayerTimeService: Error getting next prayer: $e');
       return 'Prayer times unavailable';
     }
   }
@@ -123,7 +125,7 @@ class PrayerTimeService {
       final url = 'https://api.aladhan.com/v1/timings/$timestamp'
           '?latitude=$latitude&longitude=$longitude&method=2';
 
-      print('PrayerTimeService: Fetching from: $url');
+      AppLogger.debug('PrayerTimeService: Fetching from: $url');
 
       final response = await http.get(
         Uri.parse(url),
@@ -136,11 +138,11 @@ class PrayerTimeService {
 
         return _parsePrayerTimes(timings, today);
       } else {
-        print('PrayerTimeService: API error: ${response.statusCode}');
+        AppLogger.error('PrayerTimeService: API error: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('PrayerTimeService: Network error: $e');
+      AppLogger.error('PrayerTimeService: Network error: $e');
       return null;
     }
   }
@@ -172,7 +174,7 @@ class PrayerTimeService {
             time: prayerTime,
           ));
         } catch (e) {
-          print('PrayerTimeService: Error parsing time for $name: $e');
+          AppLogger.error('PrayerTimeService: Error parsing time for $name: $e');
         }
       }
     }
@@ -206,7 +208,7 @@ class PrayerTimeService {
 
       return [];
     } catch (e) {
-      print('PrayerTimeService: Error getting tomorrow prayers: $e');
+      AppLogger.error('PrayerTimeService: Error getting tomorrow prayers: $e');
       return [];
     }
   }
@@ -235,9 +237,9 @@ class PrayerTimeService {
       };
 
       await prefs.setString(cacheKey, json.encode(cacheData));
-      print('PrayerTimeService: Cached prayer times for today');
+      AppLogger.error('PrayerTimeService: Cached prayer times for today');
     } catch (e) {
-      print('PrayerTimeService: Error caching prayer times: $e');
+      AppLogger.error('PrayerTimeService: Error caching prayer times: $e');
     }
   }
 
@@ -269,7 +271,7 @@ class PrayerTimeService {
               ))
           .toList();
     } catch (e) {
-      print('PrayerTimeService: Error reading cached prayer times: $e');
+      AppLogger.error('PrayerTimeService: Error reading cached prayer times: $e');
       return null;
     }
   }
@@ -309,9 +311,9 @@ class PrayerTimeService {
       }
       _cachedPrayers = null;
       _cacheTime = null;
-      print('PrayerTimeService: Cache cleared');
+      AppLogger.error('PrayerTimeService: Cache cleared');
     } catch (e) {
-      print('PrayerTimeService: Error clearing cache: $e');
+      AppLogger.error('PrayerTimeService: Error clearing cache: $e');
     }
   }
 
@@ -341,11 +343,11 @@ class PrayerTimeService {
   /// Silent background initialization that doesn't block or show errors
   static Future<void> initializeInBackground() async {
     try {
-      print('PrayerTimeService: Starting background initialization...');
+      AppLogger.error('PrayerTimeService: Starting background initialization...');
       await getTodayPrayerTimes();
-      print('PrayerTimeService: Background initialization completed');
+      AppLogger.error('PrayerTimeService: Background initialization completed');
     } catch (e) {
-      print('PrayerTimeService: Background initialization failed: $e');
+      AppLogger.error('PrayerTimeService: Background initialization failed: $e');
       // Silently fail - this is background initialization
     }
   }
