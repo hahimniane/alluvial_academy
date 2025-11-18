@@ -2474,7 +2474,7 @@ import '../widgets/timesheet_table.dart' show TimesheetTable;
 import '../widgets/mobile_timesheet_view.dart' show MobileTimesheetView;
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
-import '../../../core/services/shift_monitoring_service.dart';
+// import '../../../core/services/shift_monitoring_service.dart'; // No longer needed - monitoring handled by backend
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/utils/platform_utils.dart';
 
@@ -2596,8 +2596,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _loadStudents();
     // Initialize shift and session in proper order
     _initializeShiftAndSession();
-    // Run shift monitoring in background
-    _runPeriodicShiftMonitoring();
+    // DISABLED: Shift monitoring is now handled by backend cloud function
+    // to avoid timezone issues and ensure consistency
+    // _runPeriodicShiftMonitoring();
   }
 
   // New method to properly initialize in order
@@ -2745,42 +2746,48 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     super.dispose();
   }
 
-  /// Run periodic shift monitoring for auto clock-outs and missed shifts
-  void _runPeriodicShiftMonitoring() {
-    // Run monitoring immediately
-    ShiftMonitoringService.runPeriodicMonitoring();
-    _checkAndClearExpiredShift();
+  // DISABLED: Client-side shift monitoring has been removed
+  // Shift status monitoring is now handled by backend cloud function (monitorShiftStatuses)
+  // which runs every 5 minutes to ensure consistent UTC-based checking
+  // and avoid timezone issues that were causing premature "Missed" status
+  //
+  // /// Run periodic shift monitoring for auto clock-outs and missed shifts
+  // void _runPeriodicShiftMonitoring() {
+  //   // Run monitoring immediately
+  //   ShiftMonitoringService.runPeriodicMonitoring();
+  //   _checkAndClearExpiredShift();
+  //
+  //   // Set up periodic monitoring every 15 minutes
+  //   Timer.periodic(const Duration(minutes: 15), (timer) {
+  //     if (!mounted) {
+  //       timer.cancel();
+  //       return;
+  //     }
+  //     ShiftMonitoringService.runPeriodicMonitoring();
+  //   });
+  //
+  //   // Check for expired shifts more frequently (every minute)
+  //   Timer.periodic(const Duration(minutes: 1), (timer) {
+  //     if (!mounted) {
+  //       timer.cancel();
+  //       return;
+  //     }
+  //     _checkAndClearExpiredShift();
+  //   });
+  // }
 
-    // Set up periodic monitoring every 15 minutes
-    Timer.periodic(const Duration(minutes: 15), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      ShiftMonitoringService.runPeriodicMonitoring();
-    });
-
-    // Check for expired shifts more frequently (every minute)
-    Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      _checkAndClearExpiredShift();
-    });
-  }
-
-  /// Check if current shift has expired and clear it
-  void _checkAndClearExpiredShift() {
-    if (_currentShift != null && _currentShift!.hasExpired) {
-      _debugLog('Clearing expired shift: ${_currentShift!.displayName}');
-      setState(() {
-        _currentShift = null;
-      });
-      // Refresh to get the next valid shift
-      _checkForActiveShift();
-    }
-  }
+  // DISABLED: No longer needed as shift monitoring is handled by backend
+  // /// Check if current shift has expired and clear it
+  // void _checkAndClearExpiredShift() {
+  //   if (_currentShift != null && _currentShift!.hasExpired) {
+  //     _debugLog('Clearing expired shift: ${_currentShift!.displayName}');
+  //     setState(() {
+  //       _currentShift = null;
+  //     });
+  //     // Refresh to get the next valid shift
+  //     _checkForActiveShift();
+  //   }
+  // }
 
   /// Reset location loading state (safety method)
   void _resetLocationState() {

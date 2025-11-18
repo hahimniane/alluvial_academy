@@ -64,6 +64,12 @@ service cloud.firestore {
     function teacherIdFromData(data) {
       return data.teacherId != null ? data.teacherId : data.teacher_id;
     }
+
+    // Helper to detect updates affecting only FCM token metadata
+    function isFcmTokenOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys()
+        .hasOnly(['fcmTokens', 'lastTokenUpdate']);
+    }
     
     // Helper to resolve the owner of a form submission across legacy field names
     function submissionOwnerFromData(data) {
@@ -90,6 +96,8 @@ service cloud.firestore {
         fieldUnchanged('created_by_admin') &&
         fieldUnchanged('password_reset_required') &&
         fieldUnchanged('e-mail')
+      ) || (
+        isUserDocOwnerAfterWrite(userId) && isFcmTokenOnlyUpdate()
       );
       
       // Allow create/delete operations only for admins

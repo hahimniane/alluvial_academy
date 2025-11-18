@@ -8,6 +8,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   final VoidCallback? onPublishShift;
   final VoidCallback? onUnpublishShift;
   final VoidCallback? onClaimShift;
+  final Function(ShiftStatus)? onCorrectStatus;
 
   const ShiftDetailsDialog({
     super.key,
@@ -15,6 +16,7 @@ class ShiftDetailsDialog extends StatelessWidget {
     this.onPublishShift,
     this.onUnpublishShift,
     this.onClaimShift,
+    this.onCorrectStatus,
   });
 
   @override
@@ -294,6 +296,11 @@ class ShiftDetailsDialog extends StatelessWidget {
                        !shift.hasExpired;
     final isPublished = shift.isPublished;
     
+    // Check if shift is marked as missed but hasn't actually started yet
+    final now = DateTime.now();
+    final isMissedBeforeStart = shift.status == ShiftStatus.missed && 
+                                now.isBefore(shift.shiftStart);
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
@@ -305,6 +312,32 @@ class ShiftDetailsDialog extends StatelessWidget {
           // Action buttons on the left
           Row(
             children: [
+              // Correct Status button for prematurely missed shifts
+              if (isMissedBeforeStart && onCorrectStatus != null)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onCorrectStatus!(ShiftStatus.scheduled);
+                  },
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(
+                    'Mark as Scheduled',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              if (isMissedBeforeStart && onCorrectStatus != null)
+                const SizedBox(width: 12),
               // Publish/Unpublish button for shift owner
               if (canPublish && onPublishShift != null && !isPublished)
                 ElevatedButton.icon(
