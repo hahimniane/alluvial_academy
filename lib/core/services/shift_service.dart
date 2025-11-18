@@ -557,17 +557,29 @@ class ShiftService {
   static Future<void> updateShiftStatus(
       String shiftId, ShiftStatus status) async {
     try {
+      // First, update the Firestore status
       await _shiftsCollection.doc(shiftId).update({
         'status': status.name,
         'last_modified': Timestamp.fromDate(DateTime.now()),
       });
-      final snapshot = await _shiftsCollection.doc(shiftId).get();
-      if (snapshot.exists) {
-        final shift = TeachingShift.fromFirestore(snapshot);
-        final shouldCancel = status == ShiftStatus.cancelled;
-        await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
+      AppLogger.info('Shift status updated in Firestore to: ${status.name}');
+      
+      // Then, attempt to reschedule lifecycle tasks (non-blocking)
+      try {
+        final snapshot = await _shiftsCollection.doc(shiftId).get();
+        if (snapshot.exists) {
+          final shift = TeachingShift.fromFirestore(snapshot);
+          final shouldCancel = status == ShiftStatus.cancelled;
+          await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
+          AppLogger.info('Lifecycle tasks rescheduled successfully for shift $shiftId');
+        }
+      } catch (scheduleError) {
+        // Log the error but don't fail the entire operation
+        // The status update was successful, tasks scheduling is optional
+        AppLogger.warning(
+            'Warning: Failed to reschedule lifecycle tasks for shift $shiftId: $scheduleError. '
+            'Status update was successful.');
       }
-      AppLogger.error('Shift status updated to: ${status.name}');
     } catch (e) {
       AppLogger.error('Error updating shift status: $e');
       throw Exception('Failed to update shift status');

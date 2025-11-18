@@ -1,13 +1,15 @@
+// Import statements for required packages and local files
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:async';
-import '../../../core/services/shift_timesheet_service.dart';
-import '../../../core/services/location_service.dart';
-import '../../../core/models/teaching_shift.dart';
+import 'package:google_fonts/google_fonts.dart';  // For custom fonts
+import 'package:firebase_auth/firebase_auth.dart';  // Firebase authentication
+import 'dart:async';  // For asynchronous operations and timers
+import '../../../core/services/shift_timesheet_service.dart';  // Shift/timesheet operations
+import '../../../core/services/location_service.dart';  // Location handling
+import '../../../core/models/teaching_shift.dart';  // Shift data model
 
-import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';  // Logging utility
 
+/// Simple clock screen widget for mobile clock-in/out functionality
 class SimpleClockScreen extends StatefulWidget {
   const SimpleClockScreen({super.key});
 
@@ -15,21 +17,25 @@ class SimpleClockScreen extends StatefulWidget {
   State<SimpleClockScreen> createState() => _SimpleClockScreenState();
 }
 
+/// State class for SimpleClockScreen that manages clock-in/out logic
 class _SimpleClockScreenState extends State<SimpleClockScreen> {
-  bool _isClockedIn = false;
-  DateTime? _clockInTime;
-  Timer? _timer;
-  Timer? _autoLogoutTimer;
-  String _elapsedTime = "00:00:00";
-  TeachingShift? _currentShift;
-  bool _isProcessing = false;
-  StreamSubscription<User?>? _authSub;
+  // State variables
+  bool _isClockedIn = false;  // Tracks if user is currently clocked in
+  DateTime? _clockInTime;  // Timestamp when user clocked in
+  Timer? _timer;  // Timer for tracking elapsed time
+  Timer? _autoLogoutTimer;  // Timer for automatic logout after shift
+  String _elapsedTime = "00:00:00";  // Formatted elapsed time display
+  TeachingShift? _currentShift;  // Current teaching shift data
+  bool _isProcessing = false;  // Flag for in-progress operations
+  StreamSubscription<User?>? _authSub;  // Firebase auth state listener
 
   @override
   void initState() {
     super.initState();
+    // Initialize shift status when widget loads
     _checkCurrentShiftStatus();
-    // Also resume once auth rehydrates after a web refresh
+    
+    // Listen to auth state changes to handle session persistence
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
         _checkCurrentShiftStatus();
@@ -39,19 +45,20 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
 
   @override
   void dispose() {
+    // Clean up timers and subscriptions when widget is disposed
     _timer?.cancel();
     _autoLogoutTimer?.cancel();
     _authSub?.cancel();
     super.dispose();
   }
 
-  /// Check if user is already clocked in to a shift
+  /// Checks if user is already clocked in to a shift
   Future<void> _checkCurrentShiftStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
-      // Prefer resuming from an open session (with accurate clock-in time)
+      // First try to resume from an existing open session
       final session = await ShiftTimesheetService.getOpenSession(user.uid);
       if (session != null && mounted) {
         final shift = session['shift'] as TeachingShift?;
@@ -61,14 +68,14 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
             _isClockedIn = true;
             _currentShift = shift;
             _clockInTime = start ?? DateTime.now();
-            _startTimer();
-            _startAutoLogoutTimer();
+            _startTimer();  // Start tracking elapsed time
+            _startAutoLogoutTimer();  // Start auto logout timer
           });
           return;
         }
       }
 
-      // Fallback: legacy behavior
+      // Fallback to legacy behavior if no open session exists
       final activeShift = await ShiftTimesheetService.getActiveShift(user.uid);
       if (activeShift != null && mounted) {
         setState(() {
@@ -84,7 +91,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     }
   }
 
-  /// Simple clock-in process
+  /// Handles the clock-in process
   Future<void> _clockIn() async {
     if (_isProcessing) return;
 
@@ -97,75 +104,45 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         return;
       }
 
-      AppLogger.debug('SimpleClockScreen: Starting clock-in for user ${user.uid}');
-
-      // 1. Check if there's a valid shift
-      AppLogger.debug('SimpleClockScreen: Checking for valid shift...');
+      // Step 1: Validate shift availability
       final shiftResult =
           await ShiftTimesheetService.getValidShiftForClockIn(user.uid);
       final shift = shiftResult['shift'] as TeachingShift?;
       final canClockIn = shiftResult['canClockIn'] as bool;
-      final status = shiftResult['status'] as String;
-      final message = shiftResult['message'] as String;
-
-      AppLogger.debug('SimpleClockScreen: Shift check result:');
-      AppLogger.debug('  - Status: $status');
-      AppLogger.debug('  - Can clock in: $canClockIn');
-      AppLogger.debug('  - Message: $message');
-      AppLogger.debug('  - Shift found: ${shift != null}');
-      if (shift != null) {
-        AppLogger.debug('  - Shift ID: ${shift.id}');
-        AppLogger.debug('  - Shift Name: ${shift.displayName}');
-        AppLogger.debug('  - Shift Start: ${shift.shiftStart}');
-        AppLogger.debug('  - Shift End: ${shift.shiftEnd}');
-      }
 
       if (!canClockIn || shift == null) {
-        _showMessage('No valid shift: $message', isError: true);
+        _showMessage('No valid shift: ${shiftResult['message']}', isError: true);
         return;
       }
 
-      // 2. Request permission on user gesture to ensure web prompt
+      // Step 2: Request location permissions
       await LocationService.requestPermission();
 
-      // 3. Try to get location (use cached if available, proceed without if not)
-      AppLogger.debug('SimpleClockScreen: Getting location...');
+      // Step 3: Get current location
       LocationData? location;
       try {
         location = await LocationService.getCurrentLocation()
             .timeout(const Duration(seconds: 30), onTimeout: () {
-          AppLogger.error('SimpleClockScreen: Location request timed out');
           return null;
         });
       } catch (e) {
         AppLogger.error('SimpleClockScreen: Location error: $e');
-        location = null; // Proceed without location
       }
 
-      // Use default location if none available
-      if (location == null) {
-        AppLogger.debug('SimpleClockScreen: Using default location');
-        location = LocationData(
-          latitude: 0.0,
-          longitude: 0.0,
-          address: 'Location unavailable',
-          neighborhood: 'Clock-in without location',
-        );
-      } else {
-        AppLogger.debug('SimpleClockScreen: Location obtained: ${location.neighborhood}');
-      }
+      // Use default location if actual location unavailable
+      location ??= LocationData(
+        latitude: 0.0,
+        longitude: 0.0,
+        address: 'Location unavailable',
+        neighborhood: 'Clock-in without location',
+      );
 
-      // 4. Clock in to shift
-      AppLogger.debug('SimpleClockScreen: Attempting clock-in to shift ${shift.id}...');
+      // Step 4: Perform clock-in operation
       final result = await ShiftTimesheetService.clockInToShift(
         user.uid,
         shift.id,
         location: location,
       );
-
-      AppLogger.debug('SimpleClockScreen: Clock-in result:');
-      AppLogger.info('  - Success: ${result['success']}');
-      AppLogger.debug('  - Message: ${result['message']}');
 
       if (result['success']) {
         setState(() {
@@ -176,20 +153,17 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
           _startAutoLogoutTimer();
         });
         _showMessage('Clocked in successfully!');
-        AppLogger.info('SimpleClockScreen: Clock-in completed successfully');
       } else {
         _showMessage('Clock-in failed: ${result['message']}', isError: true);
-        AppLogger.error('SimpleClockScreen: Clock-in failed: ${result['message']}');
       }
     } catch (e) {
-      AppLogger.error('SimpleClockScreen: Exception during clock-in: $e');
       _showMessage('Error during clock-in: $e', isError: true);
     } finally {
       setState(() => _isProcessing = false);
     }
   }
 
-  /// Simple clock-out process
+  /// Handles the clock-out process
   Future<void> _clockOut() async {
     if (_isProcessing || _currentShift == null) return;
 
@@ -199,7 +173,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Get location for clock out (optional)
+      // Get location for clock-out
       LocationData? location;
       try {
         location = await LocationService.getCurrentLocation().timeout(
@@ -210,7 +184,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         location = null;
       }
 
-      // Use default location if none available
+      // Use default location if actual location unavailable
       location ??= LocationData(
         latitude: 0.0,
         longitude: 0.0,
@@ -218,7 +192,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         neighborhood: 'Clock-out without location',
       );
 
-      // Clock out and submit timesheet
+      // Perform clock-out operation
       final result = await ShiftTimesheetService.clockOutFromShift(
         user.uid,
         _currentShift!.id,
@@ -245,6 +219,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     }
   }
 
+  /// Starts the timer to track elapsed time since clock-in
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -257,31 +232,25 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     });
   }
 
+  /// Starts auto logout timer based on shift end time
   void _startAutoLogoutTimer() {
     _autoLogoutTimer?.cancel();
 
     if (_currentShift == null) return;
 
-    // Calculate when auto logout should happen: shift end + 15 minutes (in UTC)
+    // Calculate auto logout time (shift end + 15 minutes)
     final autoLogoutTimeUtc = _currentShift!.clockOutDeadline;
     final nowUtc = DateTime.now().toUtc();
 
-    // If auto logout time is in the future, set timer
     if (autoLogoutTimeUtc.isAfter(nowUtc)) {
       final timeUntilAutoLogout = autoLogoutTimeUtc.difference(nowUtc);
-
-      AppLogger.debug(
-          'Auto logout scheduled for: ${autoLogoutTimeUtc.toLocal()} (in ${timeUntilAutoLogout.inMinutes} minutes)');
-
       _autoLogoutTimer = Timer(timeUntilAutoLogout, () {
         if (_isClockedIn && _currentShift != null && mounted) {
-          AppLogger.debug('Auto logout triggered for shift: ${_currentShift!.id}');
           _performAutoLogout();
         }
       });
     } else {
-      // If shift already ended + 15 minutes, auto logout immediately
-      AppLogger.debug('Shift has already ended, performing immediate auto logout');
+      // Immediate logout if shift already ended
       Timer(const Duration(seconds: 1), () {
         if (_isClockedIn && _currentShift != null && mounted) {
           _performAutoLogout();
@@ -290,16 +259,15 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     }
   }
 
+  /// Performs automatic logout when shift ends
   Future<void> _performAutoLogout() async {
     if (!_isClockedIn || _currentShift == null) return;
-
-    AppLogger.debug('Performing auto logout for shift: ${_currentShift!.id}');
 
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Get location for auto logout (optional)
+      // Get location for auto logout
       LocationData? location;
       try {
         location = await LocationService.getCurrentLocation().timeout(
@@ -310,7 +278,6 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         location = null;
       }
 
-      // Use default location if none available
       location ??= LocationData(
         latitude: 0.0,
         longitude: 0.0,
@@ -318,7 +285,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         neighborhood: 'Auto logout',
       );
 
-      // Use the auto logout service which handles timesheet with shift end time
+      // Perform auto logout via service
       final result = await ShiftTimesheetService.autoClockOutFromShift(
         user.uid,
         _currentShift!.id,
@@ -341,13 +308,13 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         );
       }
     } catch (e) {
-      AppLogger.error('Error during auto logout: $e');
       if (mounted) {
         _showMessage('Auto logout error: $e', isError: true);
       }
     }
   }
 
+  /// Formats duration as HH:MM:SS
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final hours = twoDigits(duration.inHours);
@@ -356,6 +323,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     return '$hours:$minutes:$seconds';
   }
 
+  /// Shows a snackbar message
   void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

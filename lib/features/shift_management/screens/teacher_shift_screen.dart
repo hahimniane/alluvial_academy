@@ -551,7 +551,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     final canClockIn = shift.canClockIn && !shift.isClockedIn;
     final isActive = shift.isClockedIn;
     final canClockOut = shift.canClockOut;
-    final hasExpired = shift.hasExpired;
+    // Removed hasExpired check - we only rely on backend status now
     final needsAutoLogout = shift.needsAutoLogout;
 
     Color statusColor;
@@ -562,8 +562,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       statusColor = Colors.grey;
       statusText = 'CANCELLED';
       statusIcon = Icons.do_not_disturb_on;
-    } else if (shift.status == ShiftStatus.missed ||
-        (hasExpired && shift.status == ShiftStatus.scheduled)) {
+    } else if (shift.status == ShiftStatus.missed) {
+      // Only rely on backend status - don't do client-side expiry checks
+      // The backend handleShiftEndTask will mark shifts as missed at the correct time
       statusColor = Colors.red;
       statusText = 'MISSED';
       statusIcon = Icons.cancel;
@@ -931,8 +932,124 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         shift: shift,
         onPublishShift: () => _handlePublishShift(shift),
         onUnpublishShift: () => _handleUnpublishShift(shift),
+        onCorrectStatus: (newStatus) => _handleCorrectStatus(shift, newStatus),
       ),
     );
+  }
+
+  Future<void> _handleCorrectStatus(TeachingShift shift, ShiftStatus newStatus) async {
+    try {
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.refresh, color: Color(0xff0386FF)),
+              const SizedBox(width: 12),
+              Text(
+                'Correct Shift Status',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This shift appears to have been marked as "missed" prematurely. Would you like to change it back to "scheduled"?',
+                style: GoogleFonts.inter(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffE0F2FE),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xff0386FF)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xff0386FF), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This will restore the shift to its scheduled state, allowing you to clock in when the time comes.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xff075985),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: const Color(0xff6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Restore to Scheduled',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        await ShiftService.updateShiftStatus(shift.id, newStatus);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Shift status successfully changed to ${newStatus.name.toUpperCase()}',
+                style: GoogleFonts.inter(),
+              ),
+              backgroundColor: const Color(0xff10B981),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error correcting shift status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: ${e.toString().replaceAll('Exception: ', '')}',
+              style: GoogleFonts.inter(),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handlePublishShift(TeachingShift shift) async {

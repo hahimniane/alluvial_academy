@@ -186,6 +186,35 @@ const scheduleShiftLifecycle = onCall(async (request) => {
   }
 });
 
+/**
+ * Send notification to teacher about missed shift
+ */
+async function sendMissedShiftNotification(teacherId, shiftId, shiftData) {
+  try {
+    const displayName = shiftData.custom_name || shiftData.auto_generated_name || 'Your shift';
+    const shiftStart = shiftData.shift_start.toDate ? shiftData.shift_start.toDate() : new Date(shiftData.shift_start);
+    const shiftDateTime = formatShiftDateTime(shiftStart);
+    
+    const notification = {
+      title: '❌ Missed Shift',
+      body: `You missed ${displayName} scheduled for ${shiftDateTime}`,
+    };
+    
+    const data = {
+      type: 'shift',
+      action: 'missed',
+      shiftId: shiftId,
+      teacherId: teacherId,
+    };
+    
+    await sendFCMNotificationToTeacher(teacherId, notification, data);
+    console.log(`Missed shift notification sent for shift ${shiftId}`);
+  } catch (error) {
+    console.error('Error in sendMissedShiftNotification:', error);
+    throw error;
+  }
+}
+
 const handleShiftStartTask = onRequest(async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).send('Method Not Allowed');
@@ -277,6 +306,9 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       return;
     }
 
+    // First check if teacher clocked in via the shift's clock_in_time field
+    const hasClockInOnShift = shiftData.clock_in_time != null;
+    
     const timesheetsSnapshot = await admin
       .firestore()
       .collection('timesheet_entries')
@@ -285,6 +317,17 @@ const handleShiftEndTask = onRequest(async (req, res) => {
 
     let workedMinutes = 0;
     let autoClockOutPerformed = false;
+    
+    // If no timesheet entries but shift has clock_in_time, calculate from that
+    if (timesheetsSnapshot.empty && hasClockInOnShift) {
+      const clockInTime = shiftData.clock_in_time.toDate();
+      const clockOutTime = shiftData.clock_out_time ? shiftData.clock_out_time.toDate() : endDate;
+      workedMinutes = Math.max(0, Math.round((clockOutTime.getTime() - clockInTime.getTime()) / 60000));
+      
+      if (!shiftData.clock_out_time) {
+        autoClockOutPerformed = true;
+      }
+    }
 
     for (const doc of timesheetsSnapshot.docs) {
       const data = doc.data();
@@ -331,10 +374,13 @@ const handleShiftEndTask = onRequest(async (req, res) => {
     let completionState = 'partial';
     let missedReason = null;
 
-    if (workedMinutes === 0) {
+    // Check if teacher never clocked in (no timesheet entries AND no clock_in_time on shift)
+    const neverClockedIn = timesheetsSnapshot.empty && !hasClockInOnShift;
+    
+    if (neverClockedIn || workedMinutes === 0) {
       newStatus = 'missed';
       completionState = 'none';
-      missedReason = 'Teacher did not clock in within allowed window';
+      missedReason = 'Teacher did not clock in before shift ended';
     } else if (workedMinutes + toleranceMinutes >= scheduledMinutes) {
       newStatus = 'fullyCompleted';
       completionState = 'full';
@@ -349,6 +395,10 @@ const handleShiftEndTask = onRequest(async (req, res) => {
 
     if (autoClockOutPerformed) {
       updatePayload.auto_clock_out_reason = 'System auto clock-out at shift end';
+      // Also update the shift's clock_out_time if it was auto-clocked out
+      if (!shiftData.clock_out_time) {
+        updatePayload.clock_out_time = admin.firestore.Timestamp.fromDate(endDate);
+      }
     } else {
       updatePayload.auto_clock_out_reason = admin.firestore.FieldValue.delete();
     }
@@ -366,6 +416,16 @@ const handleShiftEndTask = onRequest(async (req, res) => {
     }
 
     await shiftRef.update(updatePayload);
+
+    // Send notification if shift was missed
+    if (newStatus === 'missed' && !shiftData.missed_notification_sent) {
+      try {
+        await sendMissedShiftNotification(shiftData.teacher_id, shiftId, shiftData);
+        await shiftRef.update({missed_notification_sent: true});
+      } catch (notifError) {
+        console.error('Failed to send missed shift notification:', notifError);
+      }
+    }
 
     res.status(200).json({
       success: true,

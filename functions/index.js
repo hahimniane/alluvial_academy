@@ -7,6 +7,7 @@ const userHandlers = require('./handlers/users');
 const studentHandlers = require('./handlers/students');
 const taskHandlers = require('./handlers/tasks');
 const shiftHandlers = require('./handlers/shifts');
+const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 
 admin.initializeApp();
@@ -39,6 +40,10 @@ exports.onShiftUpdated = shiftHandlers.onShiftUpdated;
 exports.onShiftCancelled = shiftHandlers.onShiftCancelled;
 exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
+
+// Timezone management functions
+exports.updateUserTimezone = timezoneHandlers.updateUserTimezone;
+exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

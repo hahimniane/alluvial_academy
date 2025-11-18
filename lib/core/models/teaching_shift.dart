@@ -30,8 +30,8 @@ enum RecurrencePattern {
 }
 
 class TeachingShift {
-  // Grace period allowed after shift end before marking as missed
-  static const Duration clockInGracePeriod = Duration(minutes: 15);
+  // No grace period - shifts are marked as missed immediately after end time
+  // static const Duration clockInGracePeriod = Duration(minutes: 15); // REMOVED - handled by backend
 
   final String id;
   final String teacherId;
@@ -239,42 +239,27 @@ class TeachingShift {
     return isClockedIn && hasExpired;
   }
   
-  // Latest time a teacher can still clock in before shift is considered missed.
-  // The deadline is capped by the start of the next shift for the same teacher
-  // to avoid interfering with back-to-back schedules.
+  // Clock-in deadline is the shift end time (no grace period)
+  // Backend monitoring handles missed shift detection
+  @Deprecated('Grace period removed - use shift end time directly')
   DateTime clockInGraceDeadline({DateTime? nextShiftStartUtc}) {
-    final shiftEndUtc = shiftEnd.toUtc();
-
-    if (nextShiftStartUtc != null) {
-      final gap = nextShiftStartUtc.difference(shiftEndUtc);
-
-      if (gap.isNegative || gap == Duration.zero) {
-        // Next shift starts immediately (or overlaps) — no grace period.
-        return shiftEndUtc;
-      }
-
-      final effectiveGrace = gap < clockInGracePeriod ? gap : clockInGracePeriod;
-      return shiftEndUtc.add(effectiveGrace);
-    }
-
-    return shiftEndUtc.add(clockInGracePeriod);
+    // Grace period has been removed to simplify logic
+    // Shifts are marked as missed immediately after end time
+    return shiftEnd.toUtc();
   }
   
   // Check if shift should be marked as missed
-  // Only true if the grace period after shift end has passed and teacher never clocked in
+  // Shift is missed if it has ended and teacher never clocked in
+  // This is now handled by backend cloud function to avoid timezone issues
+  @Deprecated('Use backend monitoring instead')
   bool shouldBeMarkedAsMissed({
     DateTime? nowUtcOverride,
     DateTime? nextShiftStartUtc,
   }) {
-    final nowUtc = (nowUtcOverride ?? DateTime.now()).toUtc();
-    final shiftStartUtc = shiftStart.toUtc();
-    final graceDeadline = clockInGraceDeadline(nextShiftStartUtc: nextShiftStartUtc);
-    final hasStarted = nowUtc.isAfter(shiftStartUtc);
-    final isAfterGraceWindow = nowUtc.isAfter(graceDeadline);
-    final neverClockedIn = clockInTime == null;
-    final isScheduled = status == ShiftStatus.scheduled;
-    
-    return hasStarted && isAfterGraceWindow && neverClockedIn && isScheduled;
+    // This method is deprecated - shift status monitoring is now handled
+    // by the backend cloud function (monitorShiftStatuses) to ensure
+    // consistent UTC-based checking and avoid timezone issues
+    return false;
   }
 
   // Get actual shift duration based on clock-in/out times

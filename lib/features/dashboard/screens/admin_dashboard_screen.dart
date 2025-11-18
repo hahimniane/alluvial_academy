@@ -34,12 +34,140 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
+  bool _isDeletingAccount = false;
   
   // Platform detection for responsive layouts
   bool get _isMobile {
     if (kIsWeb) return false;
     final platform = defaultTargetPlatform;
     return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+  }
+
+  Future<void> _showDeleteAccountDialog() async {
+    if (!kIsWeb || _isDeletingAccount) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.delete_forever, color: Colors.red, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              'Delete Account',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.red,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Deleting your account will permanently remove your profile, timesheets, and associated classroom data. This action cannot be undone.',
+              style: GoogleFonts.inter(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Only proceed if you are certain. You will be signed out immediately after deletion.',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteCurrentAccount();
+    }
+  }
+
+  Future<void> _deleteCurrentAccount() async {
+    if (_isDeletingAccount) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email;
+    if (email == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to delete account: no email found.')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isDeletingAccount = true);
+
+    try {
+      final success = await UserRoleService.deleteUser(email);
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Account deleted. You will be signed out.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        await FirebaseAuth.instance.signOut();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to delete account. Please contact support.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting account: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDeletingAccount = false);
+      }
+    }
   }
 
   @override
@@ -485,6 +613,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
               color: Colors.white,
             ),
           ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              'Need to leave Alluwal Academy?',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: _isDeletingAccount
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever, color: Colors.red),
+              label: Text(
+                _isDeletingAccount ? 'Deleting...' : 'Delete My Account',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.red.withOpacity(0.4)),
+                foregroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              ),
+              onPressed: _isDeletingAccount ? null : _showDeleteAccountDialog,
+            ),
+          ],
         ],
       ),
     );
