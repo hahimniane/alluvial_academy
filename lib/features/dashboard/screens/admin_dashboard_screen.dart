@@ -17,8 +17,6 @@ import '../../../core/services/islamic_calendar_service.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
 
@@ -34,140 +32,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
-  bool _isDeletingAccount = false;
   
   // Platform detection for responsive layouts
   bool get _isMobile {
     if (kIsWeb) return false;
     final platform = defaultTargetPlatform;
     return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
-  }
-
-  Future<void> _showDeleteAccountDialog() async {
-    if (!kIsWeb || _isDeletingAccount) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.delete_forever, color: Colors.red, size: 28),
-            const SizedBox(width: 12),
-            Text(
-              'Delete Account',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Deleting your account will permanently remove your profile, timesheets, and associated classroom data. This action cannot be undone.',
-              style: GoogleFonts.inter(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Only proceed if you are certain. You will be signed out immediately after deletion.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete Account'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _deleteCurrentAccount();
-    }
-  }
-
-  Future<void> _deleteCurrentAccount() async {
-    if (_isDeletingAccount) return;
-
-    final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email;
-    if (email == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to delete account: no email found.')),
-        );
-      }
-      return;
-    }
-
-    setState(() => _isDeletingAccount = true);
-
-    try {
-      final success = await UserRoleService.deleteUser(email);
-      if (success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Account deleted. You will be signed out.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        await FirebaseAuth.instance.signOut();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to delete account. Please contact support.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting account: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isDeletingAccount = false);
-      }
-    }
   }
 
   @override
@@ -188,10 +58,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _loadUserData() async {
-    final role = await UserRoleService.getCurrentUserRole();
-    final data = await UserRoleService.getCurrentUserData();
-    if (mounted) {
-      setState(() {
+      final role = await UserRoleService.getCurrentUserRole();
+      final data = await UserRoleService.getCurrentUserData();
+      if (mounted) {
+        setState(() {
         userRole = role;
         userData = data;
       });
@@ -208,7 +78,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
 
-      AppLogger.debug('Loading teacher-specific statistics...');
+      print('Loading teacher-specific statistics...');
 
       // Load teacher's assigned tasks
       final tasksSnapshot = await FirebaseFirestore.instance
@@ -283,10 +153,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             'total_sessions': timesheetSnapshot.docs.length,
           };
         });
-        AppLogger.error('Teacher stats loaded successfully: $teacherStats');
+        print('Teacher stats loaded successfully: $teacherStats');
       }
     } catch (e) {
-      AppLogger.error('Error loading teacher stats: $e');
+      print('Error loading teacher stats: $e');
       if (mounted) {
         setState(() {
           teacherStats = {
@@ -305,7 +175,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _loadStats() async {
     try {
-      AppLogger.debug('Loading comprehensive dashboard statistics...');
+      print('Loading comprehensive dashboard statistics...');
 
       // Load all collections in parallel with more detailed queries
       final futures = await Future.wait([
@@ -320,9 +190,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final formsSnapshot = futures[1];
       final responsesSnapshot = futures[2];
 
-      AppLogger.debug('Users found: ${usersSnapshot.docs.length}');
-      AppLogger.debug('Forms found: ${formsSnapshot.docs.length}');
-      AppLogger.debug('Responses found: ${responsesSnapshot.docs.length}');
+      print('Users found: ${usersSnapshot.docs.length}');
+      print('Forms found: ${formsSnapshot.docs.length}');
+      print('Responses found: ${responsesSnapshot.docs.length}');
 
       // Enhanced user analytics
       Map<String, int> roleCount = {};
@@ -482,10 +352,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             'last_backup': 'today',
           };
         });
-        AppLogger.error('Enhanced stats loaded successfully: $stats');
+        print('Enhanced stats loaded successfully: $stats');
       }
     } catch (e) {
-      AppLogger.error('Error loading comprehensive stats: $e');
+      print('Error loading comprehensive stats: $e');
       // Set realistic default values on error
       if (mounted) {
         setState(() {
@@ -520,13 +390,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         });
       }
     }
-  }
-
-  Future<void> _refreshDashboardData() async {
-    await Future.wait([
-      _loadUserData(),
-      _loadStats(),
-    ]);
   }
 
   @override
@@ -571,21 +434,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
                   'Welcome back, $firstName! 👋',
-                  style: GoogleFonts.inter(
+              style: GoogleFonts.inter(
                     fontSize: 28,
-                    fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.bold,
                     color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
                   'You\'re signed in as $roleDisplay',
-                  style: GoogleFonts.inter(
+              style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
                   ),
@@ -613,42 +476,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               color: Colors.white,
             ),
           ),
-          if (kIsWeb) ...[
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 12),
-            Text(
-              'Need to leave Alluwal Academy?',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff111827),
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: _isDeletingAccount
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_forever, color: Colors.red),
-              label: Text(
-                _isDeletingAccount ? 'Deleting...' : 'Delete My Account',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.red,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.red.withOpacity(0.4)),
-                foregroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              ),
-              onPressed: _isDeletingAccount ? null : _showDeleteAccountDialog,
-            ),
-          ],
         ],
       ),
     );
@@ -670,22 +497,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildAdminDashboard() {
-    // Mobile-optimized layout for admins
-    if (_isMobile) {
-      return _buildMobileAdminDashboard();
-    }
-
-    // Desktop layout
     return SingleChildScrollView(
       child: Column(
         children: [
           // Modern Header with Gradient
           _buildModernHeader(),
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
           // Key Performance Indicators
           _buildKPISection(),
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
           // User Analytics Section
           _buildUserAnalyticsSection(),
@@ -724,369 +545,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMobileAdminDashboard() {
-    final theme = Theme.of(context);
-    final metrics = [
-      {
-        'title': 'Total Users',
-        'value': _formatCompactNumber(stats['total_users']),
-        'trend': '${_formatDelta(stats['recent_users_registered'])} new',
-        'icon': Icons.people_alt_rounded,
-        'color': theme.colorScheme.primary,
-      },
-      {
-        'title': 'Active Forms',
-        'value': _formatCompactNumber(stats['active_forms']),
-        'trend': '${_formatDelta(stats['recent_forms_created'])} launched',
-        'icon': Icons.assignment_turned_in_rounded,
-        'color': theme.colorScheme.secondary,
-      },
-      {
-        'title': 'Responses',
-        'value': _formatCompactNumber(stats['total_submissions']),
-        'trend': '${_formatDelta(stats['recent_responses_submitted'])} today',
-        'icon': Icons.insights_rounded,
-        'color': const Color(0xffF59E0B),
-      },
-      {
-        'title': 'Active Today',
-        'value': _formatCompactNumber(stats['active_users']),
-        'trend': '${_formatCompactNumber(stats['online_now'])} online',
-        'icon': Icons.bolt_rounded,
-        'color': const Color(0xff10B981),
-      },
-      {
-        'title': 'Avg Response Rate',
-        'value': _formatPercentage(stats['average_response_rate']),
-        'trend': 'Response quality',
-        'icon': Icons.speed_rounded,
-        'color': const Color(0xff8B5CF6),
-        'progress': _percentageToProgress(stats['average_response_rate']),
-      },
-    ];
-
-    return RefreshIndicator(
-      color: theme.colorScheme.primary,
-      onRefresh: _refreshDashboardData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 12),
-            _buildMobileAdminWelcomeCard(),
-            const SizedBox(height: 20),
-            if (metrics.isNotEmpty) _buildMobileQuickStatsGrid(metrics),
-            const SizedBox(height: 20),
-            _buildMobileSystemHealthCard(),
-            const SizedBox(height: 20),
-            _buildMobileQuickActionsCard(),
-            const SizedBox(height: 20),
-            _buildMobileRecentActivityCard(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMobileAdminWelcomeCard() {
-    final theme = Theme.of(context);
-    final firstName =
-        userData?['first_name'] ?? userData?['name'] ?? 'Admin';
-    final roleDisplay = UserRoleService.getRoleDisplayName(userRole);
-    final greeting = _getGreeting();
-    final uptime =
-        _formatPercentage(stats['uptime_percentage'], fractionDigits: 1);
-    final responseRate = _formatPercentage(stats['average_response_rate']);
-
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            Color.lerp(
-                  theme.colorScheme.primary,
-                  theme.colorScheme.secondary,
-                  0.35,
-                ) ??
-                theme.colorScheme.primary.withOpacity(0.85),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      greeting,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.88),
-                      ),
-                    ),
-                    Text(
-                      '$firstName 👋',
-                      style: GoogleFonts.inter(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'You’re managing $roleDisplay',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.75),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(
-                  Icons.dashboard_customize_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildHeroMetricChip(
-                label: 'Active today',
-                value: _formatCompactNumber(stats['active_users']),
-                icon: Icons.groups_rounded,
-              ),
-              _buildHeroMetricChip(
-                label: 'Online now',
-                value: _formatCompactNumber(stats['online_now']),
-                icon: Icons.wifi_tethering_rounded,
-              ),
-              _buildHeroMetricChip(
-                label: 'Live forms',
-                value: _formatCompactNumber(stats['active_forms']),
-                icon: Icons.assignment_rounded,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.auto_graph_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Platform uptime',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.75),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        uptime,
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: Text(
-                    'Avg response $responseRate',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileQuickStatsGrid(List<Map<String, dynamic>> metrics) {
-    return SizedBox(
-      height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: metrics.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => _buildMobileMetricCard(metrics[index]),
-      ),
-    );
-  }
-
-  Widget _buildMobileMetricCard(Map<String, dynamic> metric) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final Color accent =
-        (metric['color'] as Color?) ?? theme.colorScheme.primary;
-    final String title = metric['title'] as String? ?? '';
-    final String value = metric['value'] as String? ?? '0';
-    final String trend = metric['trend'] as String? ?? '';
-    final IconData icon =
-        metric['icon'] as IconData? ?? Icons.insert_chart_outlined_rounded;
-    final double? progress = metric['progress'] as double?;
-
-    return SizedBox(
-      width: 220,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: isDark
-              ? theme.colorScheme.surfaceVariant.withOpacity(0.2)
-              : theme.cardColor,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: accent.withOpacity(isDark ? 0.28 : 0.14),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: accent.withOpacity(isDark ? 0.25 : 0.12),
-              blurRadius: 22,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: accent.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: accent,
-                    size: 22,
-                  ),
-                ),
-                const Spacer(),
-                if (trend.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: accent.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: Text(
-                      trend,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: accent,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: theme.textTheme.headlineSmall?.color ??
-                    theme.colorScheme.onBackground,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7) ??
-                    Colors.black54,
-              ),
-            ),
-            if (progress != null) ...[
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: progress.clamp(0, 1),
-                  minHeight: 6,
-                  backgroundColor: accent.withOpacity(0.15),
-                  valueColor: AlwaysStoppedAnimation<Color>(accent),
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -1438,8 +896,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
             childAspectRatio: 1.3,
-            children: [
-              _buildStatCard(
+      children: [
+        _buildStatCard(
                   'My Forms', 12, Icons.assignment_turned_in, Colors.blue),
               _buildStatCard('Completed', 8, Icons.check_circle, Colors.green),
               _buildStatCard(
@@ -1551,14 +1009,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                Row(
                   children: [
                     _buildHeaderStat('Users Online',
                         '${stats['online_now'] ?? 0}', Icons.people),
+                    const SizedBox(width: 24),
                     _buildHeaderStat('Active Forms',
                         '${stats['active_forms'] ?? 0}', Icons.assignment),
+                    const SizedBox(width: 24),
                     _buildHeaderStat(
                         'System Health',
                         '${stats['uptime_percentage']?.toStringAsFixed(1) ?? '99.8'}%',
@@ -1656,10 +1114,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           childAspectRatio: 1.1,
           children: [
             _buildModernKPICard(
-              'Total Users',
+          'Total Users', 
               '${stats['total_users'] ?? 0}',
               Icons.people_rounded,
-              const Color(0xff3B82F6),
+          const Color(0xff3B82F6),
               _calculateUserGrowth(),
               _calculateUserGrowth().startsWith('+'),
             ),
@@ -1667,7 +1125,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               'Active Forms',
               '${stats['active_forms'] ?? 0}',
               Icons.assignment_rounded,
-              const Color(0xff10B981),
+          const Color(0xff10B981),
               _calculateFormGrowth(),
               _calculateFormGrowth().startsWith('+'),
             ),
@@ -1675,7 +1133,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               'Form Responses',
               '${stats['total_responses'] ?? 0}',
               Icons.task_alt_rounded,
-              const Color(0xff8B5CF6),
+          const Color(0xff8B5CF6),
               _calculateResponseGrowth(),
               _calculateResponseGrowth().startsWith('+'),
             ),
@@ -1683,7 +1141,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               'System Uptime',
               '${stats['uptime_percentage']?.toStringAsFixed(1) ?? '99.8'}%',
               Icons.trending_up_rounded,
-              const Color(0xffF59E0B),
+          const Color(0xffF59E0B),
               '+0.1%',
               true,
             ),
@@ -1789,103 +1247,88 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildModernKPICard(String title, String value, IconData icon,
       Color color, String change, bool isPositive) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 400;
-        return Container(
-          padding: EdgeInsets.all(isMobile ? 12 : 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xffF1F5F9)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    flex: 0,
-                    child: Container(
-                      padding: EdgeInsets.all(isMobile ? 8 : 12),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(icon, color: color, size: isMobile ? 20 : 24),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isPositive
-                            ? const Color(0xffDCFCE7)
-                            : const Color(0xffFEE2E2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isPositive ? Icons.trending_up : Icons.trending_down,
-                            size: 10,
-                            color: isPositive
-                                ? const Color(0xff16A34A)
-                                : const Color(0xffDC2626),
-                          ),
-                          const SizedBox(width: 2),
-                          Flexible(
-                            child: Text(
-                              change,
-                              style: GoogleFonts.inter(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: isPositive
-                                    ? const Color(0xff16A34A)
-                                    : const Color(0xffDC2626),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: isMobile ? 12 : 16),
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: isMobile ? 20 : 28,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff111827),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: isMobile ? 12 : 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff6B7280),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isPositive
+                      ? const Color(0xffDCFCE7)
+                      : const Color(0xffFEE2E2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPositive ? Icons.trending_up : Icons.trending_down,
+                      size: 12,
+                      color: isPositive
+                          ? const Color(0xff16A34A)
+                          : const Color(0xffDC2626),
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      change,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isPositive
+                            ? const Color(0xff16A34A)
+                            : const Color(0xffDC2626),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff6B7280),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2250,530 +1693,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildMobileSystemHealthCard() {
-    final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
-    final uptime =
-        _formatPercentage(stats['uptime_percentage'], fractionDigits: 1);
-    final responseTime = stats['response_time'] ?? 120;
-    final healthLabel = (stats['system_health'] ?? 'excellent').toString();
-
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: _cardDecoration(theme, radius: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-            'Platform Pulse',
-            Icons.health_and_safety_rounded,
-            accent,
-            trailing: 'Live status',
-          ),
-          const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Uptime',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: theme.textTheme.bodySmall?.color
-                            ?.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Text(
-                          uptime,
-                          style: GoogleFonts.inter(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: theme.textTheme.titleLarge?.color ??
-                                theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildStatusChip(
-                          _formatTitleCase(healthLabel),
-                          accent,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Avg response time $responseTime ms',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: theme.textTheme.bodyMedium?.color
-                            ?.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 1,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        accent.withOpacity(0.18),
-                        accent.withOpacity(0.05),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.support_agent_rounded,
-                        color: accent,
-                        size: 28,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'System load',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: theme.textTheme.bodySmall?.color
-                              ?.withOpacity(0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatPercentage(stats['system_load']),
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildResourceMeter(
-            'CPU usage',
-            stats['cpu_usage'],
-            accent,
-          ),
-          const SizedBox(height: 12),
-          _buildResourceMeter(
-            'Memory load',
-            stats['memory_usage'],
-            const Color(0xff6366F1),
-          ),
-          const SizedBox(height: 12),
-          _buildResourceMeter(
-            'Storage used',
-            stats['storage_used'],
-            const Color(0xffF97316),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Last backup ${stats['last_backup'] ?? 'today'} • Monitoring continuously',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: theme.textTheme.bodySmall?.color?.withOpacity(0.65),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, int value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value.toString(),
-            style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xff1a1a1a),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: const Color(0xff6b7280),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileQuickActionsCard() {
-    final theme = Theme.of(context);
-    final actions = [
-      {
-        'title': 'Add New User',
-        'subtitle': 'Invite new team members',
-        'icon': Icons.person_add_rounded,
-        'color': theme.colorScheme.primary,
-      },
-      {
-        'title': 'Create Form',
-        'subtitle': 'Launch a new form in minutes',
-        'icon': Icons.add_box_rounded,
-        'color': const Color(0xff10B981),
-      },
-      {
-        'title': 'View Analytics',
-        'subtitle': 'See detailed usage trends',
-        'icon': Icons.analytics_rounded,
-        'color': const Color(0xffF59E0B),
-      },
-      {
-        'title': 'Export Data',
-        'subtitle': 'Download latest submissions',
-        'icon': Icons.file_download_rounded,
-        'color': const Color(0xff8B5CF6),
-      },
-      {
-        'title': 'System Settings',
-        'subtitle': 'Update platform preferences',
-        'icon': Icons.settings_rounded,
-        'color': const Color(0xff6B7280),
-      },
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: _cardDecoration(theme, radius: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-            'Admin Shortcuts',
-            Icons.rocket_launch_rounded,
-            theme.colorScheme.primary,
-            trailing: 'Most used',
-          ),
-          const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final bool useTwoColumns = constraints.maxWidth > 380;
-              final double itemWidth = useTwoColumns
-                  ? (constraints.maxWidth - 12) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: actions
-                    .map(
-                      (action) => SizedBox(
-                        width: itemWidth,
-                        child: _buildMobileQuickActionTile(
-                          action['title'] as String,
-                          action['icon'] as IconData,
-                          action['color'] as Color,
-                          action['subtitle'] as String,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileQuickActionTile(
-      String title, IconData icon, Color color, String subtitle) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return InkWell(
-      onTap: () => _handleQuickAction(title),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: isDark ? color.withOpacity(0.12) : theme.cardColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: color.withOpacity(isDark ? 0.4 : 0.2),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(isDark ? 0.28 : 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: theme.textTheme.titleMedium?.color ??
-                    theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Open',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 16,
-                  color: color,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionButton(String title, IconData icon, Color color) {
-    return InkWell(
-      onTap: () => _handleQuickAction(title),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: color,
-              ),
-            ),
-            const Spacer(),
-            Icon(Icons.arrow_forward_ios, color: color, size: 14),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _handleQuickAction(String action) {
-    switch (action) {
-      case 'System Settings':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => Scaffold(
-              appBar: AppBar(
-                title: const Text('System Settings'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                foregroundColor: Colors.black,
-              ),
-              body: const SystemSettingsScreen(),
-            ),
-          ),
-        );
-        break;
-      case 'Add Assignment':
-        _showAssignmentDialog();
-        break;
-      case 'My Assignments':
-        _showMyAssignmentsDialog();
-        break;
-      case 'Add New User':
-        // Navigate to add user screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Navigating to Add New User...')),
-        );
-        break;
-      case 'Create Form':
-        // Navigate to form builder
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Navigating to Form Builder...')),
-        );
-        break;
-      case 'View Reports':
-        // Navigate to reports
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Navigating to Reports...')),
-        );
-        break;
-      case 'Export Form Responses':
-        _showFormResponsesExportDialog();
-        break;
-      default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$action feature coming soon!')),
-        );
-    }
-  }
-
-  Widget _buildMobileRecentActivityCard() {
-    final theme = Theme.of(context);
-    final activityItems = [
-      {
-        'title': 'New user registration',
-        'description': _buildRecentUserActivity(),
-        'time': _getTimeSinceLastUser(),
-        'icon': Icons.person_add_alt_1_rounded,
-        'color': theme.colorScheme.primary,
-      },
-      {
-        'title': 'Form activity',
-        'description': _buildRecentFormActivity(),
-        'time': _getTimeSinceLastForm(),
-        'icon': Icons.assignment_rounded,
-        'color': const Color(0xff10B981),
-      },
-      {
-        'title': 'Form submissions',
-        'description': _buildRecentSubmissionActivity(),
-        'time': _getTimeSinceLastSubmission(),
-        'icon': Icons.task_alt_rounded,
-        'color': const Color(0xffF59E0B),
-      },
-      {
-        'title': 'System backup',
-        'description':
-            'Daily backup completed successfully (${_calculateBackupSize()})',
-        'time': '${stats['last_backup'] ?? 'today'}',
-        'icon': Icons.backup_rounded,
-        'color': const Color(0xff8B5CF6),
-      },
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: _cardDecoration(theme, radius: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-            'Realtime Activity',
-            Icons.timeline_rounded,
-            const Color(0xff10B981),
-            trailing: 'Past 24 hrs',
-          ),
-          const SizedBox(height: 20),
-          ...List.generate(activityItems.length, (index) {
-            final item = activityItems[index];
-            return Padding(
-              padding: EdgeInsets.only(bottom: index == activityItems.length - 1 ? 0 : 18),
-              child: _buildTimelineItem(
-                icon: item['icon'] as IconData,
-                color: item['color'] as Color,
-                title: item['title'] as String,
-                description: item['description'] as String,
-                time: item['time'] as String,
-                isLast: index == activityItems.length - 1,
-              ),
-            );
-          }),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () {
-                // Navigate to full activity log
-              },
-              icon: const Icon(Icons.launch_rounded, size: 16),
-              label: Text(
-                'Open activity log',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSystemHealthCard() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -2874,6 +1793,54 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildStatCard(String title, int value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+            padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(
+            value.toString(),
+              style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              color: const Color(0xff1a1a1a),
+              ),
+            ),
+            const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xff6b7280),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -2979,10 +1946,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xff111827),
                     ),
@@ -2992,8 +1959,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     subtitle,
                     style: GoogleFonts.inter(
                       fontSize: 12,
-                      color: const Color(0xff6B7280),
-                    ),
+                color: const Color(0xff6B7280),
+              ),
                   ),
                 ],
               ),
@@ -3007,6 +1974,90 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
       ),
     );
+  }
+
+  Widget _buildQuickActionButton(String title, IconData icon, Color color) {
+    return InkWell(
+      onTap: () => _handleQuickAction(title),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.arrow_forward_ios, color: color, size: 14),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleQuickAction(String action) {
+    switch (action) {
+      case 'System Settings':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(
+                title: const Text('System Settings'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                foregroundColor: Colors.black,
+              ),
+              body: const SystemSettingsScreen(),
+            ),
+          ),
+        );
+        break;
+      case 'Add Assignment':
+        _showAssignmentDialog();
+        break;
+      case 'My Assignments':
+        _showMyAssignmentsDialog();
+        break;
+      case 'Add New User':
+        // Navigate to add user screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigating to Add New User...')),
+        );
+        break;
+      case 'Create Form':
+        // Navigate to form builder
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigating to Form Builder...')),
+        );
+        break;
+      case 'View Reports':
+        // Navigate to reports
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigating to Reports...')),
+        );
+        break;
+      case 'Export Form Responses':
+        _showFormResponsesExportDialog();
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$action feature coming soon!')),
+        );
+    }
   }
 
   Widget _buildRecentActivityCard() {
@@ -3202,315 +2253,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
-  }
-
-  Widget _buildHeroMetricChip({
-    required String label,
-    required String value,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: Colors.white),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.75),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(
-    String title,
-    IconData icon,
-    Color accent, {
-    String? trailing,
-  }) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: accent.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: accent, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: theme.textTheme.titleMedium?.color ??
-                  theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-        if (trailing != null)
-          Text(
-            trailing,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color:
-                  theme.textTheme.bodySmall?.color?.withOpacity(0.7) ??
-                      Colors.black54,
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildStatusChip(String label, Color accent) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: accent.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(40),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: accent,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResourceMeter(String label, dynamic value, Color color) {
-    final theme = Theme.of(context);
-    final displayValue = _formatPercentage(value);
-    final progress = _percentageToProgress(value);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color:
-                      theme.textTheme.bodySmall?.color?.withOpacity(0.7) ??
-                          Colors.black54,
-                ),
-              ),
-            ),
-            Text(
-              displayValue,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 6,
-            backgroundColor: color.withOpacity(0.15),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimelineItem({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String description,
-    required String time,
-    required bool isLast,
-  }) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 40,
-                margin: const EdgeInsets.only(top: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(40),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: theme.textTheme.titleMedium?.color ??
-                            theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    time,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: theme.textTheme.bodySmall?.color
-                          ?.withOpacity(0.7),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: theme.textTheme.bodyMedium?.color
-                      ?.withOpacity(0.75),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  BoxDecoration _cardDecoration(ThemeData theme, {double radius = 22}) {
-    final isDark = theme.brightness == Brightness.dark;
-    return BoxDecoration(
-      color: theme.cardColor,
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(
-        color: isDark
-            ? Colors.white.withOpacity(0.08)
-            : theme.dividerColor.withOpacity(0.4),
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(isDark ? 0.45 : 0.08),
-          blurRadius: 24,
-          offset: const Offset(0, 14),
-        ),
-      ],
-    );
-  }
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    if (hour < 21) return 'Good evening';
-    return 'Good night';
-  }
-
-  String _formatTitleCase(String value) {
-    if (value.isEmpty) return value;
-    final cleaned = value.replaceAll('_', ' ');
-    return cleaned[0].toUpperCase() + cleaned.substring(1);
-  }
-
-  String _formatCompactNumber(dynamic value) {
-    final amount = _toDouble(value);
-    if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(amount >= 10000000 ? 0 : 1)}M';
-    }
-    if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(amount >= 10000 ? 0 : 1)}K';
-    }
-    if (amount == amount.roundToDouble()) {
-      return amount.toInt().toString();
-    }
-    return amount.toStringAsFixed(1);
-  }
-
-  String _formatPercentage(dynamic value, {int fractionDigits = 0}) {
-    final amount = _toDouble(value);
-    final digits = amount % 1 == 0 ? 0 : fractionDigits;
-    return '${amount.toStringAsFixed(digits)}%';
-  }
-
-  double _percentageToProgress(dynamic value) {
-    final amount = _toDouble(value);
-    if (amount.isNaN) return 0;
-    return (amount.clamp(0, 100)) / 100;
-  }
-
-  String _formatDelta(dynamic value) {
-    final amount = _toDouble(value);
-    if (amount == 0) return '0';
-    final sign = amount > 0 ? '+' : '';
-    if (amount == amount.roundToDouble()) {
-      return '$sign${amount.toInt()}';
-    }
-    return '$sign${amount.toStringAsFixed(1)}';
-  }
-
-  double _toDouble(dynamic value) {
-    if (value == null) return 0;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is num) return value.toDouble();
-    return double.tryParse(value.toString()) ?? 0;
   }
 
   Widget _buildSystemOverviewCard() {
@@ -3787,9 +2529,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       children: [
         Text(
           count.toString(),
-          style: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
@@ -4277,7 +3019,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        AppLogger.debug('Could not launch $url');
+        print('Could not launch $url');
         // Show snackbar or error message to user
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -4289,7 +3031,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         }
       }
     } catch (e) {
-      AppLogger.error('Error launching URL: $e');
+      print('Error launching URL: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -4527,7 +3269,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       return ((completedFields / totalFields) * 100).round();
     } catch (e) {
-      AppLogger.error('Error calculating profile completion: $e');
+      print('Error calculating profile completion: $e');
       return 0;
     }
   }
@@ -4555,7 +3297,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       return uniqueStudents.length;
     } catch (e) {
-      AppLogger.error('Error getting student count: $e');
+      print('Error getting student count: $e');
       return 0;
     }
   }
@@ -4630,7 +3372,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       return students;
     } catch (e) {
-      AppLogger.error('Error getting students: $e');
+      print('Error getting students: $e');
       return [];
     }
   }
@@ -4821,9 +3563,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-                const SizedBox(height: 16),
+            ),
+          ),
+          const SizedBox(height: 16),
                 Row(
                   children: [
                     _buildHeaderStat('Students Today',
@@ -4921,7 +3663,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 child: Icon(icon, color: color, size: 16),
               ),
-              Text(
+          Text(
                 change,
                 style: GoogleFonts.inter(
                   fontSize: 10,
@@ -5039,8 +3781,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               children: [
                 Text(
                   className,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
+            style: GoogleFonts.inter(
+              fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xff111827),
                   ),
@@ -5052,7 +3794,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       students,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xff6B7280),
+              color: const Color(0xff6B7280),
                       ),
                     ),
                     const Text(' • '),
@@ -6488,7 +5230,7 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
         _educationController.text = data['education_certifications'] ?? '';
       }
     } catch (e) {
-      AppLogger.error('Error loading teacher profile: $e');
+      print('Error loading teacher profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -6911,7 +5653,7 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
         }
       }
     } catch (e) {
-      AppLogger.error('Error saving teacher profile: $e');
+      print('Error saving teacher profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -7056,7 +5798,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         _isLoading = false;
       });
     } catch (e) {
-      AppLogger.error('Error loading students: $e');
+      print('Error loading students: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -7079,10 +5821,10 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      AppLogger.debug('Saving assignment for user: ${user.uid}');
-      AppLogger.debug('Assignment title: ${_titleController.text.trim()}');
-      AppLogger.debug('Selected students: $_selectedStudents');
-      AppLogger.debug('Attachments: ${_attachments.length}');
+      print('Saving assignment for user: ${user.uid}');
+      print('Assignment title: ${_titleController.text.trim()}');
+      print('Selected students: $_selectedStudents');
+      print('Attachments: ${_attachments.length}');
 
       final assignmentData = {
         'title': _titleController.text.trim(),
@@ -7104,7 +5846,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       // Check if we're editing or creating
       if (widget.existingAssignment != null) {
         // Update existing assignment
-        AppLogger.debug(
+        print(
             'Updating existing assignment: ${widget.existingAssignment!['id']}');
         await FirebaseFirestore.instance
             .collection('assignments')
@@ -7113,11 +5855,11 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       } else {
         // Create new assignment
         assignmentData['created_at'] = FieldValue.serverTimestamp();
-        AppLogger.debug('Creating new assignment...');
+        print('Creating new assignment...');
         docRef = await FirebaseFirestore.instance
             .collection('assignments')
             .add(assignmentData);
-        AppLogger.info('Assignment created with ID: ${docRef.id}');
+        print('Assignment created with ID: ${docRef.id}');
       }
 
       if (mounted) {
@@ -7151,12 +5893,12 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         Navigator.of(context).pop();
 
         if (widget.onAssignmentCreated != null) {
-          AppLogger.error('Calling onAssignmentCreated callback');
+          print('Calling onAssignmentCreated callback');
           widget.onAssignmentCreated!();
         }
       }
     } catch (e) {
-      AppLogger.error('Error saving assignment: $e');
+      print('Error saving assignment: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -7742,7 +6484,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         }
       }
     } catch (e) {
-      AppLogger.error('Error adding attachment: $e');
+      print('Error adding attachment: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -7787,12 +6529,12 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        AppLogger.debug('No authenticated user found');
+        print('No authenticated user found');
         setState(() => _isLoading = false);
         return;
       }
 
-      AppLogger.debug('Loading assignments for user: ${user.uid}');
+      print('Loading assignments for user: ${user.uid}');
 
       // Try without orderBy first to see if that's causing issues
       var query = FirebaseFirestore.instance
@@ -7803,13 +6545,13 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
         final assignmentsSnapshot =
             await query.orderBy('created_at', descending: true).get();
 
-        AppLogger.debug(
+        print(
             'Found ${assignmentsSnapshot.docs.length} assignments with orderBy');
 
         List<Map<String, dynamic>> assignments = [];
         for (var doc in assignmentsSnapshot.docs) {
           final data = doc.data();
-          AppLogger.debug('Assignment: ${doc.id} - ${data['title']}');
+          print('Assignment: ${doc.id} - ${data['title']}');
           assignments.add({
             'id': doc.id,
             ...data,
@@ -7821,18 +6563,18 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
           _isLoading = false;
         });
       } catch (orderError) {
-        AppLogger.error('OrderBy failed, trying without order: $orderError');
+        print('OrderBy failed, trying without order: $orderError');
 
         // Fallback: load without ordering
         final assignmentsSnapshot = await query.get();
 
-        AppLogger.error(
+        print(
             'Found ${assignmentsSnapshot.docs.length} assignments without orderBy');
 
         List<Map<String, dynamic>> assignments = [];
         for (var doc in assignmentsSnapshot.docs) {
           final data = doc.data();
-          AppLogger.debug('Assignment: ${doc.id} - ${data['title']}');
+          print('Assignment: ${doc.id} - ${data['title']}');
           assignments.add({
             'id': doc.id,
             ...data,
@@ -7853,7 +6595,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading assignments: $e');
+      print('Error loading assignments: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
