@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../main.dart';
+import '../widgets/modern_header.dart';
+import '../shared/widgets/fade_in_slide.dart';
+import 'program_selection_page.dart';
+import 'teachers_page.dart';
 import 'islamic_courses_page.dart';
-import 'tutoring_literacy_page.dart';
+import 'math_page.dart';
+import 'programming_page.dart';
+import 'english_page.dart';
 import 'afrolingual_page.dart';
-import '../shared/widgets/persistent_app_bar.dart';
-import '../core/models/landing_page_content.dart';
-// Removed dynamic fetching of landing page content – using static default
+import 'tutoring_literacy_page.dart';
+import 'about_page.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -17,524 +19,156 @@ class LandingPage extends StatefulWidget {
   State<LandingPage> createState() => _LandingPageState();
 }
 
-class _LandingPageState extends State<LandingPage>
-    with TickerProviderStateMixin {
-  late AnimationController _heroAnimationController;
-  late AnimationController _scrollAnimationController;
-  late Animation<double> _heroFadeAnimation;
-  late Animation<Offset> _heroSlideAnimation;
-  final ScrollController _scrollController = ScrollController();
-  final PageController _carouselController = PageController();
-  int _currentCarouselIndex = 0;
+class _LandingPageState extends State<LandingPage> with SingleTickerProviderStateMixin {
+  final TextEditingController _searchController = TextEditingController();
+  List<String> _suggestions = [];
+  late AnimationController _floatController;
+  late Animation<double> _floatAnimation;
+  late PageController _testimonialController;
+  int _currentTestimonialIndex = 0;
+  
+  final List<String> _allSubjects = [
+    'Maths',
+    'Islamic Studies',
+    'English',
+    'Programming',
+    'Arabic',
+    'Quran',
+    'Science',
+    'Physics',
+    'Chemistry'
+  ];
 
-  // Dynamic content state
-  LandingPageContent? _content;
-  final bool _isLoadingContent = false;
+  final List<Map<String, String>> _testimonials = [
+    {
+      'name': 'Aisha Muhammad',
+      'role': 'Parent of 3 students',
+      'text': 'Alhamdulillah, my children have grown so much in their Islamic knowledge since joining. The teachers are patient, knowledgeable, and truly care about each student\'s progress.',
+    },
+    {
+      'name': 'Ibrahim Diallo',
+      'role': 'Parent',
+      'text': 'The Afrolingual program has been a blessing. My son is now fluent in Mandinka and connected to his heritage. The quality of education here is exceptional.',
+    },
+    {
+      'name': 'Fatima Al-Hassan',
+      'role': 'Parent of 2 students',
+      'text': 'The tutoring program helped my daughter improve her grades significantly. The Islamic studies classes have strengthened our children\'s faith and character.',
+    },
+    {
+      'name': 'Mahmoud Bakr',
+      'role': 'Parent',
+      'text': 'Excellent Quran memorization program! My daughter has memorized 5 Juz in just one year. The teachers use modern techniques while maintaining traditional values.',
+    },
+    {
+      'name': 'Khadijah Williams',
+      'role': 'Parent of 4 students',
+      'text': 'This academy has been a cornerstone for our family. All my children attend different programs and each one is thriving. The community here is warm and supportive.',
+    },
+    {
+      'name': 'Omar Sheikh',
+      'role': 'Parent',
+      'text': 'The online classes are well-structured and engaging. My sons look forward to their Islamic studies classes. The teachers make learning fun while being thorough.',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Immediately use static default content without fetching from Firestore/Cloud Function
-    _content = LandingPageContent.defaultContent();
-
-    _heroAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+    // Setup floating animation for hero image
+    _floatController = AnimationController(
       vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+    
+    _floatAnimation = Tween<double>(begin: -10.0, end: 10.0).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
     );
-
-    _scrollAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _heroFadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _heroAnimationController,
-      curve: Curves.easeOut,
-    ));
-
-    _heroSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _heroAnimationController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    // Start hero animation
-    _heroAnimationController.forward();
+    
+    _testimonialController = PageController();
   }
-
-  // Removed _loadContent – no external fetch required
 
   @override
   void dispose() {
-    _heroAnimationController.dispose();
-    _scrollAnimationController.dispose();
-    _scrollController.dispose();
-    _carouselController.dispose();
+    _searchController.dispose();
+    _floatController.dispose();
+    _testimonialController.dispose();
     super.dispose();
   }
+  
+  void _previousTestimonial() {
+    if (_currentTestimonialIndex > 0) {
+      _testimonialController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // Loop to last
+      _testimonialController.animateToPage(
+        _testimonials.length - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+  
+  void _nextTestimonial() {
+    if (_currentTestimonialIndex < _testimonials.length - 1) {
+      _testimonialController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // Loop to first
+      _testimonialController.animateToPage(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
-  Future<void> _openExternal(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  void _onSearchChanged(String query) {
+    if (query.isEmpty) {
+      setState(() => _suggestions = []);
+      return;
+    }
+
+    setState(() {
+      _suggestions = _allSubjects
+          .where((subject) => subject.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  void _onSuggestionSelected(String subject) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProgramSelectionPage(initialSubject: subject),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const PersistentAppBar(currentPage: 'Home'),
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        child: Column(
-          children: [
-            _buildHeroSection(),
-            _buildProgramsCarousel(),
-            _buildFeaturesSection(),
-            _buildStatsSection(),
-            _buildCoursesSection(),
-            _buildTestimonialsSection(),
-            _buildCTASection(),
-            _buildFooter(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroSection() {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xffFAFBFF),
-            Color(0xffF0F7FF),
-          ],
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 120),
-        child: FadeTransition(
-          opacity: _heroFadeAnimation,
-          child: SlideTransition(
-            position: _heroSlideAnimation,
-            child: Column(
-              children: [
-                // Main Hero Content
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Column(
-                    children: [
-                      // Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xff3B82F6).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(50),
-                          border: Border.all(
-                            color: const Color(0xff3B82F6).withOpacity(0.2),
-                          ),
-                        ),
-                        child: Text(
-                          _isLoadingContent
-                              ? '🕌 Nurturing Young Hearts Through Islamic Education'
-                              : (_content?.heroSection.badgeText ??
-                                  '🕌 Nurturing Young Hearts Through Islamic Education'),
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff3B82F6),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Main Headline
-                      Text(
-                        _isLoadingContent
-                            ? 'Quality Islamic Education\nfor Your Children'
-                            : (_content?.heroSection.mainHeadline ??
-                                'Quality Islamic Education\nfor Your Children'),
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize:
-                              MediaQuery.of(context).size.width > 640 ? 56 : 40,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xff111827),
-                          height: 1.1,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Subtitle
-                      Text(
-                        _isLoadingContent
-                            ? 'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.'
-                            : (_content?.heroSection.subtitle ??
-                                'Connect with qualified Islamic teachers for Quran, Arabic, and Islamic Studies.\nTrusted by parents worldwide for authentic Islamic education.'),
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          color: const Color(0xff6B7280),
-                          height: 1.6,
-                        ),
-                      ),
-                      const SizedBox(height: 48),
-
-                      // CTA Buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              gradient: const LinearGradient(
-                                colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      const Color(0xff3B82F6).withOpacity(0.3),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton.icon(
-                              onPressed: () => _navigateToEmployeeHub(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 20,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.login,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              label: Text(
-                                'Get Started',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          OutlinedButton.icon(
-                            onPressed: () => _scrollToSection('programs'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xff3B82F6),
-                              side: const BorderSide(
-                                color: Color(0xff3B82F6),
-                                width: 2,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 20,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            icon: const Icon(Icons.explore, size: 20),
-                            label: Text(
-                              'Explore Programs',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 64),
-
-                      // Trust Indicators
-                      Column(
-                        children: [
-                          Text(
-                            'Trusted by Muslim families worldwide',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xff9CA3AF),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 48,
-                            runSpacing: 24,
-                            children: [
-                              _buildTrustLogo('🕌 Islamic Centers'),
-                              _buildTrustLogo('📖 Madrasas'),
-                              _buildTrustLogo('👨‍👩‍👧‍👦 Families'),
-                              _buildTrustLogo('🌍 Worldwide'),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTrustLogo(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xffE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: const Color(0xff6B7280),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgramsCarousel() {
-    final programs = [
-      {
-        'title': 'Islamic Programs',
-        'subtitle': 'Comprehensive Islamic Education',
-        'description':
-            'Our Islamic program is meticulously designed to immerse students in the profound depths of Islamic knowledge. Offering courses in more than six islamic subjects including: Arabic language, Quran, Hadith, Tawhid, Tafsir and more.',
-        'icon': Icons.menu_book,
-        'color': const Color(0xff3B82F6),
-        'page': const IslamicCoursesPage(),
-      },
-      {
-        'title': 'After School Tutoring & Adult Literacy',
-        'subtitle': 'Education Beyond Boundaries',
-        'description':
-            'Discover the transformative power of our After-school Tutoring Program at Alluwal Education Hub, where education extends beyond traditional boundaries to embrace students from kindergarten through 12th grade, alongside a specialized adult program.',
-        'icon': Icons.school,
-        'color': const Color(0xff10B981),
-        'page': const TutoringLiteracyPage(),
-      },
-      {
-        'title': 'Afrolingual Program',
-        'subtitle': 'Indigenous African Languages',
-        'description':
-            'Embark on a captivating journey through our African Indigenous Language Learning Program, tailored for both children and adults. Connect with African heritage through language and culture.',
-        'icon': Icons.language,
-        'color': const Color(0xffF59E0B),
-        'page': const AfrolingualPage(),
-      },
-    ];
-
-    final bool isCompact = MediaQuery.of(context).size.height < 750;
-    final double cardPadding = isCompact ? 24.0 : 48.0;
-    final double iconSize = isCompact ? 32.0 : 40.0;
-    final double titleFontSize = isCompact ? 24.0 : 28.0;
-    final double subtitleFontSize = isCompact ? 14.0 : 16.0;
-    const double bodyFontSize = 16.0; // keep readable
-    final double gapLarge = isCompact ? 20.0 : 32.0;
-    final double gapMedium = isCompact ? 16.0 : 24.0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 80),
-      decoration: const BoxDecoration(
-        color: Color(0xffF9FAFB),
-      ),
-      child: Column(
+      backgroundColor: const Color(0xffFAFAFA), // Softer white
+      body: Column(
         children: [
-          Text(
-            'Our Programs',
-            style: GoogleFonts.inter(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xff111827),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Comprehensive education embracing Islamic, African, and Western civilizations',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              color: const Color(0xff6B7280),
-            ),
-          ),
-          const SizedBox(height: 48),
-          SizedBox(
-            height: isCompact ? 380 : 460,
-            child: PageView.builder(
-              controller: _carouselController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentCarouselIndex = index;
-                });
-              },
-              itemCount: programs.length,
-              itemBuilder: (context, index) {
-                final program = programs[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    child: Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        side: BorderSide(
-                          color: (program['color'] as Color).withOpacity(0.2),
-                          width: 2,
-                        ),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => program['page'] as Widget,
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(24),
-                        child: Padding(
-                          padding: EdgeInsets.all(cardPadding),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: (program['color'] as Color)
-                                      .withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Icon(
-                                  program['icon'] as IconData,
-                                  size: iconSize,
-                                  color: program['color'] as Color,
-                                ),
-                              ),
-                              SizedBox(height: gapMedium),
-                              Text(
-                                program['title'] as String,
-                                style: GoogleFonts.inter(
-                                  fontSize: titleFontSize,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xff111827),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                program['subtitle'] as String,
-                                style: GoogleFonts.inter(
-                                  fontSize: subtitleFontSize,
-                                  fontWeight: FontWeight.w500,
-                                  color: program['color'] as Color,
-                                ),
-                              ),
-                              SizedBox(height: gapMedium),
-                              Text(
-                                program['description'] as String,
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  fontSize: bodyFontSize,
-                                  color: const Color(0xff6B7280),
-                                  height: 1.6,
-                                ),
-                              ),
-                              SizedBox(height: gapLarge),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          program['page'] as Widget,
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: program['color'] as Color,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.arrow_forward, size: 18),
-                                label: Text(
-                                  'Learn More',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 32),
-          // Carousel indicators
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              programs.length,
-              (index) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: index == _currentCarouselIndex ? 24.0 : 8.0,
-                height: 8.0,
-                decoration: BoxDecoration(
-                  color: index == _currentCarouselIndex
-                      ? const Color(0xff3B82F6)
-                      : const Color(0xffE5E7EB),
-                  borderRadius: BorderRadius.circular(4),
-                ),
+          const ModernHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(), // Smoother scroll
+              child: Column(
+                children: [
+                  _buildHeroSection(),
+                  _buildProgramsSection(),
+                  _buildEnrollSection(),
+                  _buildAboutUsSection(),
+                  _buildTestimonialSection(),
+                  _buildFooterPlaceholder(),
+                ],
               ),
             ),
           ),
@@ -543,30 +177,480 @@ class _LandingPageState extends State<LandingPage>
     );
   }
 
-  Widget _buildFeaturesSection() {
+  Widget _buildHeroSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 120),
-      child: Column(
-        children: [
-          // Section Header
-          Container(
-            constraints: const BoxConstraints(maxWidth: 800),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+      decoration: const BoxDecoration(
+        color: Color(0xff001E4E), // Deep Navy Blue background from image
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: isDesktop
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(flex: 5, child: _buildHeroContent()),
+                  const SizedBox(width: 48),
+                  Expanded(flex: 5, child: _buildHeroImage()),
+                ],
+              )
+            : Column(
+                children: [
+                  _buildHeroContent(),
+                  const SizedBox(height: 48),
+                  _buildHeroImage(),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildHeroContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FadeInSlide(
+          delay: 0.2,
+          child: Text(
+            'Learn with online tutoring\nfrom anywhere in the world',
+            style: GoogleFonts.inter(
+              fontSize: 48,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.2,
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        
+        // Search Bar
+        FadeInSlide(
+          delay: 0.4,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Complete Islamic Learning Platform',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xff111827),
-                    height: 1.2,
+                // Our Teachers Button
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const TeachersPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.school_rounded, size: 20),
+                    label: Text(
+                      'Our Teachers',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xff001E4E),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Everything parents and teachers need for comprehensive Islamic education - from Quran memorization to Islamic studies.',
+
+                Container(
+                  height: 50, // Smaller, more compact
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    onSubmitted: (value) {
+                      if (value.isNotEmpty) _onSuggestionSelected(value);
+                    },
+                    style: GoogleFonts.inter(fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: 'What would you like to learn?',
+                      hintStyle: GoogleFonts.inter(
+                        color: const Color(0xff9CA3AF),
+                        fontSize: 15,
+                      ),
+                      suffixIcon: Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Icon(Icons.search, color: const Color(0xff3B82F6), size: 22),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    ),
+                  ),
+                ),
+                
+                // Suggestions Dropdown
+                if (_suggestions.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8, left: 12, right: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: _suggestions.map((subject) => InkWell(
+                        onTap: () => _onSuggestionSelected(subject),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.history, size: 18, color: Color(0xff9CA3AF)),
+                              const SizedBox(width: 12),
+                              Text(
+                                subject,
+                                style: GoogleFonts.inter(
+                                  fontSize: 15, 
+                                  color: const Color(0xff374151),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Quick Categories - Simple text links/chips
+        FadeInSlide(
+          delay: 0.5,
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              _TextCategoryLink('Islamic Studies', categoryType: CategoryType.islamicStudies),
+              _TextCategoryLink('Maths', categoryType: CategoryType.math),
+              _TextCategoryLink('English', categoryType: CategoryType.english),
+              _TextCategoryLink('Programming', categoryType: CategoryType.programming),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        // Checkmarks / Features
+        FadeInSlide(
+          delay: 0.6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFeatureItem('Meet the tutor. Try for free'),
+              const SizedBox(height: 8),
+              _buildFeatureItem(' Get help with your quran and islamic studies'),
+              const SizedBox(height: 8),
+              _buildFeatureItem('Get help from our engineers and programmers'),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 48),
+
+        // Trustpilot / Rating
+        FadeInSlide(
+          delay: 0.7,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Excellent',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(5, (index) => Container(
+                      margin: const EdgeInsets.only(right: 2),
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xff00B67A), // Trustpilot Green
+                        shape: BoxShape.rectangle,
+                      ),
+                      child: const Icon(Icons.star, color: Colors.white, size: 16),
+                    )),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Trusted by Muslim families worldwide',
+                style: GoogleFonts.inter(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFeatureItem(String text) {
+    return Row(
+      children: [
+        const Icon(Icons.check, color: Colors.white, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroImage() {
+    // Using a placeholder composition to mimic the 3-image layout
+    // In a real app, you would position actual images here
+    return FadeInSlide(
+      delay: 0.2,
+      beginOffset: const Offset(0.1, 0),
+      child: AnimatedBuilder(
+        animation: _floatAnimation,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, _floatAnimation.value),
+            child: child,
+          );
+        },
+        child: SizedBox(
+          height: 450,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Center Laptop Image (Main)
+              Positioned(
+                right: 40,
+                top: 20,
+                bottom: 60,
+                width: 400,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(40),
+                      topRight: Radius.circular(40),
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(100),
+                    ),
+                    color: Colors.white,
+                    border: Border.all(color: Colors.white, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(36),
+                      topRight: Radius.circular(36),
+                      bottomLeft: Radius.circular(36),
+                      bottomRight: Radius.circular(96),
+                    ),
+                    child: Image.asset(
+                      'assets/background_images/smiling_student.jpg', // Laptop/learning image
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Left Circle (Woman)
+              Positioned(
+                left: 0,
+                bottom: 80,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xffA5D6A7), // Light green accent
+                    border: Border.all(color: const Color(0xff001E4E), width: 4),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/teachers/elham_shifa.jpg'), // Placeholder woman
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Right Blob (Man)
+              Positioned(
+                right: 0,
+                bottom: 40,
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(70),
+                      topRight: Radius.circular(70),
+                      bottomLeft: Radius.circular(70),
+                      bottomRight: Radius.circular(10),
+                    ),
+                    color: const Color(0xffFFE082), // Amber accent
+                    border: Border.all(color: const Color(0xff001E4E), width: 4),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/teachers/mohammed_kosiah.jpg'), // Placeholder man
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgramsSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    
+    final programs = [
+      _ProgramCard(
+        title: 'Islamic Studies',
+        icon: Icons.mosque_rounded,
+        color: const Color(0xff3B82F6),
+        description: 'Quran, Hadith, Arabic, Tawhid, Tafsir & more',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const IslamicCoursesPage()),
+          );
+        },
+      ),
+      _ProgramCard(
+        title: 'Languages',
+        icon: Icons.language_rounded,
+        color: const Color(0xffF59E0B),
+        description: 'English, French & African languages',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AfrolingualPage()),
+          );
+        },
+      ),
+      _ProgramCard(
+        title: 'Math Classes',
+        icon: Icons.functions_rounded,
+        color: const Color(0xff10B981),
+        description: 'From elementary to advanced calculus',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MathPage()),
+          );
+        },
+      ),
+      _ProgramCard(
+        title: 'Programming',
+        icon: Icons.code_rounded,
+        color: const Color(0xff8B5CF6),
+        description: 'Web, mobile & software development',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProgrammingPage()),
+          );
+        },
+      ),
+      _ProgramCard(
+        title: 'After School Tutoring',
+        icon: Icons.school_rounded,
+        color: const Color(0xffEF4444),
+        description: 'Academic support & literacy programs',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TutoringLiteracyPage()),
+          );
+        },
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xffF9FAFB), Color(0xffFFFFFF)],
+        ),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: Column(
+          children: [
+            FadeInSlide(
+              delay: 0.1,
+              child: Text(
+                'Find Your Program',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: isDesktop ? 42 : 32,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xff111827),
+                  height: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FadeInSlide(
+              delay: 0.2,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Text(
+                  'Explore our comprehensive range of educational programs designed to meet your learning goals',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 18,
@@ -574,69 +658,460 @@ class _LandingPageState extends State<LandingPage>
                     height: 1.6,
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 80),
-
-          // Features Grid
-          Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 3 : 1,
-              crossAxisSpacing: 32,
-              mainAxisSpacing: 32,
-              childAspectRatio:
-                  MediaQuery.of(context).size.width > 768 ? 1.1 : 2,
-              children: [
-                _buildFeatureCard(
-                  Icons.menu_book_rounded,
-                  'Quran Learning',
-                  'Professional Quran teachers for memorization, recitation, and Tajweed with personalized lessons.',
-                  const Color(0xff3B82F6),
-                ),
-                _buildFeatureCard(
-                  Icons.language_rounded,
-                  'Arabic Language',
-                  'Comprehensive Arabic courses from basics to advanced, taught by native speakers.',
-                  const Color(0xff10B981),
-                ),
-                _buildFeatureCard(
-                  Icons.school_rounded,
-                  'Islamic Studies',
-                  'Complete Islamic education covering Fiqh, Aqeedah, Hadith, and Islamic history.',
-                  const Color(0xffF59E0B),
-                ),
-                _buildFeatureCard(
-                  Icons.chat_bubble_rounded,
-                  'Parent-Teacher Connection',
-                  'Direct communication between parents and teachers to track your child\'s progress.',
-                  const Color(0xff8B5CF6),
-                ),
-                _buildFeatureCard(
-                  Icons.schedule_rounded,
-                  'Flexible Scheduling',
-                  'Choose class times that work for your family with our flexible booking system.',
-                  const Color(0xffEF4444),
-                ),
-                _buildFeatureCard(
-                  Icons.people_rounded,
-                  'Qualified Teachers',
-                  'Certified Islamic scholars and teachers with years of experience in Islamic education.',
-                  const Color(0xff06B6D4),
-                ),
-              ],
+            const SizedBox(height: 48),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 600) {
+                  // Mobile: Single column
+                  return Column(
+                    children: programs.map((program) => Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: program,
+                    )).toList(),
+                  );
+                } else if (constraints.maxWidth < 1024) {
+                  // Tablet: 2 columns
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: 1.15,
+                    children: programs,
+                  );
+                } else if (constraints.maxWidth < 1400) {
+                  // Medium Desktop: 3 columns
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 24,
+                    mainAxisSpacing: 24,
+                    childAspectRatio: 1.0,
+                    children: programs,
+                  );
+                } else {
+                  // Large Desktop: 5 columns in a single row
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: programs.map((program) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: program,
+                      ),
+                    )).toList(),
+                  );
+                }
+              },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFeatureCard(
-      IconData icon, String title, String description, Color color) {
+  Widget _buildEnrollSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xff001E4E), Color(0xff003399)],
+        ),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: isDesktop
+            ? Row(
+                children: [
+                  Expanded(
+                    child: FadeInSlide(
+                      delay: 0.1,
+                      beginOffset: const Offset(-0.2, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ready to Start Learning?',
+                            style: GoogleFonts.inter(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Join thousands of students worldwide who are already benefiting from our comprehensive educational programs. Start your journey today with a free trial class.',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              color: Colors.white.withOpacity(0.9),
+                              height: 1.6,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ProgramSelectionPage(),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xff001E4E),
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 4,
+                                ),
+                                child: Text(
+                                  'Enroll Now',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              OutlinedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const TeachersPage(),
+                                    ),
+                                  );
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.white, width: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Meet Our Teachers',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 60),
+                  Expanded(
+                    child: FadeInSlide(
+                      delay: 0.3,
+                      beginOffset: const Offset(0.2, 0),
+                      child: Container(
+                        height: 300,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 30,
+                              offset: const Offset(0, 15),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            'assets/background_images/smiling_student.jpg',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.white.withOpacity(0.1),
+                                child: const Center(
+                                  child: Icon(Icons.school_rounded, size: 100, color: Colors.white70),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                children: [
+                  FadeInSlide(
+                    delay: 0.1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ready to Start Learning?',
+                          style: GoogleFonts.inter(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Join thousands of students worldwide who are already benefiting from our comprehensive educational programs. Start your journey today with a free trial class.',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.9),
+                            height: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProgramSelectionPage(),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xff001E4E),
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 4,
+                            ),
+                            child: Text(
+                              'Enroll Now',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const TeachersPage(),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white, width: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Meet Our Teachers',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  FadeInSlide(
+                    delay: 0.3,
+                    child: Container(
+                      height: 250,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 30,
+                            offset: const Offset(0, 15),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'assets/background_images/smiling_student.jpg',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.white.withOpacity(0.1),
+                              child: const Center(
+                                child: Icon(Icons.school_rounded, size: 80, color: Colors.white70),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildAboutUsSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: Column(
+          children: [
+            FadeInSlide(
+              delay: 0.1,
+              child: Text(
+                'About Alluwal Education Hub',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: isDesktop ? 42 : 32,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xff111827),
+                  height: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FadeInSlide(
+              delay: 0.2,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: Text(
+                  'We are fostering a world where diverse knowledge—Islamic, African, and Western—comes together to prepare students for a globalized future.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    color: const Color(0xff6B7280),
+                    height: 1.6,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 48),
+            isDesktop
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: FadeInSlide(
+                          delay: 0.3,
+                          beginOffset: const Offset(-0.2, 0),
+                          child: _buildAboutCard(
+                            Icons.rocket_launch_rounded,
+                            'Our Mission',
+                            const Color(0xff3B82F6),
+                            'To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: FadeInSlide(
+                          delay: 0.4,
+                          beginOffset: const Offset(0.2, 0),
+                          child: _buildAboutCard(
+                            Icons.visibility_rounded,
+                            'Our Vision',
+                            const Color(0xff10B981),
+                            'To create an inclusive, inspiring environment where students are encouraged to become leaders in their communities.',
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      FadeInSlide(
+                        delay: 0.3,
+                        child: _buildAboutCard(
+                          Icons.rocket_launch_rounded,
+                          'Our Mission',
+                          const Color(0xff3B82F6),
+                          'To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world.',
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      FadeInSlide(
+                        delay: 0.4,
+                        child: _buildAboutCard(
+                          Icons.visibility_rounded,
+                          'Our Vision',
+                          const Color(0xff10B981),
+                          'To create an inclusive, inspiring environment where students are encouraged to become leaders in their communities.',
+                        ),
+                      ),
+                    ],
+                  ),
+            const SizedBox(height: 40),
+            FadeInSlide(
+              delay: 0.5,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutPage(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff001E4E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 4,
+                ),
+                child: Text(
+                  'Learn More About Us',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAboutCard(IconData icon, String title, Color color, String description) {
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
@@ -655,23 +1130,19 @@ class _LandingPageState extends State<LandingPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 32,
-            ),
+            child: Icon(icon, color: color, size: 32),
           ),
           const SizedBox(height: 24),
           Text(
             title,
             style: GoogleFonts.inter(
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
               color: const Color(0xff111827),
             ),
@@ -682,7 +1153,7 @@ class _LandingPageState extends State<LandingPage>
             style: GoogleFonts.inter(
               fontSize: 16,
               color: const Color(0xff6B7280),
-              height: 1.5,
+              height: 1.6,
             ),
           ),
         ],
@@ -690,710 +1161,439 @@ class _LandingPageState extends State<LandingPage>
     );
   }
 
-  Widget _buildStatsSection() {
+  Widget _buildTestimonialSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
-        ),
-      ),
+      color: const Color(0xff003399), // Darker blue background
       child: Container(
         constraints: const BoxConstraints(maxWidth: 1200),
-        child: Column(
-          children: [
-            Text(
-              'Our Commitment to Excellence',
-              style: GoogleFonts.inter(
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
+        child: isDesktop
+            ? Row(
+                children: [
+                  Expanded(child: _buildTestimonialContent()),
+                  const SizedBox(width: 64),
+                  Expanded(child: _buildTestimonialImage()),
+                ],
+              )
+            : Column(
+                children: [
+                  _buildTestimonialImage(),
+                  const SizedBox(height: 48),
+                  _buildTestimonialContent(),
+                ],
               ),
-            ),
-            const SizedBox(height: 48),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildStatItem('3', 'Core Programs'),
-                _buildStatItem('6+', 'Islamic Subjects'),
-                _buildStatItem('K-12', 'Grade Levels'),
-                _buildStatItem('All', 'Age Groups'),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildStatItem(String number, String label) {
+  Widget _buildTestimonialContent() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          number,
-          style: GoogleFonts.inter(
-            fontSize: 36,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
+        Row(
+          children: [
+            CircleAvatar(
+              radius: isMobile ? 24 : 32,
+              backgroundColor: Colors.white.withOpacity(0.2),
+              child: Icon(
+                Icons.person_rounded,
+                size: isMobile ? 30 : 40,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _testimonials[_currentTestimonialIndex]['name']!,
+                    style: GoogleFonts.inter(
+                      fontSize: isMobile ? 16 : 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    _testimonials[_currentTestimonialIndex]['role']!,
+                    style: GoogleFonts.inter(
+                      fontSize: isMobile ? 12 : 14,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          height: isMobile ? 250 : 220,
+          child: PageView.builder(
+            controller: _testimonialController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentTestimonialIndex = index;
+              });
+            },
+            itemCount: _testimonials.length,
+            itemBuilder: (context, index) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left Arrow
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: _previousTestimonial,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.chevron_left,
+                          color: Colors.white,
+                          size: isMobile ? 24 : 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: isMobile ? 4 : 8),
+                  // Testimonial Text Bubble
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.all(isMobile ? 20 : 32),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.zero,
+                          topRight: Radius.circular(24),
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          _testimonials[index]['text']!,
+                          style: GoogleFonts.inter(
+                            fontSize: isMobile ? 16 : 20,
+                            height: 1.5,
+                            color: const Color(0xff111827),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: isMobile ? 4 : 8),
+                  // Right Arrow
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: _nextTestimonial,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: isMobile ? 24 : 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white.withOpacity(0.9),
+        const SizedBox(height: 24),
+        // Dots indicator
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _testimonials.length,
+            (index) => _buildDot(index == _currentTestimonialIndex),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildCoursesSection() {
+  Widget _buildTestimonialImage() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxHeight: 400),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 30,
+                offset: const Offset(0, 15),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/background_images/zoom_class.jpeg',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 300,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.image, size: 100, color: Colors.grey),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'With your tutor, you will be able to learn and apply on the go.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            color: Colors.white,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildDot(false),
+            const SizedBox(width: 8),
+            _buildDot(false),
+            const SizedBox(width: 8),
+            _buildDot(true),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDot(bool isActive) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 120),
-      child: Column(
-        children: [
-          Text(
-            'Islamic Education Programs',
-            style: GoogleFonts.inter(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xff111827),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Structured Islamic learning paths for all ages and levels',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              color: const Color(0xff6B7280),
-            ),
-          ),
-          const SizedBox(height: 64),
-          // Course features would go here
-        ],
+      width: isActive ? 12 : 8,
+      height: isActive ? 12 : 8,
+      decoration: BoxDecoration(
+        color: isActive ? Colors.white : Colors.white.withOpacity(0.4),
+        shape: BoxShape.circle,
       ),
     );
   }
 
-  Widget _buildTestimonialsSection() {
+  Widget _buildFooterPlaceholder() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: MediaQuery.of(context).size.width > 768 ? 24 : 16,
-        vertical: MediaQuery.of(context).size.width > 768 ? 120 : 60,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xffFAFBFF),
-            Color(0xffF0F7FF),
-          ],
+      padding: const EdgeInsets.all(40),
+      color: const Color(0xff111827),
+      child: Center(
+        child: Text(
+          '© 2024 Alluwal Education Hub',
+          style: GoogleFonts.inter(color: Colors.white54),
         ),
       ),
-      child: Column(
-        children: [
-          Text(
-            'What Parents Say',
-            style: GoogleFonts.inter(
-              fontSize: MediaQuery.of(context).size.width > 768 ? 36 : 28,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xff111827),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Hear from families who trust us with their children\'s education',
-            style: GoogleFonts.inter(
-              fontSize: MediaQuery.of(context).size.width > 768 ? 18 : 16,
-              color: const Color(0xff6B7280),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 64),
-          _buildTestimonialCards(),
-          const SizedBox(height: 80),
-          Text(
-            'Our Impact',
-            style: GoogleFonts.inter(
-              fontSize: MediaQuery.of(context).size.width > 768 ? 36 : 28,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xff111827),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Transforming lives through comprehensive education',
-            style: GoogleFonts.inter(
-              fontSize: MediaQuery.of(context).size.width > 768 ? 18 : 16,
-              color: const Color(0xff6B7280),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 64),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 3 : 1,
-              crossAxisSpacing: 32,
-              mainAxisSpacing: 32,
-              childAspectRatio:
-                  MediaQuery.of(context).size.width > 768 ? 1.2 : 1.5,
-              children: [
-                _buildImpactCard(
-                  '📖',
-                  'Islamic Studies Excellence',
-                  'Students gain deep understanding of Quran, Hadith, Tawhid, Tafsir, and Fiqh through our comprehensive curriculum.',
-                  const Color(0xff3B82F6),
-                ),
-                _buildImpactCard(
-                  '📚',
-                  'Academic Success',
-                  'Our after-school tutoring program helps K-12 students excel in their studies with personalized support.',
-                  const Color(0xff10B981),
-                ),
-                _buildImpactCard(
-                  '🌍',
-                  'Cultural Heritage',
-                  'Preserving African languages and traditions for future generations through our Afrolingual program.',
-                  const Color(0xffF59E0B),
-                ),
-                _buildImpactCard(
-                  '👨‍👩‍👧‍👦',
-                  'Community Building',
-                  'Creating connections between families who value comprehensive education rooted in faith and culture.',
-                  const Color(0xff8B5CF6),
-                ),
-                _buildImpactCard(
-                  '🎓',
-                  'Adult Empowerment',
-                  'Helping adults improve literacy skills and achieve their educational goals through flexible programs.',
-                  const Color(0xffEF4444),
-                ),
-                _buildImpactCard(
-                  '🌟',
-                  'Holistic Development',
-                  'Nurturing students who excel academically while staying grounded in their faith and cultural identity.',
-                  const Color(0xff06B6D4),
+    );
+  }
+}
+
+enum CategoryType {
+  islamicStudies,
+  math,
+  programming,
+  english,
+  general,
+}
+
+class _ProgramCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String description;
+  final VoidCallback onTap;
+
+  const _ProgramCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeInSlide(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xffE5E7EB), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImpactCard(
-    String emoji,
-    String title,
-    String description,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xffE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(
-              child: Text(
-                emoji,
-                style: const TextStyle(fontSize: 28),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xff111827),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: const Color(0xff374151),
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCTASection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 120),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xff111827), Color(0xff374151)],
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Ready to Begin Your Educational Journey?',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 42,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Connect with our qualified teachers and discover the perfect learning path for your family',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              color: Colors.white.withOpacity(0.8),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 48),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
-                  ),
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () => _navigateToEmployeeHub(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 20,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  icon: const Icon(Icons.school, color: Colors.white, size: 20),
-                  label: Text(
-                    'Access Dashboard',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 24),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const IslamicCoursesPage(),
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(
-                    color: Colors.white,
-                    width: 2,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 20,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                icon: const Icon(Icons.info_outline, size: 20),
-                label: Text(
-                  'Learn More',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-      decoration: const BoxDecoration(
-        color: Color(0xff1F2937),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/logo_navigation_bar.PNG',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.school,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'ALLUWAL EDUCATION HUB',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Social and contact links
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => _openExternal('https://wa.me/16468728590'),
-                icon: const FaIcon(FontAwesomeIcons.whatsapp,
-                    color: Colors.white, size: 18),
-                label: Text(
-                  '+1 646-872-8590',
-                  style: GoogleFonts.inter(color: Colors.white),
-                ),
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
-              ),
-              const Spacer(),
-              IconButton(
-                tooltip: 'YouTube',
-                onPressed: () => _openExternal(
-                    'https://www.youtube.com/channel/UCJkZSAm6jVaqk6yy3kMW1zw'),
-                icon:
-                    const FaIcon(FontAwesomeIcons.youtube, color: Colors.white),
-              ),
-              IconButton(
-                tooltip: 'Instagram',
-                onPressed: () => _openExternal(
-                    'https://www.instagram.com/alluwal_education_hub/'),
-                icon: const FaIcon(FontAwesomeIcons.instagram,
-                    color: Colors.white),
-              ),
-              IconButton(
-                tooltip: 'Facebook',
-                onPressed: () => _openExternal(
-                    'https://www.facebook.com/profile.php?id=100083927322444'),
-                icon: const FaIcon(FontAwesomeIcons.facebook,
-                    color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Text(
-            '© 2024 Alluwal Education Hub. All rights reserved.',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _navigateToEmployeeHub() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
-    );
-  }
-
-  void _scrollToSection(String section) {
-    // Approximate scroll positions for different sections
-    double scrollPosition = 0.0;
-
-    switch (section) {
-      case 'programs':
-        scrollPosition = 800.0; // Approximate position of programs carousel
-        break;
-      case 'features':
-        scrollPosition = 1400.0; // Approximate position of features section
-        break;
-      case 'stats':
-        scrollPosition = 2200.0; // Approximate position of stats section
-        break;
-      default:
-        scrollPosition = 0.0;
-    }
-
-    _scrollController.animateTo(
-      scrollPosition,
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  Widget _buildTestimonialCards() {
-    final testimonials = [
-      {
-        'name': 'Aisha Muhammad',
-        'role': 'Parent of 3 students',
-        'image': '👩‍👧‍👦',
-        'rating': 5,
-        'review':
-            'Alhamdulillah, my children have grown so much in their Islamic knowledge since joining. The teachers are patient, knowledgeable, and truly care about each student\'s progress.',
-      },
-      {
-        'name': 'Ibrahim Diallo',
-        'role': 'Parent',
-        'image': '👨‍👦',
-        'rating': 5,
-        'review':
-            'The Afrolingual program has been a blessing. My son is now fluent in Mandinka and connected to his heritage. The quality of education here is exceptional.',
-      },
-      {
-        'name': 'Fatima Al-Hassan',
-        'role': 'Parent of 2 students',
-        'image': '👩‍👧‍👦',
-        'rating': 5,
-        'review':
-            'The tutoring program helped my daughter improve her grades significantly. The Islamic studies classes have strengthened our children\'s faith and character.',
-      },
-      {
-        'name': 'Mahmoud Bakr',
-        'role': 'Parent',
-        'image': '👨‍👧',
-        'rating': 5,
-        'review':
-            'Excellent Quran memorization program! My daughter has memorized 5 Juz in just one year. The teachers use modern techniques while maintaining traditional values.',
-      },
-      {
-        'name': 'Khadijah Williams',
-        'role': 'Parent of 4 students',
-        'image': '👩‍👧‍👦',
-        'rating': 5,
-        'review':
-            'This academy has been a cornerstone for our family. All my children attend different programs and each one is thriving. The community here is warm and supportive.',
-      },
-      {
-        'name': 'Omar Sheikh',
-        'role': 'Parent',
-        'image': '👨‍👦‍👦',
-        'rating': 5,
-        'review':
-            'The online classes are well-structured and engaging. My sons look forward to their Islamic studies classes. The teachers make learning fun while being thorough.',
-      },
-    ];
-
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 1200),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 1024;
-          final isTablet = constraints.maxWidth > 768;
-
-          if (isDesktop) {
-            // Desktop: 3 columns
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 24,
-                mainAxisSpacing: 24,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: testimonials.length,
-              itemBuilder: (context, index) =>
-                  _buildTestimonialCard(testimonials[index]),
-            );
-          } else if (isTablet) {
-            // Tablet: 2 columns
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
-              ),
-              itemCount: testimonials.length,
-              itemBuilder: (context, index) =>
-                  _buildTestimonialCard(testimonials[index]),
-            );
-          } else {
-            // Mobile: Horizontal scroll
-            return SizedBox(
-              height: 320,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: testimonials.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    width: constraints.maxWidth * 0.85,
-                    margin: EdgeInsets.only(
-                      right: 16,
-                      left: index == 0 ? 0 : 0,
-                    ),
-                    child: _buildTestimonialCard(testimonials[index]),
-                  );
-                },
-              ),
-            );
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildTestimonialCard(Map<String, dynamic> testimonial) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xff3B82F6).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    testimonial['image'],
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(icon, color: color, size: 28),
+                    ),
+                    const SizedBox(height: 20),
                     Text(
-                      testimonial['name'],
+                      title,
                       style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
                         color: const Color(0xff111827),
                       ),
                     ),
+                    const SizedBox(height: 8),
                     Text(
-                      testimonial['role'],
+                      description,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xff6B7280),
+                        height: 1.5,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Star rating
-          Row(
-            children: List.generate(
-              5,
-              (index) => Icon(
-                Icons.star,
-                size: 16,
-                color: index < testimonial['rating']
-                    ? const Color(0xffF59E0B)
-                    : const Color(0xffE5E7EB),
-              ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Text(
+                      'Learn more',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, color: color, size: 18),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Text(
-              testimonial['review'],
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: const Color(0xff374151),
-                height: 1.6,
-              ),
-            ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TextCategoryLink extends StatefulWidget {
+  final String label;
+  final CategoryType categoryType;
+
+  const _TextCategoryLink(this.label, {this.categoryType = CategoryType.general});
+
+  @override
+  State<_TextCategoryLink> createState() => _TextCategoryLinkState();
+}
+
+class _TextCategoryLinkState extends State<_TextCategoryLink> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: () {
+          switch (widget.categoryType) {
+            case CategoryType.islamicStudies:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const IslamicCoursesPage(),
+                ),
+              );
+              break;
+            case CategoryType.math:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MathPage(),
+                ),
+              );
+              break;
+            case CategoryType.programming:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProgrammingPage(),
+                ),
+              );
+              break;
+            case CategoryType.english:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EnglishPage(),
+                ),
+              );
+              break;
+            case CategoryType.general:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProgramSelectionPage(initialSubject: widget.label),
+                ),
+              );
+              break;
+          }
+        },
+        child: Text(
+          widget.label,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: _isHovered ? const Color(0xff3B82F6) : Colors.white, // Blue on hover, white otherwise
+            decoration: _isHovered ? TextDecoration.underline : TextDecoration.none,
+            decorationColor: const Color(0xff3B82F6),
           ),
-        ],
+        ),
       ),
     );
   }
