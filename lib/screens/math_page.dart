@@ -4,14 +4,14 @@ import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
 
-class AfrolingualPage extends StatefulWidget {
-  const AfrolingualPage({super.key});
+class MathPage extends StatefulWidget {
+  const MathPage({super.key});
 
   @override
-  State<AfrolingualPage> createState() => _AfrolingualPageState();
+  State<MathPage> createState() => _MathPageState();
 }
 
-class _AfrolingualPageState extends State<AfrolingualPage> {
+class _MathPageState extends State<MathPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,7 +26,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                 children: [
                   _buildHeroSection(),
                   _buildProgramOverview(),
-                  _buildLanguagesOffered(),
+                  _buildTopicsSection(),
                   _buildCTASection(),
                 ],
               ),
@@ -45,7 +45,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xffFFF7ED), Color(0xffFFFBEB)],
+          colors: [Color(0xffEFF6FF), Color(0xffDBEAFE)],
         ),
       ),
       child: Column(
@@ -55,16 +55,16 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xffF59E0B).withOpacity(0.1),
+                color: const Color(0xff3B82F6).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                border: Border.all(color: const Color(0xffF59E0B).withOpacity(0.2)),
+                border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
               ),
               child: Text(
-                '🌍 Global Languages Program',
+                '∑ Mathematics Program',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xffF59E0B),
+                  color: const Color(0xff3B82F6),
                 ),
               ),
             ),
@@ -73,7 +73,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Master English & African\nIndigenous Languages',
+              'Master Mathematics with\nConfidence & Clarity',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +90,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'From mastering English grammar and vocabulary to exploring the rich linguistic heritage of Africa, our comprehensive language programs are tailored for success.',
+                'From basic arithmetic to advanced calculus, our comprehensive math program helps students build a strong foundation and excel in their studies.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -141,7 +141,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Language Excellence',
+          'Why Choose Our Math Program?',
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -150,7 +150,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Our language programs are designed to build confidence and fluency. Whether you need academic support in English or want to connect with African culture through language, we have the perfect course for you.',
+          'Mathematics is more than just numbers; it\'s a way of thinking. Our expert tutors use engaging methods to make complex concepts easy to understand, fostering a love for problem-solving.',
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -159,21 +159,21 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         ),
         const SizedBox(height: 32),
         _buildFeatureItem(
-          Icons.school_rounded,
-          'English Mastery',
-          'Comprehensive support including homework help, reading comprehension, grammar, vocabulary, and exam preparation.',
+          Icons.functions_rounded,
+          'Concept Mastery',
+          'Focus on understanding the "why" behind the math, not just memorizing formulas.',
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          Icons.language_rounded,
-          'African Languages',
-          'Authentic instruction in major African languages from native speakers.',
+          Icons.trending_up_rounded,
+          'Personalized Pace',
+          'Learn at your own speed with customized lesson plans tailored to your level.',
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          Icons.psychology_rounded,
-          'Personalized Learning',
-          'Tailored curriculum to meet individual student needs and goals.',
+          Icons.assignment_turned_in_rounded,
+          'Exam Preparation',
+          'Targeted practice for school exams, standardized tests, and competitions.',
         ),
       ],
     );
@@ -187,13 +187,13 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(32),
           gradient: const LinearGradient(
-            colors: [Color(0xffF59E0B), Color(0xffD97706)],
+            colors: [Color(0xff3B82F6), Color(0xff2563EB)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xffF59E0B).withOpacity(0.3),
+              color: const Color(0xff3B82F6).withOpacity(0.3),
               blurRadius: 30,
               offset: const Offset(0, 15),
             ),
@@ -201,7 +201,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         ),
         child: const Center(
           child: Icon(
-            Icons.translate_rounded,
+            Icons.calculate_rounded,
             color: Colors.white,
             size: 120,
           ),
@@ -218,10 +218,10 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xffF59E0B).withOpacity(0.1),
+            color: const Color(0xff3B82F6).withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(icon, color: const Color(0xffF59E0B), size: 24),
+          child: Icon(icon, color: const Color(0xff3B82F6), size: 24),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -252,19 +252,20 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
     );
   }
 
-  Widget _buildLanguagesOffered() {
-    final languages = [
-      _buildLanguageCard('English', 'Global', const Color(0xff3B82F6), 
-          description: 'Complete support for reading, writing, grammar, vocabulary, and exam prep.'),
-      _buildLanguageCard('French', 'Global', const Color(0xff6366F1), 
-          description: 'Master French language skills including conversation, grammar, and cultural understanding.'),
-      _buildLanguageCard('Adlam', 'West Africa', const Color(0xff8B5CF6),
-          description: 'Learn the Adlam script for writing Fulani (Fulfulde/Pular), a modern alphabet created to preserve and promote this important West African language.'),
-      _buildLanguageCard('Swahili', 'East Africa', const Color(0xff10B981)),
-      _buildLanguageCard('Yoruba', 'West Africa', const Color(0xff8B5CF6)),
-      _buildLanguageCard('Amharic', 'Horn of Africa', const Color(0xffEF4444)),
-      _buildLanguageCard('Wolof', 'West Africa', const Color(0xff06B6D4)),
-      _buildLanguageCard('Hausa', 'West & Central Africa', const Color(0xffF59E0B)),
+  Widget _buildTopicsSection() {
+    final topics = [
+      _buildTopicCard('Elementary Math', 'Grades K-5', const Color(0xff10B981), 
+          description: 'Building a strong foundation in arithmetic, shapes, and problem-solving.'),
+      _buildTopicCard('Pre-Algebra & Algebra', 'Grades 6-9', const Color(0xffF59E0B), 
+          description: 'Mastering variables, equations, functions, and graphing.'),
+      _buildTopicCard('Geometry', 'Grades 8-10', const Color(0xff8B5CF6), 
+          description: 'Exploring shapes, sizes, relative positions, and properties of space.'),
+      _buildTopicCard('Trigonometry', 'Grades 10-11', const Color(0xffEF4444), 
+          description: 'Understanding relationships between side lengths and angles of triangles.'),
+      _buildTopicCard('Calculus', 'Grades 11-12+', const Color(0xff06B6D4), 
+          description: 'Diving into limits, derivatives, integrals, and infinite series.'),
+      _buildTopicCard('Statistics', 'High School & College', const Color(0xff3B82F6), 
+          description: 'Analyzing data, probability, distributions, and inference.'),
     ];
 
     return Container(
@@ -274,7 +275,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
       child: Column(
         children: [
           Text(
-            'Languages We Offer',
+            'Topics We Cover',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -291,16 +292,14 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                 final isTablet = constraints.maxWidth > 600;
                 
                 if (!isTablet) {
-                  // Mobile: Column
                   return Column(
-                    children: languages.map((card) => Padding(
+                    children: topics.map((card) => Padding(
                       padding: const EdgeInsets.only(bottom: 24),
                       child: card,
                     )).toList(),
                   );
                 }
 
-                // Tablet/Desktop: Grid
                 final crossAxisCount = isDesktop ? 3 : 2;
                 return GridView.count(
                   shrinkWrap: true,
@@ -308,8 +307,8 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 32,
                   mainAxisSpacing: 32,
-                  childAspectRatio: isDesktop ? 0.85 : 0.9,
-                  children: languages,
+                  childAspectRatio: isDesktop ? 1.1 : 1.2,
+                  children: topics,
                 );
               },
             ),
@@ -319,7 +318,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
     );
   }
 
-  Widget _buildLanguageCard(String language, String region, Color color, {String? description}) {
+  Widget _buildTopicCard(String topic, String level, Color color, {String? description}) {
     return FadeInSlide(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -337,8 +336,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: 60,
@@ -348,19 +346,12 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Text(
-                  language[0],
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                  ),
-                ),
+                child: Icon(Icons.functions, color: color, size: 30),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              language,
+              topic,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -369,7 +360,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              region,
+              level,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -377,46 +368,25 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
               ),
             ),
             if (description != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 description,
                 style: GoogleFonts.inter(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: const Color(0xff6B7280),
-                  height: 1.3,
+                  height: 1.4,
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
-            const Spacer(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  // Map language to subject based on new system
-                  String subject;
-                  bool isLanguageSelection = true;
-                  String? selectedLanguage;
-                  
-                  if (language == 'English' || language == 'French' || language == 'Adlam') {
-                    subject = language;
-                    selectedLanguage = null;
-                  } else {
-                    // For other African languages, use "African Languages (Other)" and pre-select the language
-                    subject = 'African Languages (Other)';
-                    selectedLanguage = language;
-                  }
-                  
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ProgramSelectionPage(
-                        initialSubject: subject,
-                        isLanguageSelection: isLanguageSelection,
-                        initialAfricanLanguage: selectedLanguage,
-                      ),
+                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Maths'),
                     ),
                   );
                 },
@@ -442,13 +412,13 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xffF59E0B), Color(0xffD97706)],
+          colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
         ),
       ),
       child: Column(
         children: [
           Text(
-            'Begin Your Language Journey',
+            'Unlock Your Math Potential Today',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -459,7 +429,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Connect with the world through language',
+            'Join thousands of students excelling in mathematics',
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -471,13 +441,13 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(isLanguageSelection: true),
+                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Maths'),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xffF59E0B),
+              foregroundColor: const Color(0xff3B82F6),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -496,3 +466,4 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
     );
   }
 }
+
