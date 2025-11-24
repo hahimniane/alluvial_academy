@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../screens/landing_page.dart';
 import '../../screens/islamic_courses_page.dart';
-import '../../screens/teachers_page.dart';
-import '../../screens/about_page.dart';
-import '../../screens/contact_page.dart';
 import '../../screens/tutoring_literacy_page.dart';
 import '../../screens/afrolingual_page.dart';
 import '../../main.dart';
@@ -70,37 +67,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                   }
                 }),
                 _buildProgramsDropdown(context),
-                _buildNavItem(
-                    context, 'Our Teachers', widget.currentPage == 'Teachers',
-                    () {
-                  if (widget.currentPage != 'Teachers') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const TeachersPage()),
-                    );
-                  }
-                }),
-                _buildNavItem(
-                    context, 'About Us', widget.currentPage == 'About', () {
-                  if (widget.currentPage != 'About') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AboutPage()),
-                    );
-                  }
-                }),
-                _buildNavItem(
-                    context, 'Contact', widget.currentPage == 'Contact', () {
-                  if (widget.currentPage != 'Contact') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const ContactPage()),
-                    );
-                  }
-                }),
+                // Removed links to About, Teachers, Contact as they are deprecated
                 const SizedBox(width: 32),
               ],
               // Action Buttons
@@ -269,20 +236,18 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
   }
 
   OverlayEntry _createProgramsOverlay(BuildContext context) {
-    // Find the Programs dropdown button using its key
-    final programsRenderBox = _programsKey.currentContext?.findRenderObject() as RenderBox?;
-    
-    // Fallback to calculating position based on the app bar if the button isn't found
+    final programsRenderBox =
+        _programsKey.currentContext?.findRenderObject() as RenderBox?;
+
     final RenderBox appBar = context.findRenderObject() as RenderBox;
     final appBarSize = appBar.size;
     final appBarOffset = appBar.localToGlobal(Offset.zero);
-    
+
     double leftPosition;
     if (programsRenderBox != null) {
       final programsOffset = programsRenderBox.localToGlobal(Offset.zero);
       leftPosition = programsOffset.dx;
     } else {
-      // Calculate approximate position: logo (270px) + Home button (100px) + spacing
       leftPosition = appBarOffset.dx + 370;
     }
 
@@ -609,52 +574,6 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                         MaterialPageRoute(
                             builder: (context) => const AfrolingualPage()),
                       );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildMobileNavItem(
-                    context,
-                    'Our Teachers',
-                    widget.currentPage == 'Teachers',
-                    () {
-                      Navigator.pop(context);
-                      if (widget.currentPage != 'Teachers') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const TeachersPage()),
-                        );
-                      }
-                    },
-                  ),
-                  _buildMobileNavItem(
-                    context,
-                    'About Us',
-                    widget.currentPage == 'About',
-                    () {
-                      Navigator.pop(context);
-                      if (widget.currentPage != 'About') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const AboutPage()),
-                        );
-                      }
-                    },
-                  ),
-                  _buildMobileNavItem(
-                    context,
-                    'Contact',
-                    widget.currentPage == 'Contact',
-                    () {
-                      Navigator.pop(context);
-                      if (widget.currentPage != 'Contact') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const ContactPage()),
-                        );
-                      }
                     },
                   ),
                   const SizedBox(height: 32),

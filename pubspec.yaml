@@ -113,6 +113,8 @@ flutter:
   assets:
      - assets/
      - assets/teachers/
+     - assets/background_images/
+     - assets/students/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

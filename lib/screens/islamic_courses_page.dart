@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../shared/widgets/persistent_app_bar.dart';
+import '../widgets/modern_header.dart';
+import '../shared/widgets/fade_in_slide.dart';
+import 'program_selection_page.dart';
 
 class IslamicCoursesPage extends StatefulWidget {
   const IslamicCoursesPage({super.key});
@@ -9,47 +11,28 @@ class IslamicCoursesPage extends StatefulWidget {
   State<IslamicCoursesPage> createState() => _IslamicCoursesPageState();
 }
 
-class _IslamicCoursesPageState extends State<IslamicCoursesPage>
-    with TickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
+class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const PersistentAppBar(currentPage: 'Courses'),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildHeroSection(),
-              _buildCoursesSection(),
-              _buildLearningPathsSection(),
-              _buildCTASection(),
-            ],
+      backgroundColor: const Color(0xffFAFAFA),
+      body: Column(
+        children: [
+          const ModernHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildHeroSection(),
+                  _buildCoursesSection(),
+                  _buildLearningPathsSection(),
+                  _buildCTASection(),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -60,49 +43,61 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xffFAFBFF), Color(0xffF0F7FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xffF0F9FF), Color(0xffE0F2FE)],
         ),
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xff3B82F6).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-              border:
-                  Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
-            ),
-            child: Text(
-              '🕌 Islamic Programs',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xff3B82F6),
+          FadeInSlide(
+            delay: 0.1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xff3B82F6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
+              ),
+              child: Text(
+                '🕌 Islamic Programs',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff3B82F6),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Immerse in the Profound\nDepths of Islamic Knowledge',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 48,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xff111827),
-              height: 1.1,
+          FadeInSlide(
+            delay: 0.2,
+            child: Text(
+              'Immerse in the Profound\nDepths of Islamic Knowledge',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xff111827),
+                height: 1.1,
+                letterSpacing: -1,
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            'Our Islamic program is meticulously designed to immerse students in the profound depths of Islamic knowledge.\nOffering courses in more than six islamic subjects including: Arabic language, Quran, Hadith, Tawhid, Tafsir and more.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              color: const Color(0xff6B7280),
-              height: 1.6,
+          FadeInSlide(
+            delay: 0.3,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Text(
+                'Our Islamic program is meticulously designed to immerse students in the profound depths of Islamic knowledge. Offering courses in more than six islamic subjects including: Arabic language, Quran, Hadith, Tawhid, Tafsir and more.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  color: const Color(0xff6B7280),
+                  height: 1.6,
+                ),
+              ),
             ),
           ),
         ],
@@ -111,116 +106,127 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
   }
 
   Widget _buildCoursesSection() {
+    final courses = [
+      _buildCourseCard(
+        '📖',
+        'Quran',
+        'Complete Quran learning program including recitation, memorization, and understanding',
+        [
+          'Proper recitation with Tajweed rules',
+          'Memorization techniques for Hifz',
+          'Understanding the meanings',
+        ],
+        'All Ages',
+        const Color(0xff3B82F6),
+      ),
+      _buildCourseCard(
+        '📚',
+        'Hadith',
+        'Study the sayings and teachings of Prophet Muhammad (PBUH)',
+        [
+          'Authentic Hadith collections',
+          'Understanding Hadith sciences',
+          'Practical application in daily life',
+        ],
+        'Ages 10+',
+        const Color(0xff10B981),
+      ),
+      _buildCourseCard(
+        '🇸🇦',
+        'Arabic Language',
+        'Learn the language of the Quran from basics to fluency',
+        [
+          'Arabic alphabet and writing',
+          'Grammar (Nahw) and morphology',
+          'Vocabulary building',
+        ],
+        'Ages 7+',
+        const Color(0xffF59E0B),
+      ),
+      _buildCourseCard(
+        '☪️',
+        'Tawhid',
+        'Understanding the oneness of Allah and core Islamic beliefs',
+        [
+          'Fundamentals of Islamic faith',
+          'Understanding Allah\'s attributes',
+          'Pillars of faith (Iman)',
+        ],
+        'Ages 8+',
+        const Color(0xff8B5CF6),
+      ),
+      _buildCourseCard(
+        '📜',
+        'Tafsir',
+        'Deep understanding and interpretation of the Holy Quran',
+        [
+          'Verse by verse explanation',
+          'Historical context',
+          'Practical life applications',
+        ],
+        'Ages 12+',
+        const Color(0xffEF4444),
+      ),
+      _buildCourseCard(
+        '🕌',
+        'Fiqh',
+        'Understanding Islamic law and practical worship',
+        [
+          'Rules of prayer and fasting',
+          'Halal and Haram guidelines',
+          'Islamic business ethics',
+        ],
+        'Ages 10+',
+        const Color(0xff06B6D4),
+      ),
+    ];
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       child: Column(
         children: [
-          Text(
-            'Our Islamic Courses',
-            style: GoogleFonts.inter(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xff111827),
+          FadeInSlide(
+            delay: 0.4,
+            child: Text(
+              'Our Islamic Courses',
+              style: GoogleFonts.inter(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xff111827),
+              ),
             ),
           ),
           const SizedBox(height: 48),
           Container(
             constraints: const BoxConstraints(maxWidth: 1200),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 2 : 1,
-              crossAxisSpacing: 32,
-              mainAxisSpacing: 32,
-              childAspectRatio:
-                  MediaQuery.of(context).size.width > 768 ? 1.3 : 1.8,
-              children: [
-                _buildCourseCard(
-                  '📖',
-                  'Quran',
-                  'Complete Quran learning program including recitation, memorization, and understanding',
-                  [
-                    'Proper recitation with Tajweed rules',
-                    'Memorization techniques for Hifz',
-                    'Understanding the meanings',
-                    'One-on-one sessions with certified teachers',
-                    'Certificate upon completion'
-                  ],
-                  'All Ages',
-                  const Color(0xff3B82F6),
-                ),
-                _buildCourseCard(
-                  '📚',
-                  'Hadith',
-                  'Study the sayings and teachings of Prophet Muhammad (PBUH)',
-                  [
-                    'Authentic Hadith collections',
-                    'Understanding Hadith sciences',
-                    'Practical application in daily life',
-                    'Memorization of important Hadiths',
-                    'Context and interpretation'
-                  ],
-                  'Ages 10+',
-                  const Color(0xff10B981),
-                ),
-                _buildCourseCard(
-                  '🇸🇦',
-                  'Arabic Language',
-                  'Learn the language of the Quran from basics to fluency',
-                  [
-                    'Arabic alphabet and writing',
-                    'Grammar (Nahw) and morphology (Sarf)',
-                    'Vocabulary building',
-                    'Conversation skills',
-                    'Classical Arabic literature'
-                  ],
-                  'Ages 7+',
-                  const Color(0xffF59E0B),
-                ),
-                _buildCourseCard(
-                  '☪️',
-                  'Tawhid (Islamic Monotheism)',
-                  'Understanding the oneness of Allah and core Islamic beliefs',
-                  [
-                    'Fundamentals of Islamic faith',
-                    'Understanding Allah\'s names and attributes',
-                    'Pillars of faith (Iman)',
-                    'Protection from misconceptions',
-                    'Strengthening belief and conviction'
-                  ],
-                  'Ages 8+',
-                  const Color(0xff8B5CF6),
-                ),
-                _buildCourseCard(
-                  '📜',
-                  'Tafsir (Quran Commentary)',
-                  'Deep understanding and interpretation of the Holy Quran',
-                  [
-                    'Verse by verse explanation',
-                    'Historical context and revelation',
-                    'Classical and modern interpretations',
-                    'Practical life applications',
-                    'Thematic study of the Quran'
-                  ],
-                  'Ages 12+',
-                  const Color(0xffEF4444),
-                ),
-                _buildCourseCard(
-                  '🕌',
-                  'Fiqh (Islamic Jurisprudence)',
-                  'Understanding Islamic law and practical worship',
-                  [
-                    'Rules of prayer, fasting, and zakat',
-                    'Halal and Haram guidelines',
-                    'Islamic business ethics',
-                    'Family law and social interactions',
-                    'Contemporary Islamic issues'
-                  ],
-                  'Ages 10+',
-                  const Color(0xff06B6D4),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth > 900;
+                final isTablet = constraints.maxWidth > 600;
+                
+                if (!isTablet) {
+                  // Mobile: Column Layout
+                  return Column(
+                    children: courses.map((card) => Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: card,
+                    )).toList(),
+                  );
+                }
+
+                // Desktop/Tablet: Grid Layout
+                final crossAxisCount = isDesktop ? 3 : 2;
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 32,
+                  mainAxisSpacing: 32,
+                  childAspectRatio: isDesktop ? 0.8 : 0.75,
+                  children: courses,
+                );
+              },
             ),
           ),
         ],
@@ -236,138 +242,140 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
     String ageGroup,
     Color color,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xffE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
+    return FadeInSlide(
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(
+                      emoji,
+                      style: const TextStyle(fontSize: 28),
+                    ),
+                  ),
                 ),
-                child: Center(
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 28),
+                    ageGroup,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              description,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff6B7280),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Use Column for features so it takes natural height
+            Column(
+              children: features
+                  .map((feature) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.check_circle_rounded, size: 16, color: color),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                feature,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xff374151),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Map course title to subject name for enrollment
+                  String subject = title;
+                  if (title == 'Arabic Language') {
+                    subject = 'Arabic';
+                  } else if (title != 'Quran' && title != 'Arabic') {
+                    subject = 'Islamic Studies';
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProgramSelectionPage(initialSubject: subject),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Enroll Now',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xff111827),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        ageGroup,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            description,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: const Color(0xff6B7280),
-              height: 1.5,
             ),
-          ),
-          const SizedBox(height: 16),
-          Column(
-            children: features
-                .map((feature) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            margin: const EdgeInsets.only(top: 6),
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              feature,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: const Color(0xff374151),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _showEnrollDialog(title),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Learn More',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -390,50 +398,31 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
           const SizedBox(height: 48),
           Container(
             constraints: const BoxConstraints(maxWidth: 1000),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildLearningPath(
-                    'Beginner Path',
-                    '3-6 months',
-                    [
-                      'Arabic Alphabet',
-                      'Basic Duas',
-                      'Short Surahs',
-                      'Prayer Basics',
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 768) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildLearningPath('Beginner', '3-6 months', const Color(0xff10B981))),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildLearningPath('Intermediate', '6-12 months', const Color(0xff3B82F6))),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildLearningPath('Advanced', '1-2 years', const Color(0xff8B5CF6))),
                     ],
-                    const Color(0xff10B981),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _buildLearningPath(
-                    'Intermediate Path',
-                    '6-12 months',
-                    [
-                      'Tajweed Rules',
-                      'Longer Surahs',
-                      'Islamic Stories',
-                      'Arabic Vocabulary',
+                  );
+                } else {
+                  return Column(
+                    children: [
+                      _buildLearningPath('Beginner', '3-6 months', const Color(0xff10B981)),
+                      const SizedBox(height: 24),
+                      _buildLearningPath('Intermediate', '6-12 months', const Color(0xff3B82F6)),
+                      const SizedBox(height: 24),
+                      _buildLearningPath('Advanced', '1-2 years', const Color(0xff8B5CF6)),
                     ],
-                    const Color(0xff3B82F6),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _buildLearningPath(
-                    'Advanced Path',
-                    '1-2 years',
-                    [
-                      'Quran Memorization',
-                      'Arabic Grammar',
-                      'Islamic Studies',
-                      'Hadith Learning',
-                    ],
-                    const Color(0xff8B5CF6),
-                  ),
-                ),
-              ],
+                  );
+                }
+              },
             ),
           ),
         ],
@@ -441,13 +430,12 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
     );
   }
 
-  Widget _buildLearningPath(
-      String title, String duration, List<String> topics, Color color) {
+  Widget _buildLearningPath(String title, String duration, Color color) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Column(
@@ -457,9 +445,9 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
             height: 60,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(30),
             ),
-            child: Icon(Icons.school, color: color, size: 30),
+            child: Icon(Icons.school_rounded, color: color, size: 30),
           ),
           const SizedBox(height: 16),
           Text(
@@ -470,37 +458,14 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
               color: const Color(0xff111827),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             duration,
             style: GoogleFonts.inter(
               fontSize: 14,
-              color: color,
               fontWeight: FontWeight.w500,
+              color: color,
             ),
-          ),
-          const SizedBox(height: 16),
-          Column(
-            children: topics
-                .map((topic) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Icon(Icons.check_circle, size: 16, color: color),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              topic,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: const Color(0xff374151),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
           ),
         ],
       ),
@@ -522,7 +487,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
             'Start Your Child\'s Islamic Journey Today',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
-              fontSize: 36,
+              fontSize: 32,
               fontWeight: FontWeight.w800,
               color: Colors.white,
               height: 1.2,
@@ -531,6 +496,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
           const SizedBox(height: 16),
           Text(
             'Join thousands of Muslim families worldwide',
+            textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -538,7 +504,14 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
           ),
           const SizedBox(height: 32),
           ElevatedButton(
-            onPressed: () => _showEnrollDialog('Free Trial'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProgramSelectionPage(initialSubject: 'Islamic Studies'),
+                ),
+              );
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: const Color(0xff3B82F6),
@@ -564,6 +537,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Enroll in $courseName',
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
@@ -580,13 +554,12 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Here you would navigate to contact page or booking system
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xff3B82F6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child:
-                const Text('Contact Us', style: TextStyle(color: Colors.white)),
+            child: const Text('Contact Us', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
