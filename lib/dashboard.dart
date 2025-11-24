@@ -31,24 +31,7 @@ import 'features/settings/screens/admin_settings_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
-/// Constants for the Dashboard
-class DashboardConstants {
-  // Dimensions
-  static const double sideMenuWidth = 250.0;
-  static const double sideMenuCollapsedWidth = 70.0;
-  static const double logoHoverHeight = 180.0;
-  static const double logoNormalHeight = 160.0;
-
-  // Durations
-  static const Duration hoverAnimationDuration = Duration(milliseconds: 200);
-  static const Duration sideMenuAnimationDuration = Duration(milliseconds: 300);
-
-  // Colors
-  static const chatIconColor = Color(0xff2ED9B9);
-  static const timeClockIconColor = Color(0xff3786F9);
-  static const formsIconColor = Color(0xffBA39A9);
-  static const jobSchedulingIconColor = Color(0xffFF9A6C);
-}
+import 'core/constants/dashboard_constants.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -1265,52 +1248,20 @@ class _DashboardPageState extends State<DashboardPage> {
                 children: [
                   // Admin-role users can see both admin and user-specific menu items
                   if (_userRole == 'admin') ...[
+                    // Main
                     _buildSideMenuItem(
                       icon: SvgPicture.asset('assets/dashboard.svg'),
                       text: 'Dashboard',
                       index: 0,
                     ),
+                    const Divider(),
+
+                    // People & Users
+                    if (!_isSideMenuCollapsed) _buildMenuHeader('PEOPLE'),
                     _buildSideMenuItem(
                       icon: SvgPicture.asset('assets/users-sidebar.svg'),
                       text: 'User Management',
                       index: 1,
-                    ),
-                    // Quick access: move Quick Tasks up here
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_task_manage.png'),
-                      text: 'Quick Tasks',
-                      index: 11,
-                      color: const Color(0xff4CAF50),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.video_call),
-                      text: 'Zoom',
-                      index: 12,
-                      color: const Color(0xff2563EB),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.schedule),
-                      text: 'Shift Management',
-                      index: 3,
-                      color: const Color(0xff059669),
-                    ),
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_chat.png'),
-                      text: 'Chat',
-                      index: 5,
-                      color: const Color(0xffA646F2),
-                    ),
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_Scheduler.png'),
-                      text: 'Timesheet Review',
-                      index: 7,
-                      color: const Color(0xffF28B46),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.school_rounded),
-                      text: 'Enrollments',
-                      index: 16,
-                      color: const Color(0xff10B981),
                     ),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.people_alt),
@@ -1319,12 +1270,60 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xff8B5CF6),
                     ),
                     _buildSideMenuItem(
-                      icon: const Icon(Icons.settings),
-                      text: 'Settings',
-                      index: 18,
-                      color: const Color(0xff6B7280),
+                      icon: const Icon(Icons.school_rounded),
+                      text: 'Enrollments',
+                      index: 16,
+                      color: const Color(0xff10B981),
                     ),
-                    // Forms group
+                    const Divider(),
+
+                    // Operations
+                    if (!_isSideMenuCollapsed) _buildMenuHeader('OPERATIONS'),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.schedule),
+                      text: 'Shift Management',
+                      index: 3,
+                      color: const Color(0xff059669),
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_Scheduler.png'),
+                      text: 'Timesheet Review',
+                      index: 7,
+                      color: const Color(0xffF28B46),
+                    ),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_task_manage.png'),
+                      text: 'Quick Tasks',
+                      index: 11,
+                      color: const Color(0xff4CAF50),
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.notifications_active),
+                      text: 'Send Notification',
+                      index: 15,
+                      color: const Color(0xffF59E0B),
+                    ),
+                    const Divider(),
+
+                    // Communication
+                    if (!_isSideMenuCollapsed)
+                      _buildMenuHeader('COMMUNICATION'),
+                    _buildSideMenuItem(
+                      icon: Image.asset('assets/Icon_chat.png'),
+                      text: 'Chat',
+                      index: 5,
+                      color: const Color(0xffA646F2),
+                    ),
+                    _buildSideMenuItem(
+                      icon: const Icon(Icons.video_call),
+                      text: 'Zoom',
+                      index: 12,
+                      color: const Color(0xff2563EB),
+                    ),
+                    const Divider(),
+
+                    // Forms
+                    if (!_isSideMenuCollapsed) _buildMenuHeader('FORMS'),
                     _buildSideMenuItem(
                       icon: Image.asset('assets/Icon_forms.png'),
                       text: 'Forms',
@@ -1343,7 +1342,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       index: 10,
                     ),
                     const Divider(),
-                    // Move Website Management down near other tools
+
+                    // System
+                    if (!_isSideMenuCollapsed) _buildMenuHeader('SYSTEM'),
                     _buildSideMenuItem(
                       icon: const Icon(Icons.web),
                       text: 'Website Management',
@@ -1351,13 +1352,16 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xff7C3AED),
                     ),
                     _buildSideMenuItem(
-                      icon: const Icon(Icons.notifications_active),
-                      text: 'Send Notification',
-                      index: 15,
-                      color: const Color(0xffF59E0B),
+                      icon: const Icon(Icons.settings),
+                      text: 'Settings',
+                      index: 18,
+                      color: const Color(0xff6B7280),
                     ),
+
                     // Debug features - only show in debug mode
                     if (kDebugMode) ...[
+                      const Divider(),
+                      if (!_isSideMenuCollapsed) _buildMenuHeader('DEBUG'),
                       _buildSideMenuItem(
                         icon: const Icon(Icons.bug_report),
                         text: 'Test Role System',
@@ -1416,6 +1420,33 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a header for menu sections
+  Widget _buildMenuHeader(String title) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff0386FF), // Use brand color
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: const Color(0xff0386FF).withOpacity(0.2), // Line extending
             ),
           ),
         ],
