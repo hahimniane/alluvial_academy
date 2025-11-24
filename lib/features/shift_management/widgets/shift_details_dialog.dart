@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
 
 class ShiftDetailsDialog extends StatelessWidget {
   final TeachingShift shift;
@@ -291,16 +292,15 @@ class ShiftDetailsDialog extends StatelessWidget {
   Widget _buildActions(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final isMyShift = currentUser?.uid == shift.teacherId;
-    final canPublish = isMyShift && 
-                       shift.status == ShiftStatus.scheduled && 
-                       !shift.hasExpired;
+    final canPublish =
+        isMyShift && shift.status == ShiftStatus.scheduled && !shift.hasExpired;
     final isPublished = shift.isPublished;
-    
+
     // Check if shift is marked as missed but hasn't actually started yet
     final now = DateTime.now();
-    final isMissedBeforeStart = shift.status == ShiftStatus.missed && 
-                                now.isBefore(shift.shiftStart);
-    
+    final isMissedBeforeStart =
+        shift.status == ShiftStatus.missed && now.isBefore(shift.shiftStart);
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
@@ -385,7 +385,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                     ),
                   ),
                 ),
-              
+
               // Claim button for other teachers viewing published shifts
               if (!isMyShift && isPublished && onClaimShift != null)
                 ElevatedButton.icon(
@@ -412,7 +412,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                 ),
             ],
           ),
-          
+
           // Close button on the right
           TextButton(
             onPressed: () => Navigator.pop(context),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/enhanced_recurrence.dart';
+import '../../core/enums/shift_enums.dart';
 
 class EnhancedRecurrencePicker extends StatefulWidget {
   final EnhancedRecurrence initialRecurrence;
@@ -16,7 +17,8 @@ class EnhancedRecurrencePicker extends StatefulWidget {
   });
 
   @override
-  State<EnhancedRecurrencePicker> createState() => _EnhancedRecurrencePickerState();
+  State<EnhancedRecurrencePicker> createState() =>
+      _EnhancedRecurrencePickerState();
 }
 
 class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
@@ -139,13 +141,15 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
                 label: Text(day.shortName),
                 selected: isExcluded,
                 onSelected: (selected) {
-                  final newExcludedDays = List<WeekDay>.from(_recurrence.excludedWeekdays);
+                  final newExcludedDays =
+                      List<WeekDay>.from(_recurrence.excludedWeekdays);
                   if (selected) {
                     newExcludedDays.add(day);
                   } else {
                     newExcludedDays.remove(day);
                   }
-                  _updateRecurrence(_recurrence.copyWith(excludedWeekdays: newExcludedDays));
+                  _updateRecurrence(
+                      _recurrence.copyWith(excludedWeekdays: newExcludedDays));
                 },
                 selectedColor: Colors.red[200],
                 checkmarkColor: Colors.red[700],
@@ -184,9 +188,11 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
                   label: Text(DateFormat('MMM dd, yyyy').format(date)),
                   deleteIcon: const Icon(Icons.close, size: 16),
                   onDeleted: () {
-                    final newExcludedDates = List<DateTime>.from(_recurrence.excludedDates);
+                    final newExcludedDates =
+                        List<DateTime>.from(_recurrence.excludedDates);
                     newExcludedDates.remove(date);
-                    _updateRecurrence(_recurrence.copyWith(excludedDates: newExcludedDates));
+                    _updateRecurrence(
+                        _recurrence.copyWith(excludedDates: newExcludedDates));
                   },
                   backgroundColor: Colors.red[100],
                 );
@@ -236,13 +242,15 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
                 label: Text(day.shortName),
                 selected: isSelected,
                 onSelected: (selected) {
-                  final newSelectedDays = List<WeekDay>.from(_recurrence.selectedWeekdays);
+                  final newSelectedDays =
+                      List<WeekDay>.from(_recurrence.selectedWeekdays);
                   if (selected) {
                     newSelectedDays.add(day);
                   } else {
                     newSelectedDays.remove(day);
                   }
-                  _updateRecurrence(_recurrence.copyWith(selectedWeekdays: newSelectedDays));
+                  _updateRecurrence(
+                      _recurrence.copyWith(selectedWeekdays: newSelectedDays));
                 },
                 selectedColor: Colors.green[200],
                 checkmarkColor: Colors.green[700],
@@ -298,29 +306,34 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
               final isSelected = _recurrence.selectedMonthDays.contains(day);
               return GestureDetector(
                 onTap: () {
-                  final newSelectedDays = List<int>.from(_recurrence.selectedMonthDays);
+                  final newSelectedDays =
+                      List<int>.from(_recurrence.selectedMonthDays);
                   if (isSelected) {
                     newSelectedDays.remove(day);
                   } else {
                     newSelectedDays.add(day);
                   }
                   newSelectedDays.sort();
-                  _updateRecurrence(_recurrence.copyWith(selectedMonthDays: newSelectedDays));
+                  _updateRecurrence(
+                      _recurrence.copyWith(selectedMonthDays: newSelectedDays));
                 },
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     color: isSelected ? Colors.purple[200] : Colors.grey[100],
                     border: Border.all(
-                      color: isSelected ? Colors.purple[400]! : Colors.grey[300]!,
+                      color:
+                          isSelected ? Colors.purple[400]! : Colors.grey[300]!,
                     ),
                   ),
                   child: Center(
                     child: Text(
                       day.toString(),
                       style: GoogleFonts.inter(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Colors.purple[700] : Colors.grey[700],
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color:
+                            isSelected ? Colors.purple[700] : Colors.grey[700],
                       ),
                     ),
                   ),
@@ -375,25 +388,29 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
             itemBuilder: (context, index) {
               final month = index + 1;
               final isSelected = _recurrence.selectedMonths.contains(month);
-              final monthName = DateFormat('MMMM').format(DateTime(2024, month));
-              
+              final monthName =
+                  DateFormat('MMMM').format(DateTime(2024, month));
+
               return GestureDetector(
                 onTap: () {
-                  final newSelectedMonths = List<int>.from(_recurrence.selectedMonths);
+                  final newSelectedMonths =
+                      List<int>.from(_recurrence.selectedMonths);
                   if (isSelected) {
                     newSelectedMonths.remove(month);
                   } else {
                     newSelectedMonths.add(month);
                   }
                   newSelectedMonths.sort();
-                  _updateRecurrence(_recurrence.copyWith(selectedMonths: newSelectedMonths));
+                  _updateRecurrence(
+                      _recurrence.copyWith(selectedMonths: newSelectedMonths));
                 },
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     color: isSelected ? Colors.orange[200] : Colors.grey[100],
                     border: Border.all(
-                      color: isSelected ? Colors.orange[400]! : Colors.grey[300]!,
+                      color:
+                          isSelected ? Colors.orange[400]! : Colors.grey[300]!,
                     ),
                   ),
                   child: Center(
@@ -401,8 +418,10 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
                       monthName,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Colors.orange[700] : Colors.grey[700],
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color:
+                            isSelected ? Colors.orange[700] : Colors.grey[700],
                       ),
                     ),
                   ),
@@ -458,15 +477,17 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 20, color: Color(0xff0386FF)),
+                  const Icon(Icons.calendar_today,
+                      size: 20, color: Color(0xff0386FF)),
                   const SizedBox(width: 12),
                   Text(
                     _recurrence.endDate != null
-                        ? DateFormat('MMM dd, yyyy').format(_recurrence.endDate!)
+                        ? DateFormat('MMM dd, yyyy')
+                            .format(_recurrence.endDate!)
                         : 'Select end date',
                     style: GoogleFonts.inter(
-                      color: _recurrence.endDate != null 
-                          ? const Color(0xff374151) 
+                      color: _recurrence.endDate != null
+                          ? const Color(0xff374151)
                           : const Color(0xff9CA3AF),
                     ),
                   ),
@@ -504,11 +525,12 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
 
     if (date != null) {
       final newExcludedDates = List<DateTime>.from(_recurrence.excludedDates);
-      if (!newExcludedDates.any((d) => 
+      if (!newExcludedDates.any((d) =>
           d.year == date.year && d.month == date.month && d.day == date.day)) {
         newExcludedDates.add(date);
         newExcludedDates.sort();
-        _updateRecurrence(_recurrence.copyWith(excludedDates: newExcludedDates));
+        _updateRecurrence(
+            _recurrence.copyWith(excludedDates: newExcludedDates));
       }
     }
   }
@@ -516,7 +538,8 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
   Future<void> _selectEndDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: _recurrence.endDate ?? DateTime.now().add(const Duration(days: 30)),
+      initialDate:
+          _recurrence.endDate ?? DateTime.now().add(const Duration(days: 30)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
     );
@@ -525,4 +548,4 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
       _updateRecurrence(_recurrence.copyWith(endDate: date));
     }
   }
-} 
+}

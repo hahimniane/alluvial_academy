@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/enums/timesheet_enums.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:intl/intl.dart';
@@ -86,7 +87,8 @@ class _TimesheetTableState extends State<TimesheetTable>
 
   void _loadTimesheetData() {
     // Load saved timesheet entries from Firebase first
-    AppLogger.debug('TimesheetTable: Loading timesheet entries from Firebase...');
+    AppLogger.debug(
+        'TimesheetTable: Loading timesheet entries from Firebase...');
     _loadSavedTimesheetEntries().then((savedEntries) {
       if (!mounted) return;
 
@@ -146,7 +148,8 @@ class _TimesheetTableState extends State<TimesheetTable>
         return [];
       }
 
-      AppLogger.debug('TimesheetTable: 🔍 Loading timesheets for user: ${user.uid}');
+      AppLogger.debug(
+          'TimesheetTable: 🔍 Loading timesheets for user: ${user.uid}');
       AppLogger.debug('TimesheetTable: 📧 User email: ${user.email}');
 
       final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -158,7 +161,8 @@ class _TimesheetTableState extends State<TimesheetTable>
           'TimesheetTable: 📊 Found ${querySnapshot.docs.length} timesheet documents');
 
       if (querySnapshot.docs.isEmpty) {
-        AppLogger.debug('TimesheetTable: ⚠️ No timesheet entries found for this teacher');
+        AppLogger.debug(
+            'TimesheetTable: ⚠️ No timesheet entries found for this teacher');
         AppLogger.debug('TimesheetTable: 💡 This could mean:');
         AppLogger.debug('  - Teacher hasn\'t clocked in/out yet');
         AppLogger.debug('  - Firestore security rules are blocking access');
@@ -1854,8 +1858,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       children: [
         const Row(
           children: [
-            Icon(Icons.calendar_today,
-                size: 16, color: Color(0xff0386FF)),
+            Icon(Icons.calendar_today, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
               'Date',
@@ -1879,7 +1882,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                 initialDate = DateTime.now();
               }
 
-              AppLogger.debug('Showing date picker with initialDate: $initialDate');
+              AppLogger.debug(
+                  'Showing date picker with initialDate: $initialDate');
 
               final date = await showDatePicker(
                 context: context,
@@ -1989,8 +1993,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     controller: _searchController,
                     decoration: const InputDecoration(
                       hintText: 'Search students...',
-                      prefixIcon:
-                          Icon(Icons.search, color: Color(0xff0386FF)),
+                      prefixIcon: Icon(Icons.search, color: Color(0xff0386FF)),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.all(16),
                     ),
@@ -2244,8 +2247,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.all(16),
-                suffixIcon:
-                    Icon(Icons.expand_more, color: Color(0xff0386FF)),
+                suffixIcon: Icon(Icons.expand_more, color: Color(0xff0386FF)),
               ),
               onChanged: (value) {
                 setState(() {

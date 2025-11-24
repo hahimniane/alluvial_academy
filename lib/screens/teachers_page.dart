@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/enums/ui_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../shared/widgets/persistent_app_bar.dart';
 import '../shared/widgets/responsive_builder.dart';

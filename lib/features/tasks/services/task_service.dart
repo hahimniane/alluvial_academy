@@ -96,7 +96,8 @@ class TaskService {
       AppLogger.debug('TaskService: Function data being sent:');
       AppLogger.debug('  - taskId: ${functionData['taskId']}');
       AppLogger.debug('  - taskTitle: ${functionData['taskTitle']}');
-      AppLogger.debug('  - assignedUserIds: ${functionData['assignedUserIds']}');
+      AppLogger.debug(
+          '  - assignedUserIds: ${functionData['assignedUserIds']}');
       AppLogger.debug(
           '  - assignedUserIds type: ${functionData['assignedUserIds'].runtimeType}');
 
@@ -172,7 +173,8 @@ class TaskService {
           _functions.httpsCallable('sendTaskAssignmentNotification');
       final result = await callable.call(functionData);
 
-      AppLogger.error('Email notification result for task update: ${result.data}');
+      AppLogger.error(
+          'Email notification result for task update: ${result.data}');
     } catch (e) {
       AppLogger.error('Error sending task update notifications: $e');
       // Don't throw - email failure shouldn't prevent task update
@@ -226,7 +228,8 @@ class TaskService {
           _functions.httpsCallable('sendTaskStatusUpdateNotification');
       final result = await callable.call(functionData);
 
-      AppLogger.error('Status update email notification result: ${result.data}');
+      AppLogger.error(
+          'Status update email notification result: ${result.data}');
     } catch (e) {
       AppLogger.error('Error sending task status update notifications: $e');
       // Don't throw - email failure shouldn't prevent task update
@@ -276,7 +279,8 @@ class TaskService {
         return Stream.value([]);
       }
 
-      AppLogger.debug('TaskService: Getting tasks for user: ${currentUser.uid}');
+      AppLogger.debug(
+          'TaskService: Getting tasks for user: ${currentUser.uid}');
       final isAdmin = await UserRoleService.isAdmin();
       AppLogger.debug('TaskService: User is admin: $isAdmin');
 
@@ -316,6 +320,9 @@ class TaskService {
       if (oldTask.status != task.status) {
         await _sendTaskStatusUpdateNotification(oldTask, task);
       }
+
+      // Send admin notification for critical edits (Title, Desc, DueDate, Assignees)
+      await _sendTaskEditNotificationToAdmins(oldTask, task);
     }
   }
 
@@ -324,6 +331,10 @@ class TaskService {
     final taskDoc = await _taskCollection.doc(taskId).get();
     if (taskDoc.exists) {
       final task = Task.fromFirestore(taskDoc);
+
+      // Send notification to admins about deletion
+      await _sendTaskDeletionNotification(task);
+
       // Delete all attachments from storage
       for (final attachment in task.attachments) {
         await _fileService.deleteFile(attachment, taskId);
@@ -331,6 +342,141 @@ class TaskService {
     }
 
     await _taskCollection.doc(taskId).delete();
+  }
+
+  /// Send notification to admins when a task is deleted
+  Future<void> _sendTaskDeletionNotification(Task task) async {
+    try {
+      // Get the current user (deleter) information
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      String deletedByName = 'Unknown User';
+      try {
+        final deleterDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (deleterDoc.exists) {
+          final deleterData = deleterDoc.data() as Map<String, dynamic>;
+          final firstName = deleterData['first_name'] ?? '';
+          final lastName = deleterData['last_name'] ?? '';
+          deletedByName = '$firstName $lastName'.trim();
+
+          if (deletedByName.isEmpty) {
+            deletedByName = currentUser.email ?? 'Unknown User';
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error getting deleter name: $e');
+        deletedByName = currentUser.email ?? 'Unknown User';
+      }
+
+      // Prepare data for the Cloud Function
+      final functionData = {
+        'taskId': task.id,
+        'taskTitle': task.title,
+        'taskDescription': task.description,
+        'deletedByName': deletedByName,
+        'deletedByEmail': currentUser.email,
+        'deletedAt': DateTime.now().toIso8601String(),
+        'originalCreatorId': task.createdBy,
+      };
+
+      // Call the Cloud Function
+      final HttpsCallable callable =
+          _functions.httpsCallable('sendTaskDeletionNotification');
+      final result = await callable.call(functionData);
+
+      AppLogger.error('Task deletion notification result: ${result.data}');
+    } catch (e) {
+      AppLogger.error('Error sending task deletion notification: $e');
+      // Don't throw - notification failure shouldn't prevent task deletion
+    }
+  }
+
+  /// Send notification to admins when a task is edited (Title, Description, DueDate, Assignees)
+  Future<void> _sendTaskEditNotificationToAdmins(
+      Task oldTask, Task newTask) async {
+    try {
+      final changes = <String, Map<String, dynamic>>{};
+
+      if (oldTask.title != newTask.title) {
+        changes['title'] = {'old': oldTask.title, 'new': newTask.title};
+      }
+      if (oldTask.description != newTask.description) {
+        changes['description'] = {
+          'old': oldTask.description,
+          'new': newTask.description
+        };
+      }
+      if (oldTask.dueDate != newTask.dueDate) {
+        changes['dueDate'] = {
+          'old': oldTask.dueDate.toIso8601String(),
+          'new': newTask.dueDate.toIso8601String()
+        };
+      }
+
+      // Check assignments
+      final oldSet = Set.from(oldTask.assignedTo);
+      final newSet = Set.from(newTask.assignedTo);
+      if (oldSet.length != newSet.length || !oldSet.containsAll(newSet)) {
+        changes['assignedTo'] = {
+          'old': oldTask.assignedTo,
+          'new': newTask.assignedTo
+        };
+      }
+
+      // If no critical changes, don't send notification
+      if (changes.isEmpty) return;
+
+      // Get the current user (editor) information
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      String editedByName = 'Unknown User';
+      try {
+        final editorDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (editorDoc.exists) {
+          final editorData = editorDoc.data() as Map<String, dynamic>;
+          final firstName = editorData['first_name'] ?? '';
+          final lastName = editorData['last_name'] ?? '';
+          editedByName = '$firstName $lastName'.trim();
+
+          if (editedByName.isEmpty) {
+            editedByName = currentUser.email ?? 'Unknown User';
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error getting editor name: $e');
+        editedByName = currentUser.email ?? 'Unknown User';
+      }
+
+      // Prepare data for Cloud Function
+      final functionData = {
+        'taskId': newTask.id,
+        'taskTitle': newTask.title, // Always send current title for context
+        'changes': changes,
+        'editedByName': editedByName,
+        'editedByEmail': currentUser.email,
+        'editedAt': DateTime.now().toIso8601String(),
+        'originalCreatorId': newTask.createdBy,
+      };
+
+      // Call Cloud Function
+      final HttpsCallable callable =
+          _functions.httpsCallable('sendTaskEditNotification');
+      final result = await callable.call(functionData);
+
+      AppLogger.info('Task edit notification result: ${result.data}');
+    } catch (e) {
+      AppLogger.error('Error sending task edit notification: $e');
+    }
   }
 
   /// Add attachment to task

@@ -4,13 +4,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../system_settings_screen.dart';
-import 'package:csv/csv.dart';
-import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 // Conditional import - uses dart:html on web, stub on other platforms
-import '../../../utility_functions/html_stub.dart' if (dart.library.html) 'dart:html' as html;
+import '../../../utility_functions/html_stub.dart'
+    if (dart.library.html) 'dart:html' as html;
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/prayer_time_service.dart';
 import '../../../core/services/islamic_calendar_service.dart';
@@ -34,140 +36,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> stats = {};
   Map<String, dynamic> teacherStats = {};
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
-  bool _isDeletingAccount = false;
-  
+
   // Platform detection for responsive layouts
   bool get _isMobile {
     if (kIsWeb) return false;
     final platform = defaultTargetPlatform;
     return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
-  }
-
-  Future<void> _showDeleteAccountDialog() async {
-    if (!kIsWeb || _isDeletingAccount) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.delete_forever, color: Colors.red, size: 28),
-            const SizedBox(width: 12),
-            Text(
-              'Delete Account',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Deleting your account will permanently remove your profile, timesheets, and associated classroom data. This action cannot be undone.',
-              style: GoogleFonts.inter(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Only proceed if you are certain. You will be signed out immediately after deletion.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete Account'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _deleteCurrentAccount();
-    }
-  }
-
-  Future<void> _deleteCurrentAccount() async {
-    if (_isDeletingAccount) return;
-
-    final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email;
-    if (email == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to delete account: no email found.')),
-        );
-      }
-      return;
-    }
-
-    setState(() => _isDeletingAccount = true);
-
-    try {
-      final success = await UserRoleService.deleteUser(email);
-      if (success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Account deleted. You will be signed out.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        await FirebaseAuth.instance.signOut();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to delete account. Please contact support.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting account: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isDeletingAccount = false);
-      }
-    }
   }
 
   @override
@@ -535,7 +409,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (_isMobile) {
       return _buildDashboardContent();
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -613,42 +487,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               color: Colors.white,
             ),
           ),
-          if (kIsWeb) ...[
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 12),
-            Text(
-              'Need to leave Alluwal Academy?',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff111827),
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: _isDeletingAccount
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_forever, color: Colors.red),
-              label: Text(
-                _isDeletingAccount ? 'Deleting...' : 'Delete My Account',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.red,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.red.withOpacity(0.4)),
-                foregroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              ),
-              onPressed: _isDeletingAccount ? null : _showDeleteAccountDialog,
-            ),
-          ],
         ],
       ),
     );
@@ -796,8 +634,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildMobileAdminWelcomeCard() {
     final theme = Theme.of(context);
-    final firstName =
-        userData?['first_name'] ?? userData?['name'] ?? 'Admin';
+    final firstName = userData?['first_name'] ?? userData?['name'] ?? 'Admin';
     final roleDisplay = UserRoleService.getRoleDisplayName(userRole);
     final greeting = _getGreeting();
     final uptime =
@@ -1036,8 +873,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const Spacer(),
                 if (trend.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: accent.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(40),
@@ -1154,7 +991,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
-  
+
   Widget _buildMobileTeacherDashboard() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1195,9 +1032,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
-  
+
   Widget _buildMobileTeacherWelcomeHeader() {
-    final firstName = userData?['first_name'] ?? userData?['firstName'] ?? 'Teacher';
+    final firstName =
+        userData?['first_name'] ?? userData?['firstName'] ?? 'Teacher';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1287,7 +1125,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
-  
+
   Widget _buildMobileHeaderStat(String label, String value, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1325,7 +1163,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
-  
+
   Widget _buildMobileTeacherQuickStats() {
     return GridView.count(
       shrinkWrap: true,
@@ -1362,8 +1200,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ],
     );
   }
-  
-  Widget _buildMobileStatCard(String title, String value, IconData icon, Color color) {
+
+  Widget _buildMobileStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -1827,7 +1666,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
                         color: isPositive
                             ? const Color(0xffDCFCE7)
@@ -1838,7 +1678,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isPositive ? Icons.trending_up : Icons.trending_down,
+                            isPositive
+                                ? Icons.trending_up
+                                : Icons.trending_down,
                             size: 10,
                             color: isPositive
                                 ? const Color(0xff16A34A)
@@ -2284,8 +2126,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: theme.textTheme.bodySmall?.color
-                            ?.withOpacity(0.7),
+                        color:
+                            theme.textTheme.bodySmall?.color?.withOpacity(0.7),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -2312,8 +2154,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       'Avg response time $responseTime ms',
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: theme.textTheme.bodyMedium?.color
-                            ?.withOpacity(0.7),
+                        color:
+                            theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                       ),
                     ),
                   ],
@@ -2740,7 +2582,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ...List.generate(activityItems.length, (index) {
             final item = activityItems[index];
             return Padding(
-              padding: EdgeInsets.only(bottom: index == activityItems.length - 1 ? 0 : 18),
+              padding: EdgeInsets.only(
+                  bottom: index == activityItems.length - 1 ? 0 : 18),
               child: _buildTimelineItem(
                 icon: item['icon'] as IconData,
                 color: item['color'] as Color,
@@ -3282,9 +3125,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color:
-                  theme.textTheme.bodySmall?.color?.withOpacity(0.7) ??
-                      Colors.black54,
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.7) ??
+                  Colors.black54,
             ),
           ),
       ],
@@ -3325,9 +3167,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color:
-                      theme.textTheme.bodySmall?.color?.withOpacity(0.7) ??
-                          Colors.black54,
+                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.7) ??
+                      Colors.black54,
                 ),
               ),
             ),
@@ -3413,8 +3254,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: theme.textTheme.bodySmall?.color
-                          ?.withOpacity(0.7),
+                      color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
                     ),
                   ),
                 ],
@@ -3424,8 +3264,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 description,
                 style: GoogleFonts.inter(
                   fontSize: 12,
-                  color: theme.textTheme.bodyMedium?.color
-                      ?.withOpacity(0.75),
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.75),
                 ),
               ),
             ],
@@ -4521,7 +4360,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       if ((data['specialties'] ?? '').toString().trim().isNotEmpty) {
         completedFields++;
       }
-      if ((data['education_certifications'] ?? '').toString().trim().isNotEmpty) {
+      if ((data['education_certifications'] ?? '')
+          .toString()
+          .trim()
+          .isNotEmpty) {
         completedFields++;
       }
 
@@ -6710,36 +6552,36 @@ class _TeacherProfileDialogState extends State<_TeacherProfileDialog> {
                                 ),
                               ),
                               child: _isSaving
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                  Colors.white),
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Saving...',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Saving...',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
+                                      ],
+                                    )
+                                  : Text(
+                                      'Save Profile',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
                                       ),
-                                    ],
-                                  )
-                                : Text(
-                                    'Save Profile',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
                                     ),
-                                  ),
                             ),
                           ),
                         ],
@@ -7735,7 +7577,8 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('File attachment is only supported on web platform'),
+              content:
+                  Text('File attachment is only supported on web platform'),
               backgroundColor: Colors.orange,
             ),
           );

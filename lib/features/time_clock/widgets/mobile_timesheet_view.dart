@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/enums/timesheet_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -110,17 +111,20 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
           final dateB = DateFormat('MMM dd, yyyy').parse(b.date);
           return dateB.compareTo(dateA);
         } catch (e) {
-          AppLogger.error('MobileTimesheetView: Error parsing date "${a.date}" or "${b.date}": $e');
+          AppLogger.error(
+              'MobileTimesheetView: Error parsing date "${a.date}" or "${b.date}": $e');
           return 0;
         }
       });
 
-      AppLogger.error('MobileTimesheetView: Loaded ${entries.length} total entries');
+      AppLogger.error(
+          'MobileTimesheetView: Loaded ${entries.length} total entries');
 
       // Apply filters
       entries = _applyFilters(entries);
-      
-      AppLogger.debug('MobileTimesheetView: After filters (Time: $_selectedTimeFilter, Status: $_selectedStatusFilter): ${entries.length} entries');
+
+      AppLogger.debug(
+          'MobileTimesheetView: After filters (Time: $_selectedTimeFilter, Status: $_selectedStatusFilter): ${entries.length} entries');
 
       setState(() {
         _timesheetData = entries;
@@ -165,11 +169,13 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                 entryDate.month == today.month &&
                 entryDate.day == today.day;
             if (match) {
-              AppLogger.error('MobileTimesheetView: Entry "${entry.date}" matches Today filter');
+              AppLogger.error(
+                  'MobileTimesheetView: Entry "${entry.date}" matches Today filter');
             }
             return match;
           } catch (e) {
-            AppLogger.error('MobileTimesheetView: Error parsing date "${entry.date}": $e');
+            AppLogger.error(
+                'MobileTimesheetView: Error parsing date "${entry.date}": $e');
             return false;
           }
         }).toList();
@@ -182,7 +188,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
             final date = DateFormat('MMM dd, yyyy').parse(entry.date);
             return date.isAfter(weekStart.subtract(const Duration(days: 1)));
           } catch (e) {
-            AppLogger.error('MobileTimesheetView: Error parsing date "${entry.date}": $e');
+            AppLogger.error(
+                'MobileTimesheetView: Error parsing date "${entry.date}": $e');
             return false;
           }
         }).toList();
@@ -193,7 +200,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
             final date = DateFormat('MMM dd, yyyy').parse(entry.date);
             return date.year == today.year && date.month == today.month;
           } catch (e) {
-            AppLogger.error('MobileTimesheetView: Error parsing date "${entry.date}": $e');
+            AppLogger.error(
+                'MobileTimesheetView: Error parsing date "${entry.date}": $e');
             return false;
           }
         }).toList();
@@ -289,16 +297,21 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               const Spacer(),
               // Status filter dropdown
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _selectedStatusFilter == 'All' 
+                  color: _selectedStatusFilter == 'All'
                       ? const Color(0xffF3F4F6)
-                      : _getStatusColor(_parseStatus(_selectedStatusFilter.toLowerCase())).withOpacity(0.1),
+                      : _getStatusColor(
+                              _parseStatus(_selectedStatusFilter.toLowerCase()))
+                          .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _selectedStatusFilter == 'All'
                         ? Colors.transparent
-                        : _getStatusColor(_parseStatus(_selectedStatusFilter.toLowerCase())).withOpacity(0.3),
+                        : _getStatusColor(_parseStatus(
+                                _selectedStatusFilter.toLowerCase()))
+                            .withOpacity(0.3),
                     width: 1,
                   ),
                 ),
@@ -324,7 +337,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                               height: 8,
                               margin: const EdgeInsets.only(right: 6),
                               decoration: BoxDecoration(
-                                color: _getStatusColor(_parseStatus(value.toLowerCase())),
+                                color: _getStatusColor(
+                                    _parseStatus(value.toLowerCase())),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -359,8 +373,10 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                       filter,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected ? Colors.white : const Color(0xff6B7280),
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color:
+                            isSelected ? Colors.white : const Color(0xff6B7280),
                       ),
                     ),
                     selected: isSelected,
@@ -375,7 +391,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                     backgroundColor: const Color(0xffF3F4F6),
                     selectedColor: const Color(0xff0386FF),
                     checkmarkColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     visualDensity: VisualDensity.compact,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -409,7 +426,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
               onTap: () => _viewEntry(entry),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -444,7 +462,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(entry.status).withOpacity(0.1),
+                            color:
+                                _getStatusColor(entry.status).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -514,9 +533,9 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               ),
             ),
           ),
-          
+
           // Action buttons
-          if (entry.status == TimesheetStatus.draft || 
+          if (entry.status == TimesheetStatus.draft ||
               entry.status == TimesheetStatus.pending) ...[
             const Divider(height: 1),
             Padding(
@@ -546,7 +565,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                     ),
                     const SizedBox(width: 8),
                   ],
-                  
+
                   // Edit button (only for drafts)
                   if (entry.status == TimesheetStatus.draft)
                     TextButton.icon(
@@ -567,7 +586,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                         ),
                       ),
                     ),
-                  
+
                   // View button for submitted entries
                   if (entry.status != TimesheetStatus.draft)
                     TextButton.icon(
@@ -638,7 +657,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
   Widget _buildEmptyState() {
     String message = 'No timesheet entries found';
     String subtitle = 'Clock in to create your first entry';
-    
+
     // Customize message based on active filters
     if (_selectedStatusFilter != 'All') {
       message = 'No ${_selectedStatusFilter.toLowerCase()} entries';
@@ -647,7 +666,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
       message = 'No entries for $_selectedTimeFilter';
       subtitle = 'Try selecting a different time period';
     }
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -660,8 +679,8 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               borderRadius: BorderRadius.circular(40),
             ),
             child: Icon(
-              _selectedStatusFilter != 'All' 
-                  ? Icons.filter_list_rounded 
+              _selectedStatusFilter != 'All'
+                  ? Icons.filter_list_rounded
                   : Icons.access_time_rounded,
               size: 40,
               color: const Color(0xff9CA3AF),
@@ -751,12 +770,14 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Timesheet submitted for review', style: GoogleFonts.inter()),
+                Text('Timesheet submitted for review',
+                    style: GoogleFonts.inter()),
               ],
             ),
             backgroundColor: const Color(0xff10B981),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
       }
@@ -842,12 +863,14 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               _buildDetailRow('Start Time', entry.start),
               _buildDetailRow('End Time', entry.end),
               _buildDetailRow('Total Hours', entry.totalHours),
-              
+
               if (entry.clockInAddress?.isNotEmpty ?? false)
-                _buildDetailRow('Clock-in Location', entry.clockInAddress ?? ''),
-              
+                _buildDetailRow(
+                    'Clock-in Location', entry.clockInAddress ?? ''),
+
               if (entry.clockOutAddress?.isNotEmpty ?? false)
-                _buildDetailRow('Clock-out Location', entry.clockOutAddress ?? ''),
+                _buildDetailRow(
+                    'Clock-out Location', entry.clockOutAddress ?? ''),
 
               if (entry.description.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -939,4 +962,3 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
     );
   }
 }
-

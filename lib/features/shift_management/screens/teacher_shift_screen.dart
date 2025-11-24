@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/teacher_shift_calendar.dart';
 import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
@@ -275,13 +276,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     final activeShifts = _shifts
         .where((s) => s.isCurrentlyActive || s.status == ShiftStatus.active)
         .length;
-    final completedShifts =
-        _shifts
-            .where((s) =>
-                s.status == ShiftStatus.completed ||
-                s.status == ShiftStatus.partiallyCompleted ||
-                s.status == ShiftStatus.fullyCompleted)
-            .length;
+    final completedShifts = _shifts
+        .where((s) =>
+            s.status == ShiftStatus.completed ||
+            s.status == ShiftStatus.partiallyCompleted ||
+            s.status == ShiftStatus.fullyCompleted)
+        .length;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -583,8 +583,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     } else if (shift.status == ShiftStatus.fullyCompleted ||
         shift.status == ShiftStatus.completed) {
       statusColor = Colors.purple;
-      statusText =
-          shift.autoClockOut ? 'AUTO-COMPLETED' : 'COMPLETED';
+      statusText = shift.autoClockOut ? 'AUTO-COMPLETED' : 'COMPLETED';
       statusIcon = Icons.check_circle;
     } else if (canClockIn) {
       statusColor = Colors.orange;
@@ -627,12 +626,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                           children: [
                             Flexible(
                               child: Text(
-                          shift.displayName,
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff111827),
-                          ),
+                                shift.displayName,
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff111827),
+                                ),
                               ),
                             ),
                             // Published badge
@@ -644,10 +643,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xff0386FF).withOpacity(0.1),
+                                  color:
+                                      const Color(0xff0386FF).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: const Color(0xff0386FF).withOpacity(0.3),
+                                    color: const Color(0xff0386FF)
+                                        .withOpacity(0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -768,8 +769,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 ),
               ],
               // Publish button for scheduled, non-expired, non-published shifts
-              if (shift.status == ShiftStatus.scheduled && 
-                  !shift.hasExpired && 
+              if (shift.status == ShiftStatus.scheduled &&
+                  !shift.hasExpired &&
                   !shift.isPublished) ...[
                 const SizedBox(height: 16),
                 Row(
@@ -937,13 +938,15 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     );
   }
 
-  Future<void> _handleCorrectStatus(TeachingShift shift, ShiftStatus newStatus) async {
+  Future<void> _handleCorrectStatus(
+      TeachingShift shift, ShiftStatus newStatus) async {
     try {
       // Show confirmation dialog
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               const Icon(Icons.refresh, color: Color(0xff0386FF)),
@@ -975,7 +978,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Color(0xff0386FF), size: 20),
+                    const Icon(Icons.info_outline,
+                        color: Color(0xff0386FF), size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1089,8 +1093,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, 
-                    color: Color(0xffF59E0B), 
+                  const Icon(
+                    Icons.info_outline,
+                    color: Color(0xffF59E0B),
                     size: 20,
                   ),
                   const SizedBox(width: 8),

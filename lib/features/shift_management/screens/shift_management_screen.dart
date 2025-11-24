@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/user_role_service.dart';
@@ -130,7 +131,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             _categorizeShifts();
             _isLoading = false;
           });
-          
+
           // Reload statistics when shifts change
           await _loadShiftStatistics();
         }
@@ -146,7 +147,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   Future<void> _loadShiftStatistics() async {
     try {
       Map<String, dynamic> stats;
-      
+
       if (_isAdmin) {
         // Admins see all shift statistics
         stats = await ShiftService.getShiftStatistics();
@@ -157,7 +158,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
         stats = await ShiftService.getTeacherShiftStatistics(_currentUserId!);
       }
-      
+
       if (mounted) {
         setState(() {
           _shiftStats = stats;
@@ -195,7 +196,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 'ShiftManagement: ❌ No document found for email: ${teacher.email}');
           }
         } catch (e) {
-          AppLogger.error('ShiftManagement: Error mapping teacher email to ID: $e');
+          AppLogger.error(
+              'ShiftManagement: Error mapping teacher email to ID: $e');
         }
       }
 
@@ -298,7 +300,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   // Scroll-friendly tab content: avoids Expanded and gives TabBarView a bounded height
-  Widget _buildTabContentScrollable(BuildContext context, double viewportHeight) {
+  Widget _buildTabContentScrollable(
+      BuildContext context, double viewportHeight) {
     final tabViewHeight = math.max(420.0, viewportHeight * 0.6);
 
     return Container(
@@ -364,7 +367,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                     _filterShifts();
                                   });
                                 },
-                                icon: const Icon(Icons.close, size: 18, color: Color(0xFF6B7280)),
+                                icon: const Icon(Icons.close,
+                                    size: 18, color: Color(0xFF6B7280)),
                               )
                             : null,
                         border: InputBorder.none,
@@ -379,7 +383,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 if (_searchQuery.isNotEmpty) ...[
                   const SizedBox(width: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0386FF).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
@@ -508,7 +513,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: selected ? Colors.white : const Color(0xff6B7280)),
+            Icon(icon,
+                size: 16,
+                color: selected ? Colors.white : const Color(0xff6B7280)),
             const SizedBox(width: 6),
             Text(
               label,
@@ -1999,8 +2006,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             const SizedBox(width: 20),
             Text(
               hours > 0
-                ? 'Adding $hours hour to all future shifts...'
-                : 'Subtracting ${-hours} hour from all future shifts...',
+                  ? 'Adding $hours hour to all future shifts...'
+                  : 'Subtracting ${-hours} hour from all future shifts...',
               style: GoogleFonts.inter(),
             ),
           ],
@@ -2046,9 +2053,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                     result['success'] == true
                         ? Icons.check_circle
                         : Icons.error,
-                    color: result['success'] == true
-                        ? Colors.green
-                        : Colors.red,
+                    color:
+                        result['success'] == true ? Colors.green : Colors.red,
                     size: 24,
                   ),
                 ),
@@ -2088,12 +2094,12 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       _buildStatRow('Total Shifts Found',
                           '${result['totalShifts'] ?? 0}'),
                       const Divider(height: 16),
-                      _buildStatRow('Shifts Adjusted',
-                          '${result['adjustedShifts'] ?? 0}',
+                      _buildStatRow(
+                          'Shifts Adjusted', '${result['adjustedShifts'] ?? 0}',
                           color: Colors.green),
                       const Divider(height: 16),
-                      _buildStatRow('Shifts Skipped',
-                          '${result['skippedShifts'] ?? 0}',
+                      _buildStatRow(
+                          'Shifts Skipped', '${result['skippedShifts'] ?? 0}',
                           color: Colors.orange),
                     ],
                   ),
@@ -2106,7 +2112,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                      border:
+                          Border.all(color: Colors.red.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2120,15 +2127,15 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                           ),
                         ),
                         const SizedBox(height: 4),
-                        ...((result['errors'] as List).take(3).map((error) =>
-                          Text(
-                            '• $error',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: Colors.red.shade700,
-                            ),
-                          )
-                        )),
+                        ...((result['errors'] as List)
+                            .take(3)
+                            .map((error) => Text(
+                                  '• $error',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: Colors.red.shade700,
+                                  ),
+                                ))),
                       ],
                     ),
                   ),
@@ -2416,8 +2423,8 @@ class ShiftDataSource extends DataGridSource {
     // Get the shift from the actions cell which contains the TeachingShift object
     final actionsCell = row.getCells().firstWhere(
           (cell) => cell.columnName == 'actions',
-          orElse: () =>
-              const DataGridCell<TeachingShift>(columnName: 'actions', value: null),
+          orElse: () => const DataGridCell<TeachingShift>(
+              columnName: 'actions', value: null),
         );
     return actionsCell.value as TeachingShift?;
   }

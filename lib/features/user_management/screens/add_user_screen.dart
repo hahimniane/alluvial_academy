@@ -263,7 +263,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         String? timezone;
         if (rowState.selectedUserType == 'Admin' ||
             rowState.selectedUserType == 'Teacher') {
-          timezone = TimezoneUtils.detectUserTimezone();
+          timezone = await TimezoneUtils.detectUserTimezone();
         }
 
         Map<String, dynamic> userData = {
@@ -392,7 +392,8 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         };
       }).toList();
 
-      AppLogger.debug('Transformed user data: ${transformedUsers.length} users');
+      AppLogger.debug(
+          'Transformed user data: ${transformedUsers.length} users');
       for (int i = 0; i < transformedUsers.length; i++) {
         AppLogger.debug('User ${i + 1}: ${transformedUsers[i]}');
       }
@@ -1867,7 +1868,8 @@ class _UserInputRowState extends State<UserInputRow> {
                   fontSize: 14,
                   color: const Color(0xff2D3748),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
               ),
             ),
         ],

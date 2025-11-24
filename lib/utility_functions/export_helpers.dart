@@ -11,8 +11,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
-enum ExportFormat { csv, excel }
-
 class ExportHelpers {
   static bool _isExporting = false;
   // Enhanced export function with format selection
@@ -146,7 +144,8 @@ class ExportHelpers {
     return InkWell(
       onTap: () {
         if (_isExporting) {
-          AppLogger.debug('Export already in progress, ignoring duplicate request');
+          AppLogger.debug(
+              'Export already in progress, ignoring duplicate request');
           return;
         }
         Navigator.of(context).pop();
@@ -221,7 +220,7 @@ class ExportHelpers {
     AppLogger.debug('Data rows count: ${data.length}');
     AppLogger.debug('Is already exporting: $_isExporting');
     AppLogger.debug('═══════════════════════════════════════');
-    
+
     if (_isExporting) {
       AppLogger.debug('⚠️ Export already in progress, skipping Excel export');
       return;
@@ -229,7 +228,8 @@ class ExportHelpers {
 
     _isExporting = true;
     try {
-      AppLogger.debug('Starting Excel export with ${headers.length} headers and ${data.length} rows');
+      AppLogger.debug(
+          'Starting Excel export with ${headers.length} headers and ${data.length} rows');
 
       // Create a new Excel document
       var excel = xl.Excel.createExcel();
@@ -258,7 +258,8 @@ class ExportHelpers {
               xl.TextCellValue(row[colIndex]);
         }
         if (rowIndex < 3) {
-          AppLogger.debug('Added data row ${rowIndex + 1}: ${row.take(3).join(", ")}...');
+          AppLogger.debug(
+              'Added data row ${rowIndex + 1}: ${row.take(3).join(", ")}...');
         }
       }
 
@@ -267,7 +268,8 @@ class ExportHelpers {
       // Generate Excel file bytes
       List<int>? fileBytes = excel.save();
 
-      AppLogger.debug('Excel file bytes generated: ${fileBytes?.length ?? 0} bytes');
+      AppLogger.debug(
+          'Excel file bytes generated: ${fileBytes?.length ?? 0} bytes');
       AppLogger.debug('Platform check - kIsWeb: $kIsWeb');
 
       if (fileBytes != null && fileBytes.isNotEmpty) {
@@ -287,7 +289,8 @@ class ExportHelpers {
             ..style.display = 'none'
             ..download = "$baseFileName.xlsx";
 
-          AppLogger.debug('Creating download link with filename: $baseFileName.xlsx');
+          AppLogger.debug(
+              'Creating download link with filename: $baseFileName.xlsx');
 
           // Add to DOM, click, then remove
           html.document.body?.children.add(anchor);
@@ -300,7 +303,8 @@ class ExportHelpers {
             html.Url.revokeObjectUrl(url);
           });
 
-          AppLogger.info('✓ Excel file exported successfully: $baseFileName.xlsx');
+          AppLogger.info(
+              '✓ Excel file exported successfully: $baseFileName.xlsx');
         } else {
           AppLogger.error('❌ Excel export is only supported on web platform');
         }

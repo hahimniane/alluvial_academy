@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'core/enums/wage_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/wage_management_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key});
 
@@ -599,7 +601,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildWageInputField(
       String title, String subtitle, double value, Function(double) onChanged) {
     final controller = TextEditingController(text: value.toStringAsFixed(2));
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -637,7 +639,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
           onChanged: (text) {
             final value = double.tryParse(text);
@@ -895,7 +898,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     // Save wage settings
     try {
       await WageManagementService.setGlobalWage(_globalWage);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1084,25 +1087,27 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         onApply: (role, wage) async {
           // Apply wage to all users in this role
           await WageManagementService.setRoleWage(role, wage);
-          
+
           // Get all users in this role and update their wages
           final allUsers = await WageManagementService.getAllUsers();
-          final usersInRole = allUsers.where((user) => 
-            user['role'].toString().toLowerCase() == role.toLowerCase()
-          ).toList();
-          
+          final usersInRole = allUsers
+              .where((user) =>
+                  user['role'].toString().toLowerCase() == role.toLowerCase())
+              .toList();
+
           // Update each user's wage
           for (var user in usersInRole) {
             await WageManagementService.setIndividualWage(user['id'], wage);
           }
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Applied wage of \$${wage.toStringAsFixed(2)}/hour to ${usersInRole.length} users in $role role'),
+              content: Text(
+                  'Applied wage of \$${wage.toStringAsFixed(2)}/hour to ${usersInRole.length} users in $role role'),
               backgroundColor: Colors.green,
             ),
           );
-          
+
           await _loadWageSettings();
         },
       ),
@@ -1117,7 +1122,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         onSave: (userWages) async {
           await WageManagementService.setMultipleIndividualWages(userWages);
           await _loadWageSettings();
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Updated wages for ${userWages.length} users'),
@@ -1143,7 +1148,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     );
   }
 
-  void _applyWageChangesWithOptions(WageType updateType, String? role, List<String>? userIds, double wage) async {
+  void _applyWageChangesWithOptions(WageType updateType, String? role,
+      List<String>? userIds, double wage) async {
     // Show loading dialog
     showDialog(
       context: context,
@@ -1162,7 +1168,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
     try {
       Map<String, int> results;
-      
+
       if (updateType == WageType.individual && userIds != null) {
         // Apply to specific users
         results = {'shifts': 0, 'timesheets': 0};
@@ -1173,7 +1179,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             newWage: wage,
           );
           results['shifts'] = results['shifts']! + userResults['shifts']!;
-          results['timesheets'] = results['timesheets']! + userResults['timesheets']!;
+          results['timesheets'] =
+              results['timesheets']! + userResults['timesheets']!;
         }
       } else {
         // Apply by role or globally
@@ -1213,7 +1220,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       );
     } catch (e) {
       Navigator.of(context).pop(); // Close loading dialog
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error applying wage changes: $e'),
@@ -1287,16 +1294,20 @@ class _RoleWageDialogState extends State<_RoleWageDialog> {
                               flex: 2,
                               child: Text(
                                 role,
-                                style: const TextStyle(fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500),
                               ),
                             ),
                             Expanded(
                               flex: 3,
                               child: TextField(
                                 controller: TextEditingController(
-                                  text: _roleWages[role]?.toStringAsFixed(2) ?? '',
+                                  text: _roleWages[role]?.toStringAsFixed(2) ??
+                                      '',
                                 ),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
                                 decoration: InputDecoration(
                                   prefixText: '\$ ',
                                   suffixText: ' /hour',
@@ -1370,7 +1381,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
 
   List<Map<String, dynamic>> get _filteredTeachers {
     if (_searchQuery.isEmpty) return _teachers;
-    
+
     final query = _searchQuery.toLowerCase();
     return _teachers.where((teacher) {
       final name = teacher['name'].toString().toLowerCase();
@@ -1407,7 +1418,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
                       itemBuilder: (context, index) {
                         final teacher = _filteredTeachers[index];
                         final hasOverride = teacher['has_override'] as bool;
-                        
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
@@ -1420,25 +1431,32 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
                                   Expanded(
                                     child: TextField(
                                       controller: TextEditingController(
-                                        text: teacher['current_wage'].toStringAsFixed(2),
+                                        text: teacher['current_wage']
+                                            .toStringAsFixed(2),
                                       ),
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
                                       decoration: InputDecoration(
                                         prefixText: '\$',
                                         suffixIcon: hasOverride
                                             ? IconButton(
-                                                icon: const Icon(Icons.clear, size: 16),
+                                                icon: const Icon(Icons.clear,
+                                                    size: 16),
                                                 onPressed: () {
-                                                  widget.onSave(teacher['id'], null);
+                                                  widget.onSave(
+                                                      teacher['id'], null);
                                                   _loadTeachers();
                                                 },
                                                 tooltip: 'Remove override',
                                               )
                                             : null,
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
                                         ),
-                                        contentPadding: const EdgeInsets.symmetric(
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
                                           horizontal: 8,
                                           vertical: 4,
                                         ),
@@ -1494,7 +1512,8 @@ class _EnhancedRoleWageDialog extends StatefulWidget {
   const _EnhancedRoleWageDialog({required this.onApply});
 
   @override
-  State<_EnhancedRoleWageDialog> createState() => _EnhancedRoleWageDialogState();
+  State<_EnhancedRoleWageDialog> createState() =>
+      _EnhancedRoleWageDialogState();
 }
 
 class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
@@ -1553,8 +1572,8 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
                   const Divider(),
                   const SizedBox(height: 16),
                   TextField(
-                    controller: TextEditingController(
-                        text: _wage.toStringAsFixed(2)),
+                    controller:
+                        TextEditingController(text: _wage.toStringAsFixed(2)),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
@@ -1639,7 +1658,9 @@ class _EnhancedIndividualWageDialogState
       final name = user['name'].toString().toLowerCase();
       final email = user['email'].toString().toLowerCase();
       final role = user['role'].toString().toLowerCase();
-      return name.contains(query) || email.contains(query) || role.contains(query);
+      return name.contains(query) ||
+          email.contains(query) ||
+          role.contains(query);
     }).toList();
   }
 
@@ -1688,7 +1709,8 @@ class _EnhancedIndividualWageDialogState
                           Expanded(
                             child: Text(
                               'Set wage for ${_selectedUserIds.length} selected users:',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500),
                             ),
                           ),
                           SizedBox(
@@ -1698,7 +1720,8 @@ class _EnhancedIndividualWageDialogState
                                 text: _bulkWage.toStringAsFixed(2),
                               ),
                               keyboardType:
-                                  const TextInputType.numberWithOptions(decimal: true),
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                               decoration: InputDecoration(
                                 prefixText: '\$ ',
                                 suffixText: ' /hour',
@@ -1739,11 +1762,13 @@ class _EnhancedIndividualWageDialogState
                       itemCount: _filteredUsers.length,
                       itemBuilder: (context, index) {
                         final user = _filteredUsers[index];
-                        final isSelected = _selectedUserIds.contains(user['id']);
+                        final isSelected =
+                            _selectedUserIds.contains(user['id']);
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
-                          color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+                          color:
+                              isSelected ? Colors.blue.withOpacity(0.1) : null,
                           child: ListTile(
                             leading: Checkbox(
                               value: isSelected,
@@ -1758,15 +1783,19 @@ class _EnhancedIndividualWageDialogState
                               },
                             ),
                             title: Text(user['name']),
-                            subtitle: Text('${user['email']} • ${user['role']}'),
+                            subtitle:
+                                Text('${user['email']} • ${user['role']}'),
                             trailing: SizedBox(
                               width: 150,
                               child: TextField(
                                 controller: TextEditingController(
-                                  text: _userWages[user['id']]?.toStringAsFixed(2) ?? '',
+                                  text: _userWages[user['id']]
+                                          ?.toStringAsFixed(2) ??
+                                      '',
                                 ),
                                 keyboardType:
-                                    const TextInputType.numberWithOptions(decimal: true),
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
                                 decoration: InputDecoration(
                                   prefixText: '\$',
                                   border: OutlineInputBorder(
@@ -1824,8 +1853,8 @@ class _EnhancedIndividualWageDialogState
 // Apply Wage Changes Dialog
 class _ApplyWageChangesDialog extends StatefulWidget {
   final double globalWage;
-  final Function(WageType type, String? role, List<String>? userIds, double wage)
-      onApply;
+  final Function(
+      WageType type, String? role, List<String>? userIds, double wage) onApply;
 
   const _ApplyWageChangesDialog({
     required this.globalWage,
@@ -1882,8 +1911,10 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                   const SizedBox(height: 16),
                   // Wage input
                   TextField(
-                    controller: TextEditingController(text: _wage.toStringAsFixed(2)),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    controller:
+                        TextEditingController(text: _wage.toStringAsFixed(2)),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: 'New Hourly Wage',
                       prefixText: '\$ ',
@@ -1908,13 +1939,15 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                     title: const Text('All Users (Global)'),
                     value: WageType.global,
                     groupValue: _selectedType,
-                    onChanged: (value) => setState(() => _selectedType = value!),
+                    onChanged: (value) =>
+                        setState(() => _selectedType = value!),
                   ),
                   RadioListTile<WageType>(
                     title: const Text('Specific Role'),
                     value: WageType.role,
                     groupValue: _selectedType,
-                    onChanged: (value) => setState(() => _selectedType = value!),
+                    onChanged: (value) =>
+                        setState(() => _selectedType = value!),
                   ),
                   if (_selectedType == WageType.role)
                     Padding(
@@ -1937,19 +1970,22 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                             child: Text(role),
                           );
                         }).toList(),
-                        onChanged: (value) => setState(() => _selectedRole = value),
+                        onChanged: (value) =>
+                            setState(() => _selectedRole = value),
                       ),
                     ),
                   RadioListTile<WageType>(
                     title: const Text('Specific Users'),
                     value: WageType.individual,
                     groupValue: _selectedType,
-                    onChanged: (value) => setState(() => _selectedType = value!),
+                    onChanged: (value) =>
+                        setState(() => _selectedType = value!),
                   ),
                   if (_selectedType == WageType.individual)
                     Expanded(
                       child: Container(
-                        margin: const EdgeInsets.only(left: 48, right: 16, top: 8),
+                        margin:
+                            const EdgeInsets.only(left: 48, right: 16, top: 8),
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
@@ -1960,7 +1996,8 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                           itemCount: _allUsers.length,
                           itemBuilder: (context, index) {
                             final user = _allUsers[index];
-                            final isSelected = _selectedUserIds.contains(user['id']);
+                            final isSelected =
+                                _selectedUserIds.contains(user['id']);
                             return CheckboxListTile(
                               value: isSelected,
                               onChanged: (value) {
@@ -1973,7 +2010,8 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                                 });
                               },
                               title: Text(user['name']),
-                              subtitle: Text('${user['email']} • ${user['role']}'),
+                              subtitle:
+                                  Text('${user['email']} • ${user['role']}'),
                               dense: true,
                             );
                           },

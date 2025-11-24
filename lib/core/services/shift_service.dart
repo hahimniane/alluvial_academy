@@ -6,10 +6,14 @@ import '../models/teaching_shift.dart';
 import '../models/employee_model.dart';
 import '../models/enhanced_recurrence.dart';
 import 'wage_management_service.dart';
+import '../enums/shift_enums.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class ShiftService {
+  /// Service responsible for managing teaching shifts, including creation,
+  /// modification, deletion, and status updates (clock-in/out).
+  /// It interacts with Firestore 'teaching_shifts' collection and Cloud Functions.
   static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static FirebaseFunctions get _functions => FirebaseFunctions.instance;
@@ -18,7 +22,14 @@ class ShiftService {
   static CollectionReference get _shiftsCollection =>
       _firestore.collection('teaching_shifts');
 
-  /// Check if a shift overlaps with any existing shift for the same teacher
+  /// Check if a shift overlaps with any existing shift for the same teacher.
+  ///
+  /// This method prevents double-booking by:
+  /// 1. Defining a search window (start of day to end of day + buffer).
+  /// 2. Querying Firestore for shifts within that window.
+  /// 3. Iterating through results to check for time overlaps.
+  ///
+  /// Returns `true` if a conflict exists, `false` otherwise.
   static Future<bool> hasConflictingShift({
     required String teacherId,
     required DateTime shiftStart,
@@ -54,8 +65,7 @@ class ShiftService {
             .where('teacher_id', isEqualTo: teacherId)
             .where('shift_start',
                 isGreaterThanOrEqualTo: Timestamp.fromDate(rangeStart))
-            .where('shift_start',
-                isLessThan: Timestamp.fromDate(rangeEnd))
+            .where('shift_start', isLessThan: Timestamp.fromDate(rangeEnd))
             .get();
         docs = snapshot.docs;
       } on FirebaseException catch (firestoreError) {
@@ -95,18 +105,19 @@ class ShiftService {
         }
 
         final existingShift = TeachingShift.fromFirestore(doc);
-        
+
         // Check if shifts overlap
         // Two shifts overlap if:
         // - New shift starts before existing ends AND
         // - New shift ends after existing starts
-        final overlaps = shiftStart.isBefore(existingShift.shiftEnd) && 
-                        shiftEnd.isAfter(existingShift.shiftStart);
+        final overlaps = shiftStart.isBefore(existingShift.shiftEnd) &&
+            shiftEnd.isAfter(existingShift.shiftStart);
 
         if (overlaps) {
           AppLogger.debug('ShiftService: ❌ OVERLAP DETECTED!');
           AppLogger.debug('  Existing shift: ${existingShift.displayName}');
-          AppLogger.debug('  Existing time: ${existingShift.shiftStart} to ${existingShift.shiftEnd}');
+          AppLogger.debug(
+              '  Existing time: ${existingShift.shiftStart} to ${existingShift.shiftEnd}');
           AppLogger.debug('  New shift time: $shiftStart to $shiftEnd');
           AppLogger.error('  Status: ${existingShift.status.name}');
           return true;
@@ -125,8 +136,7 @@ class ShiftService {
   static Future<void> _scheduleShiftLifecycleTasks(TeachingShift shift,
       {bool cancel = false}) async {
     try {
-      final callable =
-          _functions.httpsCallable('scheduleShiftLifecycle');
+      final callable = _functions.httpsCallable('scheduleShiftLifecycle');
       final payload = {
         'shiftId': shift.id,
         'teacherId': shift.teacherId,
@@ -152,7 +162,16 @@ class ShiftService {
     }
   }
 
-  /// Create a new teaching shift
+  /// Create a new teaching shift.
+  ///
+  /// Steps:
+  /// 1. Validates that the user is authenticated.
+  /// 2. Checks for conflicting shifts using [hasConflictingShift].
+  /// 3. Fetches teacher and student details (names, rates, etc.).
+  /// 4. Generates an auto-name for the shift.
+  /// 5. Creates the shift document in Firestore.
+  /// 6. Schedules lifecycle tasks (e.g., auto-clock-out) via Cloud Functions.
+  /// 7. Creates recurring shifts if a recurrence pattern is specified.
   static Future<String> createShift({
     required String teacherId,
     required List<String> studentIds,
@@ -185,9 +204,8 @@ class ShiftService {
 
       if (hasConflict) {
         throw Exception(
-          'This shift overlaps with an existing shift for this teacher. '
-          'Please choose a different time that doesn\'t overlap with existing shifts.'
-        );
+            'This shift overlaps with an existing shift for this teacher. '
+            'Please choose a different time that doesn\'t overlap with existing shifts.');
       }
 
       // Get teacher information
@@ -200,7 +218,8 @@ class ShiftService {
           '${teacherData['first_name']} ${teacherData['last_name']}';
       final teacherTimezone = teacherData['timezone'] ?? 'UTC';
       // Use effective hourly rate considering overrides
-      final hourlyRate = await WageManagementService.getEffectiveWageForUser(teacherId);
+      final hourlyRate =
+          await WageManagementService.getEffectiveWageForUser(teacherId);
 
       // Get student information
       final finalStudentNames = <String>[];
@@ -274,12 +293,13 @@ class ShiftService {
       final effectiveRecurrence =
           enhancedRecurrence ?? const EnhancedRecurrence();
       if (recurrence != RecurrencePattern.none ||
-              effectiveRecurrence.type != EnhancedRecurrenceType.none) {
+          effectiveRecurrence.type != EnhancedRecurrenceType.none) {
         // Use provided end date or default to 1 year from now if not specified
         final endDate = effectiveRecurrence.endDate ??
-                        recurrenceEndDate ??
-                        DateTime.now().add(const Duration(days: 365));
-        await _createRecurringShifts(shift, endDate, originalLocalStart, originalLocalEnd);
+            recurrenceEndDate ??
+            DateTime.now().add(const Duration(days: 365));
+        await _createRecurringShifts(
+            shift, endDate, originalLocalStart, originalLocalEnd);
       }
 
       AppLogger.error('Shift created successfully: ${shift.displayName}');
@@ -290,7 +310,13 @@ class ShiftService {
     }
   }
 
-  /// Create recurring shifts based on enhanced recurrence pattern
+  /// Create recurring shifts based on enhanced recurrence pattern.
+  ///
+  /// This handles generating future shift instances based on:
+  /// - [EnhancedRecurrence]: Specific days of the week, end date, exclusions.
+  /// - [RecurrencePattern]: Legacy simple patterns (daily, weekly, monthly).
+  ///
+  /// It checks for conflicts for each occurrence and skips if a conflict exists.
   static Future<void> _createRecurringShifts(
     TeachingShift baseShift,
     DateTime endDate,
@@ -357,7 +383,8 @@ class ShiftService {
           );
 
           if (hasConflict) {
-            AppLogger.debug('Skipping recurring shift - conflict detected at $shiftStart');
+            AppLogger.debug(
+                'Skipping recurring shift - conflict detected at $shiftStart');
             continue; // Skip this occurrence
           }
 
@@ -446,7 +473,8 @@ class ShiftService {
 
             recurringShifts.add(recurringShift);
           } else {
-            AppLogger.debug('Skipping recurring shift - conflict detected at $nextShiftStart');
+            AppLogger.debug(
+                'Skipping recurring shift - conflict detected at $nextShiftStart');
           }
 
           currentDate = nextDate;
@@ -563,7 +591,7 @@ class ShiftService {
         'last_modified': Timestamp.fromDate(DateTime.now()),
       });
       AppLogger.info('Shift status updated in Firestore to: ${status.name}');
-      
+
       // Then, attempt to reschedule lifecycle tasks (non-blocking)
       try {
         final snapshot = await _shiftsCollection.doc(shiftId).get();
@@ -571,7 +599,8 @@ class ShiftService {
           final shift = TeachingShift.fromFirestore(snapshot);
           final shouldCancel = status == ShiftStatus.cancelled;
           await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
-          AppLogger.info('Lifecycle tasks rescheduled successfully for shift $shiftId');
+          AppLogger.info(
+              'Lifecycle tasks rescheduled successfully for shift $shiftId');
         }
       } catch (scheduleError) {
         // Log the error but don't fail the entire operation
@@ -624,10 +653,11 @@ class ShiftService {
         final docRef = _shiftsCollection.doc(shiftId);
         final snapshot = await docRef.get();
         if (snapshot.exists) {
-        final shift = TeachingShift.fromFirestore(snapshot);
-        schedulingFutures.add(_scheduleShiftLifecycleTasks(shift, cancel: true)
-            .catchError((error) => AppLogger.error(
-                'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
+          final shift = TeachingShift.fromFirestore(snapshot);
+          schedulingFutures.add(_scheduleShiftLifecycleTasks(shift,
+                  cancel: true)
+              .catchError((error) => AppLogger.error(
+                  'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
         }
         batch.delete(docRef);
       }
@@ -636,7 +666,8 @@ class ShiftService {
       if (schedulingFutures.isNotEmpty) {
         await Future.wait(schedulingFutures);
       }
-      AppLogger.error('ShiftService: Successfully deleted ${shiftIds.length} shifts');
+      AppLogger.error(
+          'ShiftService: Successfully deleted ${shiftIds.length} shifts');
     } catch (e) {
       AppLogger.error('Error deleting multiple shifts: $e');
       throw Exception('Failed to delete multiple shifts');
@@ -646,7 +677,8 @@ class ShiftService {
   /// Delete all shifts for a specific teacher
   static Future<int> deleteAllShiftsByTeacher(String teacherId) async {
     try {
-      AppLogger.debug('ShiftService: Deleting all shifts for teacher: $teacherId');
+      AppLogger.debug(
+          'ShiftService: Deleting all shifts for teacher: $teacherId');
 
       // Get all shifts for this teacher
       final querySnapshot = await _shiftsCollection
@@ -654,7 +686,8 @@ class ShiftService {
           .get();
 
       if (querySnapshot.docs.isEmpty) {
-        AppLogger.debug('ShiftService: No shifts found for teacher: $teacherId');
+        AppLogger.debug(
+            'ShiftService: No shifts found for teacher: $teacherId');
         return 0;
       }
 
@@ -663,10 +696,10 @@ class ShiftService {
       final schedulingFutures = <Future<void>>[];
 
       for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-      final shift = TeachingShift.fromFirestore(doc);
-      schedulingFutures.add(_scheduleShiftLifecycleTasks(shift, cancel: true)
-          .catchError((error) => AppLogger.error(
-              'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
+        final shift = TeachingShift.fromFirestore(doc);
+        schedulingFutures.add(_scheduleShiftLifecycleTasks(shift, cancel: true)
+            .catchError((error) => AppLogger.error(
+                'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
         batch.delete(doc.reference);
       }
 
@@ -698,8 +731,19 @@ class ShiftService {
     }
   }
 
-  /// Clock in to a shift
-  static Future<bool> clockIn(String teacherId, String shiftId, {String? platform}) async {
+  /// Clock in to a shift.
+  ///
+  /// Validations:
+  /// 1. Shift exists and belongs to the teacher.
+  /// 2. Current time is within the allowed clock-in window (e.g., 15 mins before/after).
+  /// 3. Teacher does not have another *active* and *clocked-in* session.
+  ///
+  /// Updates:
+  /// - Sets `status` to `active`.
+  /// - Sets `clock_in_time` (if not already set).
+  /// - Clears `clock_out_time`.
+  static Future<bool> clockIn(String teacherId, String shiftId,
+      {String? platform}) async {
     try {
       AppLogger.debug(
           'ShiftService: Attempting clock-in for teacher $teacherId, shift $shiftId');
@@ -762,7 +806,8 @@ class ShiftService {
       if (otherOngoingSessions.isNotEmpty) {
         AppLogger.debug('ShiftService: ❌ Teacher has another ongoing session');
         for (var otherShift in otherOngoingSessions) {
-          AppLogger.debug('ShiftService: Blocking due to shift: ${otherShift.id}');
+          AppLogger.debug(
+              'ShiftService: Blocking due to shift: ${otherShift.id}');
         }
         return false;
       }
@@ -782,10 +827,12 @@ class ShiftService {
 
       // Set clock_in_time on first clock-in or when re-activating a completed shift
       if (shift.status != ShiftStatus.active || shift.clockInTime == null) {
-        AppLogger.debug('ShiftService: Setting shift status to active (clock-in)');
+        AppLogger.debug(
+            'ShiftService: Setting shift status to active (clock-in)');
         updateData['clock_in_time'] = Timestamp.fromDate(now);
       } else {
-        AppLogger.debug('ShiftService: Re-activating shift (subsequent session)');
+        AppLogger.debug(
+            'ShiftService: Re-activating shift (subsequent session)');
       }
 
       // Store platform information if provided
@@ -804,7 +851,14 @@ class ShiftService {
     }
   }
 
-  /// Clock out from a shift
+  /// Clock out from a shift.
+  ///
+  /// Updates:
+  /// - Sets `clock_out_time` to now.
+  /// - Updates `last_modified`.
+  ///
+  /// Note: The actual timesheet entry calculation is handled by [ShiftTimesheetService].
+  /// This method primarily updates the shift status to allow the teacher to start new shifts.
   static Future<bool> clockOut(String teacherId, String shiftId) async {
     try {
       AppLogger.debug(
@@ -917,7 +971,11 @@ class ShiftService {
     }
   }
 
-  /// Get available teachers for shift assignment
+  /// Get available teachers for shift assignment.
+  ///
+  /// Tries to fetch active teachers first. If no active teachers are found,
+  /// it falls back to fetching all teachers (ignoring `is_active` flag)
+  /// to handle cases where the flag might be missing or incorrect.
   static Future<List<Employee>> getAvailableTeachers() async {
     try {
       AppLogger.debug('ShiftService: Querying for teachers...');
@@ -1122,7 +1180,8 @@ class ShiftService {
       }
 
       final snapshot = await query.get();
-      AppLogger.debug('ShiftService: Found ${snapshot.docs.length} shifts for teacher');
+      AppLogger.debug(
+          'ShiftService: Found ${snapshot.docs.length} shifts for teacher');
 
       // Debug: Print ALL shift documents for this teacher
       if (snapshot.docs.isNotEmpty) {
@@ -1156,7 +1215,8 @@ class ShiftService {
           }
         });
       } else {
-        AppLogger.debug('ShiftService: No shifts found for teacher_id: $teacherId');
+        AppLogger.debug(
+            'ShiftService: No shifts found for teacher_id: $teacherId');
       }
 
       final shifts =
@@ -1215,7 +1275,8 @@ class ShiftService {
           .where('teacher_id', isEqualTo: teacherId)
           .get();
 
-      AppLogger.debug('ShiftService: Found ${snapshot.docs.length} total shifts');
+      AppLogger.debug(
+          'ShiftService: Found ${snapshot.docs.length} total shifts');
 
       // Group by auto_generated_name and date
       final shiftGroups = <String, List<QueryDocumentSnapshot>>{};
@@ -1259,8 +1320,11 @@ class ShiftService {
     }
   }
 
-  /// Adjust all future/scheduled shifts by the specified number of hours
-  /// This is useful for daylight saving time adjustments
+  /// Adjust all future/scheduled shifts by the specified number of hours.
+  ///
+  /// This is a utility for bulk-updating shift times, typically used for
+  /// Daylight Saving Time (DST) adjustments.
+  ///
   /// @param adjustmentHours: Positive to add hours, negative to subtract hours
   /// @param onlyFutureShifts: If true, only adjusts shifts that haven't started yet
   static Future<Map<String, dynamic>> adjustAllShiftTimes({
@@ -1269,7 +1333,8 @@ class ShiftService {
     String? adminUserId,
   }) async {
     try {
-      AppLogger.debug('ShiftService: Starting DST adjustment of $adjustmentHours hour(s)');
+      AppLogger.debug(
+          'ShiftService: Starting DST adjustment of $adjustmentHours hour(s)');
 
       final now = DateTime.now().toUtc();
       int totalShifts = 0;
@@ -1282,7 +1347,8 @@ class ShiftService {
 
       if (onlyFutureShifts) {
         // Only get shifts that haven't started yet
-        query = query.where('shift_start', isGreaterThan: Timestamp.fromDate(now));
+        query =
+            query.where('shift_start', isGreaterThan: Timestamp.fromDate(now));
       }
 
       // Only get scheduled shifts (not completed, cancelled, or missed)
@@ -1291,7 +1357,8 @@ class ShiftService {
       final snapshot = await query.get();
       totalShifts = snapshot.docs.length;
 
-      AppLogger.debug('ShiftService: Found $totalShifts shifts to potentially adjust');
+      AppLogger.debug(
+          'ShiftService: Found $totalShifts shifts to potentially adjust');
 
       if (totalShifts == 0) {
         return {
@@ -1327,8 +1394,10 @@ class ShiftService {
           }
 
           // Adjust the shift times
-          final adjustedStartTime = shift.shiftStart.add(Duration(hours: adjustmentHours));
-          final adjustedEndTime = shift.shiftEnd.add(Duration(hours: adjustmentHours));
+          final adjustedStartTime =
+              shift.shiftStart.add(Duration(hours: adjustmentHours));
+          final adjustedEndTime =
+              shift.shiftEnd.add(Duration(hours: adjustmentHours));
 
           // Update the document
           batch.update(doc.reference, {
@@ -1349,7 +1418,8 @@ class ShiftService {
             await batch.commit();
             batch = _firestore.batch();
             batchCount = 0;
-            AppLogger.debug('ShiftService: Committed batch of $batchSize shifts');
+            AppLogger.debug(
+                'ShiftService: Committed batch of $batchSize shifts');
           }
         } catch (e) {
           AppLogger.error('Error processing shift ${doc.id}: $e');
@@ -1361,12 +1431,13 @@ class ShiftService {
       // Commit remaining batch
       if (batchCount > 0) {
         await batch.commit();
-        AppLogger.debug('ShiftService: Committed final batch of $batchCount shifts');
+        AppLogger.debug(
+            'ShiftService: Committed final batch of $batchCount shifts');
       }
 
       final message = adjustmentHours > 0
-        ? 'Added $adjustmentHours hour(s) to $adjustedShifts shifts'
-        : 'Subtracted ${-adjustmentHours} hour(s) from $adjustedShifts shifts';
+          ? 'Added $adjustmentHours hour(s) to $adjustedShifts shifts'
+          : 'Subtracted ${-adjustmentHours} hour(s) from $adjustedShifts shifts';
 
       AppLogger.error('ShiftService: DST adjustment complete. $message');
 

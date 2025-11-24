@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum TimesheetStatus { draft, pending, approved, rejected }
+import '../../../core/enums/timesheet_enums.dart';
 
 class TimesheetEntry {
   final String? documentId; // Firebase document ID for updates

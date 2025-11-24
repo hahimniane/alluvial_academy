@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/enums/task_enums.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:file_picker/file_picker.dart';
+
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
@@ -80,15 +81,19 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             .get();
         if (creatorDoc.exists) {
           final data = creatorDoc.data() as Map<String, dynamic>;
-          final fullName = '${(data['first_name'] ?? '').toString().trim()} ${(data['last_name'] ?? '').toString().trim()}'.trim();
-          if (mounted) setState(() => _assignedByName = fullName.isNotEmpty ? fullName : (data['e-mail'] ?? 'Unknown'));
+          final fullName =
+              '${(data['first_name'] ?? '').toString().trim()} ${(data['last_name'] ?? '').toString().trim()}'
+                  .trim();
+          if (mounted)
+            setState(() => _assignedByName =
+                fullName.isNotEmpty ? fullName : (data['e-mail'] ?? 'Unknown'));
         }
       }
 
       // Resolve Assigned To (list of user IDs)
       if (widget.task.assignedTo.isNotEmpty) {
-        final List<Future<String>> futures = widget.task.assignedTo
-            .map<Future<String>>((uid) async {
+        final List<Future<String>> futures =
+            widget.task.assignedTo.map<Future<String>>((uid) async {
           try {
             final doc = await FirebaseFirestore.instance
                 .collection('users')
@@ -97,7 +102,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             if (doc.exists) {
               final d = doc.data() as Map<String, dynamic>;
               final fullName =
-                  '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'.trim();
+                  '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
+                      .trim();
               return fullName.isNotEmpty
                   ? fullName
                   : (d['e-mail']?.toString() ?? uid);

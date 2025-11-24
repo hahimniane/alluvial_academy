@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../models/task_comment.dart';
@@ -22,7 +23,8 @@ class TaskCommentService {
 
       final user = _auth.currentUser;
       if (user == null) {
-        AppLogger.debug('🚨 TaskCommentService.addComment() - User not authenticated');
+        AppLogger.debug(
+            '🚨 TaskCommentService.addComment() - User not authenticated');
         throw Exception('User not authenticated');
       }
 
@@ -51,7 +53,8 @@ class TaskCommentService {
         createdAt: DateTime.now(),
       );
 
-      AppLogger.debug('🔥 TaskCommentService.addComment() - Adding comment to Firestore');
+      AppLogger.debug(
+          '🔥 TaskCommentService.addComment() - Adding comment to Firestore');
 
       // Add to Firestore
       final docRef = await _firestore
@@ -62,13 +65,15 @@ class TaskCommentService {
           '🔥 TaskCommentService.addComment() - Comment added with ID: ${docRef.id}');
 
       // Send email notifications to relevant users
-      AppLogger.debug('🔥 TaskCommentService.addComment() - Sending notifications');
+      AppLogger.debug(
+          '🔥 TaskCommentService.addComment() - Sending notifications');
       await _sendCommentNotifications(
         taskComment.copyWith(id: docRef.id),
         task,
       );
 
-      AppLogger.error('✅ TaskCommentService.addComment() - Successfully completed');
+      AppLogger.error(
+          '✅ TaskCommentService.addComment() - Successfully completed');
     } catch (e) {
       AppLogger.error('🚨 TaskCommentService.addComment() - Error: $e');
       if (e is Exception) {
@@ -116,7 +121,8 @@ class TaskCommentService {
 
       final user = _auth.currentUser;
       if (user == null) {
-        AppLogger.debug('🚨 TaskCommentService.updateComment() - User not authenticated');
+        AppLogger.debug(
+            '🚨 TaskCommentService.updateComment() - User not authenticated');
         throw Exception('User not authenticated');
       }
 
@@ -129,7 +135,8 @@ class TaskCommentService {
         'isEdited': true,
       });
 
-      AppLogger.error('✅ TaskCommentService.updateComment() - Successfully completed');
+      AppLogger.error(
+          '✅ TaskCommentService.updateComment() - Successfully completed');
     } catch (e) {
       AppLogger.error('🚨 TaskCommentService.updateComment() - Error: $e');
       if (e is Exception) {
@@ -147,7 +154,8 @@ class TaskCommentService {
 
       final user = _auth.currentUser;
       if (user == null) {
-        AppLogger.debug('🚨 TaskCommentService.deleteComment() - User not authenticated');
+        AppLogger.debug(
+            '🚨 TaskCommentService.deleteComment() - User not authenticated');
         throw Exception('User not authenticated');
       }
 
@@ -156,7 +164,8 @@ class TaskCommentService {
 
       await _firestore.collection('task_comments').doc(commentId).delete();
 
-      AppLogger.error('✅ TaskCommentService.deleteComment() - Successfully completed');
+      AppLogger.error(
+          '✅ TaskCommentService.deleteComment() - Successfully completed');
     } catch (e) {
       AppLogger.error('🚨 TaskCommentService.deleteComment() - Error: $e');
       if (e is Exception) {
@@ -201,40 +210,18 @@ class TaskCommentService {
 
       if (result.data['success'] == true) {
         final recipients = result.data['recipients'] as List?;
-        AppLogger.error('✅ Email sent successfully to: ${recipients?.join(', ')}');
+        AppLogger.error(
+            '✅ Email sent successfully to: ${recipients?.join(', ')}');
       } else {
         AppLogger.error('❌ Email sending failed: ${result.data['reason']}');
       }
     } catch (e) {
-      AppLogger.error('🚨 TaskCommentService._sendCommentNotifications() - Error: $e');
+      AppLogger.error(
+          '🚨 TaskCommentService._sendCommentNotifications() - Error: $e');
       if (e is Exception) {
         AppLogger.error('🚨 Exception details: ${e.toString()}');
       }
       // Don't rethrow here as notification failures shouldn't block comment creation
-    }
-  }
-
-  /// Get priority label for email template
-  static String _getPriorityLabel(TaskPriority priority) {
-    switch (priority) {
-      case TaskPriority.low:
-        return 'Low';
-      case TaskPriority.medium:
-        return 'Medium';
-      case TaskPriority.high:
-        return 'High';
-    }
-  }
-
-  /// Get status label for email template
-  static String _getStatusLabel(TaskStatus status) {
-    switch (status) {
-      case TaskStatus.todo:
-        return 'To Do';
-      case TaskStatus.inProgress:
-        return 'In Progress';
-      case TaskStatus.done:
-        return 'Completed';
     }
   }
 

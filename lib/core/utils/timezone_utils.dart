@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:intl/intl.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 import 'web_timezone_detector.dart'
@@ -19,13 +20,31 @@ class TimezoneUtils {
   }
 
   /// Detect user's timezone based on platform
-  static String detectUserTimezone() {
+  static Future<String> detectUserTimezone() async {
     if (kIsWeb) {
       // On web, use JavaScript Intl API to get IANA timezone
       return _detectWebTimezone();
     } else {
-      // On mobile/desktop, use system's local timezone
-      return DateTime.now().timeZoneName;
+      // On mobile/desktop, use flutter_timezone plugin
+      try {
+        final dynamic timezoneInfo = await FlutterTimezone.getLocalTimezone();
+        // In version 5.0.1+, this returns TimezoneInfo, but in older versions it returned String.
+        // We use dynamic to handle both cases safely or use toString() if identifier is missing.
+        if (timezoneInfo is String) {
+          return timezoneInfo;
+        }
+        // Assuming TimezoneInfo has an identifier property based on docs,
+        // but if not, toString() often gives the ID or we can inspect it.
+        // Let's try to access identifier via dynamic to avoid type errors if the analyzer is confused.
+        try {
+          return timezoneInfo.identifier as String;
+        } catch (_) {
+          return timezoneInfo.toString();
+        }
+      } catch (e) {
+        AppLogger.error('Error detecting timezone: $e');
+        return 'UTC';
+      }
     }
   }
 
@@ -74,7 +93,8 @@ class TimezoneUtils {
         localTime.millisecond,
         localTime.microsecond,
       );
-      AppLogger.error('TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
+      AppLogger.error(
+          'TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
       return tzDateTime.toUtc();
     } catch (e) {
       AppLogger.error('Error converting from timezone $timezoneId: $e');
@@ -102,34 +122,120 @@ class TimezoneUtils {
     }
   }
 
+  /// Format a conversion preview string (e.g., "10:00 AM (EST) ≈ 7:00 AM (PST)")
+  static String formatConversion(
+      DateTime dateTime, String fromTz, String toTz) {
+    if (!_initialized) initializeTimezones();
+
+    try {
+      // Create a TZDateTime in the source timezone
+      final fromLocation = tz.getLocation(fromTz);
+      final fromTime = tz.TZDateTime(
+        fromLocation,
+        dateTime.year,
+        dateTime.month,
+        dateTime.day,
+        dateTime.hour,
+        dateTime.minute,
+      );
+
+      // Convert to target timezone
+      final toLocation = tz.getLocation(toTz);
+      final toTime = tz.TZDateTime.from(fromTime, toLocation);
+
+      final formatter = DateFormat('h:mm a');
+      final fromAbbr = getTimezoneAbbreviation(fromTz);
+      final toAbbr = getTimezoneAbbreviation(toTz);
+
+      return '${formatter.format(fromTime)} ($fromAbbr) ≈ ${formatter.format(toTime)} ($toAbbr)';
+    } catch (e) {
+      AppLogger.error('Error formatting conversion: $e');
+      return '';
+    }
+  }
+
   /// Get list of common timezones for dropdown
   static List<String> getCommonTimezones() {
     return [
       'UTC',
-      'America/New_York',
+      'Africa/Abidjan',
+      'Africa/Accra',
+      'Africa/Algiers',
+      'Africa/Cairo',
+      'Africa/Casablanca',
+      'Africa/Johannesburg',
+      'Africa/Lagos',
+      'Africa/Nairobi',
+      'Africa/Tunis',
+      'America/Anchorage',
+      'America/Argentina/Buenos_Aires',
+      'America/Bogota',
+      'America/Caracas',
       'America/Chicago',
       'America/Denver',
+      'America/Halifax',
+      'America/Lima',
       'America/Los_Angeles',
+      'America/Mexico_City',
+      'America/New_York',
+      'America/Phoenix',
+      'America/Santiago',
+      'America/Sao_Paulo',
+      'America/St_Johns',
       'America/Toronto',
       'America/Vancouver',
-      'America/Mexico_City',
-      'America/Sao_Paulo',
-      'Europe/London',
-      'Europe/Paris',
-      'Europe/Berlin',
-      'Europe/Moscow',
-      'Africa/Cairo',
-      'Africa/Johannesburg',
-      'Asia/Dubai',
-      'Asia/Karachi',
-      'Asia/Kolkata',
+      'Asia/Baghdad',
       'Asia/Bangkok',
-      'Asia/Shanghai',
-      'Asia/Tokyo',
+      'Asia/Beirut',
+      'Asia/Dhaka',
+      'Asia/Dubai',
+      'Asia/Hong_Kong',
+      'Asia/Jakarta',
+      'Asia/Karachi',
+      'Asia/Kathmandu',
+      'Asia/Kolkata',
+      'Asia/Kuala_Lumpur',
+      'Asia/Kuwait',
+      'Asia/Manila',
+      'Asia/Riyadh',
       'Asia/Seoul',
-      'Australia/Sydney',
+      'Asia/Shanghai',
+      'Asia/Singapore',
+      'Asia/Taipei',
+      'Asia/Tehran',
+      'Asia/Tokyo',
+      'Asia/Yangon',
+      'Australia/Adelaide',
+      'Australia/Brisbane',
+      'Australia/Darwin',
       'Australia/Melbourne',
+      'Australia/Perth',
+      'Australia/Sydney',
+      'Europe/Amsterdam',
+      'Europe/Athens',
+      'Europe/Berlin',
+      'Europe/Brussels',
+      'Europe/Budapest',
+      'Europe/Copenhagen',
+      'Europe/Dublin',
+      'Europe/Helsinki',
+      'Europe/Istanbul',
+      'Europe/Lisbon',
+      'Europe/London',
+      'Europe/Madrid',
+      'Europe/Moscow',
+      'Europe/Oslo',
+      'Europe/Paris',
+      'Europe/Prague',
+      'Europe/Rome',
+      'Europe/Stockholm',
+      'Europe/Vienna',
+      'Europe/Warsaw',
+      'Europe/Zurich',
       'Pacific/Auckland',
+      'Pacific/Fiji',
+      'Pacific/Guam',
+      'Pacific/Honolulu',
     ];
   }
 }

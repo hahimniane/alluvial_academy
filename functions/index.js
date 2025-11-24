@@ -1,5 +1,5 @@
 const functions = require('firebase-functions');
-const {onCall} = require('firebase-functions/v2/https');
+const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
 const emailHandlers = require('./handlers/emails');
@@ -29,6 +29,8 @@ exports.sendAdminNotification = functions.https.onCall(notificationHandlers.send
 
 exports.sendTaskStatusUpdateNotification = onCall(taskHandlers.sendTaskStatusUpdateNotification);
 exports.sendTaskCommentNotification = onCall(taskHandlers.sendTaskCommentNotification);
+exports.sendTaskDeletionNotification = onCall(taskHandlers.sendTaskDeletionNotification);
+exports.sendTaskEditNotification = onCall(taskHandlers.sendTaskEditNotification);
 
 exports.processTaskCommentEmail = taskHandlers.processTaskCommentEmail;
 
@@ -57,7 +59,7 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== 'GET') {
-    res.status(405).json({error: 'Method Not Allowed'});
+    res.status(405).json({ error: 'Method Not Allowed' });
     return;
   }
 
@@ -65,7 +67,7 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
     const snapshot = await admin.firestore().collection('landing_page_content').doc('main').get();
 
     if (!snapshot.exists) {
-      res.status(404).json({error: 'Landing page content not found'});
+      res.status(404).json({ error: 'Landing page content not found' });
       return;
     }
 
@@ -73,7 +75,7 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
     res.status(200).json(snapshot.data());
   } catch (err) {
     console.error('getLandingPageContent error:', err);
-    res.status(500).json({error: 'Internal Server Error'});
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

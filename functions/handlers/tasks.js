@@ -547,11 +547,211 @@ const sendTaskCommentNotification = async (request) => {
   }
 };
 
+const sendTaskDeletionNotification = async (request) => {
+  console.log('--- TASK DELETION NOTIFICATION ---');
+  try {
+    const {taskId, taskTitle, taskDescription, deletedByName, deletedByEmail, deletedAt} = request.data || {};
+
+    if (!taskId || !taskTitle || !deletedByName) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Missing required fields: taskId, taskTitle, deletedByName'
+      );
+    }
+
+    // Get all admins
+    const adminsSnapshot = await admin.firestore()
+      .collection('users')
+      .where('user_type', '==', 'admin')
+      .get();
+
+    const adminEmails = [];
+    adminsSnapshot.forEach(doc => {
+      const data = doc.data();
+      const email = data['e-mail'] || data.email;
+      if (email) adminEmails.push(email);
+    });
+
+    if (adminEmails.length === 0) {
+      console.log('No admins found to notify');
+      return {success: true, message: 'No admins found'};
+    }
+
+    const transporter = createTransporter();
+    const formattedDate = new Date(deletedAt || Date.now()).toLocaleString();
+
+    const mailOptions = {
+      from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+      bcc: adminEmails.join(', '), // Use BCC for multiple recipients
+      subject: `🗑️ Task Deleted: ${taskTitle}`,
+      html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Task Deleted</title>
+        <style>
+          body { font-family: Arial, sans-serif; background-color: #f8fafc; }
+          .container { max-width: 600px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; }
+          .header { background-color: #ef4444; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 20px; }
+          .info-box { background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Task Deleted</h1>
+          </div>
+          <div class="content">
+            <p>A task has been deleted from the system.</p>
+            
+            <div class="info-box">
+              <p><strong>Task:</strong> ${taskTitle}</p>
+              <p><strong>Description:</strong> ${taskDescription || 'No description'}</p>
+              <p><strong>Deleted By:</strong> ${deletedByName} (${deletedByEmail})</p>
+              <p><strong>Time:</strong> ${formattedDate}</p>
+            </div>
+
+            <p>This notification is sent to all administrators for security and tracking purposes.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Task deletion notification sent to ${adminEmails.length} admins`);
+
+    return {success: true, recipientCount: adminEmails.length};
+  } catch (error) {
+    console.error('Error sending task deletion notification:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+};
+
+const sendTaskEditNotification = async (request) => {
+  console.log('--- TASK EDIT NOTIFICATION ---');
+  try {
+    const {taskId, taskTitle, changes, editedByName, editedByEmail, editedAt} = request.data || {};
+
+    if (!taskId || !changes || !editedByName) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Missing required fields'
+      );
+    }
+
+    // Get all admins
+    const adminsSnapshot = await admin.firestore()
+      .collection('users')
+      .where('user_type', '==', 'admin')
+      .get();
+
+    const adminEmails = [];
+    adminsSnapshot.forEach(doc => {
+      const data = doc.data();
+      const email = data['e-mail'] || data.email;
+      if (email) adminEmails.push(email);
+    });
+
+    if (adminEmails.length === 0) {
+      return {success: true, message: 'No admins found'};
+    }
+
+    const transporter = createTransporter();
+    const formattedDate = new Date(editedAt || Date.now()).toLocaleString();
+
+    // Format changes for email
+    let changesHtml = '';
+    for (const [field, values] of Object.entries(changes)) {
+      const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+      let oldVal = values.old;
+      let newVal = values.new;
+
+      // Format arrays (assignees)
+      if (Array.isArray(oldVal)) oldVal = oldVal.join(', ') || 'None';
+      if (Array.isArray(newVal)) newVal = newVal.join(', ') || 'None';
+
+      // Format dates
+      if (field === 'dueDate') {
+        oldVal = new Date(oldVal).toLocaleDateString();
+        newVal = new Date(newVal).toLocaleDateString();
+      }
+
+      changesHtml += `
+        <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+          <strong>${fieldName}:</strong><br>
+          <span style="color: #ef4444; text-decoration: line-through;">${oldVal}</span> 
+          <span style="color: #6b7280;">→</span> 
+          <span style="color: #10b981; font-weight: bold;">${newVal}</span>
+        </div>
+      `;
+    }
+
+    const mailOptions = {
+      from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+      bcc: adminEmails.join(', '),
+      subject: `✏️ Task Edited: ${taskTitle}`,
+      html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Task Edited</title>
+        <style>
+          body { font-family: Arial, sans-serif; background-color: #f8fafc; }
+          .container { max-width: 600px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; }
+          .header { background-color: #f59e0b; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 20px; }
+          .info-box { background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Task Edited</h1>
+          </div>
+          <div class="content">
+            <p>A task has been modified.</p>
+            
+            <div class="info-box">
+              <p><strong>Task:</strong> ${taskTitle}</p>
+              <p><strong>Edited By:</strong> ${editedByName} (${editedByEmail})</p>
+              <p><strong>Time:</strong> ${formattedDate}</p>
+            </div>
+
+            <h3>Changes:</h3>
+            <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+              ${changesHtml}
+            </div>
+
+            <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">This notification is sent to all administrators.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Task edit notification sent to ${adminEmails.length} admins`);
+
+    return {success: true, recipientCount: adminEmails.length};
+  } catch (error) {
+    console.error('Error sending task edit notification:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+};
+
 module.exports = {
   sendTaskAssignmentNotification,
   sendTaskStatusUpdateNotification,
   getTaskCommentEmailTemplate,
   processTaskCommentEmail: processTaskCommentEmailTrigger,
   sendTaskCommentNotification,
+  sendTaskDeletionNotification,
+  sendTaskEditNotification,
 };
 
