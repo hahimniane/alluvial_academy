@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/enums/task_enums.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
@@ -113,7 +114,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           _isAdmin = isAdmin;
           _taskStream = taskStream;
           _isLoading = false;
-          
+
           // Clear admin-only filters for non-admin users
           if (!isAdmin) {
             _filterAssignedByUserId = null;
@@ -278,7 +279,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           isSelected: _selectedStatus == null &&
               _selectedPriority == null &&
               _dueDateRange == null &&
-              (_isAdmin ? (_filterAssignedByUserId == null && _filterAssignedToUserIds.isEmpty) : true),
+              (_isAdmin
+                  ? (_filterAssignedByUserId == null &&
+                      _filterAssignedToUserIds.isEmpty)
+                  : true),
           onSelected: () => setState(() {
             _selectedStatus = null;
             _selectedPriority = null;
@@ -411,6 +415,50 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           },
           color: const Color(0xFF4CAF50),
         ),
+
+        // Assigned By Me - Quick Filter
+        if (_isAdmin)
+          _buildModernFilterChip(
+            label: 'Assigned by Me',
+            isSelected: _filterAssignedByUserId ==
+                FirebaseAuth.instance.currentUser?.uid,
+            onSelected: () {
+              final myId = FirebaseAuth.instance.currentUser?.uid;
+              if (myId == null) return;
+              setState(() {
+                if (_filterAssignedByUserId == myId) {
+                  _filterAssignedByUserId = null;
+                } else {
+                  _filterAssignedByUserId = myId;
+                  _fetchUserNameIfMissing(myId);
+                }
+              });
+            },
+            color: const Color(0xFF2196F3),
+          ),
+
+        // Assigned To Me - Quick Filter
+        if (_isAdmin)
+          _buildModernFilterChip(
+            label: 'Assigned to Me',
+            isSelected: _filterAssignedToUserIds.length == 1 &&
+                _filterAssignedToUserIds.first ==
+                    FirebaseAuth.instance.currentUser?.uid,
+            onSelected: () {
+              final myId = FirebaseAuth.instance.currentUser?.uid;
+              if (myId == null) return;
+              setState(() {
+                if (_filterAssignedToUserIds.contains(myId) &&
+                    _filterAssignedToUserIds.length == 1) {
+                  _filterAssignedToUserIds = [];
+                } else {
+                  _filterAssignedToUserIds = [myId];
+                  _fetchUserNameIfMissing(myId);
+                }
+              });
+            },
+            color: const Color(0xFF9C27B0),
+          ),
 
         // Assigned By filter chip - only show for admins
         if (_isAdmin)
@@ -620,7 +668,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   void _fetchUserNameIfMissing(String userId) async {
-    if (_userIdToName.containsKey(userId) || _fetchingUserIds.contains(userId)) {
+    if (_userIdToName.containsKey(userId) ||
+        _fetchingUserIds.contains(userId)) {
       return;
     }
     _fetchingUserIds.add(userId);

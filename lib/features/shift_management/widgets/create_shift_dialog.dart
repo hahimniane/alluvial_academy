@@ -10,6 +10,7 @@ import '../../../core/services/subject_service.dart';
 import '../../../shared/widgets/enhanced_recurrence_picker.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
+import '../../../core/enums/shift_enums.dart';
 import 'subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -64,6 +65,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
   // Timezone will be loaded from user profile
   String _adminTimezone = 'UTC';
+  String _selectedTimezone = 'UTC';
+  String? _teacherTimezone;
 
   @override
   void initState() {
@@ -80,6 +83,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (mounted) {
         setState(() {
           _adminTimezone = timezone;
+          // Default selected timezone to admin's timezone initially
+          if (widget.shift == null) {
+            _selectedTimezone = timezone;
+          }
         });
       }
       AppLogger.error('CreateShiftDialog: Loaded admin timezone: $timezone');
@@ -140,7 +147,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
           final allEmployees =
               EmployeeDataSource.mapSnapshotToEmployeeList(snapshot);
-          AppLogger.debug('CreateShiftDialog: Mapped ${allEmployees.length} employees');
+          AppLogger.debug(
+              'CreateShiftDialog: Mapped ${allEmployees.length} employees');
 
           teachers =
               allEmployees.where((emp) => emp.userType == 'teacher').toList();
@@ -309,7 +317,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               'CreateShiftDialog: Converted ${shift.studentIds.length} student UIDs to ${studentIdentifiers.length} unique identifiers');
         }
       } catch (e) {
-        AppLogger.error('CreateShiftDialog: Error converting UIDs to emails: $e');
+        AppLogger.error(
+            'CreateShiftDialog: Error converting UIDs to emails: $e');
       }
     }
   }
@@ -325,6 +334,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       );
       _startTime = TimeOfDay.fromDateTime(shift.shiftStart);
       _endTime = TimeOfDay.fromDateTime(shift.shiftEnd);
+
+      // Set timezone from shift if available, otherwise default to admin's
+      // Note: Shifts are stored in UTC, so we might want to convert back to the original timezone if we stored it
+      // For now, we'll default to admin timezone or try to infer from teacher
+      _selectedTimezone = _adminTimezone;
 
       // Handle subject - check if it has a subject ID first
       if (shift.subjectId != null) {
@@ -372,6 +386,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       _buildStudentSelection(),
                       const SizedBox(height: 20),
                       _buildSubjectSelection(),
+                      const SizedBox(height: 20),
+                      _buildTimezoneSelection(),
                       const SizedBox(height: 20),
                       _buildDateTimeSelection(),
                       const SizedBox(height: 20),
@@ -550,6 +566,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                     _selectedTeacherId = teacher.email;
                                     AppLogger.debug(
                                         'Selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
+                                    _updateTimezoneForTeacher(teacher.email);
                                   });
                                 },
                                 child: Container(
@@ -578,6 +595,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                             _selectedTeacherId = value;
                                             AppLogger.debug(
                                                 'Radio selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
+                                            _updateTimezoneForTeacher(value!);
                                           });
                                         },
                                         activeColor: const Color(0xff0386FF),
@@ -1072,27 +1090,6 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     );
   }
 
-  String _getSubjectDisplayName(IslamicSubject subject) {
-    switch (subject) {
-      case IslamicSubject.quranStudies:
-        return 'Quran Studies';
-      case IslamicSubject.hadithStudies:
-        return 'Hadith Studies';
-      case IslamicSubject.fiqh:
-        return 'Islamic Jurisprudence (Fiqh)';
-      case IslamicSubject.arabicLanguage:
-        return 'Arabic Language';
-      case IslamicSubject.islamicHistory:
-        return 'Islamic History';
-      case IslamicSubject.aqeedah:
-        return 'Islamic Creed (Aqeedah)';
-      case IslamicSubject.tafseer:
-        return 'Quran Interpretation (Tafseer)';
-      case IslamicSubject.seerah:
-        return 'Prophet\'s Biography (Seerah)';
-    }
-  }
-
   IslamicSubject _mapSubjectToEnum(String subjectName) {
     switch (subjectName) {
       case 'quran_studies':
@@ -1114,6 +1111,125 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       default:
         return IslamicSubject.quranStudies;
     }
+  }
+
+  Future<void> _updateTimezoneForTeacher(String teacherEmail) async {
+    try {
+      // Find teacher UID from email
+      final teacherSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('e-mail', isEqualTo: teacherEmail)
+          .limit(1)
+          .get();
+
+      if (teacherSnapshot.docs.isNotEmpty) {
+        final teacherData = teacherSnapshot.docs.first.data();
+        final teacherTz = teacherData['timezone'] as String?;
+
+        if (teacherTz != null && teacherTz.isNotEmpty) {
+          setState(() {
+            _teacherTimezone = teacherTz;
+            _selectedTimezone = teacherTz;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Switched to teacher\'s timezone: $teacherTz'),
+                duration: const Duration(seconds: 2),
+                backgroundColor: const Color(0xff0386FF),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching teacher timezone: $e');
+    }
+  }
+
+  Widget _buildTimezoneSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Timezone',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message:
+                  'The timezone used for the start and end times below. Defaults to the teacher\'s timezone.',
+              child: Icon(
+                Icons.info_outline,
+                size: 16,
+                color: const Color(0xff9CA3AF),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xffD1D5DB)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value:
+                  TimezoneUtils.getCommonTimezones().contains(_selectedTimezone)
+                      ? _selectedTimezone
+                      : 'UTC', // Fallback if timezone not in list
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280)),
+              items: TimezoneUtils.getCommonTimezones().map((String tz) {
+                return DropdownMenuItem<String>(
+                  value: tz,
+                  child: Text(
+                    tz,
+                    style: GoogleFonts.inter(
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedTimezone = newValue;
+                  });
+                }
+              },
+            ),
+          ),
+        ),
+        if (_selectedTimezone != _adminTimezone)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Icon(Icons.public, size: 14, color: const Color(0xff0386FF)),
+                const SizedBox(width: 4),
+                Text(
+                  'Scheduling in ${_selectedTimezone}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff0386FF),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildDateTimeSelection() {
@@ -1193,12 +1309,72 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     );
   }
 
+  Widget _buildConversionPreview() {
+    final now = DateTime.now();
+    final shiftStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      _startTime.hour,
+      _startTime.minute,
+    );
+
+    final conversionText = TimezoneUtils.formatConversion(
+      shiftStart,
+      _selectedTimezone,
+      _adminTimezone,
+    );
+
+    if (conversionText.isEmpty || _selectedTimezone == _adminTimezone) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF3F4F6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.swap_horiz, size: 20, color: Color(0xff6B7280)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Local Time Conversion',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+                Text(
+                  conversionText,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff374151),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTimePickers() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Time',
+          'Time (${TimezoneUtils.getTimezoneAbbreviation(_selectedTimezone)})',
           style: GoogleFonts.inter(
             fontSize: 12,
             color: const Color(0xff6B7280),
@@ -1217,6 +1393,17 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                   if (time != null) {
                     setState(() {
                       _startTime = time;
+                      // Auto-set end time to 1 hour later
+                      int endHour = time.hour + 1;
+                      int endMinute = time.minute;
+
+                      // Handle day overflow (clamp to 23:59 for same-day shifts)
+                      if (endHour >= 24) {
+                        endHour = 23;
+                        endMinute = 59;
+                      }
+
+                      _endTime = TimeOfDay(hour: endHour, minute: endMinute);
                     });
                   }
                 },
@@ -1246,6 +1433,23 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     initialTime: _endTime,
                   );
                   if (time != null) {
+                    // Validate end time is after start time
+                    final startMinutes =
+                        _startTime.hour * 60 + _startTime.minute;
+                    final endMinutes = time.hour * 60 + time.minute;
+
+                    if (endMinutes <= startMinutes) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('End time must be after start time'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     setState(() {
                       _endTime = time;
                     });
@@ -1267,6 +1471,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             ),
           ],
         ),
+        _buildConversionPreview(),
       ],
     );
   }
@@ -1306,19 +1511,6 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         ),
       ],
     );
-  }
-
-  String _getRecurrenceDisplayName(RecurrencePattern pattern) {
-    switch (pattern) {
-      case RecurrencePattern.none:
-        return 'No Recurrence';
-      case RecurrencePattern.daily:
-        return 'Daily';
-      case RecurrencePattern.weekly:
-        return 'Weekly';
-      case RecurrencePattern.monthly:
-        return 'Monthly';
-    }
   }
 
   Widget _buildCustomName() {
@@ -1462,7 +1654,23 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedStudentIds.isEmpty) return;
 
-    setState(() => _isLoading = true);
+    // Validate that end time is after start time
+    final startMinutes = _startTime.hour * 60 + _startTime.minute;
+    final endMinutes = _endTime.hour * 60 + _endTime.minute;
+
+    if (endMinutes <= startMinutes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Shift end time must be after start time'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       // Create DateTime objects for shift start and end in admin's local time
@@ -1484,22 +1692,18 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
       // Convert admin's local time to UTC for storage
       AppLogger.debug('CreateShiftDialog: Admin timezone: $_adminTimezone');
+      AppLogger.debug(
+          'CreateShiftDialog: Selected timezone: $_selectedTimezone');
       AppLogger.debug('CreateShiftDialog: Local shift start: $shiftStartLocal');
       AppLogger.debug('CreateShiftDialog: Local shift end: $shiftEndLocal');
 
       DateTime shiftStart;
       DateTime shiftEnd;
 
-      // If timezone detection failed (defaulted to UTC), use local time as-is
-      // This prevents the incorrect 4-hour offset issue
-      if (_adminTimezone == 'UTC' || _adminTimezone.isEmpty) {
-        AppLogger.error('CreateShiftDialog: Using local time directly (timezone detection may have failed)');
-        shiftStart = shiftStartLocal;
-        shiftEnd = shiftEndLocal;
-      } else {
-        shiftStart = TimezoneUtils.convertToUtc(shiftStartLocal, _adminTimezone);
-        shiftEnd = TimezoneUtils.convertToUtc(shiftEndLocal, _adminTimezone);
-      }
+      // Use the selected timezone for conversion
+      shiftStart =
+          TimezoneUtils.convertToUtc(shiftStartLocal, _selectedTimezone);
+      shiftEnd = TimezoneUtils.convertToUtc(shiftEndLocal, _selectedTimezone);
 
       AppLogger.debug('CreateShiftDialog: Final shift start: $shiftStart');
       AppLogger.debug('CreateShiftDialog: Final shift end: $shiftEnd');
@@ -1557,7 +1761,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           studentNames: studentNames,
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
-          adminTimezone: _adminTimezone,
+          adminTimezone:
+              _selectedTimezone, // Store the timezone used for scheduling
           subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
           subjectId: _selectedSubjectId,
           subjectDisplayName: selectedSubject?.displayName,
@@ -1589,8 +1794,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         }
 
         final teacherUid = teacherSnapshot.docs.first.id;
-        final teacherData =
-            teacherSnapshot.docs.first.data();
+        final teacherData = teacherSnapshot.docs.first.data();
         final teacherName =
             '${teacherData['first_name']} ${teacherData['last_name']}';
         AppLogger.debug(

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../core/enums/timesheet_enums.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import '../models/timesheet_entry.dart';
-import '../../../core/constants/app_constants.dart' as constants;
+
 import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
 
@@ -964,25 +965,27 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     // Calculate totals per teacher with weekly and monthly breakdowns
     final Map<String, Map<String, dynamic>> teacherTotals = {};
-    
+
     // Track processed entries to avoid duplicates
     final Set<String> processedEntryIds = {};
 
-    AppLogger.debug('Processing ${_filteredTimesheets.length} timesheet entries for totals...');
-    
+    AppLogger.debug(
+        'Processing ${_filteredTimesheets.length} timesheet entries for totals...');
+
     for (var entry in _filteredTimesheets) {
       // Create unique ID for this entry to prevent duplicates (prefer documentId)
       final entryId = entry.documentId ??
           '${entry.teacherId}|${entry.date}|${entry.start}|${entry.end}|${entry.totalHours}';
-      
+
       if (processedEntryIds.contains(entryId)) {
-        AppLogger.warning('Warning: Duplicate entry detected and skipped: $entryId');
+        AppLogger.warning(
+            'Warning: Duplicate entry detected and skipped: $entryId');
         continue;
       }
       processedEntryIds.add(entryId);
-      
+
       final teacherKey = '${entry.teacherName} (ID: ${entry.teacherId})';
-      
+
       if (!teacherTotals.containsKey(teacherKey)) {
         teacherTotals[teacherKey] = {
           'totalHours': 0.0,
@@ -992,25 +995,25 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           'entries': <TimesheetEntry>[],
         };
       }
-      
+
       // Parse total hours (format: "HH:MM" or decimal) with validation
       final hours = _parseHoursToDecimal(entry.totalHours);
-      
+
       // Log suspicious entries
       if (hours == 0.0 && entry.totalHours.isNotEmpty) {
         AppLogger.warning(
             'Warning: Entry for ${entry.teacherName} on ${entry.date} (${entry.start}-${entry.end}) with time "${entry.totalHours}" was parsed as 0 hours (skipping)');
         continue; // Skip entries that can't be parsed sanely
       }
-      
+
       final payment = _calculatePayment(entry);
-      
+
       // Add to overall totals
-      teacherTotals[teacherKey]!['totalHours'] = 
+      teacherTotals[teacherKey]!['totalHours'] =
           (teacherTotals[teacherKey]!['totalHours'] as double) + hours;
-      teacherTotals[teacherKey]!['totalPayment'] = 
+      teacherTotals[teacherKey]!['totalPayment'] =
           (teacherTotals[teacherKey]!['totalPayment'] as double) + payment;
-      
+
       // Calculate week and month keys
       // Try to parse date - handle multiple possible formats
       DateTime? entryDate;
@@ -1026,25 +1029,29 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             // Try 'MM/dd/yyyy' format
             entryDate = DateFormat('MM/dd/yyyy').parse(entry.date);
           } catch (e3) {
-            AppLogger.error('Warning: Could not parse date "${entry.date}". Using current date.');
+            AppLogger.error(
+                'Warning: Could not parse date "${entry.date}". Using current date.');
             entryDate = DateTime.now();
           }
         }
       }
-      
+
       final weekKey = _getWeekKey(entryDate);
       final monthKey = DateFormat('MMM yyyy').format(entryDate);
-      
+
       // Add to weekly totals
-      final weeklyTotals = teacherTotals[teacherKey]!['weeklyTotals'] as Map<String, double>;
+      final weeklyTotals =
+          teacherTotals[teacherKey]!['weeklyTotals'] as Map<String, double>;
       weeklyTotals[weekKey] = (weeklyTotals[weekKey] ?? 0.0) + hours;
-      
+
       // Add to monthly totals
-      final monthlyTotals = teacherTotals[teacherKey]!['monthlyTotals'] as Map<String, double>;
+      final monthlyTotals =
+          teacherTotals[teacherKey]!['monthlyTotals'] as Map<String, double>;
       monthlyTotals[monthKey] = (monthlyTotals[monthKey] ?? 0.0) + hours;
-      
+
       // Store entry
-      (teacherTotals[teacherKey]!['entries'] as List<TimesheetEntry>).add(entry);
+      (teacherTotals[teacherKey]!['entries'] as List<TimesheetEntry>)
+          .add(entry);
     }
 
     // Sort teachers by total hours (descending)
@@ -1054,19 +1061,67 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     // Build export data with summary sections
     List<List<String>> timesheetData = [];
-    
+
     // Add summary header
-    timesheetData.add(['═══════════════════════════════════════════════════════════════', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-    timesheetData.add(['TEACHER SUMMARY - TOTAL HOURS BY TEACHER', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-    timesheetData.add(['═══════════════════════════════════════════════════════════════', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    timesheetData.add([
+      '═══════════════════════════════════════════════════════════════',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
+    timesheetData.add([
+      'TEACHER SUMMARY - TOTAL HOURS BY TEACHER',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
+    timesheetData.add([
+      '═══════════════════════════════════════════════════════════════',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
     timesheetData.add(['']);
-    
+
     // Add teacher summary rows
     for (var teacherKey in sortedTeachers) {
       final data = teacherTotals[teacherKey]!;
       final totalHours = data['totalHours'] as double;
       final totalPayment = data['totalPayment'] as double;
-      
+
       timesheetData.add([
         teacherKey,
         '',
@@ -1084,7 +1139,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         '',
         ''
       ]);
-      
+
       // Add monthly breakdowns
       final monthlyTotals = data['monthlyTotals'] as Map<String, double>;
       final sortedMonths = monthlyTotals.keys.toList()..sort();
@@ -1107,7 +1162,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           ''
         ]);
       }
-      
+
       // Add weekly breakdowns
       final weeklyTotals = data['weeklyTotals'] as Map<String, double>;
       final sortedWeeks = weeklyTotals.keys.toList()..sort();
@@ -1130,17 +1185,65 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           ''
         ]);
       }
-      
+
       timesheetData.add(['']); // Blank row between teachers
     }
 
     // Add detailed entries section
     timesheetData.add(['']);
-    timesheetData.add(['═══════════════════════════════════════════════════════════════', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-    timesheetData.add(['DETAILED TIMESHEET ENTRIES', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-    timesheetData.add(['═══════════════════════════════════════════════════════════════', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    timesheetData.add([
+      '═══════════════════════════════════════════════════════════════',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
+    timesheetData.add([
+      'DETAILED TIMESHEET ENTRIES',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
+    timesheetData.add([
+      '═══════════════════════════════════════════════════════════════',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ]);
     timesheetData.add(['']);
-    
+
     // Add all individual entries
     for (var entry in _filteredTimesheets) {
       timesheetData.add([
@@ -1172,12 +1275,14 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     AppLogger.debug('Export Summary:');
     AppLogger.debug('  Total entries processed: ${_filteredTimesheets.length}');
     AppLogger.debug('  Unique entries: ${processedEntryIds.length}');
-    AppLogger.debug('  Duplicates skipped: ${_filteredTimesheets.length - processedEntryIds.length}');
+    AppLogger.debug(
+        '  Duplicates skipped: ${_filteredTimesheets.length - processedEntryIds.length}');
     AppLogger.debug('  Teachers found: ${teacherTotals.length}');
     for (var teacherKey in sortedTeachers) {
       final data = teacherTotals[teacherKey]!;
       final totalHours = data['totalHours'] as double;
-      AppLogger.debug('  - $teacherKey: ${totalHours.toStringAsFixed(2)} hours');
+      AppLogger.debug(
+          '  - $teacherKey: ${totalHours.toStringAsFixed(2)} hours');
     }
     AppLogger.debug('═══════════════════════════════════════');
 
@@ -1197,7 +1302,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       fileName,
     );
   }
-  
+
   // Helper method to parse hours to decimal
   // Supports:
   //  - HH:MM format (e.g., "01:30")
@@ -1210,7 +1315,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         AppLogger.warning('Warning: Empty timeString, returning 0.0');
         return 0.0;
       }
-      
+
       final trimmed = timeString.trim();
       // Remove any trailing text such as "hours", "hrs", etc.
       final sanitized = trimmed
@@ -1219,24 +1324,25 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           .trim();
 
       if (sanitized.isEmpty) {
-        AppLogger.warning('Warning: Sanitized timeString is empty for "$timeString"');
+        AppLogger.warning(
+            'Warning: Sanitized timeString is empty for "$timeString"');
         return 0.0;
       }
-      
+
       // Check if it's already a decimal number (e.g., "2.5" or "488406.25")
       if (sanitized.contains('.') && !sanitized.contains(':')) {
         final decimalValue = double.parse(sanitized);
-        
+
         // Validate: if it's an unreasonably large number, it's corrupted
         if (decimalValue > 24.0) {
           AppLogger.error(
               'ERROR: Suspicious decimal hours value "$decimalValue" in "$timeString". This appears to be corrupted data. Skipping entry.');
           return 0.0;
         }
-        
+
         return decimalValue;
       }
-      
+
       // Otherwise, parse as HH:MM format
       final parts = sanitized.split(':');
       if (parts.length != 2) {
@@ -1244,19 +1350,19 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             'Warning: Invalid time format "$timeString" - expected HH:MM or decimal, returning 0.0');
         return 0.0;
       }
-      
+
       final hoursStr = parts[0].trim();
       final minutesStr = parts[1].trim();
-      
+
       if (hoursStr.isEmpty || minutesStr.isEmpty) {
         AppLogger.warning(
             'Warning: Empty hours or minutes in "$timeString", returning 0.0');
         return 0.0;
       }
-      
+
       final hours = int.parse(hoursStr);
       final minutes = int.parse(minutesStr);
-      
+
       // Validate: hours should be reasonable (max 24 hours per day)
       // If hours > 24, it's likely corrupted data - log and return 0
       if (hours > 24) {
@@ -1264,30 +1370,30 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             'ERROR: Suspicious hours value "$hours" in "$timeString". This appears to be corrupted data. Skipping entry.');
         return 0.0;
       }
-      
+
       // Validate: minutes should be 0-59
       if (minutes < 0 || minutes >= 60) {
         AppLogger.warning(
             'Warning: Invalid minutes "$minutes" in "$timeString", returning 0.0');
         return 0.0;
       }
-      
+
       final result = hours + (minutes / 60.0);
-      
+
       // Final sanity check: total should not exceed 24 hours per day
       if (result > 24.0) {
         AppLogger.error(
             'ERROR: Calculated hours "$result" exceeds 24 hours for "$timeString". This appears to be corrupted data. Skipping entry.');
         return 0.0;
       }
-      
+
       return result;
     } catch (e) {
       AppLogger.error('Error parsing timeString "$timeString": $e');
       return 0.0;
     }
   }
-  
+
   // Helper method to get week key (e.g., "Week of Jan 01, 2025")
   String _getWeekKey(DateTime date) {
     // Get Monday of the week

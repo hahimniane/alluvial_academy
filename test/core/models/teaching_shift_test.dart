@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
+import 'package:alluwalacademyadmin/core/enums/shift_enums.dart';
 
 void main() {
   group('TeachingShift Platform Tracking', () {
@@ -55,8 +56,15 @@ void main() {
       });
 
       test('should accept all valid platforms', () {
-        final platforms = ['web', 'android', 'ios', 'macos', 'windows', 'linux'];
-        
+        final platforms = [
+          'web',
+          'android',
+          'ios',
+          'macos',
+          'windows',
+          'linux'
+        ];
+
         for (final platform in platforms) {
           final shift = TeachingShift(
             id: 'test-shift-$platform',
@@ -93,7 +101,7 @@ void main() {
 
       test('should update platform using copyWith', () {
         final updated = testShift.copyWith(lastClockInPlatform: 'ios');
-        
+
         expect(updated.lastClockInPlatform, 'ios');
         expect(testShift.lastClockInPlatform, isNull); // Original unchanged
       });
@@ -152,11 +160,11 @@ void main() {
 
       test('should serialize different platforms correctly', () {
         final platforms = ['web', 'android', 'ios'];
-        
+
         for (final platform in platforms) {
           final shift = testShift.copyWith(lastClockInPlatform: platform);
           final data = shift.toFirestore();
-          
+
           expect(data['last_clock_in_platform'], platform);
         }
       });
@@ -252,7 +260,8 @@ void main() {
         expect(serialized['last_clock_in_platform'], 'ios');
       });
 
-      test('should preserve null platform through serialize-deserialize cycle', () {
+      test('should preserve null platform through serialize-deserialize cycle',
+          () {
         final serialized = testShift.toFirestore();
 
         // Verify null platform is handled
@@ -294,7 +303,7 @@ void main() {
 
       test('should maintain platform during status changes', () {
         final shift = testShift.copyWith(lastClockInPlatform: 'ios');
-        
+
         final active = shift.copyWith(status: ShiftStatus.active);
         expect(active.lastClockInPlatform, 'ios');
 
@@ -482,13 +491,15 @@ void main() {
       expect(base.deriveCompletionStatus(), ShiftStatus.missed);
     });
 
-    test('deriveCompletionStatus returns fully completed when worked >= scheduled',
+    test(
+        'deriveCompletionStatus returns fully completed when worked >= scheduled',
         () {
       final worked = base.copyWith(workedMinutes: 60);
       expect(worked.deriveCompletionStatus(), ShiftStatus.fullyCompleted);
     });
 
-    test('deriveCompletionStatus returns partially completed when worked < scheduled',
+    test(
+        'deriveCompletionStatus returns partially completed when worked < scheduled',
         () {
       final worked = base.copyWith(workedMinutes: 20);
       expect(worked.deriveCompletionStatus(), ShiftStatus.partiallyCompleted);
@@ -504,4 +515,3 @@ void main() {
     });
   });
 }
-

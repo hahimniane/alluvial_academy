@@ -15,7 +15,7 @@ class TimezoneService {
       if (currentUser == null || currentUser.email == null) return;
 
       // Detect current timezone
-      final detectedTimezone = TimezoneUtils.detectUserTimezone();
+      final detectedTimezone = await TimezoneUtils.detectUserTimezone();
 
       // Get user document
       final QuerySnapshot userQuery = await _firestore
@@ -63,7 +63,7 @@ class TimezoneService {
     try {
       final User? currentUser = _auth.currentUser;
       if (currentUser == null || currentUser.email == null) {
-        return TimezoneUtils.detectUserTimezone();
+        return await TimezoneUtils.detectUserTimezone();
       }
 
       final QuerySnapshot userQuery = await _firestore
@@ -73,14 +73,14 @@ class TimezoneService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        return TimezoneUtils.detectUserTimezone();
+        return await TimezoneUtils.detectUserTimezone();
       }
 
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
-      return userData['timezone'] ?? TimezoneUtils.detectUserTimezone();
+      return userData['timezone'] ?? await TimezoneUtils.detectUserTimezone();
     } catch (e) {
       AppLogger.error('Error getting current user timezone: $e');
-      return TimezoneUtils.detectUserTimezone();
+      return await TimezoneUtils.detectUserTimezone();
     }
   }
 }

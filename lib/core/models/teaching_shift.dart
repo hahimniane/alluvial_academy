@@ -1,33 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'enhanced_recurrence.dart';
-
-enum ShiftStatus {
-  scheduled,
-  active,
-  completed,
-  partiallyCompleted,
-  fullyCompleted,
-  missed,
-  cancelled,
-}
-
-enum IslamicSubject {
-  quranStudies,
-  hadithStudies,
-  fiqh,
-  arabicLanguage,
-  islamicHistory,
-  aqeedah,
-  tafseer,
-  seerah,
-}
-
-enum RecurrencePattern {
-  none,
-  daily,
-  weekly,
-  monthly,
-}
+import '../enums/shift_enums.dart';
 
 class TeachingShift {
   // No grace period - shifts are marked as missed immediately after end time
@@ -63,19 +36,23 @@ class TeachingShift {
   final DateTime? clockInTime;
   final DateTime? clockOutTime;
   final bool isManualOverride; // For admin manual adjustments
-  final String? lastClockInPlatform; // Platform used for last clock-in (web, android, ios)
+  final String?
+      lastClockInPlatform; // Platform used for last clock-in (web, android, ios)
   final DateTime? activatedAt; // When the shift window officially opened
   final bool autoClockOut; // Whether the system performed clock-out
   final String? autoClockOutReason; // Reason for system clock-out
-  final String? completionState; // human-readable completion summary (e.g. partial/full)
+  final String?
+      completionState; // human-readable completion summary (e.g. partial/full)
   final int? workedMinutes; // Total minutes worked across timesheets
 
   // Shift publishing fields (for teacher shift sharing)
   final bool isPublished; // Whether the shift is published for other teachers
   final String? publishedBy; // User ID of the teacher who published it
   final DateTime? publishedAt; // When the shift was published
-  final String? originalTeacherId; // Original teacher ID (preserved when claimed)
-  final String? originalTeacherName; // Original teacher name (preserved when claimed)
+  final String?
+      originalTeacherId; // Original teacher ID (preserved when claimed)
+  final String?
+      originalTeacherName; // Original teacher name (preserved when claimed)
 
   TeachingShift({
     required this.id,
@@ -152,8 +129,7 @@ class TeachingShift {
       return ShiftStatus.missed;
     }
     final sched = scheduledDurationMinutes;
-    if (workedMinutes != null &&
-        workedMinutes! + toleranceMinutes >= sched) {
+    if (workedMinutes != null && workedMinutes! + toleranceMinutes >= sched) {
       return ShiftStatus.fullyCompleted;
     }
     return ShiftStatus.partiallyCompleted;
@@ -238,7 +214,7 @@ class TeachingShift {
   bool get needsAutoLogout {
     return isClockedIn && hasExpired;
   }
-  
+
   // Clock-in deadline is the shift end time (no grace period)
   // Backend monitoring handles missed shift detection
   @Deprecated('Grace period removed - use shift end time directly')
@@ -247,7 +223,7 @@ class TeachingShift {
     // Shifts are marked as missed immediately after end time
     return shiftEnd.toUtc();
   }
-  
+
   // Check if shift should be marked as missed
   // Shift is missed if it has ended and teacher never clocked in
   // This is now handled by backend cloud function to avoid timezone issues
@@ -370,7 +346,8 @@ class TeachingShift {
           clockOutTime != null ? Timestamp.fromDate(clockOutTime!) : null,
       'is_manual_override': isManualOverride,
       'last_clock_in_platform': lastClockInPlatform,
-      'activated_at': activatedAt != null ? Timestamp.fromDate(activatedAt!) : null,
+      'activated_at':
+          activatedAt != null ? Timestamp.fromDate(activatedAt!) : null,
       'auto_clock_out': autoClockOut,
       'auto_clock_out_reason': autoClockOutReason,
       'completion_state': completionState,

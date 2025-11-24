@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/enums/ui_enums.dart';
 
 class ResponsiveBuilder extends StatelessWidget {
   final Widget Function(BuildContext, BoxConstraints, DeviceType) builder;
@@ -27,8 +28,6 @@ class ResponsiveBuilder extends StatelessWidget {
     }
   }
 }
-
-enum DeviceType { mobile, tablet, desktop }
 
 class ResponsivePadding extends StatelessWidget {
   final Widget child;

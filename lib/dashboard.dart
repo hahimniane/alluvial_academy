@@ -685,6 +685,241 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  /// Shows delete account confirmation dialog
+  void _showDeleteAccountDialog() {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isDeleting = false;
+    bool obscurePassword = true;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Delete Account',
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Confirm Password',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff374151),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: passwordController,
+                        obscureText: obscurePassword,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Enter your password',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: const Color(0xff6B7280),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                obscurePassword = !obscurePassword;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xffD1D5DB)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xffD1D5DB)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Colors.red, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xffF9FAFB),
+                        ),
+                        style: GoogleFonts.inter(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          passwordController.dispose();
+                        },
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xff6B7280),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            setState(() {
+                              isDeleting = true;
+                            });
+
+                            final success = await _deleteAccount(
+                              passwordController.text,
+                            );
+
+                            if (!success && mounted) {
+                              setState(() {
+                                isDeleting = false;
+                              });
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Delete Account',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Deletes the user account
+  Future<bool> _deleteAccount(String password) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || user.email == null) {
+        _showErrorSnackBar('Authentication error. Please log in again.');
+        return false;
+      }
+
+      // Re-authenticate user
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      // Delete user
+      await user.delete();
+
+      // Navigate to landing page
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LandingPage()),
+          (route) => false,
+        );
+      }
+
+      return true;
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'wrong-password':
+          errorMessage = 'Incorrect password.';
+          break;
+        case 'requires-recent-login':
+          errorMessage = 'Please log out and log in again.';
+          break;
+        default:
+          errorMessage = 'Failed to delete account: ${e.message}';
+      }
+      _showErrorSnackBar(errorMessage);
+      return false;
+    } catch (e) {
+      _showErrorSnackBar('An unexpected error occurred.');
+      return false;
+    }
+  }
+
   /// Shows error snackbar
   void _showErrorSnackBar(String message) {
     if (mounted) {
@@ -821,6 +1056,8 @@ class _DashboardPageState extends State<DashboardPage> {
           _showSignOutConfirmation();
         } else if (value == 'change_password') {
           _showChangePasswordDialog();
+        } else if (value == 'delete_account') {
+          _showDeleteAccountDialog();
         }
       },
       itemBuilder: (BuildContext context) {
@@ -835,6 +1072,21 @@ class _DashboardPageState extends State<DashboardPage> {
                   'Change Password',
                   style: openSansHebrewTextStyle.copyWith(
                     color: const Color(0xff374151),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuItem<String>(
+            value: 'delete_account',
+            child: Row(
+              children: [
+                const Icon(Icons.delete_forever, color: Colors.red),
+                const SizedBox(width: 8),
+                Text(
+                  'Delete Account',
+                  style: openSansHebrewTextStyle.copyWith(
+                    color: Colors.red,
                   ),
                 ),
               ],

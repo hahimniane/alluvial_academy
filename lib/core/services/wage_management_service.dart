@@ -2,8 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'settings_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-
-enum WageType { global, role, individual }
+import '../enums/wage_enums.dart';
 
 class WageManagementService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -18,7 +17,7 @@ class WageManagementService {
   /// Set global wage for all teachers
   static Future<void> setGlobalWage(double wage) async {
     await SettingsService.setGlobalTeacherHourlyRate(wage);
-    
+
     // Also update the wage settings collection for tracking
     await _firestore.collection(_wageSettingsCollection).doc(_globalDocId).set({
       'global_wage': wage,
@@ -34,18 +33,18 @@ class WageManagementService {
           .collection(_wageSettingsCollection)
           .doc('role_wages')
           .get();
-      
+
       if (!doc.exists) return {};
-      
+
       final data = doc.data() as Map<String, dynamic>;
       final Map<String, double> roleWages = {};
-      
+
       data.forEach((key, value) {
         if (key != 'updated_at' && key != 'updated_by') {
           roleWages[key] = (value as num).toDouble();
         }
       });
-      
+
       return roleWages;
     } catch (e) {
       AppLogger.error('Error getting role wages: $e');
@@ -68,16 +67,16 @@ class WageManagementService {
           .collection('users')
           .where('wage_override', isNotEqualTo: null)
           .get();
-      
+
       final Map<String, double> individualWages = {};
-      
+
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
         if (data['wage_override'] != null) {
           individualWages[doc.id] = (data['wage_override'] as num).toDouble();
         }
       }
-      
+
       return individualWages;
     } catch (e) {
       AppLogger.error('Error getting individual wages: $e');
@@ -107,12 +106,12 @@ class WageManagementService {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (userDoc.exists) {
         final data = userDoc.data() as Map<String, dynamic>;
-        
+
         // Check individual override
         if (data['wage_override'] != null) {
           return (data['wage_override'] as num).toDouble();
         }
-        
+
         // Check role-based wage
         final userRole = data['role'] as String?;
         if (userRole != null) {
@@ -122,7 +121,7 @@ class WageManagementService {
           }
         }
       }
-      
+
       // Fall back to global wage
       return await getGlobalWage();
     } catch (e) {
@@ -140,24 +139,24 @@ class WageManagementService {
   }) async {
     int shiftsUpdated = 0;
     int timesheetsUpdated = 0;
-    
+
     try {
       WriteBatch batch = _firestore.batch();
       int batchCount = 0;
-      
+
       // Update shifts based on type
       Query shiftsQuery = _firestore.collection('teaching_shifts');
-      
+
       if (updateType == WageType.individual && userId != null) {
         shiftsQuery = shiftsQuery.where('teacherId', isEqualTo: userId);
       }
-      
+
       final shiftsSnapshot = await shiftsQuery.get();
-      
+
       for (var doc in shiftsSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         bool shouldUpdate = false;
-        
+
         switch (updateType) {
           case WageType.global:
             shouldUpdate = true;
@@ -178,7 +177,7 @@ class WageManagementService {
             shouldUpdate = data['teacherId'] == userId;
             break;
         }
-        
+
         if (shouldUpdate) {
           batch.update(doc.reference, {
             'hourlyRate': newWage,
@@ -186,7 +185,7 @@ class WageManagementService {
           });
           shiftsUpdated++;
           batchCount++;
-          
+
           if (batchCount >= 500) {
             await batch.commit();
             batch = _firestore.batch();
@@ -194,20 +193,21 @@ class WageManagementService {
           }
         }
       }
-      
+
       // Update timesheet entries
       Query timesheetsQuery = _firestore.collection('timesheet_entries');
-      
+
       if (updateType == WageType.individual && userId != null) {
-        timesheetsQuery = timesheetsQuery.where('teacher_id', isEqualTo: userId);
+        timesheetsQuery =
+            timesheetsQuery.where('teacher_id', isEqualTo: userId);
       }
-      
+
       final timesheetsSnapshot = await timesheetsQuery.get();
-      
+
       for (var doc in timesheetsSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         bool shouldUpdate = false;
-        
+
         switch (updateType) {
           case WageType.global:
             shouldUpdate = true;
@@ -228,7 +228,7 @@ class WageManagementService {
             shouldUpdate = data['teacher_id'] == userId;
             break;
         }
-        
+
         if (shouldUpdate) {
           batch.update(doc.reference, {
             'hourly_rate': newWage,
@@ -236,7 +236,7 @@ class WageManagementService {
           });
           timesheetsUpdated++;
           batchCount++;
-          
+
           if (batchCount >= 500) {
             await batch.commit();
             batch = _firestore.batch();
@@ -244,12 +244,12 @@ class WageManagementService {
           }
         }
       }
-      
+
       // Commit remaining updates
       if (batchCount > 0) {
         await batch.commit();
       }
-      
+
       return {
         'shifts': shiftsUpdated,
         'timesheets': timesheetsUpdated,
@@ -270,7 +270,7 @@ class WageManagementService {
           .collection('users')
           .where('role', isNotEqualTo: null)
           .get();
-      
+
       final Set<String> roles = {};
       for (var doc in snapshot.docs) {
         final role = doc.data()['role'] as String?;
@@ -278,7 +278,7 @@ class WageManagementService {
           roles.add(role);
         }
       }
-      
+
       return roles.toList()..sort();
     } catch (e) {
       AppLogger.error('Error getting available roles: $e');
@@ -289,20 +289,19 @@ class WageManagementService {
   /// Get all users for individual wage management
   static Future<List<Map<String, dynamic>>> getAllUsers() async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('role', whereIn: ['Teacher', 'teacher', 'Admin', 'admin'])
-          .get();
-      
+      final snapshot = await _firestore.collection('users').where('role',
+          whereIn: ['Teacher', 'teacher', 'Admin', 'admin']).get();
+
       final users = <Map<String, dynamic>>[];
       final globalWage = await getGlobalWage();
-      
+
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final role = data['role'] as String? ?? 'Unknown';
         users.add({
           'id': doc.id,
-          'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+          'name':
+              '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
           'email': data['email'],
           'role': role,
           'current_wage': data['hourly_rate'] ?? globalWage,
@@ -310,7 +309,7 @@ class WageManagementService {
           'override_wage': data['wage_override'],
         });
       }
-      
+
       users.sort((a, b) => a['name'].compareTo(b['name']));
       return users;
     } catch (e) {
@@ -320,16 +319,17 @@ class WageManagementService {
   }
 
   /// Update wages for multiple users at once
-  static Future<void> setMultipleIndividualWages(Map<String, double> userWages) async {
+  static Future<void> setMultipleIndividualWages(
+      Map<String, double> userWages) async {
     final batch = _firestore.batch();
-    
+
     for (var entry in userWages.entries) {
       batch.update(_firestore.collection('users').doc(entry.key), {
         'wage_override': entry.value,
         'wage_override_updated_at': FieldValue.serverTimestamp(),
       });
     }
-    
+
     await batch.commit();
   }
 }

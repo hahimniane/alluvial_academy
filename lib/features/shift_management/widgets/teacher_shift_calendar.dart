@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
 
 /// Calendar view of teacher shifts using Syncfusion SfCalendar
 class TeacherShiftCalendar extends StatefulWidget {
@@ -99,7 +100,8 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
             ),
             appointmentBuilder: _appointmentBuilder,
             onTap: (details) {
-              final hasApps = details.appointments != null && details.appointments!.isNotEmpty;
+              final hasApps = details.appointments != null &&
+                  details.appointments!.isNotEmpty;
               final app = hasApps ? details.appointments!.first : null;
               if (app is ShiftAppointment && widget.onSelectShift != null) {
                 widget.onSelectShift!(app.shift);
@@ -236,7 +238,8 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
   }
 
   Color _statusColor(ShiftStatus status, TeachingShift shift) {
-    if (shift.isClockedIn && shift.canClockOut) return const Color(0xff10B981); // green
+    if (shift.isClockedIn && shift.canClockOut)
+      return const Color(0xff10B981); // green
     if (shift.needsAutoLogout) return const Color(0xffEF4444); // red
     switch (status) {
       case ShiftStatus.scheduled:
@@ -258,7 +261,11 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
 
   String _timeRange(DateTime start, DateTime end) {
     String fmt(DateTime t) {
-      final h = t.hour == 0 ? 12 : t.hour > 12 ? t.hour - 12 : t.hour;
+      final h = t.hour == 0
+          ? 12
+          : t.hour > 12
+              ? t.hour - 12
+              : t.hour;
       final m = t.minute.toString().padLeft(2, '0');
       final p = t.hour >= 12 ? 'p' : 'a';
       return '$h:$m$p';
@@ -275,13 +282,16 @@ class ShiftCalendarDataSource extends CalendarDataSource {
   }
 
   @override
-  DateTime getStartTime(int index) => (appointments![index] as ShiftAppointment).startTime;
+  DateTime getStartTime(int index) =>
+      (appointments![index] as ShiftAppointment).startTime;
 
   @override
-  DateTime getEndTime(int index) => (appointments![index] as ShiftAppointment).endTime;
+  DateTime getEndTime(int index) =>
+      (appointments![index] as ShiftAppointment).endTime;
 
   @override
-  String getSubject(int index) => (appointments![index] as ShiftAppointment).subject;
+  String getSubject(int index) =>
+      (appointments![index] as ShiftAppointment).subject;
 
   @override
   Color getColor(int index) => (appointments![index] as ShiftAppointment).color;
@@ -313,4 +323,3 @@ class ShiftAppointment {
     }
   }
 }
-

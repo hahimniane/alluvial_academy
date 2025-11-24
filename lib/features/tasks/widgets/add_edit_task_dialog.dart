@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/enums/task_enums.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/user.dart';
 import '../../../core/models/enhanced_recurrence.dart';
+import '../../../core/enums/shift_enums.dart';
 import '../../../shared/widgets/enhanced_recurrence_picker.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
@@ -87,7 +89,8 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     _assignedTo = List<String>.from(widget.task?.assignedTo ?? []);
     _isRecurring = widget.task?.isRecurring ?? false;
     _recurrenceType = widget.task?.recurrenceType ?? RecurrenceType.none;
-    _enhancedRecurrence = widget.task?.enhancedRecurrence ?? const EnhancedRecurrence();
+    _enhancedRecurrence =
+        widget.task?.enhancedRecurrence ?? const EnhancedRecurrence();
     _attachments = List<TaskAttachment>.from(widget.task?.attachments ?? []);
   }
 
@@ -676,9 +679,11 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
                   _recurrenceType = RecurrenceType.none;
                 } else if (newRecurrence.type == EnhancedRecurrenceType.daily) {
                   _recurrenceType = RecurrenceType.daily;
-                } else if (newRecurrence.type == EnhancedRecurrenceType.weekly) {
+                } else if (newRecurrence.type ==
+                    EnhancedRecurrenceType.weekly) {
                   _recurrenceType = RecurrenceType.weekly;
-                } else if (newRecurrence.type == EnhancedRecurrenceType.monthly) {
+                } else if (newRecurrence.type ==
+                    EnhancedRecurrenceType.monthly) {
                   _recurrenceType = RecurrenceType.monthly;
                 }
               });
@@ -1062,19 +1067,6 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     }
   }
 
-  String _getRecurrenceLabel(RecurrenceType type) {
-    switch (type) {
-      case RecurrenceType.daily:
-        return 'Daily';
-      case RecurrenceType.weekly:
-        return 'Weekly';
-      case RecurrenceType.monthly:
-        return 'Monthly';
-      case RecurrenceType.none:
-        return 'None';
-    }
-  }
-
   Future<void> _selectDate() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -1135,7 +1127,8 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
         status: widget.task?.status ?? TaskStatus.todo,
         isRecurring: _isRecurring,
         recurrenceType: _isRecurring ? _recurrenceType : RecurrenceType.none,
-        enhancedRecurrence: _isRecurring ? _enhancedRecurrence : const EnhancedRecurrence(),
+        enhancedRecurrence:
+            _isRecurring ? _enhancedRecurrence : const EnhancedRecurrence(),
         createdAt: widget.task?.createdAt ?? Timestamp.now(),
         attachments: _attachments,
       );

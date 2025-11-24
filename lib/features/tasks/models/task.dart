@@ -1,12 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/enhanced_recurrence.dart';
+import '../../../core/enums/shift_enums.dart';
 
-enum TaskPriority { low, medium, high }
-
-enum TaskStatus { todo, inProgress, done }
-
-// Keep old enum for backward compatibility
-enum RecurrenceType { none, daily, weekly, monthly }
+import '../../../core/enums/task_enums.dart';
 
 class TaskAttachment {
   final String id;

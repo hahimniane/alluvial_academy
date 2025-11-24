@@ -1,45 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Enhanced recurrence types
-enum EnhancedRecurrenceType {
-  none,
-  daily,
-  weekly,
-  monthly,
-  yearly,
-}
-
-/// Days of the week (1 = Monday, 7 = Sunday)
-enum WeekDay {
-  monday(1, 'Monday', 'Mon'),
-  tuesday(2, 'Tuesday', 'Tue'),
-  wednesday(3, 'Wednesday', 'Wed'),
-  thursday(4, 'Thursday', 'Thu'),
-  friday(5, 'Friday', 'Fri'),
-  saturday(6, 'Saturday', 'Sat'),
-  sunday(7, 'Sunday', 'Sun');
-
-  const WeekDay(this.value, this.fullName, this.shortName);
-  final int value;
-  final String fullName;
-  final String shortName;
-}
+import '../enums/shift_enums.dart';
 
 /// Enhanced recurrence configuration
 class EnhancedRecurrence {
   final EnhancedRecurrenceType type;
   final DateTime? endDate;
-  
+
   // Daily recurrence settings
   final List<DateTime> excludedDates; // Specific dates to exclude
-  final List<WeekDay> excludedWeekdays; // Days of week to exclude (e.g., weekends)
-  
+  final List<WeekDay>
+      excludedWeekdays; // Days of week to exclude (e.g., weekends)
+
   // Weekly recurrence settings
   final List<WeekDay> selectedWeekdays; // Which days of the week to repeat
-  
+
   // Monthly recurrence settings
   final List<int> selectedMonthDays; // Which days of the month (1-31)
-  
+
   // Yearly recurrence settings (for future expansion)
   final List<int> selectedMonths; // Which months (1-12)
 
@@ -77,7 +55,8 @@ class EnhancedRecurrence {
       case EnhancedRecurrenceType.daily:
         String desc = 'Daily';
         if (excludedWeekdays.isNotEmpty) {
-          final excludedNames = excludedWeekdays.map((day) => day.shortName).join(', ');
+          final excludedNames =
+              excludedWeekdays.map((day) => day.shortName).join(', ');
           desc += ' (excluding $excludedNames)';
         }
         if (excludedDates.isNotEmpty) {
@@ -85,17 +64,21 @@ class EnhancedRecurrence {
         }
         return desc;
       case EnhancedRecurrenceType.weekly:
-        final dayNames = selectedWeekdays.map((day) => day.shortName).join(', ');
+        final dayNames =
+            selectedWeekdays.map((day) => day.shortName).join(', ');
         return 'Weekly on $dayNames';
       case EnhancedRecurrenceType.monthly:
         if (selectedMonthDays.length <= 3) {
-          final dayNumbers = selectedMonthDays.map((day) => '$day${_getOrdinalSuffix(day)}').join(', ');
+          final dayNumbers = selectedMonthDays
+              .map((day) => '$day${_getOrdinalSuffix(day)}')
+              .join(', ');
           return 'Monthly on $dayNumbers';
         } else {
           return 'Monthly on ${selectedMonthDays.length} selected days';
         }
       case EnhancedRecurrenceType.yearly:
-        final monthNames = selectedMonths.map((month) => _getMonthName(month)).join(', ');
+        final monthNames =
+            selectedMonths.map((month) => _getMonthName(month)).join(', ');
         return 'Yearly in $monthNames';
     }
   }
@@ -104,18 +87,32 @@ class EnhancedRecurrence {
   String _getOrdinalSuffix(int number) {
     if (number >= 11 && number <= 13) return 'th';
     switch (number % 10) {
-      case 1: return 'st';
-      case 2: return 'nd';
-      case 3: return 'rd';
-      default: return 'th';
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
     }
   }
 
   /// Helper to get month name
   String _getMonthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }
@@ -125,7 +122,8 @@ class EnhancedRecurrence {
     return {
       'type': type.name,
       'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
-      'excludedDates': excludedDates.map((date) => Timestamp.fromDate(date)).toList(),
+      'excludedDates':
+          excludedDates.map((date) => Timestamp.fromDate(date)).toList(),
       'excludedWeekdays': excludedWeekdays.map((day) => day.value).toList(),
       'selectedWeekdays': selectedWeekdays.map((day) => day.value).toList(),
       'selectedMonthDays': selectedMonthDays,
@@ -140,8 +138,8 @@ class EnhancedRecurrence {
         (e) => e.name == data['type'],
         orElse: () => EnhancedRecurrenceType.none,
       ),
-      endDate: data['endDate'] != null 
-          ? (data['endDate'] as Timestamp).toDate() 
+      endDate: data['endDate'] != null
+          ? (data['endDate'] as Timestamp).toDate()
           : null,
       excludedDates: (data['excludedDates'] as List<dynamic>? ?? [])
           .cast<Timestamp>()
@@ -149,16 +147,18 @@ class EnhancedRecurrence {
           .toList(),
       excludedWeekdays: (data['excludedWeekdays'] as List<dynamic>? ?? [])
           .cast<int>()
-          .map((value) => WeekDay.values.firstWhere((day) => day.value == value))
+          .map(
+              (value) => WeekDay.values.firstWhere((day) => day.value == value))
           .toList(),
       selectedWeekdays: (data['selectedWeekdays'] as List<dynamic>? ?? [])
           .cast<int>()
-          .map((value) => WeekDay.values.firstWhere((day) => day.value == value))
+          .map(
+              (value) => WeekDay.values.firstWhere((day) => day.value == value))
           .toList(),
-      selectedMonthDays: (data['selectedMonthDays'] as List<dynamic>? ?? [])
-          .cast<int>(),
-      selectedMonths: (data['selectedMonths'] as List<dynamic>? ?? [])
-          .cast<int>(),
+      selectedMonthDays:
+          (data['selectedMonthDays'] as List<dynamic>? ?? []).cast<int>(),
+      selectedMonths:
+          (data['selectedMonths'] as List<dynamic>? ?? []).cast<int>(),
     );
   }
 
@@ -195,7 +195,8 @@ class EnhancedRecurrence {
     }
 
     // Check excluded weekdays
-    final weekday = WeekDay.values.firstWhere((day) => day.value == date.weekday);
+    final weekday =
+        WeekDay.values.firstWhere((day) => day.value == date.weekday);
     if (excludedWeekdays.contains(weekday)) {
       return true;
     }
@@ -213,7 +214,8 @@ class EnhancedRecurrence {
     DateTime currentDate = startDate;
     int count = 0;
 
-    while (count < maxCount && (endDate == null || currentDate.isBefore(endDate!))) {
+    while (count < maxCount &&
+        (endDate == null || currentDate.isBefore(endDate!))) {
       switch (type) {
         case EnhancedRecurrenceType.daily:
           if (!isDateExcluded(currentDate)) {
@@ -224,8 +226,10 @@ class EnhancedRecurrence {
           break;
 
         case EnhancedRecurrenceType.weekly:
-          final weekday = WeekDay.values.firstWhere((day) => day.value == currentDate.weekday);
-          if (selectedWeekdays.contains(weekday) && !isDateExcluded(currentDate)) {
+          final weekday = WeekDay.values
+              .firstWhere((day) => day.value == currentDate.weekday);
+          if (selectedWeekdays.contains(weekday) &&
+              !isDateExcluded(currentDate)) {
             occurrences.add(currentDate);
             count++;
           }
@@ -233,7 +237,8 @@ class EnhancedRecurrence {
           break;
 
         case EnhancedRecurrenceType.monthly:
-          if (selectedMonthDays.contains(currentDate.day) && !isDateExcluded(currentDate)) {
+          if (selectedMonthDays.contains(currentDate.day) &&
+              !isDateExcluded(currentDate)) {
             occurrences.add(currentDate);
             count++;
           }
@@ -242,7 +247,8 @@ class EnhancedRecurrence {
           break;
 
         case EnhancedRecurrenceType.yearly:
-          if (selectedMonths.contains(currentDate.month) && !isDateExcluded(currentDate)) {
+          if (selectedMonths.contains(currentDate.month) &&
+              !isDateExcluded(currentDate)) {
             occurrences.add(currentDate);
             count++;
           }
@@ -293,4 +299,4 @@ class EnhancedRecurrence {
       Object.hashAll(selectedMonths),
     );
   }
-} 
+}
