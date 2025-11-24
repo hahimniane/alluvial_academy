@@ -19,7 +19,8 @@ class FontHelper {
       height: height,
       letterSpacing: letterSpacing,
       // Add fallback to system fonts for missing characters
-      fontFallback: const [
+    ).copyWith(
+      fontFamilyFallback: const [
         'Arial',
         'Helvetica',
         'sans-serif',
@@ -45,4 +46,3 @@ class FontHelper {
     );
   }
 }
-
