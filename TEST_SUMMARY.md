@@ -1,4 +1,4 @@
-# Platform Tracking Test Suite - Summary
+i # Platform Tracking Test Suite - Summary
 
 ## Test Execution Results
 
