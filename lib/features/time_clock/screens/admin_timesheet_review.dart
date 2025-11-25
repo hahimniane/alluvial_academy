@@ -189,12 +189,6 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
   }
 
-  /// Legacy load method (now replaced by real-time listener)
-  Future<void> _loadTimesheets() async {
-    // This method is kept for manual refresh but real-time listener handles most updates
-    _setupRealtimeListener();
-  }
-
   TimesheetStatus _parseStatus(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -945,348 +939,159 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   void _exportTimesheets() {
-    List<String> headers = [
+    // Sheet 1: Classes (Raw Data)
+    final classesHeaders = [
       "Teacher",
+      "Student/Group",
       "Date",
-      "Student",
       "Start Time",
       "End Time",
-      "Total Hours",
+      "Duration (Hrs)",
       "Hourly Rate",
-      "Payment Amount",
-      "Status",
-      "Source",
-      "Submitted Date",
-      "Approved Date",
-      "Rejected Date",
-      "Rejection Reason",
-      "Description"
+      "Amount",
+      "Week Start Date",
+      "Week Label",
+      "Month Start Date",
+      "Month Label",
+      "Status"
     ];
 
-    // Calculate totals per teacher with weekly and monthly breakdowns
-    final Map<String, Map<String, dynamic>> teacherTotals = {};
+    List<List<dynamic>> classesData = [];
 
-    // Track processed entries to avoid duplicates
-    final Set<String> processedEntryIds = {};
+    // Maps for aggregation
+    // Key: Teacher|WeekStart -> Amount
+    final Map<String, double> weeklyEarnings = {};
+    // Key: Teacher|MonthStart -> Amount
+    final Map<String, double> monthlyEarnings = {};
+
+    // Helper to store metadata for sorting later
+    final Map<String, DateTime> weekStartDates = {};
+    final Map<String, DateTime> monthStartDates = {};
+    final Map<String, String> teacherNames = {};
 
     AppLogger.debug(
-        'Processing ${_filteredTimesheets.length} timesheet entries for totals...');
+        'Processing ${_filteredTimesheets.length} timesheet entries for advanced export...');
 
     for (var entry in _filteredTimesheets) {
-      // Create unique ID for this entry to prevent duplicates (prefer documentId)
-      final entryId = entry.documentId ??
-          '${entry.teacherId}|${entry.date}|${entry.start}|${entry.end}|${entry.totalHours}';
-
-      if (processedEntryIds.contains(entryId)) {
-        AppLogger.warning(
-            'Warning: Duplicate entry detected and skipped: $entryId');
-        continue;
-      }
-      processedEntryIds.add(entryId);
-
-      final teacherKey = '${entry.teacherName} (ID: ${entry.teacherId})';
-
-      if (!teacherTotals.containsKey(teacherKey)) {
-        teacherTotals[teacherKey] = {
-          'totalHours': 0.0,
-          'totalPayment': 0.0,
-          'weeklyTotals': <String, double>{},
-          'monthlyTotals': <String, double>{},
-          'entries': <TimesheetEntry>[],
-        };
-      }
-
-      // Parse total hours (format: "HH:MM" or decimal) with validation
-      final hours = _parseHoursToDecimal(entry.totalHours);
-
-      // Log suspicious entries
-      if (hours == 0.0 && entry.totalHours.isNotEmpty) {
-        AppLogger.warning(
-            'Warning: Entry for ${entry.teacherName} on ${entry.date} (${entry.start}-${entry.end}) with time "${entry.totalHours}" was parsed as 0 hours (skipping)');
-        continue; // Skip entries that can't be parsed sanely
-      }
-
-      final payment = _calculatePayment(entry);
-
-      // Add to overall totals
-      teacherTotals[teacherKey]!['totalHours'] =
-          (teacherTotals[teacherKey]!['totalHours'] as double) + hours;
-      teacherTotals[teacherKey]!['totalPayment'] =
-          (teacherTotals[teacherKey]!['totalPayment'] as double) + payment;
-
-      // Calculate week and month keys
-      // Try to parse date - handle multiple possible formats
+      // Parse date
       DateTime? entryDate;
       try {
-        // Try 'yyyy-MM-dd' format first
-        entryDate = DateFormat('yyyy-MM-dd').parse(entry.date);
+        entryDate = _parseEntryDate(entry.date);
       } catch (e) {
-        try {
-          // Try 'MMM dd, yyyy' format (e.g., "Nov 02, 2025")
-          entryDate = DateFormat('MMM dd, yyyy').parse(entry.date);
-        } catch (e2) {
-          try {
-            // Try 'MM/dd/yyyy' format
-            entryDate = DateFormat('MM/dd/yyyy').parse(entry.date);
-          } catch (e3) {
-            AppLogger.error(
-                'Warning: Could not parse date "${entry.date}". Using current date.');
-            entryDate = DateTime.now();
-          }
-        }
+        AppLogger.warning('Could not parse date for export: ${entry.date}');
       }
+      entryDate ??= DateTime.now();
 
-      final weekKey = _getWeekKey(entryDate);
-      final monthKey = DateFormat('MMM yyyy').format(entryDate);
+      // Calculate Week Start (Monday)
+      final weekStart =
+          entryDate.subtract(Duration(days: entryDate.weekday - 1));
+      final weekStartKey = DateFormat('yyyy-MM-dd').format(weekStart);
+      final weekLabel = 'Week of ${DateFormat('yyyy-MM-dd').format(weekStart)}';
 
-      // Add to weekly totals
-      final weeklyTotals =
-          teacherTotals[teacherKey]!['weeklyTotals'] as Map<String, double>;
-      weeklyTotals[weekKey] = (weeklyTotals[weekKey] ?? 0.0) + hours;
+      // Calculate Month Start
+      final monthStart = DateTime(entryDate.year, entryDate.month, 1);
+      final monthStartKey = DateFormat('yyyy-MM-dd').format(monthStart);
+      final monthLabel = DateFormat('MMM yyyy').format(monthStart);
 
-      // Add to monthly totals
-      final monthlyTotals =
-          teacherTotals[teacherKey]!['monthlyTotals'] as Map<String, double>;
-      monthlyTotals[monthKey] = (monthlyTotals[monthKey] ?? 0.0) + hours;
+      // Calculate payment
+      final hours = _parseHoursToDecimal(entry.totalHours);
+      final payment = _calculatePayment(entry);
 
-      // Store entry
-      (teacherTotals[teacherKey]!['entries'] as List<TimesheetEntry>)
-          .add(entry);
-    }
-
-    // Sort teachers by total hours (descending)
-    final sortedTeachers = teacherTotals.keys.toList()
-      ..sort((a, b) => (teacherTotals[b]!['totalHours'] as double)
-          .compareTo(teacherTotals[a]!['totalHours'] as double));
-
-    // Build export data with summary sections
-    List<List<String>> timesheetData = [];
-
-    // Add summary header
-    timesheetData.add([
-      '═══════════════════════════════════════════════════════════════',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ]);
-    timesheetData.add([
-      'TEACHER SUMMARY - TOTAL HOURS BY TEACHER',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ]);
-    timesheetData.add([
-      '═══════════════════════════════════════════════════════════════',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ]);
-    timesheetData.add(['']);
-
-    // Add teacher summary rows
-    for (var teacherKey in sortedTeachers) {
-      final data = teacherTotals[teacherKey]!;
-      final totalHours = data['totalHours'] as double;
-      final totalPayment = data['totalPayment'] as double;
-
-      timesheetData.add([
-        teacherKey,
-        '',
-        '',
-        '',
-        '',
-        '${totalHours.toStringAsFixed(2)} hours',
-        '',
-        '\$${totalPayment.toStringAsFixed(2)}',
-        'TOTAL',
-        '',
-        '',
-        '',
-        '',
-        '',
-        ''
-      ]);
-
-      // Add monthly breakdowns
-      final monthlyTotals = data['monthlyTotals'] as Map<String, double>;
-      final sortedMonths = monthlyTotals.keys.toList()..sort();
-      for (var month in sortedMonths) {
-        timesheetData.add([
-          '  → $month',
-          '',
-          '',
-          '',
-          '',
-          '${monthlyTotals[month]!.toStringAsFixed(2)} hours',
-          '',
-          '',
-          'Monthly Total',
-          '',
-          '',
-          '',
-          '',
-          '',
-          ''
-        ]);
-      }
-
-      // Add weekly breakdowns
-      final weeklyTotals = data['weeklyTotals'] as Map<String, double>;
-      final sortedWeeks = weeklyTotals.keys.toList()..sort();
-      for (var week in sortedWeeks) {
-        timesheetData.add([
-          '    ↳ $week',
-          '',
-          '',
-          '',
-          '',
-          '${weeklyTotals[week]!.toStringAsFixed(2)} hours',
-          '',
-          '',
-          'Weekly Total',
-          '',
-          '',
-          '',
-          '',
-          '',
-          ''
-        ]);
-      }
-
-      timesheetData.add(['']); // Blank row between teachers
-    }
-
-    // Add detailed entries section
-    timesheetData.add(['']);
-    timesheetData.add([
-      '═══════════════════════════════════════════════════════════════',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ]);
-    timesheetData.add([
-      'DETAILED TIMESHEET ENTRIES',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ]);
-    timesheetData.add([
-      '═══════════════════════════════════════════════════════════════',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ]);
-    timesheetData.add(['']);
-
-    // Add all individual entries
-    for (var entry in _filteredTimesheets) {
-      timesheetData.add([
+      // Add to Classes Data
+      classesData.add([
         entry.teacherName,
-        entry.date,
         entry.subject,
-        entry.start,
-        entry.end,
-        entry.totalHours,
-        '\$${entry.hourlyRate.toStringAsFixed(2)}',
-        '\$${_calculatePayment(entry).toStringAsFixed(2)}',
+        entryDate, // DateTime object
+        entry.start, // String (Time)
+        entry.end, // String (Time)
+        hours, // double
+        entry.hourlyRate, // double
+        payment, // double
+        weekStart, // DateTime object
+        weekLabel,
+        monthStart, // DateTime object
+        monthLabel,
         entry.status.toString().split('.').last,
-        entry.source == 'clock_in' ? 'Clock In' : 'Unclocked Hours',
-        entry.submittedAt != null
-            ? DateFormat('MMM dd, yyyy').format(entry.submittedAt!.toDate())
-            : '',
-        entry.approvedAt != null
-            ? DateFormat('MMM dd, yyyy').format(entry.approvedAt!.toDate())
-            : '',
-        entry.rejectedAt != null
-            ? DateFormat('MMM dd, yyyy').format(entry.rejectedAt!.toDate())
-            : '',
-        entry.rejectionReason ?? '',
-        entry.description,
       ]);
+
+      // Aggregate Weekly
+      final weeklyKey = '${entry.teacherName}|$weekStartKey';
+      weeklyEarnings[weeklyKey] = (weeklyEarnings[weeklyKey] ?? 0.0) + payment;
+      weekStartDates[weeklyKey] = weekStart;
+      teacherNames[weeklyKey] = entry.teacherName;
+
+      // Aggregate Monthly
+      final monthlyKey = '${entry.teacherName}|$monthStartKey';
+      monthlyEarnings[monthlyKey] =
+          (monthlyEarnings[monthlyKey] ?? 0.0) + payment;
+      monthStartDates[monthlyKey] = monthStart;
+      // teacherNames map can be reused or separate if needed, but teacher name is part of key
     }
 
-    AppLogger.debug('═══════════════════════════════════════');
-    AppLogger.debug('Export Summary:');
-    AppLogger.debug('  Total entries processed: ${_filteredTimesheets.length}');
-    AppLogger.debug('  Unique entries: ${processedEntryIds.length}');
-    AppLogger.debug(
-        '  Duplicates skipped: ${_filteredTimesheets.length - processedEntryIds.length}');
-    AppLogger.debug('  Teachers found: ${teacherTotals.length}');
-    for (var teacherKey in sortedTeachers) {
-      final data = teacherTotals[teacherKey]!;
-      final totalHours = data['totalHours'] as double;
-      AppLogger.debug(
-          '  - $teacherKey: ${totalHours.toStringAsFixed(2)} hours');
-    }
-    AppLogger.debug('═══════════════════════════════════════');
+    // Sheet 2: Weekly Earnings
+    final weeklyHeaders = [
+      "Teacher",
+      "Week Start Date",
+      "Week Label",
+      "Weekly Total"
+    ];
 
-    String fileName = 'timesheet_review_with_totals';
+    List<List<dynamic>> weeklyData = [];
+    for (var key in weeklyEarnings.keys) {
+      final teacher = key.split('|')[0];
+      final date = weekStartDates[key]!;
+      final total = weeklyEarnings[key]!;
+      final label = 'Week of ${DateFormat('yyyy-MM-dd').format(date)}';
+
+      weeklyData.add([teacher, date, label, total]);
+    }
+
+    // Sort Weekly: Teacher (A-Z), then Date (Oldest-Newest)
+    weeklyData.sort((a, b) {
+      final teacherCompare = (a[0] as String).compareTo(b[0] as String);
+      if (teacherCompare != 0) return teacherCompare;
+      return (a[1] as DateTime).compareTo(b[1] as DateTime);
+    });
+
+    // Sheet 3: Monthly Earnings
+    final monthlyHeaders = [
+      "Teacher",
+      "Month Start Date",
+      "Month Label",
+      "Monthly Total"
+    ];
+
+    List<List<dynamic>> monthlyData = [];
+    for (var key in monthlyEarnings.keys) {
+      final teacher = key.split('|')[0];
+      final date = monthStartDates[key]!;
+      final total = monthlyEarnings[key]!;
+      final label = DateFormat('MMM yyyy').format(date);
+
+      monthlyData.add([teacher, date, label, total]);
+    }
+
+    // Sort Monthly: Teacher (A-Z), then Date (Oldest-Newest)
+    monthlyData.sort((a, b) {
+      final teacherCompare = (a[0] as String).compareTo(b[0] as String);
+      if (teacherCompare != 0) return teacherCompare;
+      return (a[1] as DateTime).compareTo(b[1] as DateTime);
+    });
+
+    // Prepare Multi-Sheet Data
+    final sheetsHeaders = {
+      'Classes': classesHeaders,
+      'Weekly Earnings': weeklyHeaders,
+      'Monthly Earnings': monthlyHeaders,
+    };
+
+    final sheetsData = {
+      'Classes': classesData,
+      'Weekly Earnings': weeklyData,
+      'Monthly Earnings': monthlyData,
+    };
+
+    String fileName = 'timesheet_export_advanced';
     if (_selectedDateRange != null) {
       fileName +=
           '_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.start)}_to_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.end)}';
@@ -1297,108 +1102,38 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     ExportHelpers.showExportDialog(
       context,
-      headers,
-      timesheetData,
+      sheetsHeaders,
+      sheetsData,
       fileName,
     );
   }
 
-  // Helper method to parse hours to decimal
-  // Supports:
-  //  - HH:MM format (e.g., "01:30")
-  //  - Decimal format (e.g., "2.5")
-  //  - Strings with units (e.g., "3.25 hours")
-  // Includes validation to guard against corrupted values
+  // Re-adding helper method for hour parsing as it is needed for duration calculation
   double _parseHoursToDecimal(String timeString) {
     try {
-      if (timeString.isEmpty || timeString.trim().isEmpty) {
-        AppLogger.warning('Warning: Empty timeString, returning 0.0');
-        return 0.0;
-      }
+      if (timeString.isEmpty || timeString.trim().isEmpty) return 0.0;
 
-      final trimmed = timeString.trim();
-      // Remove any trailing text such as "hours", "hrs", etc.
-      final sanitized = trimmed
+      final sanitized = timeString
+          .trim()
           .toLowerCase()
           .replaceAll(RegExp(r'(hours|hour|hrs|hr)'), '')
           .trim();
+      if (sanitized.isEmpty) return 0.0;
 
-      if (sanitized.isEmpty) {
-        AppLogger.warning(
-            'Warning: Sanitized timeString is empty for "$timeString"');
-        return 0.0;
+      if (!sanitized.contains(':')) {
+        return double.tryParse(sanitized) ?? 0.0;
       }
 
-      // Check if it's already a decimal number (e.g., "2.5" or "488406.25")
-      if (sanitized.contains('.') && !sanitized.contains(':')) {
-        final decimalValue = double.parse(sanitized);
-
-        // Validate: if it's an unreasonably large number, it's corrupted
-        if (decimalValue > 24.0) {
-          AppLogger.error(
-              'ERROR: Suspicious decimal hours value "$decimalValue" in "$timeString". This appears to be corrupted data. Skipping entry.');
-          return 0.0;
-        }
-
-        return decimalValue;
-      }
-
-      // Otherwise, parse as HH:MM format
       final parts = sanitized.split(':');
-      if (parts.length != 2) {
-        AppLogger.warning(
-            'Warning: Invalid time format "$timeString" - expected HH:MM or decimal, returning 0.0');
-        return 0.0;
-      }
+      if (parts.length != 2) return 0.0;
 
-      final hoursStr = parts[0].trim();
-      final minutesStr = parts[1].trim();
+      final hours = int.tryParse(parts[0].trim()) ?? 0;
+      final minutes = int.tryParse(parts[1].trim()) ?? 0;
 
-      if (hoursStr.isEmpty || minutesStr.isEmpty) {
-        AppLogger.warning(
-            'Warning: Empty hours or minutes in "$timeString", returning 0.0');
-        return 0.0;
-      }
-
-      final hours = int.parse(hoursStr);
-      final minutes = int.parse(minutesStr);
-
-      // Validate: hours should be reasonable (max 24 hours per day)
-      // If hours > 24, it's likely corrupted data - log and return 0
-      if (hours > 24) {
-        AppLogger.error(
-            'ERROR: Suspicious hours value "$hours" in "$timeString". This appears to be corrupted data. Skipping entry.');
-        return 0.0;
-      }
-
-      // Validate: minutes should be 0-59
-      if (minutes < 0 || minutes >= 60) {
-        AppLogger.warning(
-            'Warning: Invalid minutes "$minutes" in "$timeString", returning 0.0');
-        return 0.0;
-      }
-
-      final result = hours + (minutes / 60.0);
-
-      // Final sanity check: total should not exceed 24 hours per day
-      if (result > 24.0) {
-        AppLogger.error(
-            'ERROR: Calculated hours "$result" exceeds 24 hours for "$timeString". This appears to be corrupted data. Skipping entry.');
-        return 0.0;
-      }
-
-      return result;
+      return hours + (minutes / 60.0);
     } catch (e) {
-      AppLogger.error('Error parsing timeString "$timeString": $e');
       return 0.0;
     }
-  }
-
-  // Helper method to get week key (e.g., "Week of Jan 01, 2025")
-  String _getWeekKey(DateTime date) {
-    // Get Monday of the week
-    final monday = date.subtract(Duration(days: date.weekday - 1));
-    return 'Week of ${DateFormat('MMM dd, yyyy').format(monday)}';
   }
 
   Future<void> _selectDateRange(BuildContext context) async {

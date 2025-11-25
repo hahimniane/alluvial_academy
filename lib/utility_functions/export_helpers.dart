@@ -14,43 +14,37 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class ExportHelpers {
   static bool _isExporting = false;
   // Enhanced export function with format selection
+  // Enhanced export function with format selection
   static void showExportDialog(
     BuildContext context,
-    List<String> headers,
-    List<List<String>> data,
+    dynamic headersOrSheets, // List<String> or Map<String, List<String>>
+    dynamic
+        dataOrSheets, // List<List<dynamic>> or Map<String, List<List<dynamic>>>
     String baseFileName,
   ) {
     AppLogger.debug(
-        'ExportHelpers.showExportDialog called with baseFileName: $baseFileName, headers: ${headers.length}, data rows: ${data.length}');
+        'ExportHelpers.showExportDialog called with baseFileName: $baseFileName');
 
-    // Check if there's any data to export and add sample data if empty
-    List<List<String>> exportData = data;
-    if (data.isEmpty) {
-      AppLogger.debug('No real data found, creating sample data for testing');
-      // Create sample data for testing
-      exportData = [
-        ['Sample', 'Data', 'Row', '1'],
-        ['Test', 'Export', 'Row', '2'],
-        ['Excel', 'Working', 'Row', '3'],
-      ];
+    // Check if there's any data to export (basic check)
+    bool hasData = false;
+    if (dataOrSheets is List) {
+      hasData = dataOrSheets.isNotEmpty;
+    } else if (dataOrSheets is Map) {
+      hasData = dataOrSheets.isNotEmpty;
+    }
 
-      // Show info that sample data is being used
+    if (!hasData) {
+      AppLogger.debug('No data found');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'No data found. Using sample data for export test.',
-            style: GoogleFonts.openSans(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            'No data found to export.',
+            style: GoogleFonts.openSans(color: Colors.white),
           ),
-          backgroundColor: const Color(0xffF59E0B),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          backgroundColor: Colors.orange,
         ),
       );
+      return;
     }
 
     showDialog(
@@ -103,17 +97,22 @@ class ExportHelpers {
                 'Best for data analysis and advanced formatting',
                 Icons.table_chart,
                 const Color(0xff10B981),
-                () => _exportToExcel(headers, exportData, baseFileName),
+                () =>
+                    _exportToExcel(headersOrSheets, dataOrSheets, baseFileName),
               ),
-              const SizedBox(height: 12),
-              _buildFormatOption(
-                context,
-                'CSV (.csv)',
-                'Universal format compatible with all applications',
-                Icons.description,
-                const Color(0xff6366F1),
-                () => _exportToCsv(headers, exportData, baseFileName),
-              ),
+              // CSV option disabled for multi-sheet exports as CSV doesn't support it
+              if (dataOrSheets is List) ...[
+                const SizedBox(height: 12),
+                _buildFormatOption(
+                  context,
+                  'CSV (.csv)',
+                  'Universal format compatible with all applications',
+                  Icons.description,
+                  const Color(0xff6366F1),
+                  () => _exportToCsv(headersOrSheets as List<String>,
+                      dataOrSheets as List<List<String>>, baseFileName),
+                ),
+              ],
             ],
           ),
           actions: [
@@ -207,19 +206,17 @@ class ExportHelpers {
     );
   }
 
-  // Export to Excel format
+  // Export to Excel format (Multi-Sheet Support)
   static void _exportToExcel(
-    List<String> headers,
-    List<List<String>> data,
+    dynamic
+        headersOrSheets, // Can be List<String> (single) or Map<String, List<String>> (multi-headers)
+    dynamic
+        dataOrSheets, // Can be List<List<dynamic>> (single) or Map<String, List<List<dynamic>>> (multi-data)
     String baseFileName,
   ) {
     AppLogger.debug('═══════════════════════════════════════');
     AppLogger.debug('_exportToExcel called');
     AppLogger.debug('Base filename: $baseFileName');
-    AppLogger.debug('Headers count: ${headers.length}');
-    AppLogger.debug('Data rows count: ${data.length}');
-    AppLogger.debug('Is already exporting: $_isExporting');
-    AppLogger.debug('═══════════════════════════════════════');
 
     if (_isExporting) {
       AppLogger.debug('⚠️ Export already in progress, skipping Excel export');
@@ -228,83 +225,45 @@ class ExportHelpers {
 
     _isExporting = true;
     try {
-      AppLogger.debug(
-          'Starting Excel export with ${headers.length} headers and ${data.length} rows');
-
       // Create a new Excel document
       var excel = xl.Excel.createExcel();
 
-      // Get the default sheet
-      xl.Sheet sheet = excel['Sheet1'];
+      // Check if it's a multi-sheet export
+      if (dataOrSheets is Map<String, List<List<dynamic>>>) {
+        final sheetsData = dataOrSheets;
+        final sheetsHeaders = headersOrSheets as Map<String, List<String>>;
 
-      // Add headers row by row
-      for (int i = 0; i < headers.length; i++) {
-        sheet
-            .cell(xl.CellIndex.indexByString('${String.fromCharCode(65 + i)}1'))
-            .value = xl.TextCellValue(headers[i]);
-        AppLogger.debug(
-            'Added header: ${headers[i]} at column ${String.fromCharCode(65 + i)}1');
+        for (var sheetName in sheetsData.keys) {
+          AppLogger.debug('Processing sheet: $sheetName');
+          final headers = sheetsHeaders[sheetName] ?? [];
+          final rows = sheetsData[sheetName] ?? [];
+
+          _populateSheet(excel, sheetName, headers, rows);
+        }
+
+        // Remove default sheet after adding our own
+        if (sheetsData.keys.isNotEmpty) {
+          excel.delete('Sheet1');
+        }
+      } else {
+        // Single sheet mode (backward compatibility)
+        final headers = headersOrSheets as List<String>;
+        final rows = dataOrSheets as List<List<dynamic>>;
+        _populateSheet(excel, 'Sheet1', headers, rows);
       }
 
-      // Add data rows
-      for (int rowIndex = 0; rowIndex < data.length; rowIndex++) {
-        List<String> row = data[rowIndex];
-        for (int colIndex = 0;
-            colIndex < row.length && colIndex < headers.length;
-            colIndex++) {
-          String cellAddress =
-              '${String.fromCharCode(65 + colIndex)}${rowIndex + 2}'; // +2 because row 1 is headers
-          sheet.cell(xl.CellIndex.indexByString(cellAddress)).value =
-              xl.TextCellValue(row[colIndex]);
-        }
-        if (rowIndex < 3) {
-          AppLogger.debug(
-              'Added data row ${rowIndex + 1}: ${row.take(3).join(", ")}...');
-        }
-      }
-
-      AppLogger.debug('Data added to Excel sheet. Generating file...');
+      AppLogger.debug('Data added to Excel sheets. Generating file...');
 
       // Generate Excel file bytes
       List<int>? fileBytes = excel.save();
 
       AppLogger.debug(
           'Excel file bytes generated: ${fileBytes?.length ?? 0} bytes');
-      AppLogger.debug('Platform check - kIsWeb: $kIsWeb');
 
       if (fileBytes != null && fileBytes.isNotEmpty) {
         if (kIsWeb) {
-          AppLogger.debug('Creating blob for web download...');
-          // Create blob and download
-          final blob = html.Blob([
-            Uint8List.fromList(fileBytes)
-          ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-          final url = html.Url.createObjectUrlFromBlob(blob);
-          AppLogger.info('Blob URL created: $url');
-
-          // Create and configure the anchor element
-          final anchor = html.AnchorElement()
-            ..href = url
-            ..style.display = 'none'
-            ..download = "$baseFileName.xlsx";
-
-          AppLogger.debug(
-              'Creating download link with filename: $baseFileName.xlsx');
-
-          // Add to DOM, click, then remove
-          html.document.body?.children.add(anchor);
-          AppLogger.debug('Anchor added to DOM, triggering click...');
-          anchor.click();
-          html.document.body?.children.remove(anchor);
-
-          // Clean up URL after a delay to ensure download starts
-          Future.delayed(const Duration(milliseconds: 1000), () {
-            html.Url.revokeObjectUrl(url);
-          });
-
-          AppLogger.info(
-              '✓ Excel file exported successfully: $baseFileName.xlsx');
+          _downloadWebFile(fileBytes, baseFileName, 'xlsx',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         } else {
           AppLogger.error('❌ Excel export is only supported on web platform');
         }
@@ -320,6 +279,81 @@ class ExportHelpers {
         _isExporting = false;
       });
     }
+  }
+
+  static void _populateSheet(
+    xl.Excel excel,
+    String sheetName,
+    List<String> headers,
+    List<List<dynamic>> rows,
+  ) {
+    xl.Sheet sheet = excel[sheetName];
+
+    // Add headers
+    for (int i = 0; i < headers.length; i++) {
+      var cell = sheet
+          .cell(xl.CellIndex.indexByString('${String.fromCharCode(65 + i)}1'));
+      cell.value = xl.TextCellValue(headers[i]);
+      cell.cellStyle = xl.CellStyle(
+        bold: true,
+        horizontalAlign: xl.HorizontalAlign.Center,
+      );
+    }
+
+    // Add data rows
+    for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      List<dynamic> row = rows[rowIndex];
+      for (int colIndex = 0;
+          colIndex < row.length && colIndex < headers.length;
+          colIndex++) {
+        String cellAddress =
+            '${String.fromCharCode(65 + colIndex)}${rowIndex + 2}';
+        var cell = sheet.cell(xl.CellIndex.indexByString(cellAddress));
+        var value = row[colIndex];
+
+        if (value is double) {
+          cell.value = xl.DoubleCellValue(value);
+          // Basic number format, currency formatting depends on library version capabilities
+          // For now, we ensure it's treated as a number
+        } else if (value is int) {
+          cell.value = xl.IntCellValue(value);
+        } else if (value is DateTime) {
+          // Using ISO string as fallback if DateCellValue constructor is problematic
+          // or try to use the library's way to handle DateTime
+          try {
+            cell.value = xl.DateCellValue(
+                year: value.year, month: value.month, day: value.day);
+            cell.cellStyle =
+                xl.CellStyle(numberFormat: xl.NumFormat.standard_14);
+          } catch (e) {
+            cell.value = xl.TextCellValue(value.toIso8601String());
+          }
+        } else {
+          cell.value = xl.TextCellValue(value.toString());
+        }
+      }
+    }
+  }
+
+  static void _downloadWebFile(
+      List<int> bytes, String fileName, String extension, String mimeType) {
+    AppLogger.debug('Creating blob for web download...');
+    final blob = html.Blob([Uint8List.fromList(bytes)], mimeType);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement()
+      ..href = url
+      ..style.display = 'none'
+      ..download = "$fileName.$extension";
+
+    html.document.body?.children.add(anchor);
+    anchor.click();
+    html.document.body?.children.remove(anchor);
+
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      html.Url.revokeObjectUrl(url);
+    });
+
+    AppLogger.info('✓ File exported successfully: $fileName.$extension');
   }
 
   // Export to CSV format (existing functionality)

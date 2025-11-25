@@ -7,7 +7,7 @@ import 'job_scheduling.dart';
 import 'features/time_clock/screens/time_clock_screen.dart';
 import 'features/time_clock/screens/admin_timesheet_review.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,6 +30,8 @@ import 'features/teacher_applications/screens/teacher_application_management_scr
 import 'features/settings/screens/admin_settings_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
+
+import 'features/dashboard/widgets/custom_sidebar.dart';
 
 import 'core/constants/dashboard_constants.dart';
 
@@ -1216,214 +1218,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the side navigation menu
   Widget _buildSideMenu() {
-    return AnimatedContainer(
-      duration: DashboardConstants.sideMenuAnimationDuration,
-      curve: Curves.easeInOut,
-      margin: const EdgeInsets.only(top: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(width: 0.5, color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.5),
-            spreadRadius: 5,
-            blurRadius: 7,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      width: _isSideMenuCollapsed
-          ? DashboardConstants.sideMenuCollapsedWidth
-          : DashboardConstants.sideMenuWidth,
-      child: Column(
-        children: [
-          // Toggle button
-          _buildToggleButton(),
-
-          // Menu items
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Admin-role users can see both admin and user-specific menu items
-                  if (_userRole == 'admin') ...[
-                    // Main
-                    _buildSideMenuItem(
-                      icon: SvgPicture.asset('assets/dashboard.svg'),
-                      text: 'Dashboard',
-                      index: 0,
-                    ),
-                    const Divider(),
-
-                    // People & Users
-                    if (!_isSideMenuCollapsed) _buildMenuHeader('PEOPLE'),
-                    _buildSideMenuItem(
-                      icon: SvgPicture.asset('assets/users-sidebar.svg'),
-                      text: 'User Management',
-                      index: 1,
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.people_alt),
-                      text: 'Teacher Applications',
-                      index: 17,
-                      color: const Color(0xff8B5CF6),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.school_rounded),
-                      text: 'Enrollments',
-                      index: 16,
-                      color: const Color(0xff10B981),
-                    ),
-                    const Divider(),
-
-                    // Operations
-                    if (!_isSideMenuCollapsed) _buildMenuHeader('OPERATIONS'),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.schedule),
-                      text: 'Shift Management',
-                      index: 3,
-                      color: const Color(0xff059669),
-                    ),
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_Scheduler.png'),
-                      text: 'Timesheet Review',
-                      index: 7,
-                      color: const Color(0xffF28B46),
-                    ),
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_task_manage.png'),
-                      text: 'Quick Tasks',
-                      index: 11,
-                      color: const Color(0xff4CAF50),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.notifications_active),
-                      text: 'Send Notification',
-                      index: 15,
-                      color: const Color(0xffF59E0B),
-                    ),
-                    const Divider(),
-
-                    // Communication
-                    if (!_isSideMenuCollapsed)
-                      _buildMenuHeader('COMMUNICATION'),
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_chat.png'),
-                      text: 'Chat',
-                      index: 5,
-                      color: const Color(0xffA646F2),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.video_call),
-                      text: 'Zoom',
-                      index: 12,
-                      color: const Color(0xff2563EB),
-                    ),
-                    const Divider(),
-
-                    // Forms
-                    if (!_isSideMenuCollapsed) _buildMenuHeader('FORMS'),
-                    _buildSideMenuItem(
-                      icon: Image.asset('assets/Icon_forms.png'),
-                      text: 'Forms',
-                      index: 8,
-                      color: const Color(0xffBA39A9),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.list_alt),
-                      text: 'Form Responses',
-                      index: 9,
-                      color: const Color(0xffBA39A9),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.build),
-                      text: 'Form Builder',
-                      index: 10,
-                    ),
-                    const Divider(),
-
-                    // System
-                    if (!_isSideMenuCollapsed) _buildMenuHeader('SYSTEM'),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.web),
-                      text: 'Website Management',
-                      index: 2,
-                      color: const Color(0xff7C3AED),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.settings),
-                      text: 'Settings',
-                      index: 18,
-                      color: const Color(0xff6B7280),
-                    ),
-
-                    // Debug features - only show in debug mode
-                    if (kDebugMode) ...[
-                      const Divider(),
-                      if (!_isSideMenuCollapsed) _buildMenuHeader('DEBUG'),
-                      _buildSideMenuItem(
-                        icon: const Icon(Icons.bug_report),
-                        text: 'Test Role System',
-                        index: 13,
-                      ),
-                      _buildSideMenuItem(
-                        icon: const Icon(Icons.storage),
-                        text: 'Firestore Debug',
-                        index: 14,
-                      ),
-                    ],
-                  ] else ...[
-                    // Non-admins see a limited menu
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.dashboard),
-                      text: 'Dashboard',
-                      index: 0,
-                      color: const Color(0xff0386FF),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.schedule),
-                      text: 'My Shifts',
-                      index: 4, // Route to TeacherShiftScreen
-                      color: const Color(0xff059669),
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.chat),
-                      text: 'Chat',
-                      index: 5,
-                      color: DashboardConstants.chatIconColor,
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.timer),
-                      text: 'Time Clock',
-                      index: 6,
-                      color: DashboardConstants.timeClockIconColor,
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.assignment),
-                      text: 'Forms',
-                      index: 8,
-                      color: DashboardConstants.formsIconColor,
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.task_alt),
-                      text: 'Tasks',
-                      index: 11,
-                      color: DashboardConstants.jobSchedulingIconColor,
-                    ),
-                    _buildSideMenuItem(
-                      icon: const Icon(Icons.video_call),
-                      text: 'Zoom',
-                      index: 12,
-                      color: const Color(0xff2563EB),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return CustomSidebar(
+      selectedIndex: _selectedIndex,
+      onItemSelected: _onItemTapped,
+      isCollapsed: _isSideMenuCollapsed,
+      onToggleCollapse: () {
+        setState(() {
+          _isSideMenuCollapsed = !_isSideMenuCollapsed;
+        });
+        _saveSidebarState();
+      },
+      userRole: _userRole,
     );
   }
 
@@ -1503,156 +1308,5 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     );
-  }
-
-  /// Builds a custom list tile for navigation items
-  ListTile _buildCustomListTile(
-    String assetPath,
-    String title,
-    int index,
-    Color color, {
-    Widget? trailing,
-  }) {
-    return ListTile(
-      leading: Container(
-        height: 30,
-        width: 30,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(5),
-          color: color,
-          border: Border.all(color: color),
-        ),
-        child: _loadImage(assetPath),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight:
-              _selectedIndex == index ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      onTap: () => _onItemTapped(index),
-      selected: _selectedIndex == index,
-      trailing: trailing ??
-          (_selectedIndex == index
-              ? const Icon(Icons.arrow_right, color: Colors.blue)
-              : null),
-    );
-  }
-
-  /// Helper method to load different types of images (SVG or regular)
-  Widget _loadImage(String assetPath) {
-    if (assetPath.endsWith('.svg')) {
-      return SvgPicture.asset(
-        assetPath,
-        height: 40,
-        width: 40,
-      );
-    } else {
-      return Image.asset(
-        assetPath,
-        color: Colors.white,
-        height: 40,
-        width: 40,
-      );
-    }
-  }
-
-  /// Builds a side menu item
-  Widget _buildSideMenuItem({
-    required Widget icon,
-    required String text,
-    required int index,
-    Color? color,
-  }) {
-    final isSelected = _selectedIndex == index;
-    final iconColor = isSelected ? Colors.white : color;
-
-    // The icon logic needs to be handled carefully
-    Widget finalIcon = icon;
-    if (icon is SvgPicture) {
-      finalIcon = SvgPicture.asset(
-        (icon.bytesLoader as SvgAssetLoader).assetName,
-        width: 24,
-        height: 24,
-        colorFilter: iconColor != null
-            ? ColorFilter.mode(iconColor, BlendMode.srcIn)
-            : null,
-      );
-    } else if (icon is Image) {
-      finalIcon = Image.asset(
-        (icon.image as AssetImage).assetName,
-        width: 24,
-        height: 24,
-        color: iconColor,
-      );
-    } else if (icon is Icon) {
-      finalIcon = Icon(
-        icon.icon,
-        color: iconColor,
-        size: 24,
-      );
-    }
-
-    if (_isSideMenuCollapsed) {
-      // Collapsed sidebar - show only icon with tooltip
-      return Tooltip(
-        message: text,
-        preferBelow: false,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => _onItemTapped(index),
-              child: Container(
-                width: double.infinity,
-                height: 50,
-                decoration: BoxDecoration(
-                  color:
-                      isSelected ? const Color(0xff0386FF) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(child: finalIcon),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      // Expanded sidebar - show icon and text
-      return ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xff0386FF) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(child: finalIcon),
-        ),
-        title: AnimatedOpacity(
-          duration: DashboardConstants.sideMenuAnimationDuration,
-          opacity: _isSideMenuCollapsed ? 0.0 : 1.0,
-          child: Text(
-            text,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected
-                  ? const Color(0xff0386FF)
-                  : const Color(0xff374151),
-            ),
-          ),
-        ),
-        onTap: () => _onItemTapped(index),
-        selected: _selectedIndex == index,
-        trailing: _selectedIndex == index
-            ? const Icon(Icons.arrow_right, color: Color(0xff0386FF), size: 18)
-            : null,
-      );
-    }
   }
 }
