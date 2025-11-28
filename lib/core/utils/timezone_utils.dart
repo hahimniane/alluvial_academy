@@ -76,9 +76,18 @@ class TimezoneUtils {
     if (!_initialized) initializeTimezones();
 
     try {
-      // If timezone is UTC, return as-is
+      // If timezone is UTC, treat the components as UTC
       if (timezoneId == 'UTC') {
-        return localTime.toUtc();
+        return DateTime.utc(
+          localTime.year,
+          localTime.month,
+          localTime.day,
+          localTime.hour,
+          localTime.minute,
+          localTime.second,
+          localTime.millisecond,
+          localTime.microsecond,
+        );
       }
 
       final location = tz.getLocation(timezoneId);
@@ -93,7 +102,7 @@ class TimezoneUtils {
         localTime.millisecond,
         localTime.microsecond,
       );
-      AppLogger.error(
+      AppLogger.debug(
           'TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
       return tzDateTime.toUtc();
     } catch (e) {

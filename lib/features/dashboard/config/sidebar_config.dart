@@ -69,20 +69,6 @@ class SidebarConfig {
             colorValue: 0xffF59E0B,
           ),
           const SidebarItem(
-            id: 'my_shifts',
-            label: 'My Shifts',
-            icon: Icons.calendar_today,
-            screenIndex: 4,
-            colorValue: 0xff059669,
-          ),
-          const SidebarItem(
-            id: 'time_clock',
-            label: 'Time Clock',
-            icon: Icons.access_time,
-            screenIndex: 6,
-            colorValue: 0xffEF4444,
-          ),
-          const SidebarItem(
             id: 'timesheets',
             label: 'Timesheets',
             icon: Icons.receipt_long,

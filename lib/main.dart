@@ -36,19 +36,23 @@ import 'core/utils/app_logger.dart';
 void _saveFCMTokenIfLoggedIn() {
   // Run in background to avoid blocking app startup
   // iOS needs more time for APNs token -> FCM token conversion
-  final delay = (!kIsWeb && Platform.isIOS) ? const Duration(seconds: 5) : const Duration(seconds: 2);
-  
+  final delay = (!kIsWeb && Platform.isIOS)
+      ? const Duration(seconds: 5)
+      : const Duration(seconds: 2);
+
   Future.delayed(delay, () async {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       AppLogger.debug('🔍 Checking if user is logged in...');
       AppLogger.debug('🔍 Current user: ${currentUser?.uid}');
       AppLogger.debug('🔍 Current user email: ${currentUser?.email}');
-      
+
       if (currentUser != null) {
         AppLogger.info('✅ User is logged in, attempting to save FCM token...');
-        await NotificationService().saveTokenToFirestore(userId: currentUser.uid);
-        AppLogger.info('✅ FCM token save completed for user: ${currentUser.uid}');
+        await NotificationService()
+            .saveTokenToFirestore(userId: currentUser.uid);
+        AppLogger.info(
+            '✅ FCM token save completed for user: ${currentUser.uid}');
       } else {
         AppLogger.warning('❌ No user logged in - FCM token will not be saved');
       }
@@ -91,7 +95,7 @@ Future<void> main() async {
   // Initialize Notification Service (only for mobile platforms)
   if (!kIsWeb) {
     await NotificationService().initialize();
-    
+
     // Save FCM token if user is already logged in
     _saveFCMTokenIfLoggedIn();
   }
@@ -115,7 +119,8 @@ Future<void> main() async {
             .contains('!identical(kind, PointerDeviceKind.trackpad)')) {
       // Silently ignore trackpad gesture assertion errors
       if (kDebugMode) {
-        AppLogger.debug('Ignoring trackpad gesture assertion: ${details.exception}');
+        AppLogger.debug(
+            'Ignoring trackpad gesture assertion: ${details.exception}');
       }
       return;
     }
@@ -186,17 +191,17 @@ Future<void> main() async {
       );
     }
   } else {
-      runApp(
-        ChangeNotifierProvider(
-          create: (_) => ThemeService(),
-          child: VersionCheckWrapper(
-            child: DevicePreview(
-              enabled: kDebugMode, // Only enabled in debug mode
-              builder: (context) => const MyApp(),
-            ),
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => ThemeService(),
+        child: VersionCheckWrapper(
+          child: DevicePreview(
+            enabled: kDebugMode, // Only enabled in debug mode
+            builder: (context) => const MyApp(),
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -212,7 +217,8 @@ class MyApp extends StatelessWidget {
       final isMobilePlatform =
           platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 
-      AppLogger.debug('=== Platform check: $platform, isMobile=$isMobilePlatform ===');
+      AppLogger.debug(
+          '=== Platform check: $platform, isMobile=$isMobilePlatform ===');
       if (isMobilePlatform) {
         AppLogger.debug('=== Returning AuthenticationWrapper for mobile ===');
         return const AuthenticationWrapper();
@@ -235,12 +241,12 @@ class MyApp extends StatelessWidget {
           builder: DevicePreview.appBuilder,
           debugShowCheckedModeBanner: false,
           scrollBehavior: AppScrollBehavior(),
-          
+
           // Theme configuration
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeService.themeMode,
-          
+
           home: _initialScreen,
         );
       },
@@ -463,8 +469,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   bool get _isMobile {
     if (kIsWeb) return false;
     final platform = defaultTargetPlatform;
-    return platform == TargetPlatform.android ||
-        platform == TargetPlatform.iOS;
+    return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
   }
 
   @override
@@ -503,8 +508,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
               ),
               const SizedBox(height: 24),
               const CircularProgressIndicator(
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
               ),
               const SizedBox(height: 16),
               Text(
@@ -618,7 +622,9 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
           // On mobile, use mobile dashboard; on web, use role-based dashboard
-          return _isMobile ? const MobileDashboardScreen() : const RoleBasedDashboard();
+          return _isMobile
+              ? const MobileDashboardScreen()
+              : const RoleBasedDashboard();
         }
 
         // Otherwise, they're not signed in
