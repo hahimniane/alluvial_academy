@@ -1175,57 +1175,83 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xffD1D5DB)),
-            borderRadius: BorderRadius.circular(8),
+        InputDecorator(
+          decoration: InputDecoration(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xff0386FF)),
+            ),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value:
-                  TimezoneUtils.getCommonTimezones().contains(_selectedTimezone)
-                      ? _selectedTimezone
-                      : 'UTC', // Fallback if timezone not in list
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280)),
-              items: TimezoneUtils.getCommonTimezones().map((String tz) {
-                return DropdownMenuItem<String>(
-                  value: tz,
-                  child: Text(
-                    tz,
-                    style: GoogleFonts.inter(
-                      color: const Color(0xff111827),
-                    ),
-                  ),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  setState(() {
-                    _selectedTimezone = newValue;
-                  });
-                }
-              },
+            child: ButtonTheme(
+              alignedDropdown: true,
+              child: DropdownButton<String>(
+                value: TimezoneUtils.getCommonTimezones()
+                        .contains(_selectedTimezone)
+                    ? _selectedTimezone
+                    : 'UTC', // Fallback if timezone not in list
+                isExpanded: true,
+                icon:
+                    const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280)),
+                style: GoogleFonts.inter(
+                  color: const Color(0xff111827),
+                  fontSize: 14,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                items: TimezoneUtils.getCommonTimezones().map((String tz) {
+                  return DropdownMenuItem<String>(
+                    value: tz,
+                    child: Text(tz),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _selectedTimezone = newValue;
+                    });
+                  }
+                },
+              ),
             ),
           ),
         ),
         if (_selectedTimezone != _adminTimezone)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                Icon(Icons.public, size: 14, color: const Color(0xff0386FF)),
-                const SizedBox(width: 4),
-                Text(
-                  'Scheduling in ${_selectedTimezone}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xff0386FF),
-                    fontWeight: FontWeight.w500,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xff0386FF).withOpacity(0.05),
+                borderRadius: BorderRadius.circular(6),
+                border:
+                    Border.all(color: const Color(0xff0386FF).withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.public, size: 14, color: Color(0xff0386FF)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Scheduling in ${_selectedTimezone}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff0386FF),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
       ],
@@ -1674,18 +1700,53 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
     try {
       // Create DateTime objects for shift start and end in admin's local time
+      DateTime effectiveDate = _shiftDate;
+
+      // If recurrence is enabled, ensure the start date matches the recurrence pattern
+      // If not, find the next valid date
+      if (_enhancedRecurrence.type != EnhancedRecurrenceType.none) {
+        // Check if current date is valid
+        if (_enhancedRecurrence.isDateExcluded(_shiftDate) ||
+            !_isDaySelected(_shiftDate, _enhancedRecurrence)) {
+          // Find next valid date
+          DateTime nextDate = _shiftDate.add(const Duration(days: 1));
+          int attempts = 0;
+          // Look ahead up to 1 year
+          while (attempts < 365) {
+            if (!_enhancedRecurrence.isDateExcluded(nextDate) &&
+                _isDaySelected(nextDate, _enhancedRecurrence)) {
+              effectiveDate = nextDate;
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Start date adjusted to first valid recurrence day: ${_formatDate(effectiveDate)}'),
+                    backgroundColor: const Color(0xff0386FF),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
+              break;
+            }
+            nextDate = nextDate.add(const Duration(days: 1));
+            attempts++;
+          }
+        }
+      }
+
       final shiftStartLocal = DateTime(
-        _shiftDate.year,
-        _shiftDate.month,
-        _shiftDate.day,
+        effectiveDate.year,
+        effectiveDate.month,
+        effectiveDate.day,
         _startTime.hour,
         _startTime.minute,
       );
 
       final shiftEndLocal = DateTime(
-        _shiftDate.year,
-        _shiftDate.month,
-        _shiftDate.day,
+        effectiveDate.year,
+        effectiveDate.month,
+        effectiveDate.day,
         _endTime.hour,
         _endTime.minute,
       );
@@ -1899,5 +1960,38 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  bool _isDaySelected(DateTime date, EnhancedRecurrence recurrence) {
+    if (recurrence.type == EnhancedRecurrenceType.daily) return true;
+
+    if (recurrence.type == EnhancedRecurrenceType.weekly) {
+      // Convert DateTime weekday (1-7) to WeekDay enum
+      // DateTime: 1=Mon, 7=Sun
+      // WeekDay: assuming standard mapping or checking index
+      // Let's check how WeekDay is defined in enhanced_recurrence.dart or shift_enums.dart
+      // Usually we map 1->monday, etc.
+
+      // Simple mapping based on standard Dart DateTime
+      final weekdayIndex = date.weekday;
+      // We need to match this with recurrence.selectedWeekdays
+      // Assuming WeekDay enum has a way to match or we iterate
+
+      for (final day in recurrence.selectedWeekdays) {
+        if (day.index + 1 == weekdayIndex)
+          return true; // WeekDay enum usually 0-based
+      }
+      return false;
+    }
+
+    if (recurrence.type == EnhancedRecurrenceType.monthly) {
+      return recurrence.selectedMonthDays.contains(date.day);
+    }
+
+    return true;
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }

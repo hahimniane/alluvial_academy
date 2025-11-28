@@ -274,6 +274,13 @@ class ShiftService {
         notes: notes,
       );
 
+      // Validate that end time is after start time
+      if (shiftEnd.isBefore(shiftStart)) {
+        AppLogger.error(
+            'Attempted to create shift with negative duration: Start $shiftStart, End $shiftEnd');
+        throw Exception('Shift end time must be after start time');
+      }
+
       try {
         await shiftDoc.set(shift.toFirestore());
         await _scheduleShiftLifecycleTasks(shift);
@@ -356,6 +363,15 @@ class ShiftService {
           final localStartTime = originalLocalStart ?? baseShift.shiftStart;
           final localEndTime = originalLocalEnd ?? baseShift.shiftEnd;
 
+          // Calculate duration from original times to ensure consistency
+          // If original end is before start, it means it crosses midnight, so add a day to end
+          DateTime effectiveOriginalEnd = localEndTime;
+          if (localEndTime.isBefore(localStartTime)) {
+            effectiveOriginalEnd = localEndTime.add(const Duration(days: 1));
+          }
+          final Duration shiftDuration =
+              effectiveOriginalEnd.difference(localStartTime);
+
           final shiftStart = DateTime(
             occurrence.year,
             occurrence.month,
@@ -365,15 +381,10 @@ class ShiftService {
             localStartTime.second,
             localStartTime.millisecond,
           );
-          final shiftEnd = DateTime(
-            occurrence.year,
-            occurrence.month,
-            occurrence.day,
-            localEndTime.hour,
-            localEndTime.minute,
-            localEndTime.second,
-            localEndTime.millisecond,
-          );
+
+          // Calculate end time by adding duration to start time
+          // This correctly handles shifts that cross midnight (end time will be next day)
+          final shiftEnd = shiftStart.add(shiftDuration);
 
           // Check if a shift already exists at this exact time
           final hasConflict = await hasConflictingShift(
@@ -436,8 +447,17 @@ class ShiftService {
 
           if (nextDate.isAfter(endDate)) break;
 
-          // Use original local times for consistent timing
-          final nextShiftStart = DateTime(
+          // Calculate duration from original times to ensure consistency
+          // If original end is before start, it means it crosses midnight, so add a day to end
+          DateTime effectiveOriginalEnd = localEndTime;
+          if (localEndTime.isBefore(localStartTime)) {
+            effectiveOriginalEnd = localEndTime.add(const Duration(days: 1));
+          }
+          final Duration shiftDuration =
+              effectiveOriginalEnd.difference(localStartTime);
+
+          // Create start time on the next occurrence date
+          final DateTime nextShiftStart = DateTime(
             nextDate.year,
             nextDate.month,
             nextDate.day,
@@ -446,15 +466,10 @@ class ShiftService {
             localStartTime.second,
             localStartTime.millisecond,
           );
-          final nextShiftEnd = DateTime(
-            nextDate.year,
-            nextDate.month,
-            nextDate.day,
-            localEndTime.hour,
-            localEndTime.minute,
-            localEndTime.second,
-            localEndTime.millisecond,
-          );
+
+          // Calculate end time by adding duration to start time
+          // This correctly handles shifts that cross midnight (end time will be next day)
+          final DateTime nextShiftEnd = nextShiftStart.add(shiftDuration);
 
           // Check for conflicts before creating
           final hasConflict = await hasConflictingShift(
@@ -1452,6 +1467,45 @@ class ShiftService {
     } catch (e) {
       AppLogger.error('ShiftService: Error during DST adjustment: $e');
       throw Exception('Failed to adjust shift times: $e');
+    }
+  }
+
+  /// Analyze shifts for negative duration (Debug Tool)
+  static Future<void> analyzeNegativeShifts() async {
+    try {
+      AppLogger.info('🔎 Starting analysis of negative shift durations...');
+      final snapshot = await _shiftsCollection.get();
+      int totalShifts = snapshot.docs.length;
+      int negativeShifts = 0;
+
+      AppLogger.info('Found $totalShifts total shifts. Scanning...');
+
+      for (var doc in snapshot.docs) {
+        final shift = TeachingShift.fromFirestore(doc);
+        // Check if end is before start (negative duration)
+        if (shift.shiftEnd.isBefore(shift.shiftStart)) {
+          negativeShifts++;
+          final durationMinutes =
+              shift.shiftEnd.difference(shift.shiftStart).inMinutes;
+          final durationHours = durationMinutes / 60.0;
+
+          AppLogger.error('''
+❌ Found Negative Shift:
+   ID: ${shift.id}
+   Teacher: ${shift.teacherName}
+   Start: ${shift.shiftStart} (UTC)
+   End:   ${shift.shiftEnd} (UTC)
+   Duration: ${durationHours.toStringAsFixed(2)} hours
+   Recurrence: ${shift.recurrence}
+   Created At: ${shift.createdAt}
+          ''');
+        }
+      }
+
+      AppLogger.info(
+          '✅ Analysis complete. Found $negativeShifts shifts with negative duration out of $totalShifts.');
+    } catch (e) {
+      AppLogger.error('Error analyzing shifts: $e');
     }
   }
 }

@@ -1,0 +1,351 @@
+[  +84 ms] executing: sysctl hw.optional.arm64
+[   +7 ms] Exit code 0 from: sysctl hw.optional.arm64
+[        ] hw.optional.arm64: 1
+[   +6 ms] Artifact Instance of 'MaterialFonts' is not required, skipping update.
+[        ] Artifact Instance of 'GradleWrapper' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[        ] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterSdk' is not required, skipping update.
+[        ] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FontSubsetArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'PubDependencies' is not required, skipping update.
+[  +48 ms] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterEngineStamp' is not required, skipping update.
+[        ] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[  +40 ms] Artifact Instance of 'MaterialFonts' is not required, skipping update.
+[        ] Artifact Instance of 'GradleWrapper' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterEngineStamp' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterSdk' is not required, skipping update.
+[        ] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FontSubsetArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'PubDependencies' is not required, skipping update.
+[  +12 ms] Skipping pub get: version match.
+[  +55 ms] Found plugin shared_preferences at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences-2.5.3/
+[   +2 ms] Found plugin shared_preferences_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_windows-2.4.1/
+[   +2 ms] Found plugin path_provider_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+[   +3 ms] Found plugin shared_preferences_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/
+[   +2 ms] Found plugin shared_preferences_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_linux-2.4.1/
+[   +1 ms] Found plugin path_provider_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+[   +1 ms] Found plugin shared_preferences_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.4/
+[   +1 ms] Found plugin shared_preferences_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.12/
+[   +7 ms] Found plugin url_launcher at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher-6.3.2/
+[   +1 ms] Found plugin url_launcher_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_windows-3.1.4/
+[   +1 ms] Found plugin url_launcher_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_web-2.4.1/
+[        ] Found plugin url_launcher_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.3/
+[        ] Found plugin url_launcher_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.1/
+[        ] Found plugin url_launcher_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.4/
+[        ] Found plugin url_launcher_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.21/
+[   +9 ms] Found plugin package_info_plus at /Users/hashimniane/.pub-cache/hosted/pub.dev/package_info_plus-8.3.1/
+[   +7 ms] Found plugin image_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker-1.2.0/
+[   +1 ms] Found plugin image_picker_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2/
+[   +2 ms] Found plugin file_selector_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+4/
+[   +2 ms] Found plugin image_picker_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_macos-0.2.2/
+[   +1 ms] Found plugin file_selector_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.4+4/
+[        ] Found plugin image_picker_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_linux-0.2.2/
+[        ] Found plugin file_selector_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_linux-0.9.3+2/
+[        ] Found plugin image_picker_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_ios-0.8.13/
+[   +1 ms] Found plugin image_picker_for_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_for_web-3.1.0/
+[        ] Found plugin image_picker_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+3/
+[        ] Found plugin flutter_plugin_android_lifecycle at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.30/
+[   +1 ms] Found plugin path_provider at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider-2.1.5/
+[        ] Found plugin path_provider_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.2/
+[        ] Found plugin path_provider_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_android-2.2.18/
+[        ] Found plugin geolocator at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator-12.0.0/
+[        ] Found plugin geolocator_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_windows-0.2.5/
+[   +1 ms] Found plugin geolocator_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_web-4.1.3/
+[        ] Found plugin geolocator_apple at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_apple-2.3.13/
+[        ] Found plugin geolocator_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_android-4.6.2/
+[        ] Found plugin geocoding at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding-3.0.0/
+[   +1 ms] Found plugin geocoding_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_ios-3.1.0/
+[        ] Found plugin geocoding_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_android-3.3.1/
+[   +1 ms] Found plugin flutter_timezone at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_timezone-5.0.1/
+[   +6 ms] Found plugin libphonenumber_plugin at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_plugin-0.3.3/
+[        ] Found plugin libphonenumber_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_web-0.3.2/
+[   +3 ms] Found plugin flutter_local_notifications at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications-18.0.1/
+[   +1 ms] Found plugin flutter_local_notifications_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications_linux-5.0.0/
+[   +1 ms] Found plugin firebase_storage_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage_web-3.10.17/
+[   +1 ms] Found plugin firebase_core at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core-3.15.2/
+[        ] Found plugin firebase_core_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core_web-2.24.1/
+[   +1 ms] Found plugin firebase_storage at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage-12.4.10/
+[        ] Found plugin firebase_remote_config at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config-5.5.0/
+[        ] Found plugin firebase_remote_config_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config_web-1.8.9/
+[        ] Found plugin firebase_messaging at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging-15.2.10/
+[        ] Found plugin firebase_messaging_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.10.10/
+[        ] Found plugin firebase_auth_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth_web-5.15.3/
+[        ] Found plugin firebase_auth at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth-5.7.0/
+[        ] Found plugin file_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_picker-8.3.7/
+[        ] Found plugin emoji_picker_flutter at /Users/hashimniane/.pub-cache/hosted/pub.dev/emoji_picker_flutter-1.6.4/
+[   +1 ms] Found plugin cloud_functions at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions-5.6.2/
+[        ] Found plugin cloud_functions_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions_web-4.11.5/
+[        ] Found plugin cloud_firestore_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore_web-4.4.12/
+[        ] Found plugin cloud_firestore at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore-5.6.12/
+[  +23 ms] Found plugin shared_preferences at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences-2.5.3/
+[        ] Found plugin shared_preferences_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_windows-2.4.1/
+[        ] Found plugin path_provider_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+[   +1 ms] Found plugin shared_preferences_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/
+[        ] Found plugin shared_preferences_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_linux-2.4.1/
+[        ] Found plugin path_provider_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+[        ] Found plugin shared_preferences_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.4/
+[        ] Found plugin shared_preferences_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.12/
+[   +2 ms] Found plugin url_launcher at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher-6.3.2/
+[        ] Found plugin url_launcher_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_windows-3.1.4/
+[        ] Found plugin url_launcher_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_web-2.4.1/
+[        ] Found plugin url_launcher_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.3/
+[        ] Found plugin url_launcher_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.1/
+[        ] Found plugin url_launcher_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.4/
+[        ] Found plugin url_launcher_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.21/
+[   +3 ms] Found plugin package_info_plus at /Users/hashimniane/.pub-cache/hosted/pub.dev/package_info_plus-8.3.1/
+[   +2 ms] Found plugin image_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker-1.2.0/
+[        ] Found plugin image_picker_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2/
+[        ] Found plugin file_selector_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+4/
+[        ] Found plugin image_picker_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_macos-0.2.2/
+[        ] Found plugin file_selector_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.4+4/
+[        ] Found plugin image_picker_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_linux-0.2.2/
+[        ] Found plugin file_selector_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_linux-0.9.3+2/
+[        ] Found plugin image_picker_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_ios-0.8.13/
+[        ] Found plugin image_picker_for_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_for_web-3.1.0/
+[        ] Found plugin image_picker_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+3/
+[        ] Found plugin flutter_plugin_android_lifecycle at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.30/
+[        ] Found plugin path_provider at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider-2.1.5/
+[        ] Found plugin path_provider_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.2/
+[        ] Found plugin path_provider_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_android-2.2.18/
+[        ] Found plugin geolocator at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator-12.0.0/
+[        ] Found plugin geolocator_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_windows-0.2.5/
+[        ] Found plugin geolocator_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_web-4.1.3/
+[        ] Found plugin geolocator_apple at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_apple-2.3.13/
+[        ] Found plugin geolocator_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_android-4.6.2/
+[        ] Found plugin geocoding at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding-3.0.0/
+[        ] Found plugin geocoding_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_ios-3.1.0/
+[        ] Found plugin geocoding_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_android-3.3.1/
+[        ] Found plugin flutter_timezone at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_timezone-5.0.1/
+[   +3 ms] Found plugin libphonenumber_plugin at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_plugin-0.3.3/
+[        ] Found plugin libphonenumber_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_web-0.3.2/
+[   +1 ms] Found plugin flutter_local_notifications at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications-18.0.1/
+[        ] Found plugin flutter_local_notifications_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications_linux-5.0.0/
+[        ] Found plugin firebase_storage_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage_web-3.10.17/
+[        ] Found plugin firebase_core at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core-3.15.2/
+[        ] Found plugin firebase_core_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core_web-2.24.1/
+[        ] Found plugin firebase_storage at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage-12.4.10/
+[        ] Found plugin firebase_remote_config at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config-5.5.0/
+[        ] Found plugin firebase_remote_config_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config_web-1.8.9/
+[        ] Found plugin firebase_messaging at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging-15.2.10/
+[        ] Found plugin firebase_messaging_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.10.10/
+[        ] Found plugin firebase_auth_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth_web-5.15.3/
+[        ] Found plugin firebase_auth at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth-5.7.0/
+[        ] Found plugin file_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_picker-8.3.7/
+[        ] Found plugin emoji_picker_flutter at /Users/hashimniane/.pub-cache/hosted/pub.dev/emoji_picker_flutter-1.6.4/
+[        ] Found plugin cloud_functions at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions-5.6.2/
+[        ] Found plugin cloud_functions_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions_web-4.11.5/
+[        ] Found plugin cloud_firestore_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore_web-4.4.12/
+[        ] Found plugin cloud_firestore at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore-5.6.12/
+[   +9 ms] Skipping generating web_plugin_registrant.dart because it is up-to-date.
+[  +11 ms] Found plugin shared_preferences at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences-2.5.3/
+[        ] Found plugin shared_preferences_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_windows-2.4.1/
+[        ] Found plugin path_provider_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+[   +1 ms] Found plugin shared_preferences_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/
+[        ] Found plugin shared_preferences_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_linux-2.4.1/
+[        ] Found plugin path_provider_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+[        ] Found plugin shared_preferences_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.4/
+[        ] Found plugin shared_preferences_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.12/
+[   +2 ms] Found plugin url_launcher at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher-6.3.2/
+[        ] Found plugin url_launcher_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_windows-3.1.4/
+[        ] Found plugin url_launcher_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_web-2.4.1/
+[        ] Found plugin url_launcher_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.3/
+[        ] Found plugin url_launcher_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.1/
+[        ] Found plugin url_launcher_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.4/
+[        ] Found plugin url_launcher_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.21/
+[   +2 ms] Found plugin package_info_plus at /Users/hashimniane/.pub-cache/hosted/pub.dev/package_info_plus-8.3.1/
+[   +1 ms] Found plugin image_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker-1.2.0/
+[        ] Found plugin image_picker_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2/
+[        ] Found plugin file_selector_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+4/
+[        ] Found plugin image_picker_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_macos-0.2.2/
+[        ] Found plugin file_selector_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.4+4/
+[        ] Found plugin image_picker_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_linux-0.2.2/
+[        ] Found plugin file_selector_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_linux-0.9.3+2/
+[        ] Found plugin image_picker_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_ios-0.8.13/
+[        ] Found plugin image_picker_for_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_for_web-3.1.0/
+[        ] Found plugin image_picker_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+3/
+[        ] Found plugin flutter_plugin_android_lifecycle at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.30/
+[        ] Found plugin path_provider at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider-2.1.5/
+[        ] Found plugin path_provider_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.2/
+[        ] Found plugin path_provider_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_android-2.2.18/
+[        ] Found plugin geolocator at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator-12.0.0/
+[        ] Found plugin geolocator_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_windows-0.2.5/
+[        ] Found plugin geolocator_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_web-4.1.3/
+[        ] Found plugin geolocator_apple at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_apple-2.3.13/
+[        ] Found plugin geolocator_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_android-4.6.2/
+[        ] Found plugin geocoding at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding-3.0.0/
+[        ] Found plugin geocoding_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_ios-3.1.0/
+[        ] Found plugin geocoding_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_android-3.3.1/
+[   +1 ms] Found plugin flutter_timezone at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_timezone-5.0.1/
+[   +2 ms] Found plugin libphonenumber_plugin at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_plugin-0.3.3/
+[        ] Found plugin libphonenumber_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_web-0.3.2/
+[   +1 ms] Found plugin flutter_local_notifications at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications-18.0.1/
+[        ] Found plugin flutter_local_notifications_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications_linux-5.0.0/
+[        ] Found plugin firebase_storage_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage_web-3.10.17/
+[        ] Found plugin firebase_core at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core-3.15.2/
+[        ] Found plugin firebase_core_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core_web-2.24.1/
+[        ] Found plugin firebase_storage at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage-12.4.10/
+[        ] Found plugin firebase_remote_config at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config-5.5.0/
+[        ] Found plugin firebase_remote_config_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config_web-1.8.9/
+[        ] Found plugin firebase_messaging at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging-15.2.10/
+[        ] Found plugin firebase_messaging_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.10.10/
+[        ] Found plugin firebase_auth_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth_web-5.15.3/
+[        ] Found plugin firebase_auth at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth-5.7.0/
+[        ] Found plugin file_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_picker-8.3.7/
+[        ] Found plugin emoji_picker_flutter at /Users/hashimniane/.pub-cache/hosted/pub.dev/emoji_picker_flutter-1.6.4/
+[        ] Found plugin cloud_functions at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions-5.6.2/
+[        ] Found plugin cloud_functions_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions_web-4.11.5/
+[        ] Found plugin cloud_firestore_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore_web-4.4.12/
+[        ] Found plugin cloud_firestore at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore-5.6.12/
+[   +8 ms] Generating /Users/hashimniane/Project Dev/alluvial_academy/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+[   +1 ms] Skipping generating GeneratedPluginRegistrant.java because it is up-to-date.
+[   +2 ms] Skipping generating generated_plugin_registrant.h because it is up-to-date.
+[        ] Skipping generating generated_plugin_registrant.cc because it is up-to-date.
+[        ] Skipping generating generated_plugins.cmake because it is up-to-date.
+[   +1 ms] Skipping generating generated_plugin_registrant.h because it is up-to-date.
+[        ] Skipping generating generated_plugin_registrant.cc because it is up-to-date.
+[        ] Skipping generating generated_plugins.cmake because it is up-to-date.
+[   +1 ms] Skipping generating GeneratedPluginRegistrant.h because it is up-to-date.
+[        ] Skipping generating GeneratedPluginRegistrant.m because it is up-to-date.
+[        ] Skipping generating GeneratedPluginRegistrant.swift because it is up-to-date.
+[   +7 ms] executing: sysctl hw.optional.arm64
+[   +2 ms] Exit code 0 from: sysctl hw.optional.arm64
+[        ] hw.optional.arm64: 1
+[        ] executing: /usr/bin/arch -arm64e xcrun xcodebuild -version
+[ +128 ms] Exit code 0 from: /usr/bin/arch -arm64e xcrun xcodebuild -version
+[        ] Xcode 26.0.1
+           Build version 17A400
+[  +86 ms] Found plugin shared_preferences at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences-2.5.3/
+[        ] Found plugin shared_preferences_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_windows-2.4.1/
+[        ] Found plugin path_provider_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+[   +1 ms] Found plugin shared_preferences_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/
+[        ] Found plugin shared_preferences_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_linux-2.4.1/
+[        ] Found plugin path_provider_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+[        ] Found plugin shared_preferences_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.4/
+[        ] Found plugin shared_preferences_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.12/
+[   +2 ms] Found plugin url_launcher at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher-6.3.2/
+[        ] Found plugin url_launcher_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_windows-3.1.4/
+[        ] Found plugin url_launcher_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_web-2.4.1/
+[        ] Found plugin url_launcher_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.3/
+[        ] Found plugin url_launcher_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.1/
+[        ] Found plugin url_launcher_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.4/
+[        ] Found plugin url_launcher_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.21/
+[   +5 ms] Found plugin package_info_plus at /Users/hashimniane/.pub-cache/hosted/pub.dev/package_info_plus-8.3.1/
+[   +2 ms] Found plugin image_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker-1.2.0/
+[        ] Found plugin image_picker_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2/
+[        ] Found plugin file_selector_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+4/
+[        ] Found plugin image_picker_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_macos-0.2.2/
+[        ] Found plugin file_selector_macos at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.4+4/
+[        ] Found plugin image_picker_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_linux-0.2.2/
+[        ] Found plugin file_selector_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_selector_linux-0.9.3+2/
+[        ] Found plugin image_picker_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_ios-0.8.13/
+[        ] Found plugin image_picker_for_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_for_web-3.1.0/
+[        ] Found plugin image_picker_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+3/
+[        ] Found plugin flutter_plugin_android_lifecycle at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.30/
+[        ] Found plugin path_provider at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider-2.1.5/
+[        ] Found plugin path_provider_foundation at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.2/
+[        ] Found plugin path_provider_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/path_provider_android-2.2.18/
+[        ] Found plugin geolocator at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator-12.0.0/
+[        ] Found plugin geolocator_windows at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_windows-0.2.5/
+[        ] Found plugin geolocator_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_web-4.1.3/
+[        ] Found plugin geolocator_apple at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_apple-2.3.13/
+[        ] Found plugin geolocator_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geolocator_android-4.6.2/
+[        ] Found plugin geocoding at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding-3.0.0/
+[        ] Found plugin geocoding_ios at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_ios-3.1.0/
+[        ] Found plugin geocoding_android at /Users/hashimniane/.pub-cache/hosted/pub.dev/geocoding_android-3.3.1/
+[        ] Found plugin flutter_timezone at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_timezone-5.0.1/
+[   +2 ms] Found plugin libphonenumber_plugin at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_plugin-0.3.3/
+[        ] Found plugin libphonenumber_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/libphonenumber_web-0.3.2/
+[   +1 ms] Found plugin flutter_local_notifications at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications-18.0.1/
+[        ] Found plugin flutter_local_notifications_linux at /Users/hashimniane/.pub-cache/hosted/pub.dev/flutter_local_notifications_linux-5.0.0/
+[        ] Found plugin firebase_storage_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage_web-3.10.17/
+[        ] Found plugin firebase_core at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core-3.15.2/
+[        ] Found plugin firebase_core_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_core_web-2.24.1/
+[        ] Found plugin firebase_storage at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_storage-12.4.10/
+[        ] Found plugin firebase_remote_config at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config-5.5.0/
+[        ] Found plugin firebase_remote_config_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_remote_config_web-1.8.9/
+[        ] Found plugin firebase_messaging at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging-15.2.10/
+[        ] Found plugin firebase_messaging_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.10.10/
+[        ] Found plugin firebase_auth_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth_web-5.15.3/
+[        ] Found plugin firebase_auth at /Users/hashimniane/.pub-cache/hosted/pub.dev/firebase_auth-5.7.0/
+[        ] Found plugin file_picker at /Users/hashimniane/.pub-cache/hosted/pub.dev/file_picker-8.3.7/
+[        ] Found plugin emoji_picker_flutter at /Users/hashimniane/.pub-cache/hosted/pub.dev/emoji_picker_flutter-1.6.4/
+[        ] Found plugin cloud_functions at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions-5.6.2/
+[        ] Found plugin cloud_functions_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_functions_web-4.11.5/
+[        ] Found plugin cloud_firestore_web at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore_web-4.4.12/
+[        ] Found plugin cloud_firestore at /Users/hashimniane/.pub-cache/hosted/pub.dev/cloud_firestore-5.6.12/
+[        ] generated_plugin_registrant.dart not found. Skipping.
+[        ] Compiling lib/main.dart for the Web...
+[   +3 ms] Initializing file store
+[   +4 ms] Done initializing file store
+[  +32 ms] Skipping target: web_entrypoint
+[        ] invalidated build due to missing files: /Users/hashimniane/Project Dev/alluvial_academy/web/*/index.html, /Users/hashimniane/Project Dev/alluvial_academy/web/flutter_bootstrap.js
+[        ] Skipping target: gen_localizations
+[        ] web_templated_files: Starting due to {InvalidatedReasonKind.outputMissing: The following outputs were missing: /Users/hashimniane/Project Dev/alluvial_academy/build/web/*/index.html, InvalidatedReasonKind.inputMissing: The following inputs were missing: /Users/hashimniane/Project Dev/alluvial_academy/web/*/index.html,/Users/hashimniane/Project Dev/alluvial_academy/web/flutter_bootstrap.js}
+[        ] web_static_assets: Starting due to {InvalidatedReasonKind.outputMissing: The following outputs were missing: /Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/flutter.js,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/skwasm.js,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/skwasm_heavy.js,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/skwasm.js.symbols,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/canvaskit.js.symbols,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/skwasm_heavy.js.symbols,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/skwasm.wasm,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/chromium/canvaskit.js.symbols,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/chromium/canvaskit.js,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/chromium/canvaskit.wasm,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/canvaskit.js,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/canvaskit.wasm,/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/canvaskit/skwasm_heavy.wasm}
+[ +936 ms] Skipping target: dart2js
+[   +3 ms] web_static_assets: Complete
+[   +1 ms] dart2wasm: Starting due to {}
+[   +4 ms] executing: /Users/hashimniane/flutter/bin/cache/dart-sdk/bin/dart compile wasm --packages=/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/package_config.json --extra-compiler-option=--platform=/Users/hashimniane/flutter/bin/cache/flutter_web_sdk/kernel/dart2wasm_platform.dill -Ddart.vm.profile=false -Ddart.vm.product=true --extra-compiler-option=--delete-tostring-package-uri=dart:ui --extra-compiler-option=--delete-tostring-package-uri=package:flutter --extra-compiler-option=--import-shared-memory --extra-compiler-option=--shared-memory-max-pages=32768 -DFLUTTER_VERSION=3.35.7 -DFLUTTER_CHANNEL=stable -DFLUTTER_GIT_URL=https://github.com/flutter/flutter.git -DFLUTTER_FRAMEWORK_REVISION=adc9010625 -DFLUTTER_ENGINE_REVISION=035316565a -DFLUTTER_DART_VERSION=3.9.2 -DFLUTTER_WEB_USE_SKIA=false -DFLUTTER_WEB_USE_SKWASM=true -DFLUTTER_WEB_CANVASKIT_URL=https://www.gstatic.com/flutter-canvaskit/035316565ad77281a75305515e4682e6c4c6f7ca/ --extra-compiler-option=--depfile=/Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/dart2wasm.d -O2 --strip-wasm --no-source-maps --minify --extra-compiler-option=--dry-run -o /Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/main.dart.wasm /Users/hashimniane/Project Dev/alluvial_academy/.dart_tool/flutter_build/e157ecb94cd274c9f560280b4ecee93f/main.dart
+[  +16 ms] web_templated_files: Complete
+[+6210 ms] executing: sw_vers -productName
+[  +48 ms] Exit code 0 from: sw_vers -productName
+[        ] macOS
+[        ] executing: sw_vers -productVersion
+[  +21 ms] Exit code 0 from: sw_vers -productVersion
+[        ] 26.1
+[        ] executing: sw_vers -buildVersion
+[  +13 ms] Exit code 0 from: sw_vers -buildVersion
+[        ] 25B78
+[        ] executing: uname -m
+[   +9 ms] Exit code 0 from: uname -m
+[        ] arm64
+[  +58 ms] Running 1 shutdown hook
+[   +2 ms] Shutdown hooks complete
+[   +1 ms] Unexpected wasm dry run failure (-2):
+[   +1 ms] Use --no-wasm-dry-run to disable these warnings.
+[  +17 ms] dart2wasm: Complete
+[   +4 ms] web_release_bundle: Starting due to {}
+[ +279 ms] Manifest contained wildcard assets. Inserting missing file into build graph to force rerun. for more information see #56466.
+[  +40 ms] exiting with code 0
