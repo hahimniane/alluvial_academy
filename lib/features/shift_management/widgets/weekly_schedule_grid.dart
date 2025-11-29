@@ -420,26 +420,28 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                     teacherEmail: user.email,
                     compact: true,
                   )
-                // Multiple shifts - scrollable list
-                : SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: userShifts.map((shift) {
-                        return SizedBox(
-                          height: 36, // Fixed height per shift block
-                          child: ShiftBlock(
-                            shift: shift,
-                            onTap: () => widget.onShiftTap(shift),
-                            onViewDetails: () => widget.onShiftTap(shift),
-                            onEdit: widget.onEditShift != null 
-                                ? () => widget.onEditShift!(shift)
-                                : null,
-                            onAddShift: () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0)),
-                            teacherEmail: user.email,
-                            compact: true,
-                          ),
-                        );
-                      }).toList(),
+                // Multiple shifts - scrollable list with hover support
+                : MouseRegion(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: userShifts.map((shift) {
+                          return SizedBox(
+                            height: 36, // Fixed height per shift block
+                            child: ShiftBlock(
+                              shift: shift,
+                              onTap: () => widget.onShiftTap(shift),
+                              onViewDetails: () => widget.onShiftTap(shift),
+                              onEdit: widget.onEditShift != null 
+                                  ? () => widget.onEditShift!(shift)
+                                  : null,
+                              onAddShift: () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0)),
+                              teacherEmail: user.email,
+                              compact: true,
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
       ),

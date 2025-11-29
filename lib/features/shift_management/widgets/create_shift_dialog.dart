@@ -97,6 +97,33 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   @override
   void initState() {
     super.initState();
+    
+    // Set initial date and time IMMEDIATELY if provided (before async operations)
+    if (widget.shift == null) {
+      if (widget.initialDate != null) {
+        _shiftDate = widget.initialDate!;
+        AppLogger.debug('CreateShiftDialog: Set initial date in initState: ${widget.initialDate}');
+      }
+      if (widget.initialTime != null) {
+        _startTime = widget.initialTime!;
+        _endTime = TimeOfDay(
+          hour: (_startTime.hour + 1) % 24,
+          minute: _startTime.minute,
+        );
+        AppLogger.debug('CreateShiftDialog: Set initial time in initState: ${widget.initialTime}');
+      }
+      // Set initial category if provided
+      if (widget.initialCategory != null) {
+        _selectedCategory = widget.initialCategory!;
+        AppLogger.debug('CreateShiftDialog: Set initial category in initState: ${widget.initialCategory}');
+      }
+      // Store initial teacher ID to match later (even if we can't match it yet)
+      if (widget.initialTeacherId != null) {
+        _selectedTeacherId = widget.initialTeacherId;
+        AppLogger.debug('CreateShiftDialog: Set initial teacher ID in initState: ${widget.initialTeacherId}');
+      }
+    }
+    
     _loadAvailableUsers();
     _loadAvailableSubjects();
     _initializeFormData();
@@ -242,12 +269,12 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     // But we still need to apply initialTeacherId if provided for new shifts
     if (widget.shift != null) return; // Don't override if editing existing shift
     
-    // Set initial date and time immediately
+    // Date and time are already set in initState(), but ensure they're set here too for safety
     if (mounted) {
       setState(() {
-        if (widget.initialDate != null) {
+        if (widget.initialDate != null && _shiftDate != widget.initialDate) {
           _shiftDate = widget.initialDate!;
-          AppLogger.debug('CreateShiftDialog: Set initial date: ${widget.initialDate}');
+          AppLogger.debug('CreateShiftDialog: Re-applied initial date: ${widget.initialDate}');
         }
         if (widget.initialTime != null) {
           _startTime = widget.initialTime!;
@@ -255,13 +282,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             hour: (_startTime.hour + 1) % 24,
             minute: _startTime.minute,
           );
-          AppLogger.debug('CreateShiftDialog: Set initial time: ${widget.initialTime}');
+          AppLogger.debug('CreateShiftDialog: Re-applied initial time: ${widget.initialTime}');
         }
       });
     }
     
     // Handle teacher pre-selection with retry mechanism
-    if (widget.initialTeacherId != null) {
+    // Only try to match if we haven't already matched it
+    if (widget.initialTeacherId != null && (_selectedTeacherId == null || _selectedTeacherId != widget.initialTeacherId)) {
       AppLogger.debug('CreateShiftDialog: Attempting to pre-select teacher: ${widget.initialTeacherId}');
       
       // Retry mechanism to wait for lists to load
@@ -310,9 +338,13 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           if (_availableLeaders.any((l) => l.email == teacher!.email)) {
             _selectedCategory = ShiftCategory.leadership;
           }
-          _teacherSearchController.text = ''; // Clear search
+          // Set search controller to show teacher name for better UX
+          _teacherSearchController.text = '${teacher!.firstName} ${teacher!.lastName}';
         });
         AppLogger.debug('CreateShiftDialog: Pre-selected teacher: ${teacher.email} (category: $_selectedCategory)');
+        
+        // Update timezone for the selected teacher
+        _updateTimezoneForTeacher(teacher.email);
         
         // Force rebuild to show selection
         await Future.delayed(const Duration(milliseconds: 100));
@@ -321,6 +353,13 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         AppLogger.error('CreateShiftDialog: Could not find teacher ${widget.initialTeacherId} after $retryCount retries');
         AppLogger.debug('CreateShiftDialog: Available teachers: ${_availableTeachers.map((t) => t.email).toList()}');
         AppLogger.debug('CreateShiftDialog: Available leaders: ${_availableLeaders.map((l) => l.email).toList()}');
+        // If we couldn't find the teacher, clear the selection so user can choose manually
+        if (mounted) {
+          setState(() {
+            _selectedTeacherId = null;
+            _teacherSearchController.clear();
+          });
+        }
       }
     }
     
@@ -2511,36 +2550,40 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         }
       }
 
-      final shiftStartLocal = DateTime(
+      // Create DateTime objects in the selected timezone (not system timezone)
+      // This ensures the time components are interpreted in the correct timezone
+      AppLogger.debug('CreateShiftDialog: Admin timezone: $_adminTimezone');
+      AppLogger.debug(
+          'CreateShiftDialog: Selected timezone: $_selectedTimezone');
+      
+      // Create a naive DateTime (year, month, day, hour, minute) that represents
+      // the time in the selected timezone, then convert it to UTC properly
+      final naiveStart = DateTime(
         effectiveDate.year,
         effectiveDate.month,
         effectiveDate.day,
         _startTime.hour,
         _startTime.minute,
       );
-
-      final shiftEndLocal = DateTime(
+      
+      final naiveEnd = DateTime(
         effectiveDate.year,
         effectiveDate.month,
         effectiveDate.day,
         _endTime.hour,
         _endTime.minute,
       );
-
-      // Convert admin's local time to UTC for storage
-      AppLogger.debug('CreateShiftDialog: Admin timezone: $_adminTimezone');
-      AppLogger.debug(
-          'CreateShiftDialog: Selected timezone: $_selectedTimezone');
-      AppLogger.debug('CreateShiftDialog: Local shift start: $shiftStartLocal');
-      AppLogger.debug('CreateShiftDialog: Local shift end: $shiftEndLocal');
+      
+      AppLogger.debug('CreateShiftDialog: Naive shift start: $naiveStart');
+      AppLogger.debug('CreateShiftDialog: Naive shift end: $naiveEnd');
 
       DateTime shiftStart;
       DateTime shiftEnd;
 
-      // Use the selected timezone for conversion
-      shiftStart =
-          TimezoneUtils.convertToUtc(shiftStartLocal, _selectedTimezone);
-      shiftEnd = TimezoneUtils.convertToUtc(shiftEndLocal, _selectedTimezone);
+      // Convert from the selected timezone to UTC
+      // This properly interprets the naive DateTime as being in the selected timezone
+      shiftStart = TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
+      shiftEnd = TimezoneUtils.convertToUtc(naiveEnd, _selectedTimezone);
 
       AppLogger.debug('CreateShiftDialog: Final shift start: $shiftStart');
       AppLogger.debug('CreateShiftDialog: Final shift end: $shiftEnd');
@@ -2613,8 +2656,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                   ? _enhancedRecurrence
                   : null,
           recurrenceEndDate: _recurrenceEndDate,
-          originalLocalStart: shiftStartLocal,
-          originalLocalEnd: shiftEndLocal,
+          originalLocalStart: naiveStart,
+          originalLocalEnd: naiveEnd,
           // NEW: Category and leader role
           category: _selectedCategory,
           leaderRole: _selectedLeaderRole,

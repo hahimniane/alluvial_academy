@@ -192,6 +192,11 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         scheduledDurationMinutes: finalScheduledDurationMinutes,
         employeeNotes: data['employee_notes'] as String?,
         managerNotes: data['manager_notes'] as String?,
+        // Readiness form fields
+        formResponseId: data['form_response_id'] as String?,
+        formCompleted: data['form_completed'] == true || data['form_response_id'] != null,
+        reportedHours: (data['reported_hours'] as num?)?.toDouble(),
+        formNotes: data['form_notes'] as String?,
       );
     } catch (e) {
       AppLogger.error('Error creating timesheet entry for doc ${doc.id}: $e');
