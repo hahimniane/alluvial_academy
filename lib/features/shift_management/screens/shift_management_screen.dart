@@ -6,6 +6,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
@@ -13,6 +14,9 @@ import '../../../core/services/shift_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../widgets/create_shift_dialog.dart';
 import '../widgets/teacher_shift_calendar.dart';
+import '../widgets/compact_shift_header.dart';
+import '../widgets/weekly_schedule_grid.dart';
+import '../widgets/quick_edit_shift_popup.dart';
 import '../../settings/pay_settings_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
@@ -48,12 +52,18 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   // Teacher deletion state
   List<Employee> _availableTeachers = [];
+  List<Employee> _availableLeaders = []; // NEW: For leader schedules
   Map<String, String> _teacherEmailToIdMap = {}; // email -> document ID
   String? _selectedTeacherForDeletion;
 
   // Search functionality
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+
+  // NEW: Week navigation and view state
+  DateTime _currentWeekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+  String _viewMode = 'grid'; // 'list', 'grid', 'week' - default to grid for ConnectTeam style
+  String _scheduleTypeFilter = 'all'; // 'all', 'teachers', 'leaders'
 
   // Filtered shifts
   List<TeachingShift> _filteredAllShifts = [];
@@ -76,6 +86,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       }
 
       final isAdmin = await UserRoleService.isAdmin();
+      final activeRole = await UserRoleService.getActiveRole();
+      
+      AppLogger.debug('ShiftManagement: User ${currentUser.uid} - isAdmin=$isAdmin, activeRole=$activeRole');
 
       if (mounted) {
         setState(() {
@@ -88,6 +101,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         await _loadShiftStatistics();
         if (_isAdmin) {
           await _loadTeachers();
+          await _loadLeaders();
         }
       }
     } catch (e) {
@@ -218,6 +232,23 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
   }
 
+  Future<void> _loadLeaders() async {
+    AppLogger.debug('ShiftManagement: Loading leaders using ShiftService...');
+    try {
+      final leaders = await ShiftService.getAvailableLeaders();
+      AppLogger.debug(
+          'ShiftManagement: ShiftService returned ${leaders.length} leaders');
+
+      if (mounted) {
+        setState(() {
+          _availableLeaders = leaders;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('ShiftManagement: ❌ Error loading leaders: $e');
+    }
+  }
+
   void _categorizeShifts() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -302,86 +333,38 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   // Scroll-friendly tab content: avoids Expanded and gives TabBarView a bounded height
   Widget _buildTabContentScrollable(
       BuildContext context, double viewportHeight) {
-    final tabViewHeight = math.max(420.0, viewportHeight * 0.6);
+    // More height for the tab content - reduced header/stats space
+    final tabViewHeight = math.max(450.0, viewportHeight * 0.75);
 
     return Container(
-      margin: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xffE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Teacher Search Bar
+          // Teacher Search Bar - compact
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
               ),
             ),
+            // Search functionality moved to grid header
             child: Row(
               children: [
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                          _filterShifts();
-                        });
-                      },
-                      style: GoogleFonts.inter(fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'Search by teacher name...',
-                        hintStyle: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: const Color(0xFF9CA3AF),
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: Color(0xFF6B7280),
-                          size: 20,
-                        ),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {
-                                    _searchQuery = '';
-                                    _filterShifts();
-                                  });
-                                },
-                                icon: const Icon(Icons.close,
-                                    size: 18, color: Color(0xFF6B7280)),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (_searchQuery.isNotEmpty) ...[
-                  const SizedBox(width: 12),
+                // Search bar removed - now in grid header
+                if (_searchQuery.isNotEmpty && _viewMode == 'grid') ...[
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -402,66 +385,53 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               ],
             ),
           ),
-          // View toggle + Tabs
+          // View toggle + Tabs - compact
           Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
               children: [
-                // Toggle aligned right
-                Row(
-                  children: [
-                    const Spacer(),
-                    _buildAdminViewToggle(),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TabBar(
-                  controller: _tabController,
-                  labelColor: const Color(0xff0386FF),
-                  unselectedLabelColor: const Color(0xff6B7280),
-                  indicatorColor: const Color(0xff0386FF),
-                  labelStyle: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                // Tabs on the left
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: const Color(0xff0386FF),
+                    unselectedLabelColor: const Color(0xff6B7280),
+                    indicatorColor: const Color(0xff0386FF),
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    labelStyle: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    unselectedLabelStyle: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    tabs: [
+                      Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
+                      Tab(text: 'Today (${_filteredTodayShifts.length})'),
+                      Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
+                      Tab(text: 'Active (${_filteredActiveShifts.length})'),
+                    ],
                   ),
-                  unselectedLabelStyle: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  tabs: [
-                    Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
-                    Tab(text: 'Today (${_filteredTodayShifts.length})'),
-                    Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
-                    Tab(text: 'Active (${_filteredActiveShifts.length})'),
-                  ],
                 ),
+                // Toggle on the right
+                _buildAdminViewToggle(),
               ],
             ),
           ),
+          const Divider(height: 1),
           // Tab contents - fixed, scrollable region
           SizedBox(
             height: tabViewHeight,
             child: TabBarView(
               controller: _tabController,
               children: [
-                _isCalendarView
-                    ? _buildShiftCalendar(_filteredAllShifts)
-                    : _buildShiftDataGrid(_filteredAllShifts),
-                _isCalendarView
-                    ? _buildShiftCalendar(_filteredTodayShifts)
-                    : _buildShiftDataGrid(_filteredTodayShifts),
-                _isCalendarView
-                    ? _buildShiftCalendar(_filteredUpcomingShifts)
-                    : _buildShiftDataGrid(_filteredUpcomingShifts),
-                _isCalendarView
-                    ? _buildShiftCalendar(_filteredActiveShifts)
-                    : _buildShiftDataGrid(_filteredActiveShifts),
+                _buildShiftView(_filteredAllShifts),
+                _buildShiftView(_filteredTodayShifts),
+                _buildShiftView(_filteredUpcomingShifts),
+                _buildShiftView(_filteredActiveShifts),
               ],
             ),
           ),
@@ -482,14 +452,29 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _buildToggleButton(
             icon: Icons.grid_on,
             label: 'Grid',
-            selected: !_isCalendarView,
-            onTap: () => setState(() => _isCalendarView = false),
+            selected: _viewMode == 'grid',
+            onTap: () => setState(() {
+              _viewMode = 'grid';
+              _isCalendarView = false;
+            }),
           ),
           _buildToggleButton(
             icon: Icons.calendar_view_week,
             label: 'Week',
-            selected: _isCalendarView,
-            onTap: () => setState(() => _isCalendarView = true),
+            selected: _viewMode == 'week',
+            onTap: () => setState(() {
+              _viewMode = 'week';
+              _isCalendarView = true;
+            }),
+          ),
+          _buildToggleButton(
+            icon: Icons.view_list,
+            label: 'List',
+            selected: _viewMode == 'list',
+            onTap: () => setState(() {
+              _viewMode = 'list';
+              _isCalendarView = false;
+            }),
           ),
         ],
       ),
@@ -542,9 +527,62 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     );
   }
 
+  Widget _buildCompactHeader() {
+    return CompactShiftHeader(
+      currentWeekStart: _currentWeekStart,
+      onWeekChanged: (newWeekStart) {
+        setState(() {
+          _currentWeekStart = newWeekStart;
+        });
+      },
+      onViewOptionSelected: (value) {
+        setState(() {
+          if (value == 'grid' || value == 'week' || value == 'list') {
+            _viewMode = value;
+          } else if (value == 'teachers' || value == 'leaders' || value == 'all') {
+            _scheduleTypeFilter = value;
+          }
+        });
+      },
+      onActionSelected: (value) async {
+        if (value == 'subjects') {
+          showDialog(
+            context: context,
+            builder: (context) => const SubjectManagementDialog(),
+          ).then((_) => _loadShiftData());
+        } else if (value == 'pay') {
+          showDialog(
+            context: context,
+            builder: (context) => const PaySettingsDialog(),
+          );
+        } else if (value == 'dst') {
+          _showDSTAdjustmentDialog();
+        } else if (value == 'select') {
+          _toggleSelectionMode();
+        } else if (value == 'delete_teacher') {
+          _showTeacherSearchDialog();
+        } else if (value == 'duplicate_week') {
+          _showDuplicateWeekDialog();
+        }
+      },
+      onAddSelected: (value) {
+        if (value == 'teacher_shift') {
+          _showCreateShiftDialog(category: ShiftCategory.teaching);
+        } else if (value == 'leader_shift') {
+          _showCreateShiftDialog(category: ShiftCategory.leadership);
+        }
+      },
+      onRefresh: () {
+        _loadShiftData();
+        _loadShiftStatistics();
+      },
+      isAdmin: _isAdmin,
+    );
+  }
+
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -554,44 +592,36 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: const Color(0xff0386FF).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.schedule,
               color: Color(0xff0386FF),
-              size: 32,
+              size: 22,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             _isAdmin ? 'Shift Management' : 'My Shifts',
                             style: GoogleFonts.inter(
-                              fontSize: 28,
+                              fontSize: 20,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xff111827),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _isAdmin
-                                ? 'Manage Islamic education teaching shifts and schedules'
-                                : 'View your assigned teaching shifts and schedules',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              color: const Color(0xff6B7280),
                             ),
                           ),
                         ],
@@ -822,48 +852,75 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   Widget _buildStatsCards() {
     if (_isLoading) {
       return const Padding(
-        padding: EdgeInsets.all(24),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Center(child: CircularProgressIndicator()),
       );
     }
 
+    // Compact stats row - single line
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Expanded(
-            child: _buildStatCard(
-              'Total Shifts',
-              '${_shiftStats['total_shifts'] ?? 0}',
-              Icons.event,
-              const Color(0xff0386FF),
+          _buildCompactStatChip(
+            'Total',
+            '${_shiftStats['total_shifts'] ?? 0}',
+            Icons.event,
+            const Color(0xff0386FF),
+          ),
+          const SizedBox(width: 8),
+          _buildCompactStatChip(
+            'Active',
+            '${_shiftStats['active_shifts'] ?? 0}',
+            Icons.play_circle_fill,
+            const Color(0xff10B981),
+          ),
+          const SizedBox(width: 8),
+          _buildCompactStatChip(
+            'Today',
+            '${_shiftStats['today_shifts'] ?? 0}',
+            Icons.today,
+            const Color(0xffF59E0B),
+          ),
+          const SizedBox(width: 8),
+          _buildCompactStatChip(
+            'Upcoming',
+            '${_shiftStats['upcoming_shifts'] ?? 0}',
+            Icons.upcoming,
+            const Color(0xff8B5CF6),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactStatChip(
+      String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            '$title: ',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: color,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildStatCard(
-              'Active Now',
-              '${_shiftStats['active_shifts'] ?? 0}',
-              Icons.play_circle_fill,
-              const Color(0xff10B981),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildStatCard(
-              'Today',
-              '${_shiftStats['today_shifts'] ?? 0}',
-              Icons.today,
-              const Color(0xffF59E0B),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildStatCard(
-              'Upcoming',
-              '${_shiftStats['upcoming_shifts'] ?? 0}',
-              Icons.upcoming,
-              const Color(0xff8B5CF6),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],
@@ -874,31 +931,32 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   Widget _buildStatCard(
       String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xffE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 24),
+              Icon(icon, color: color, size: 18),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'Live',
@@ -951,91 +1009,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         ),
         child: Column(
           children: [
-            // Teacher Search Bar
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                            _filterShifts();
-                          });
-                        },
-                        style: GoogleFonts.inter(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Search by teacher name...',
-                          hintStyle: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: const Color(0xFF9CA3AF),
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: Color(0xFF6B7280),
-                            size: 20,
-                          ),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _searchQuery = '';
-                                      _filterShifts();
-                                    });
-                                  },
-                                  icon: const Icon(
-                                    Icons.clear,
-                                    color: Color(0xFF6B7280),
-                                    size: 18,
-                                  ),
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_searchQuery.isNotEmpty) ...[
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0386FF).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        '${_getFilteredShiftsCount()} results',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF0386FF),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Search functionality moved to grid header - removed duplicate search bar
             Container(
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
@@ -1077,6 +1051,135 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildShiftView(List<TeachingShift> shifts) {
+    // Apply schedule type filter
+    final filteredShifts = _applyScheduleTypeFilter(shifts);
+    
+    // Debug output
+    AppLogger.debug('ShiftManagement: _buildShiftView called with viewMode=$_viewMode, isAdmin=$_isAdmin, shifts=${shifts.length}');
+    
+    // Switch between view modes
+    if (_viewMode == 'grid') {
+      AppLogger.debug('ShiftManagement: Rendering WeeklyScheduleGrid');
+      return _buildWeeklyScheduleGrid(filteredShifts);
+    } else if (_viewMode == 'week') {
+      AppLogger.debug('ShiftManagement: Rendering Calendar');
+      return _buildShiftCalendar(filteredShifts);
+    } else {
+      AppLogger.debug('ShiftManagement: Rendering DataGrid (list view)');
+      // Default to list view
+      return _buildShiftDataGrid(filteredShifts);
+    }
+  }
+
+  List<TeachingShift> _applyScheduleTypeFilter(List<TeachingShift> shifts) {
+    if (_scheduleTypeFilter == 'all') {
+      return shifts;
+    } else if (_scheduleTypeFilter == 'teachers') {
+      return shifts.where((s) => s.category == ShiftCategory.teaching).toList();
+    } else if (_scheduleTypeFilter == 'leaders') {
+      return shifts.where((s) => s.category != ShiftCategory.teaching).toList();
+    }
+    return shifts;
+  }
+
+  Widget _buildWeeklyScheduleGrid(List<TeachingShift> shifts) {
+    // Filter shifts to current week
+    final weekEnd = _currentWeekStart.add(const Duration(days: 6));
+    final weekShifts = shifts.where((shift) {
+      final shiftDate = DateTime(
+        shift.shiftStart.year,
+        shift.shiftStart.month,
+        shift.shiftStart.day,
+      );
+      return shiftDate.isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
+          shiftDate.isBefore(weekEnd.add(const Duration(days: 1)));
+    }).toList();
+
+    return WeeklyScheduleGrid(
+      weekStart: _currentWeekStart,
+      shifts: weekShifts,
+      teachers: _availableTeachers,
+      leaders: _availableLeaders,
+      scheduleTypeFilter: _scheduleTypeFilter,
+      searchQuery: _searchQuery,
+      onSearchChanged: (query) {
+        setState(() {
+          _searchQuery = query;
+          _filterShifts();
+        });
+      },
+      onShiftTap: _showShiftDetails,
+      onEditShift: _editShift,
+      onCreateShift: (userId, date, time) {
+        // Open create shift dialog with pre-filled teacher
+        _showCreateShiftDialogWithPrefill(
+          userId: userId, 
+          date: date, 
+          time: time,
+          category: _scheduleTypeFilter == 'leaders' 
+              ? ShiftCategory.leadership 
+              : ShiftCategory.teaching,
+        );
+      },
+      onUserTap: (email) {
+        // Filter shifts by user
+        setState(() {
+          _searchQuery = email;
+          _filterShifts();
+        });
+      },
+    );
+  }
+
+  void _showCreateShiftDialogWithPrefill({
+    required String userId, // This is the user email
+    required DateTime date,
+    required TimeOfDay time,
+    ShiftCategory? category,
+  }) {
+    // Find the teacher/leader by email to get their ID
+    Employee? teacher;
+    try {
+      teacher = _availableTeachers.firstWhere(
+        (t) => t.email == userId,
+      );
+    } catch (e) {
+      try {
+        teacher = _availableLeaders.firstWhere(
+          (l) => l.email == userId,
+        );
+      } catch (e2) {
+        AppLogger.error('ShiftManagement: Teacher/leader not found: $userId');
+      }
+    }
+    
+    if (teacher == null) {
+      // Fallback: show dialog without pre-selection
+      _showCreateShiftDialog(category: category);
+      return;
+    }
+    
+    // Use email directly as initialTeacherId - the dialog will match by email
+    // This is more reliable than using documentId
+    AppLogger.debug('ShiftManagement: Pre-filling shift dialog with teacher: ${teacher.email}');
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => CreateShiftDialog(
+        initialTeacherId: teacher!.email, // Use email directly for better matching
+        initialDate: date,
+        initialTime: time,
+        initialCategory: category, // Pass category to pre-select shift type
+        onShiftCreated: () {
+          _loadShiftData();
+          _loadShiftStatistics();
+        },
       ),
     );
   }
@@ -1278,7 +1381,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     );
   }
 
-  void _showCreateShiftDialog() {
+  void _showCreateShiftDialog({ShiftCategory? category}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1287,6 +1390,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _loadShiftData();
           _loadShiftStatistics();
         },
+        initialCategory: category, // Pass category to pre-select shift type
       ),
     );
   }
@@ -1299,6 +1403,25 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   void _editShift(TeachingShift shift) {
+    // Use quick edit popup for faster editing
+    showDialog(
+      context: context,
+      builder: (context) => QuickEditShiftPopup(
+        shift: shift,
+        onSaved: () {
+          _loadShiftData();
+          _loadShiftStatistics();
+        },
+        onDeleted: () {
+          _loadShiftData();
+          _loadShiftStatistics();
+        },
+        onOpenFullEditor: () => _openFullShiftEditor(shift),
+      ),
+    );
+  }
+
+  void _openFullShiftEditor(TeachingShift shift) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1789,6 +1912,181 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
   }
 
+  Future<void> _showDuplicateWeekDialog() async {
+    DateTime targetWeekStart = _currentWeekStart.add(const Duration(days: 7));
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff0386FF).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.copy_all,
+                  color: Color(0xff0386FF),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Duplicate Week',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Copy all shifts from current week to another week.',
+                style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff6B7280)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Source Week:',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF3F4F6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${DateFormat('MMM d').format(_currentWeekStart)} - ${DateFormat('MMM d, yyyy').format(_currentWeekStart.add(const Duration(days: 6)))}',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Target Week:',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: targetWeekStart,
+                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    final monday = date.subtract(Duration(days: date.weekday - 1));
+                    setDialogState(() => targetWeekStart = monday);
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xffD1D5DB)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${DateFormat('MMM d').format(targetWeekStart)} - ${DateFormat('MMM d, yyyy').format(targetWeekStart.add(const Duration(days: 6)))}',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.calendar_today, size: 18, color: Color(0xff6B7280)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xffD97706), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This will duplicate all shifts (${_getFilteredShiftsForCurrentWeek().length} shifts)',
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xffD97706)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _performDuplicateWeek(targetWeekStart);
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Duplicate'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<TeachingShift> _getFilteredShiftsForCurrentWeek() {
+    final weekEnd = _currentWeekStart.add(const Duration(days: 7));
+    return _allShifts.where((shift) {
+      return shift.shiftStart.isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
+             shift.shiftStart.isBefore(weekEnd);
+    }).toList();
+  }
+
+  Future<void> _performDuplicateWeek(DateTime targetWeekStart) async {
+    setState(() => _isLoading = true);
+    try {
+      final count = await ShiftService.duplicateWeek(_currentWeekStart, targetWeekStart);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Duplicated $count shifts to week of ${DateFormat('MMM d').format(targetWeekStart)}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadShiftData();
+        _loadShiftStatistics();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _showDSTAdjustmentDialog() async {
     // Show confirmation dialog for DST adjustment
     showDialog(
@@ -2244,9 +2542,9 @@ class ShiftDataSource extends DataGridSource {
         DataGridCell<String>(columnName: 'shiftName', value: shift.displayName),
         DataGridCell<String>(columnName: 'teacher', value: shift.teacherName),
         DataGridCell<String>(
-            columnName: 'subject', value: shift.subjectDisplayName),
+            columnName: 'subject', value: _formatSubjectOrRole(shift)),
         DataGridCell<String>(
-            columnName: 'students', value: shift.studentNames.join(', ')),
+            columnName: 'students', value: _formatStudentsOrRole(shift)),
         DataGridCell<String>(
             columnName: 'schedule', value: _formatSchedule(shift)),
         DataGridCell<String>(columnName: 'status', value: shift.status.name),
@@ -2262,6 +2560,50 @@ class ShiftDataSource extends DataGridSource {
     final start = shift.shiftStart;
     final end = shift.shiftEnd;
     return '${start.day}/${start.month}/${start.year} ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')} - ${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatSubjectOrRole(TeachingShift shift) {
+    if (shift.category == ShiftCategory.teaching) {
+      return shift.subjectDisplayName ?? 'General';
+    } else {
+      // For leader shifts, show the role
+      return _formatLeaderRole(shift.leaderRole) ?? 'Leader Duty';
+    }
+  }
+
+  String _formatStudentsOrRole(TeachingShift shift) {
+    if (shift.category == ShiftCategory.teaching) {
+      return shift.studentNames.join(', ');
+    } else {
+      // For leader shifts, show category badge
+      return _getCategoryLabel(shift.category);
+    }
+  }
+
+  String? _formatLeaderRole(String? role) {
+    if (role == null) return null;
+    final roleMap = {
+      'admin': 'Administration',
+      'coordination': 'Coordination',
+      'meeting': 'Meeting',
+      'training': 'Staff Training',
+      'planning': 'Curriculum Planning',
+      'outreach': 'Community Outreach',
+    };
+    return roleMap[role] ?? role;
+  }
+
+  String _getCategoryLabel(ShiftCategory category) {
+    switch (category) {
+      case ShiftCategory.teaching:
+        return 'Teaching';
+      case ShiftCategory.leadership:
+        return 'Leadership';
+      case ShiftCategory.meeting:
+        return 'Meeting';
+      case ShiftCategory.training:
+        return 'Training';
+    }
   }
 
   @override

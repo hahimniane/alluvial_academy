@@ -342,17 +342,12 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Map course title to subject name for enrollment
-                  String subject = title;
-                  if (title == 'Arabic Language') {
-                    subject = 'Arabic';
-                  } else if (title != 'Quran' && title != 'Arabic') {
-                    subject = 'Islamic Studies';
-                  }
+                  // All Islamic courses map to the same enrollment subject
+                  // The mapping function in ProgramSelectionPage will handle it
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ProgramSelectionPage(initialSubject: subject),
+                      builder: (context) => ProgramSelectionPage(initialSubject: title),
                     ),
                   );
                 },

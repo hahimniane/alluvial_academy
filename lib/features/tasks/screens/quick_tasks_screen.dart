@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/enums/task_enums.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../widgets/add_edit_task_dialog.dart';
 import '../widgets/task_details_view.dart';
+import '../widgets/connectteam_task_list.dart';
+import '../widgets/multiple_task_creation_dialog.dart';
 import '../widgets/user_selection_dialog.dart' as task_filters;
 import '../../../core/services/user_role_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -37,6 +40,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   bool _isAdmin = false;
   Stream<List<Task>>? _taskStream;
   bool _isLoading = true;
+  
+  // NEW: Tab navigation and view mode
+  late TabController _tabController;
+  String _viewMode = 'list'; // 'grid' or 'list' - default to list for ConnectTeam style
+  String _groupBy = 'assignee'; // 'none' or 'assignee' - default to assignee for ConnectTeam style
+  String _selectedTab = 'all'; // 'created_by_me', 'my_tasks', 'all', 'archived'
 
   @override
   void initState() {
@@ -46,11 +55,38 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       vsync: this,
     );
     _fabAnimationController.forward();
+    
+    // NEW: Initialize tab controller (5 tabs: created_by_me, my_tasks, all, archived, drafts)
+    _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {
+          _selectedTab = _getTabKey(_tabController.index);
+        });
+      }
+    });
 
     // Start loading immediately and also listen for auth state changes
     _loadUserRoleAndTasks();
     _listenToAuthState();
     _listenToRoleChanges();
+  }
+  
+  String _getTabKey(int index) {
+    switch (index) {
+      case 0:
+        return 'created_by_me';
+      case 1:
+        return 'my_tasks';
+      case 2:
+        return 'all';
+      case 3:
+        return 'archived';
+      case 4:
+        return 'drafts';
+      default:
+        return 'all';
+    }
   }
 
   void _listenToAuthState() {
@@ -144,6 +180,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   @override
   void dispose() {
     _fabAnimationController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -151,28 +188,146 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: CustomScrollView(
-        slivers: [
-          _buildModernAppBar(),
-          SliverToBoxAdapter(child: _buildSearchAndFilters()),
-          _buildTaskGrid(),
+      body: Column(
+        children: [
+          // NEW: Tab navigation
+          _buildTabBar(),
+          // NEW: Toolbar with view toggle and filters
+          _buildToolbar(),
+          // Task content
+          Expanded(
+            child: StreamBuilder<List<Task>>(
+              stream: _taskStream,
+              builder: (context, snapshot) {
+                if (_isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return _buildNoResultsState();
+                }
+
+                var tasks = _filterTasks(snapshot.data!);
+                tasks = _applyTabFilter(tasks);
+                
+                // Pre-fetch all user names for assignees
+                _prefetchUserNamesForTasks(tasks);
+
+                if (tasks.isEmpty) {
+                  return _buildNoResultsState();
+                }
+
+                // Calculate task summary statistics
+                final totalTasks = tasks.length;
+                final openTasks = tasks.where((t) => t.status == TaskStatus.todo || t.status == TaskStatus.inProgress).length;
+                final doneTasks = tasks.where((t) => t.status == TaskStatus.done).length;
+
+                // Switch between grid and list view
+                return Column(
+                  children: [
+                    // Task summary statistics (ConnectTeam style)
+                    _buildTaskSummary(totalTasks, openTasks, doneTasks),
+                    const SizedBox(height: 16),
+                    // Task list
+                    Expanded(
+                      child: _viewMode == 'list'
+                          ? _buildGroupedTaskList(tasks)
+                          : _buildTaskGridView(tasks),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
       ),
       // Only show floating action button for admins
       floatingActionButton: _isAdmin
           ? ScaleTransition(
               scale: _fabAnimationController,
-              child: FloatingActionButton.extended(
-                heroTag: "addTaskFAB", // Unique hero tag to avoid conflicts
-                onPressed: () => _showAddEditTaskDialog(),
-                backgroundColor: const Color(0xff0386FF),
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('New Task',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
-                elevation: 8,
+              child: PopupMenuButton<String>(
+                offset: const Offset(0, -60),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff0386FF),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xff0386FF).withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Add Task',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
+                    ],
+                  ),
+                ),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'single',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.add_task, color: Color(0xff0386FF), size: 20),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Add single task',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'multiple',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.add_circle_outline, color: Color(0xff0386FF), size: 20),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Add multiple tasks',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'single') {
+                    _showAddEditTaskDialog();
+                  } else if (value == 'multiple') {
+                    _showMultipleTaskCreationDialog();
+                  }
+                },
               ),
             )
           : null,
@@ -206,6 +361,367 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
         ),
       ),
+    );
+  }
+
+  /// NEW: Tab bar for task filtering (ConnectTeam style with counts)
+  Widget _buildTabBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xffE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          // Icon + Title
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xff0386FF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.task_alt, color: Color(0xff0386FF), size: 22),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Quick Tasks',
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(width: 32),
+          // Tabs with counts
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildTabWithCount('Tasks Created By Me', 'created_by_me', 0),
+                  _buildTabWithCount('My Tasks', 'my_tasks', 1),
+                  _buildTabWithCount('All Tasks', 'all', 2),
+                  _buildTabWithCount('Archived', 'archived', 3),
+                  _buildTabWithCount('Drafts', 'drafts', 4),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabWithCount(String label, String tabKey, int index) {
+    final isSelected = _selectedTab == tabKey;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTab = tabKey;
+          _tabController.animateTo(index);
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xff0386FF).withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? const Color(0xff0386FF) : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: isSelected ? const Color(0xff0386FF) : const Color(0xff6B7280),
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, String tabKey, int index) {
+    final isSelected = _selectedTab == tabKey;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTab = tabKey;
+          _tabController.animateTo(index);
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xff0386FF) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// NEW: Toolbar with view toggle and filters (ConnectTeam style)
+  Widget _buildToolbar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xffE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          // View toggle
+          _buildViewToggle(),
+          const SizedBox(width: 12),
+          // Group By dropdown
+          _buildGroupByDropdown(),
+          const SizedBox(width: 12),
+          // Date filter
+          _buildDateFilter(),
+          const Spacer(),
+          // Search
+          Container(
+            width: 200,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xffF3F4F6),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xffE5E7EB)),
+            ),
+            child: TextField(
+              onChanged: (value) => setState(() => _searchQuery = value),
+              decoration: InputDecoration(
+                hintText: 'Search',
+                hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF), fontSize: 13),
+                prefixIcon: const Icon(Icons.search, color: Color(0xff9CA3AF), size: 18),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Overdue badge
+          _buildOverdueBadge(),
+          const SizedBox(width: 12),
+          // Add Task button
+          if (_isAdmin)
+            ElevatedButton.icon(
+              onPressed: () => _showAddEditTaskDialog(),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('Add Task', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupByDropdown() {
+    return PopupMenuButton<String>(
+      onSelected: (value) => setState(() => _groupBy = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xffE5E7EB)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Group by',
+              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff6B7280)),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _groupBy == 'none' ? 'None' : (_groupBy == 'assignee' ? 'Assigned to' : _groupBy),
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xff6B7280)),
+          ],
+        ),
+      ),
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'none', child: Text('None')),
+        const PopupMenuItem(value: 'assignee', child: Text('Assigned to')),
+        const PopupMenuItem(value: 'status', child: Text('Status')),
+        const PopupMenuItem(value: 'priority', child: Text('Priority')),
+      ],
+    );
+  }
+
+  Widget _buildDateFilter() {
+    return InkWell(
+      onTap: () async {
+        final range = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+          initialDateRange: _dueDateRange,
+        );
+        if (range != null) {
+          setState(() => _dueDateRange = range);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xffE5E7EB)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today, size: 16, color: Color(0xff6B7280)),
+            const SizedBox(width: 8),
+            Text(
+              _dueDateRange != null
+                  ? '${DateFormat('M/d').format(_dueDateRange!.start)} to ${DateFormat('M/d').format(_dueDateRange!.end)}'
+                  : 'Dates',
+              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff374151)),
+            ),
+            if (_dueDateRange != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: InkWell(
+                  onTap: () => setState(() => _dueDateRange = null),
+                  child: const Icon(Icons.close, size: 16, color: Color(0xff9CA3AF)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() {
+              _viewMode = 'list';
+              // Auto-set groupBy to assignee for ConnectTeam-style list view
+              if (_groupBy == 'none') {
+                _groupBy = 'assignee';
+              }
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _viewMode == 'list' ? const Color(0xff0386FF) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.view_list,
+                size: 18,
+                color: _viewMode == 'list' ? Colors.white : Colors.grey.shade600,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _viewMode = 'grid'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _viewMode == 'grid' ? const Color(0xff0386FF) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.grid_view,
+                size: 18,
+                color: _viewMode == 'grid' ? Colors.white : Colors.grey.shade600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverdueBadge() {
+    return StreamBuilder<List<Task>>(
+      stream: _taskStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+        
+        final overdueTasks = snapshot.data!.where((task) {
+          if (task.isArchived || task.status == TaskStatus.done) return false;
+          return task.dueDate != null && task.dueDate!.isBefore(DateTime.now());
+        }).length;
+        
+        if (overdueTasks == 0) return const SizedBox.shrink();
+        
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.red.shade100,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade700),
+              const SizedBox(width: 4),
+              Text(
+                '$overdueTasks overdue',
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// NEW: Task grid view (existing card-based layout)
+  Widget _buildTaskGridView(List<Task> tasks) {
+    if (tasks.isEmpty) {
+      return _buildNoResultsState();
+    }
+    
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        return _buildModernTaskCard(tasks[index]);
+      },
     );
   }
 
@@ -667,9 +1183,31 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     return '${names.first} +${names.length - 1}';
   }
 
+  /// Pre-fetch all user names for tasks to avoid showing user IDs
+  void _prefetchUserNamesForTasks(List<Task> tasks) {
+    // Collect all unique user IDs from tasks
+    final userIds = <String>{};
+    for (final task in tasks) {
+      userIds.addAll(task.assignedTo);
+      if (task.createdBy.isNotEmpty) {
+        userIds.add(task.createdBy);
+      }
+    }
+    
+    // Fetch names for IDs we don't have yet
+    for (final userId in userIds) {
+      if (userId.isNotEmpty && 
+          !_userIdToName.containsKey(userId) && 
+          !_fetchingUserIds.contains(userId)) {
+        _fetchUserNameIfMissing(userId);
+      }
+    }
+  }
+
   void _fetchUserNameIfMissing(String userId) async {
     if (_userIdToName.containsKey(userId) ||
-        _fetchingUserIds.contains(userId)) {
+        _fetchingUserIds.contains(userId) ||
+        userId.isEmpty) {
       return;
     }
     _fetchingUserIds.add(userId);
@@ -683,11 +1221,34 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         final fullName =
             '${(d['first_name'] ?? '').toString().trim()} ${(d['last_name'] ?? '').toString().trim()}'
                 .trim();
-        setState(() => _userIdToName[userId] =
-            fullName.isNotEmpty ? fullName : (d['e-mail'] ?? userId));
+        final email = d['e-mail'] ?? d['email'] ?? '';
+        
+        // Use full name, or email username, or user ID as last resort
+        String displayName;
+        if (fullName.isNotEmpty) {
+          displayName = fullName;
+        } else if (email.isNotEmpty && email.contains('@')) {
+          // Extract name from email (e.g., john.doe@email.com -> John Doe)
+          final emailParts = email.split('@')[0].split('.');
+          displayName = emailParts.map((s) => s.isEmpty ? '' : s[0].toUpperCase() + s.substring(1)).join(' ');
+        } else {
+          displayName = 'User ${userId.substring(0, 6)}...';
+        }
+        
+        if (mounted) {
+          setState(() => _userIdToName[userId] = displayName);
+        }
+      } else {
+        // User document doesn't exist, use a fallback
+        if (mounted) {
+          setState(() => _userIdToName[userId] = 'Unknown User');
+        }
       }
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      // On error, set a fallback name
+      if (mounted) {
+        setState(() => _userIdToName[userId] = 'User');
+      }
     } finally {
       _fetchingUserIds.remove(userId);
     }
@@ -996,6 +1557,34 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
+  List<Task> _applyTabFilter(List<Task> tasks) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return tasks;
+
+    switch (_selectedTab) {
+      case 'created_by_me':
+        return tasks.where((t) => 
+            t.createdBy == currentUser.uid && 
+            !t.isArchived && 
+            !t.isDraft).toList();
+      case 'my_tasks':
+        return tasks.where((t) => 
+            t.assignedTo.contains(currentUser.uid) && 
+            !t.isArchived &&
+            !t.isDraft).toList();
+      case 'archived':
+        return tasks.where((t) => t.isArchived).toList();
+      case 'drafts':
+        return tasks.where((t) => 
+            t.isDraft && 
+            !t.isArchived &&
+            t.createdBy == currentUser.uid).toList(); // Only show drafts created by current user
+      case 'all':
+      default:
+        return tasks.where((t) => !t.isArchived && !t.isDraft).toList();
+    }
+  }
+
   List<Task> _filterTasks(List<Task> tasks) {
     var filteredTasks = tasks;
 
@@ -1112,26 +1701,31 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
   Widget _buildCardHeader(Task task) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Priority pill at top left (ConnectTeam style)
         _buildPriorityIndicator(task.priority),
         const Spacer(),
+        // Actions at top right
         _buildTaskActions(task),
       ],
     );
   }
 
   Widget _buildPriorityIndicator(TaskPriority priority) {
+    // ConnectTeam style: pill-shaped, colored background
+    final color = _getPriorityColor(priority);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _getPriorityColor(priority).withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
+        color: color,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         _getPriorityLabel(priority),
-        style: TextStyle(
-          color: _getPriorityColor(priority),
-          fontSize: 12,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -1502,6 +2096,485 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
+  // NEW: Task summary statistics (ConnectTeam style)
+  Widget _buildTaskSummary(int totalTasks, int openTasks, int doneTasks) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xffE5E7EB),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'The view contains',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: const Color(0xff6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xff111827).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$totalTasks task${totalTasks == 1 ? '' : 's'} in total',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff111827),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xff0386FF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$openTasks open task${openTasks == 1 ? '' : 's'}',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff0386FF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xff10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$doneTasks done task${doneTasks == 1 ? '' : 's'}',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff10B981),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Grouped task list using ConnectTeam-style component
+  Widget _buildGroupedTaskList(List<Task> tasks) {
+    return ConnectTeamTaskList(
+      tasks: tasks,
+      groupBy: _groupBy,
+      onTaskTap: (task) => _showTaskDetailsDialog(task),
+      onTaskStatusChange: (task) async {
+        final newStatus = task.status == TaskStatus.done 
+            ? TaskStatus.todo 
+            : TaskStatus.done;
+        await _taskService.updateTask(task.id, task.copyWith(status: newStatus));
+      },
+      onAddTask: (assigneeId) => _showAddEditTaskDialog(preSelectedAssignee: assigneeId),
+      userIdToName: _userIdToName,
+    );
+  }
+
+  Widget _buildGroupedByAssignee(List<Task> tasks) {
+    // Group tasks by assignee
+    final grouped = <String, List<Task>>{};
+    for (final task in tasks) {
+      if (task.assignedTo.isEmpty) {
+        // Unassigned tasks
+        grouped.putIfAbsent('unassigned', () => []).add(task);
+      } else {
+        for (final assigneeId in task.assignedTo) {
+          grouped.putIfAbsent(assigneeId, () => []).add(task);
+        }
+      }
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: grouped.length,
+      itemBuilder: (context, index) {
+        final assigneeId = grouped.keys.elementAt(index);
+        final assigneeTasks = grouped[assigneeId]!;
+        final completedCount = assigneeTasks.where((t) => t.status == TaskStatus.done).length;
+        
+        return _buildAssigneeGroup(
+          assigneeId: assigneeId,
+          tasks: assigneeTasks,
+          completedCount: completedCount,
+        );
+      },
+    );
+  }
+
+  Widget _buildAssigneeGroup({
+    required String assigneeId,
+    required List<Task> tasks,
+    required int completedCount,
+  }) {
+    return Column(
+      children: [
+        // Assignee Header
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: const Color(0xffF9FAFB),
+          child: Row(
+            children: [
+              Checkbox(value: false, onChanged: null), // Multi-select placeholder
+              const SizedBox(width: 8),
+              _buildUserAvatar(assigneeId),
+              const SizedBox(width: 12),
+              FutureBuilder<String>(
+                future: _getUserName(assigneeId),
+                builder: (context, snapshot) {
+                  return Text(
+                    snapshot.data ?? (assigneeId == 'unassigned' ? 'Unassigned' : 'Loading...'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
+              // Progress indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                ),
+                child: Text(
+                  '⟳ $completedCount/${tasks.length} Done',
+                  style: const TextStyle(fontSize: 12, color: Color(0xff6B7280)),
+                ),
+              ),
+              const Spacer(),
+              // Table headers
+              _buildTableHeader('Status', 80),
+              _buildTableHeader('Sub-tasks', 80),
+              _buildTableHeader('Label', 100),
+              _buildTableHeader('Start date', 120),
+              _buildTableHeader('Due date', 120),
+            ],
+          ),
+        ),
+        // Task rows
+        ...tasks.map((task) => _buildTaskRow(task)),
+        // Add task button
+        if (_isAdmin) _buildAddTaskRow(assigneeId),
+      ],
+    );
+  }
+
+  Widget _buildUserAvatar(String userId) {
+    if (userId == 'unassigned') {
+      return const CircleAvatar(
+        radius: 20,
+        backgroundColor: Color(0xffE2E8F0),
+        child: Icon(Icons.person_outline, size: 20, color: Color(0xff6B7280)),
+      );
+    }
+    
+    return FutureBuilder<String>(
+      future: _getUserName(userId),
+      builder: (context, snapshot) {
+        final name = snapshot.data ?? '';
+        final initials = name.isNotEmpty 
+            ? name.split(' ').map((n) => n[0]).take(2).join().toUpperCase()
+            : userId.substring(0, 2).toUpperCase();
+        
+        return CircleAvatar(
+          radius: 20,
+          backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+          child: Text(
+            initials,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xff0386FF),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<String> _getUserName(String userId) async {
+    if (userId == 'unassigned') return 'Unassigned';
+    if (_userIdToName.containsKey(userId)) {
+      return _userIdToName[userId]!;
+    }
+    
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        final firstName = data['first_name'] ?? '';
+        final lastName = data['last_name'] ?? '';
+        final name = '$firstName $lastName'.trim();
+        _userIdToName[userId] = name;
+        return name;
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching user name: $e');
+    }
+    
+    return userId;
+  }
+
+  Widget _buildTableHeader(String text, double width) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xff6B7280),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskRow(Task task) {
+    final isOverdue = task.dueDate.isBefore(DateTime.now()) && 
+                      task.status != TaskStatus.done;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: task.status == TaskStatus.done,
+            onChanged: (value) {
+              // Toggle task status
+              _toggleTaskStatus(task, value ?? false);
+            },
+          ),
+          const SizedBox(width: 8),
+          // Priority indicator
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _getPriorityColor(task.priority),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Task title and details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        task.title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    // Status badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(task.status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        task.status.name.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _getStatusColor(task.status),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    // Sub-tasks count (placeholder)
+                    const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    const SizedBox(width: 16),
+                    // Label (placeholder)
+                    const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    const SizedBox(width: 16),
+                    // Start date
+                    if (task.startDate != null)
+                      Text(
+                        DateFormat('M/d').format(task.startDate!),
+                        style: const TextStyle(fontSize: 12, color: Color(0xff6B7280)),
+                      )
+                    else
+                      const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    const SizedBox(width: 8),
+                    const Text('→', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    const SizedBox(width: 8),
+                    // Due date
+                    Text(
+                      DateFormat('M/d').format(task.dueDate),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isOverdue ? Colors.red : const Color(0xff6B7280),
+                        fontWeight: isOverdue ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                    if (isOverdue)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Text(
+                          '(overdue)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.red,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddTaskRow(String assigneeId) {
+    return InkWell(
+      onTap: () => _showAddEditTaskDialog(preSelectedAssignee: assigneeId),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.add_circle_outline, color: Color(0xff0386FF)),
+            SizedBox(width: 8),
+            Text(
+              'Add task',
+              style: TextStyle(
+                color: Color(0xff0386FF),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimpleTaskList(List<Task> tasks) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        return _buildTaskRow(tasks[index]);
+      },
+    );
+  }
+
+  Color _getPriorityColor(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.low:
+        return Colors.green;
+      case TaskPriority.medium:
+        return Colors.orange;
+      case TaskPriority.high:
+        return Colors.red;
+    }
+  }
+
+  Color _getStatusColor(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.todo:
+        return Colors.grey;
+      case TaskStatus.inProgress:
+        return Colors.blue;
+      case TaskStatus.done:
+        return Colors.green;
+    }
+  }
+
+  Future<void> _toggleTaskStatus(Task task, bool isDone) async {
+    try {
+      final updatedTask = task.copyWith(
+        status: isDone ? TaskStatus.done : TaskStatus.todo,
+      );
+      await _taskService.updateTask(task.id, updatedTask);
+    } catch (e) {
+      AppLogger.error('Error toggling task status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating task: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _archiveTask(Task task) async {
+    try {
+      await _taskService.archiveTask(task.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task archived')),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error archiving task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error archiving task: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _unarchiveTask(Task task) async {
+    try {
+      await _taskService.unarchiveTask(task.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task unarchived')),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error unarchiving task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error unarchiving task: $e')),
+        );
+      }
+    }
+  }
+
   // Helper methods
   int _getCrossAxisCount(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -1552,33 +2625,29 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
   }
 
-  Color _getStatusColor(TaskStatus status) {
-    switch (status) {
-      case TaskStatus.todo:
-        return const Color(0xFF3B82F6);
-      case TaskStatus.inProgress:
-        return const Color(0xFF8B5CF6);
-      case TaskStatus.done:
-        return const Color(0xFF10B981);
-    }
-  }
-
-  Color _getPriorityColor(TaskPriority priority) {
-    switch (priority) {
-      case TaskPriority.low:
-        return const Color(0xFF10B981);
-      case TaskPriority.medium:
-        return const Color(0xFFF59E0B);
-      case TaskPriority.high:
-        return const Color(0xFFEF4444);
-    }
-  }
-
-  void _showAddEditTaskDialog({Task? task}) {
+  void _showAddEditTaskDialog({Task? task, String? preSelectedAssignee}) {
     showDialog(
       context: context,
-      builder: (context) => AddEditTaskDialog(task: task),
-    );
+      builder: (context) => AddEditTaskDialog(
+        task: task,
+        preSelectedAssignee: preSelectedAssignee,
+      ),
+    ).then((_) {
+      // Reload tasks after dialog closes
+      _loadUserRoleAndTasks();
+    });
+  }
+
+  void _showMultipleTaskCreationDialog({List<String>? preSelectedAssignees}) {
+    showDialog(
+      context: context,
+      builder: (context) => MultipleTaskCreationDialog(
+        preSelectedAssignees: preSelectedAssignees,
+      ),
+    ).then((_) {
+      // Reload tasks after dialog closes
+      _loadUserRoleAndTasks();
+    });
   }
 
   void _showTaskDetailsDialog(Task task) {

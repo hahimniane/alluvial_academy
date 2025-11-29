@@ -6,6 +6,7 @@ import 'dart:async';  // For asynchronous operations and timers
 import '../../../core/services/shift_timesheet_service.dart';  // Shift/timesheet operations
 import '../../../core/services/location_service.dart';  // Location handling
 import '../../../core/models/teaching_shift.dart';  // Shift data model
+import '../../../core/utils/platform_utils.dart';  // Platform detection
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';  // Logging utility
 
@@ -193,10 +194,12 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
       );
 
       // Perform clock-out operation
+      final platform = PlatformUtils.detectPlatform();
       final result = await ShiftTimesheetService.clockOutFromShift(
         user.uid,
         _currentShift!.id,
         location: location,
+        platform: platform,
       );
 
       if (result['success']) {

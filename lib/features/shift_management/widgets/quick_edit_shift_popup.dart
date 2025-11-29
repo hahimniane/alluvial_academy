@@ -1,0 +1,420 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/services/shift_service.dart';
+import '../../../core/enums/shift_enums.dart';
+import '../../../core/utils/app_logger.dart';
+
+/// Quick edit popup for modifying shift times and basic info
+/// More streamlined than the full CreateShiftDialog
+class QuickEditShiftPopup extends StatefulWidget {
+  final TeachingShift shift;
+  final VoidCallback onSaved;
+  final VoidCallback onDeleted;
+  final VoidCallback onOpenFullEditor;
+
+  const QuickEditShiftPopup({
+    super.key,
+    required this.shift,
+    required this.onSaved,
+    required this.onDeleted,
+    required this.onOpenFullEditor,
+  });
+
+  @override
+  State<QuickEditShiftPopup> createState() => _QuickEditShiftPopupState();
+}
+
+class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
+  late DateTime _shiftDate;
+  late TimeOfDay _startTime;
+  late TimeOfDay _endTime;
+  late TextEditingController _notesController;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _shiftDate = DateTime(
+      widget.shift.shiftStart.year,
+      widget.shift.shiftStart.month,
+      widget.shift.shiftStart.day,
+    );
+    _startTime = TimeOfDay.fromDateTime(widget.shift.shiftStart);
+    _endTime = TimeOfDay.fromDateTime(widget.shift.shiftEnd);
+    _notesController = TextEditingController(text: widget.shift.notes ?? '');
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        width: 380,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff0386FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.edit_calendar,
+                    color: Color(0xff0386FF),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Quick Edit',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                      Text(
+                        widget.shift.displayName,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff6B7280),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, size: 20),
+                  splashRadius: 16,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            
+            // Teacher info (read-only)
+            _buildInfoRow(
+              'Teacher',
+              widget.shift.teacherName ?? 'Unknown',
+              Icons.person,
+            ),
+            const SizedBox(height: 12),
+            
+            // Subject/Category info (read-only)
+            _buildInfoRow(
+              widget.shift.category == ShiftCategory.teaching ? 'Subject' : 'Role',
+              widget.shift.subjectDisplayName ?? widget.shift.leaderRole ?? 'N/A',
+              widget.shift.category == ShiftCategory.teaching 
+                  ? Icons.school 
+                  : Icons.admin_panel_settings,
+            ),
+            const SizedBox(height: 16),
+            
+            // Date selector
+            _buildDateSelector(),
+            const SizedBox(height: 12),
+            
+            // Time selectors
+            Row(
+              children: [
+                Expanded(child: _buildTimeSelector('Start', _startTime, (time) {
+                  setState(() => _startTime = time);
+                })),
+                const SizedBox(width: 12),
+                Expanded(child: _buildTimeSelector('End', _endTime, (time) {
+                  setState(() => _endTime = time);
+                })),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // Notes
+            TextField(
+              controller: _notesController,
+              decoration: InputDecoration(
+                labelText: 'Notes',
+                labelStyle: GoogleFonts.inter(fontSize: 13),
+                hintText: 'Add notes...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                isDense: true,
+              ),
+              style: GoogleFonts.inter(fontSize: 13),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 20),
+            
+            // Action buttons
+            Row(
+              children: [
+                // Delete button
+                OutlinedButton.icon(
+                  onPressed: _confirmDelete,
+                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                  label: Text('Delete', style: GoogleFonts.inter(fontSize: 12, color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const Spacer(),
+                // More options
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    widget.onOpenFullEditor();
+                  },
+                  child: Text(
+                    'More options...',
+                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Save button
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _saveChanges,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text('Save', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xff9CA3AF)),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: const Color(0xff6B7280),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff374151),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateSelector() {
+    return InkWell(
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate: _shiftDate,
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+        );
+        if (date != null) {
+          setState(() => _shiftDate = date);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xffD1D5DB)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today, size: 16, color: Color(0xff6B7280)),
+            const SizedBox(width: 8),
+            Text(
+              DateFormat('EEE, MMM d, yyyy').format(_shiftDate),
+              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff374151)),
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeSelector(String label, TimeOfDay time, Function(TimeOfDay) onChanged) {
+    return InkWell(
+      onTap: () async {
+        final selected = await showTimePicker(
+          context: context,
+          initialTime: time,
+        );
+        if (selected != null) {
+          onChanged(selected);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xffD1D5DB)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Text(
+              '$label: ',
+              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280)),
+            ),
+            Text(
+              time.format(context),
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Shift?', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        content: Text(
+          'This will permanently delete this shift. This action cannot be undone.',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteShift();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteShift() async {
+    setState(() => _isLoading = true);
+    try {
+      await ShiftService.deleteShift(widget.shift.id);
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onDeleted();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shift deleted'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error deleting shift: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveChanges() async {
+    setState(() => _isLoading = true);
+    try {
+      final newStart = DateTime(
+        _shiftDate.year,
+        _shiftDate.month,
+        _shiftDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+      final newEnd = DateTime(
+        _shiftDate.year,
+        _shiftDate.month,
+        _shiftDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+
+      final updatedShift = widget.shift.copyWith(
+        shiftStart: newStart,
+        shiftEnd: newEnd,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+      );
+
+      await ShiftService.updateShiftDirect(updatedShift);
+      
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSaved();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shift updated'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error updating shift: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+}
+

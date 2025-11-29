@@ -6,8 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import '../../../core/models/enrollment_request.dart';
-import '../../../core/services/enrollment_service.dart';
+import '../../../core/services/job_board_service.dart';
 import '../../../utility_functions/export_helpers.dart';
+import 'filled_opportunities_screen.dart';
 import 'dart:async';
 
 class EnrollmentManagementScreen extends StatefulWidget {
@@ -35,7 +36,10 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
     'Pending',
     'Contacted',
     'Enrolled',
+    'Broadcasted', // New status for enrollments posted to job board
   ];
+  
+  int _selectedTabIndex = 0; // 0 = Enrollments, 1 = Filled Opportunities
 
   @override
   void initState() {
@@ -179,10 +183,37 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
     }
   }
 
+  Future<void> _broadcastToTeachers(EnrollmentRequest enrollment) async {
+    try {
+      await JobBoardService().broadcastEnrollment(enrollment);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Opportunity broadcasted to teachers!'),
+            backgroundColor: Colors.purple,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error broadcasting: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _viewEnrollmentDetails(EnrollmentRequest enrollment) {
     showDialog(
       context: context,
-      builder: (context) => _EnrollmentDetailsDialog(enrollment: enrollment),
+      builder: (context) => _EnrollmentDetailsDialog(
+        enrollment: enrollment,
+        onBroadcast: () {
+          Navigator.pop(context); // Close dialog
+          _broadcastToTeachers(enrollment);
+        },
+      ),
     );
   }
 
@@ -259,15 +290,78 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
       body: Column(
         children: [
           _buildHeader(),
-          _buildFilters(),
+          _buildTabs(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredEnrollments.isEmpty
-                    ? _buildEmptyState()
-                    : _buildDataGrid(),
+            child: _selectedTabIndex == 0
+                ? Column(
+                    children: [
+                      _buildFilters(),
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _filteredEnrollments.isEmpty
+                                ? _buildEmptyState()
+                                : _buildDataGrid(),
+                      ),
+                    ],
+                  )
+                : const FilledOpportunitiesScreen(),
           ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildTabs() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          _buildTab(0, 'Enrollments', Icons.list_alt),
+          _buildTab(1, 'Filled Opportunities', Icons.check_circle),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTab(int index, String label, IconData icon) {
+    final isSelected = _selectedTabIndex == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedTabIndex = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? const Color(0xff3B82F6) : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? const Color(0xff3B82F6) : Colors.grey[600],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? const Color(0xff3B82F6) : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -561,6 +655,9 @@ class EnrollmentDataSource extends DataGridSource {
             case 'enrolled':
               statusColor = Colors.green;
               break;
+            case 'broadcasted':
+              statusColor = Colors.purple;
+              break;
             default:
               statusColor = Colors.grey;
           }
@@ -648,8 +745,12 @@ class EnrollmentDataSource extends DataGridSource {
 
 class _EnrollmentDetailsDialog extends StatelessWidget {
   final EnrollmentRequest enrollment;
+  final VoidCallback onBroadcast;
 
-  const _EnrollmentDetailsDialog({required this.enrollment});
+  const _EnrollmentDetailsDialog({
+    required this.enrollment,
+    required this.onBroadcast,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -708,6 +809,19 @@ class _EnrollmentDetailsDialog extends StatelessWidget {
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Close'),
                   ),
+                  if (enrollment.status != 'broadcasted' && enrollment.status != 'matched') ...[
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: onBroadcast,
+                      icon: const Icon(Icons.campaign),
+                      label: const Text('Approve & Broadcast to Teachers'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff8B5CF6), // Purple
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],

@@ -53,3 +53,11 @@ enum WeekDay {
   final String fullName;
   final String shortName;
 }
+
+/// Shift category enum - distinguishes between teaching and leadership schedules
+enum ShiftCategory {
+  teaching,    // Regular teacher-student class
+  leadership,  // Admin/leader duties
+  meeting,     // Scheduled meetings
+  training,    // Staff training sessions
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/models/enhanced_recurrence.dart';
@@ -18,11 +19,31 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class CreateShiftDialog extends StatefulWidget {
   final TeachingShift? shift; // For editing existing shift
   final VoidCallback onShiftCreated;
+  
+  // Optional initial values for pre-filling form from enrollment/job opportunity
+  final String? initialTeacherId; // Teacher UID or email
+  final String? initialStudentEmail; // Student email
+  final String? initialSubjectName; // Subject name (will be matched to subject ID)
+  final List<String>? initialDays; // Preferred days (e.g., ['Mon', 'Tue'])
+  final List<String>? initialTimeSlots; // Preferred time slots (e.g., ['8 AM - 12 PM'])
+  final String? initialTimezone; // Timezone
+  final DateTime? initialDate; // Pre-fill date when creating from grid cell
+  final TimeOfDay? initialTime; // Pre-fill time when creating from grid cell
+  final ShiftCategory? initialCategory; // Pre-select category (teaching/leadership)
 
   const CreateShiftDialog({
     super.key,
     this.shift,
     required this.onShiftCreated,
+    this.initialTeacherId,
+    this.initialStudentEmail,
+    this.initialSubjectName,
+    this.initialDays,
+    this.initialTimeSlots,
+    this.initialTimezone,
+    this.initialDate,
+    this.initialTime,
+    this.initialCategory,
   });
 
   @override
@@ -40,6 +61,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   // Form fields
   String? _selectedTeacherId;
   Set<String> _selectedStudentIds = {};
+  
+  // NEW: Category and leader role fields
+  ShiftCategory _selectedCategory = ShiftCategory.teaching;
+  String? _selectedLeaderRole;
 
   // Search controllers
   final TextEditingController _teacherSearchController =
@@ -59,6 +84,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
   // Data lists
   List<Employee> _availableTeachers = [];
+  List<Employee> _availableLeaders = []; // NEW: For leader schedules
   List<Employee> _availableStudents = [];
   Map<String, String> _studentCodes = {}; // email -> student_code
   bool _studentCodesLoaded = false;
@@ -83,9 +109,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (mounted) {
         setState(() {
           _adminTimezone = timezone;
-          // Default selected timezone to admin's timezone initially
+          // Use initial timezone if provided, otherwise default to admin's timezone
           if (widget.shift == null) {
-            _selectedTimezone = timezone;
+            _selectedTimezone = widget.initialTimezone ?? timezone;
           }
         });
       }
@@ -101,11 +127,20 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (mounted) {
         setState(() {
           _availableSubjects = subjects;
-          // Preserve current selection if possible; otherwise pick first
-          final hasCurrent = _selectedSubjectId != null &&
-              subjects.any((s) => s.id == _selectedSubjectId);
-          if (!hasCurrent && subjects.isNotEmpty) {
-            _selectedSubjectId = subjects.first.id;
+          // Try to match initial subject name if provided
+          if (widget.initialSubjectName != null && subjects.isNotEmpty) {
+            final matchedSubject = subjects.firstWhere(
+              (s) => s.name.toLowerCase() == widget.initialSubjectName!.toLowerCase(),
+              orElse: () => subjects.first,
+            );
+            _selectedSubjectId = matchedSubject.id;
+          } else {
+            // Preserve current selection if possible; otherwise pick first
+            final hasCurrent = _selectedSubjectId != null &&
+                subjects.any((s) => s.id == _selectedSubjectId);
+            if (!hasCurrent && subjects.isNotEmpty) {
+              _selectedSubjectId = subjects.first.id;
+            }
           }
         });
       }
@@ -129,6 +164,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
       // Try the ShiftService first
       var teachers = await ShiftService.getAvailableTeachers();
+      var leaders = await ShiftService.getAvailableLeaders(); // NEW: Load leaders
       var students = await ShiftService.getAvailableStudents();
 
       AppLogger.debug(
@@ -175,6 +211,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (mounted) {
         setState(() {
           _availableTeachers = teachers;
+          _availableLeaders = leaders; // NEW: Store leaders
           _availableStudents = students;
         });
         AppLogger.info(
@@ -190,10 +227,207 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
         // Convert UIDs to emails for editing mode
         _convertUidsToEmails();
+        
+        // Apply initial values if provided (after all data is loaded)
+        _applyInitialValues();
       }
     } catch (e) {
       AppLogger.error('CreateShiftDialog: Error loading available users: $e');
     }
+  }
+  
+  /// Apply initial values from enrollment/job opportunity
+  void _applyInitialValues() async {
+    // Note: When editing, teacher is set in _convertUidsToEmails()
+    // But we still need to apply initialTeacherId if provided for new shifts
+    if (widget.shift != null) return; // Don't override if editing existing shift
+    
+    // Set initial date and time immediately
+    if (mounted) {
+      setState(() {
+        if (widget.initialDate != null) {
+          _shiftDate = widget.initialDate!;
+          AppLogger.debug('CreateShiftDialog: Set initial date: ${widget.initialDate}');
+        }
+        if (widget.initialTime != null) {
+          _startTime = widget.initialTime!;
+          _endTime = TimeOfDay(
+            hour: (_startTime.hour + 1) % 24,
+            minute: _startTime.minute,
+          );
+          AppLogger.debug('CreateShiftDialog: Set initial time: ${widget.initialTime}');
+        }
+      });
+    }
+    
+    // Handle teacher pre-selection with retry mechanism
+    if (widget.initialTeacherId != null) {
+      AppLogger.debug('CreateShiftDialog: Attempting to pre-select teacher: ${widget.initialTeacherId}');
+      
+      // Retry mechanism to wait for lists to load
+      Employee? teacher;
+      int retryCount = 0;
+      const maxRetries = 10;
+      
+      while (teacher == null && retryCount < maxRetries && mounted) {
+        await Future.delayed(Duration(milliseconds: 100 * (retryCount + 1)));
+        
+        // Try to find in teachers first (case-insensitive, trim whitespace)
+        final searchId = widget.initialTeacherId!.toLowerCase().trim();
+        
+        try {
+          teacher = _availableTeachers.firstWhere(
+            (t) => t.email.toLowerCase().trim() == searchId || 
+                   t.documentId?.toLowerCase().trim() == searchId,
+          );
+          AppLogger.debug('CreateShiftDialog: Found teacher in teachers list: ${teacher.email}');
+        } catch (e) {
+          // Try to find in leaders
+          try {
+            teacher = _availableLeaders.firstWhere(
+              (l) => l.email.toLowerCase().trim() == searchId || 
+                     l.documentId?.toLowerCase().trim() == searchId,
+            );
+            AppLogger.debug('CreateShiftDialog: Found teacher in leaders list: ${teacher.email}');
+          } catch (e2) {
+            // Not found yet, will retry
+          }
+        }
+        
+        if (teacher == null && _availableTeachers.isEmpty && _availableLeaders.isEmpty) {
+          retryCount++;
+          continue;
+        }
+        
+        if (teacher != null) break;
+        retryCount++;
+      }
+      
+      if (teacher != null && mounted) {
+        setState(() {
+          _selectedTeacherId = teacher!.email;
+          // Determine category based on where found
+          if (_availableLeaders.any((l) => l.email == teacher!.email)) {
+            _selectedCategory = ShiftCategory.leadership;
+          }
+          _teacherSearchController.text = ''; // Clear search
+        });
+        AppLogger.debug('CreateShiftDialog: Pre-selected teacher: ${teacher.email} (category: $_selectedCategory)');
+        
+        // Force rebuild to show selection
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted) setState(() {});
+      } else {
+        AppLogger.error('CreateShiftDialog: Could not find teacher ${widget.initialTeacherId} after $retryCount retries');
+        AppLogger.debug('CreateShiftDialog: Available teachers: ${_availableTeachers.map((t) => t.email).toList()}');
+        AppLogger.debug('CreateShiftDialog: Available leaders: ${_availableLeaders.map((l) => l.email).toList()}');
+      }
+    }
+    
+    // Set initial student (only if student exists in system)
+    if (widget.initialStudentEmail != null && _availableStudents.isNotEmpty && mounted) {
+      try {
+        final student = _availableStudents.firstWhere(
+          (s) => s.email == widget.initialStudentEmail,
+        );
+        // Format as email|firstName|lastName (matching the dialog's format)
+        setState(() {
+          _selectedStudentIds = {'${student.email}|${student.firstName}|${student.lastName}'};
+        });
+        AppLogger.debug('CreateShiftDialog: Set initial student: ${student.email}');
+      } catch (e) {
+        // Student not found in system yet - this is OK, admin can select manually
+        AppLogger.debug('CreateShiftDialog: Student ${widget.initialStudentEmail} not found in system yet');
+      }
+    }
+    
+    // Set initial subject
+    if (widget.initialSubjectName != null && _availableSubjects.isNotEmpty && mounted) {
+      try {
+        final subject = _availableSubjects.firstWhere(
+          (s) => s.name.toLowerCase() == widget.initialSubjectName!.toLowerCase(),
+        );
+        setState(() {
+          _selectedSubjectId = subject.id;
+        });
+        AppLogger.debug('CreateShiftDialog: Set initial subject: ${subject.name}');
+      } catch (e) {
+        AppLogger.debug('CreateShiftDialog: Subject "${widget.initialSubjectName}" not found, using default');
+      }
+    }
+    
+    // Set initial timezone
+    if (widget.initialTimezone != null && widget.initialTimezone!.isNotEmpty && mounted) {
+      setState(() {
+        _selectedTimezone = widget.initialTimezone!;
+      });
+      AppLogger.debug('CreateShiftDialog: Set initial timezone: ${widget.initialTimezone}');
+    }
+    
+    // Parse initial time slots to set start/end time
+    if (widget.initialTimeSlots != null && widget.initialTimeSlots!.isNotEmpty && mounted) {
+      final firstTimeSlot = widget.initialTimeSlots!.first;
+      _parseTimeSlot(firstTimeSlot);
+      AppLogger.debug('CreateShiftDialog: Parsed time slot: $firstTimeSlot');
+    }
+  }
+  
+  /// Parse time slot string (e.g., "8 AM - 12 PM") to set start and end times
+  void _parseTimeSlot(String timeSlot) {
+    try {
+      // Common formats: "8 AM - 12 PM", "14:00 - 16:00", etc.
+      final parts = timeSlot.split(' - ');
+      if (parts.length == 2) {
+        final startStr = parts[0].trim();
+        final endStr = parts[1].trim();
+        
+        // Parse start time
+        final startTime = _parseTimeString(startStr);
+        if (startTime != null) {
+          _startTime = startTime;
+        }
+        
+        // Parse end time
+        final endTime = _parseTimeString(endStr);
+        if (endTime != null) {
+          _endTime = endTime;
+        }
+      }
+    } catch (e) {
+      AppLogger.error('CreateShiftDialog: Error parsing time slot: $e');
+    }
+  }
+  
+  /// Parse time string to TimeOfDay
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      // Handle formats like "8 AM", "14:00", "2 PM"
+      if (timeStr.contains('AM') || timeStr.contains('PM')) {
+        // 12-hour format
+        final isPM = timeStr.toUpperCase().contains('PM');
+        final timeOnly = timeStr.replaceAll(RegExp(r'[^\d:]'), '');
+        final parts = timeOnly.split(':');
+        int hour = int.parse(parts[0]);
+        int minute = parts.length > 1 ? int.parse(parts[1]) : 0;
+        
+        if (isPM && hour != 12) hour += 12;
+        if (!isPM && hour == 12) hour = 0;
+        
+        return TimeOfDay(hour: hour, minute: minute);
+      } else {
+        // 24-hour format
+        final parts = timeStr.split(':');
+        if (parts.length >= 2) {
+          return TimeOfDay(
+            hour: int.parse(parts[0]),
+            minute: int.parse(parts[1]),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error('CreateShiftDialog: Error parsing time string "$timeStr": $e');
+    }
+    return null;
   }
 
   Future<void> _loadStudentCodes() async {
@@ -280,13 +514,91 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         if (teacherDoc.exists) {
           final teacherData = teacherDoc.data() as Map<String, dynamic>;
           final teacherEmail = teacherData['e-mail'] as String?;
+          
           if (teacherEmail != null && mounted) {
-            setState(() {
-              _selectedTeacherId = teacherEmail;
-            });
-            AppLogger.debug(
-                'CreateShiftDialog: Converted teacher UID ${shift.teacherId} to email $teacherEmail');
+            // Wait for lists to be loaded (with retry mechanism)
+            Employee? foundTeacher;
+            int retryCount = 0;
+            const maxRetries = 5;
+            
+            while (foundTeacher == null && retryCount < maxRetries && mounted) {
+              // Wait a bit for lists to load
+              await Future.delayed(Duration(milliseconds: 100 * (retryCount + 1)));
+              
+              // Determine which list to check first based on shift category
+              final isTeachingShift = shift.category == ShiftCategory.teaching;
+              
+              // Try the appropriate list first based on category
+              if (isTeachingShift) {
+                try {
+                  foundTeacher = _availableTeachers.firstWhere(
+                    (t) => t.email.toLowerCase().trim() == teacherEmail.toLowerCase().trim() ||
+                           t.documentId == shift.teacherId,
+                  );
+                } catch (e) {
+                  // Fallback: try leaders list
+                  try {
+                    foundTeacher = _availableLeaders.firstWhere(
+                      (l) => l.email.toLowerCase().trim() == teacherEmail.toLowerCase().trim() ||
+                             l.documentId == shift.teacherId,
+                    );
+                  } catch (e2) {
+                    // Not found yet, will retry
+                  }
+                }
+              } else {
+                // For non-teaching shifts, check leaders first
+                try {
+                  foundTeacher = _availableLeaders.firstWhere(
+                    (l) => l.email.toLowerCase().trim() == teacherEmail.toLowerCase().trim() ||
+                           l.documentId == shift.teacherId,
+                  );
+                } catch (e) {
+                  // Fallback: try teachers list
+                  try {
+                    foundTeacher = _availableTeachers.firstWhere(
+                      (t) => t.email.toLowerCase().trim() == teacherEmail.toLowerCase().trim() ||
+                             t.documentId == shift.teacherId,
+                    );
+                  } catch (e2) {
+                    // Not found yet, will retry
+                  }
+                }
+              }
+              
+              if (foundTeacher != null) break;
+              retryCount++;
+            }
+            
+            // Use the found teacher's email, or fallback to the email from Firestore
+            final emailToUse = foundTeacher?.email ?? teacherEmail;
+            
+            if (mounted) {
+              setState(() {
+                _selectedTeacherId = emailToUse;
+                _teacherSearchController.text = ''; // Clear search to show all teachers
+              });
+              
+              AppLogger.debug(
+                  'CreateShiftDialog: Converted teacher UID ${shift.teacherId} to email $emailToUse (found in list: ${foundTeacher != null}, retries: $retryCount)');
+              
+              // Force another rebuild after a short delay to ensure UI updates
+              Future.delayed(const Duration(milliseconds: 200), () {
+                if (mounted) {
+                  setState(() {
+                    // Ensure selection is still set
+                    if (_selectedTeacherId != emailToUse) {
+                      _selectedTeacherId = emailToUse;
+                    }
+                  });
+                }
+              });
+            }
+          } else {
+            AppLogger.error('CreateShiftDialog: Teacher email is null for UID ${shift.teacherId}');
           }
+        } else {
+          AppLogger.error('CreateShiftDialog: Teacher document not found: ${shift.teacherId}');
         }
 
         // Convert student UIDs to unique identifiers by querying Firestore
@@ -340,6 +652,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       // For now, we'll default to admin timezone or try to infer from teacher
       _selectedTimezone = _adminTimezone;
 
+      // NEW: Load category and leader role from existing shift
+      _selectedCategory = shift.category;
+      _selectedLeaderRole = shift.leaderRole;
+
       // Handle subject - check if it has a subject ID first
       if (shift.subjectId != null) {
         _selectedSubjectId = shift.subjectId;
@@ -358,6 +674,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
       if (shift.notes != null) {
         _notesController.text = shift.notes!;
+      }
+    } else {
+      // For new shifts, use initialCategory if provided, otherwise default to teaching
+      if (widget.initialCategory != null) {
+        _selectedCategory = widget.initialCategory!;
       }
     }
   }
@@ -381,12 +702,24 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // NEW: Category selector at top
+                      _buildCategorySelector(),
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 20),
                       _buildTeacherSelection(),
                       const SizedBox(height: 20),
-                      _buildStudentSelection(),
-                      const SizedBox(height: 20),
-                      _buildSubjectSelection(),
-                      const SizedBox(height: 20),
+                      // Show student selection only for teaching category
+                      if (_selectedCategory == ShiftCategory.teaching) ...[
+                        _buildStudentSelection(),
+                        const SizedBox(height: 20),
+                        _buildSubjectSelection(),
+                        const SizedBox(height: 20),
+                      ] else ...[
+                        // Show leader role selector for non-teaching categories
+                        _buildLeaderRoleSelector(),
+                        const SizedBox(height: 20),
+                      ],
                       _buildTimezoneSelection(),
                       const SizedBox(height: 20),
                       _buildDateTimeSelection(),
@@ -463,20 +796,48 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   Widget _buildTeacherSelection() {
-    // Filter teachers based on search
-    final filteredTeachers = _availableTeachers.where((teacher) {
+    // Use teachers or leaders based on category
+    final availableUsers = _selectedCategory == ShiftCategory.teaching
+        ? _availableTeachers
+        : _availableLeaders;
+    
+    // Filter based on search, but always include the selected teacher
+    final filteredUsers = availableUsers.where((user) {
+      // Always show the selected teacher, even if search doesn't match
+      if (_selectedTeacherId != null && 
+          user.email.toLowerCase().trim() == _selectedTeacherId!.toLowerCase().trim()) {
+        return true;
+      }
+      // Filter by search query
       if (_teacherSearchController.text.isEmpty) return true;
       final query = _teacherSearchController.text.toLowerCase();
-      return teacher.firstName.toLowerCase().contains(query) ||
-          teacher.lastName.toLowerCase().contains(query) ||
-          teacher.email.toLowerCase().contains(query);
+      return user.firstName.toLowerCase().contains(query) ||
+          user.lastName.toLowerCase().contains(query) ||
+          user.email.toLowerCase().contains(query);
     }).toList();
+    
+    // Get the selected teacher's name for display
+    String? selectedTeacherName;
+    if (_selectedTeacherId != null) {
+      try {
+        final selectedTeacher = availableUsers.firstWhere(
+          (u) => u.email.toLowerCase().trim() == _selectedTeacherId!.toLowerCase().trim(),
+        );
+        selectedTeacherName = '${selectedTeacher.firstName} ${selectedTeacher.lastName}';
+      } catch (e) {
+        // Teacher not found in list yet
+      }
+    }
+
+    final labelText = _selectedCategory == ShiftCategory.teaching
+        ? 'Teacher *'
+        : 'Leader *';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Teacher *',
+          labelText,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -484,6 +845,60 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ),
         ),
         const SizedBox(height: 8),
+        // Show selected teacher prominently if pre-selected
+        if (_selectedTeacherId != null && selectedTeacherName != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xff0386FF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xff0386FF).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xff0386FF),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Selected: $selectedTeacherName',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff0386FF),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedTeacherId = null;
+                      _teacherSearchController.clear();
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Change',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff0386FF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: const Color(0xffD1D5DB)),
@@ -498,7 +913,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     Row(
                       children: [
                         Text(
-                          'Select a teacher${_selectedTeacherId != null ? ' (1 selected)' : ''}',
+                          _selectedTeacherId != null 
+                              ? 'Change teacher (optional)'
+                              : 'Select a teacher',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -510,8 +927,17 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     TextField(
                       controller: _teacherSearchController,
                       decoration: InputDecoration(
-                        hintText: 'Search teacher by name or email...',
+                        hintText: _selectedTeacherId != null
+                            ? 'Search to change teacher...'
+                            : 'Search teacher by name or email...',
                         prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: _selectedTeacherId != null
+                            ? IconButton(
+                                icon: const Icon(Icons.check_circle, color: Color(0xff0386FF), size: 20),
+                                onPressed: null, // Visual indicator only
+                                tooltip: 'Teacher selected: $selectedTeacherName',
+                              )
+                            : null,
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                         border: OutlineInputBorder(
@@ -521,8 +947,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide:
-                              const BorderSide(color: Color(0xffE2E8F0)),
+                          borderSide: BorderSide(
+                            color: _selectedTeacherId != null 
+                                ? const Color(0xff0386FF).withOpacity(0.5)
+                                : const Color(0xffE2E8F0),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
@@ -538,35 +967,35 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               const Divider(height: 1),
               Container(
                 constraints: const BoxConstraints(maxHeight: 180),
-                child: _availableTeachers.isEmpty
+                child: availableUsers.isEmpty
                     ? const Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text('Loading teachers...'),
+                          child: Text('Loading...'),
                         ),
                       )
-                    : filteredTeachers.isEmpty
+                    : filteredUsers.isEmpty
                         ? const Center(
                             child: Padding(
                               padding: EdgeInsets.all(16),
-                              child: Text('No teachers found'),
+                              child: Text('No users found'),
                             ),
                           )
                         : ListView.builder(
                             shrinkWrap: true,
-                            itemCount: filteredTeachers.length,
+                            itemCount: filteredUsers.length,
                             itemBuilder: (context, index) {
-                              final teacher = filteredTeachers[index];
+                              final user = filteredUsers[index];
                               final isSelected =
-                                  _selectedTeacherId == teacher.email;
+                                  _selectedTeacherId == user.email;
 
                               return InkWell(
                                 onTap: () {
                                   setState(() {
-                                    _selectedTeacherId = teacher.email;
+                                    _selectedTeacherId = user.email;
                                     AppLogger.debug(
-                                        'Selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
-                                    _updateTimezoneForTeacher(teacher.email);
+                                        'Selected ${_selectedCategory == ShiftCategory.teaching ? "teacher" : "leader"}: ${user.firstName} ${user.lastName} (${user.email})');
+                                    _updateTimezoneForTeacher(user.email);
                                   });
                                 },
                                 child: Container(
@@ -588,13 +1017,13 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                   child: Row(
                                     children: [
                                       Radio<String>(
-                                        value: teacher.email,
+                                        value: user.email,
                                         groupValue: _selectedTeacherId,
                                         onChanged: (value) {
                                           setState(() {
                                             _selectedTeacherId = value;
                                             AppLogger.debug(
-                                                'Radio selected teacher: ${teacher.firstName} ${teacher.lastName} (${teacher.email})');
+                                                'Radio selected ${_selectedCategory == ShiftCategory.teaching ? "teacher" : "leader"}: ${user.firstName} ${user.lastName} (${user.email})');
                                             _updateTimezoneForTeacher(value!);
                                           });
                                         },
@@ -612,7 +1041,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                         ),
                                         child: Center(
                                           child: Text(
-                                            '${teacher.firstName[0]}${teacher.lastName[0]}',
+                                            '${user.firstName[0]}${user.lastName[0]}',
                                             style: GoogleFonts.inter(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
@@ -629,7 +1058,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              '${teacher.firstName} ${teacher.lastName}',
+                                              '${user.firstName} ${user.lastName}',
                                               style: GoogleFonts.inter(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w500,
@@ -651,7 +1080,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                             4),
                                                   ),
                                                   child: Text(
-                                                    teacher.userType
+                                                    user.userType
                                                         .toUpperCase(),
                                                     style: GoogleFonts.inter(
                                                       fontSize: 11,
@@ -665,7 +1094,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Text(
-                                                    teacher.email,
+                                                    user.email,
                                                     style: GoogleFonts.inter(
                                                       fontSize: 12,
                                                       color: const Color(
@@ -711,6 +1140,122 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     );
   }
 
+  Widget _buildCategorySelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Schedule Type *',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<ShiftCategory>(
+          segments: [
+            ButtonSegment<ShiftCategory>(
+              value: ShiftCategory.teaching,
+              label: const Text('Teacher Class'),
+              icon: const Icon(Icons.school, size: 18),
+            ),
+            ButtonSegment<ShiftCategory>(
+              value: ShiftCategory.leadership,
+              label: const Text('Leader Duty'),
+              icon: const Icon(Icons.admin_panel_settings, size: 18),
+            ),
+            ButtonSegment<ShiftCategory>(
+              value: ShiftCategory.meeting,
+              label: const Text('Meeting'),
+              icon: const Icon(Icons.groups, size: 18),
+            ),
+            ButtonSegment<ShiftCategory>(
+              value: ShiftCategory.training,
+              label: const Text('Training'),
+              icon: const Icon(Icons.school_outlined, size: 18),
+            ),
+          ],
+          selected: {_selectedCategory},
+          onSelectionChanged: (Set<ShiftCategory> selected) {
+            setState(() {
+              _selectedCategory = selected.first;
+              // Clear student selection when switching to non-teaching
+              if (_selectedCategory != ShiftCategory.teaching) {
+                _selectedStudentIds.clear();
+                _selectedSubjectId = null;
+              }
+              // Clear leader role when switching to teaching
+              if (_selectedCategory == ShiftCategory.teaching) {
+                _selectedLeaderRole = null;
+              }
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLeaderRoleSelector() {
+    if (_selectedCategory == ShiftCategory.teaching) {
+      return const SizedBox.shrink();
+    }
+
+    final roleOptions = <String, String>{
+      'admin': 'Administration',
+      'coordination': 'Coordination',
+      'meeting': 'Meeting',
+      'training': 'Staff Training',
+      'planning': 'Curriculum Planning',
+      'outreach': 'Community Outreach',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Duty Type *',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedLeaderRole,
+          decoration: InputDecoration(
+            hintText: 'Select duty type',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 16,
+            ),
+          ),
+          items: roleOptions.entries.map((entry) {
+            return DropdownMenuItem<String>(
+              value: entry.key,
+              child: Text(entry.value),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedLeaderRole = value;
+            });
+          },
+          validator: (value) {
+            if (_selectedCategory != ShiftCategory.teaching && value == null) {
+              return 'Please select a duty type';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildStudentSelection() {
     // Filter students based on search
     final filteredStudents = _availableStudents.where((student) {
@@ -735,6 +1280,82 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ),
         ),
         const SizedBox(height: 8),
+        // Show selected students prominently if editing
+        if (_selectedStudentIds.isNotEmpty && widget.shift != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xff10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xff10B981).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.people,
+                      color: Color(0xff10B981),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_selectedStudentIds.length} student${_selectedStudentIds.length == 1 ? '' : 's'} selected',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff10B981),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _selectedStudentIds.take(5).map((studentId) {
+                    final parts = studentId.split('|');
+                    final name = parts.length >= 3 
+                        ? '${parts[1]} ${parts[2]}'
+                        : parts[0].split('@').first;
+                    return Chip(
+                      label: Text(
+                        name,
+                        style: GoogleFonts.inter(fontSize: 11),
+                      ),
+                      backgroundColor: const Color(0xff10B981).withOpacity(0.15),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      onDeleted: () {
+                        setState(() {
+                          _selectedStudentIds.remove(studentId);
+                        });
+                      },
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: EdgeInsets.zero,
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    );
+                  }).toList(),
+                ),
+                if (_selectedStudentIds.length > 5)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '+ ${_selectedStudentIds.length - 5} more',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: const Color(0xff6B7280),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: const Color(0xffD1D5DB)),
@@ -749,7 +1370,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     Row(
                       children: [
                         Text(
-                          'Select students (${_selectedStudentIds.length} selected)',
+                          _selectedStudentIds.isNotEmpty && widget.shift != null
+                              ? 'Change students (optional)'
+                              : 'Select students (${_selectedStudentIds.length} selected)',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -761,7 +1384,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     TextField(
                       controller: _studentSearchController,
                       decoration: InputDecoration(
-                        hintText: 'Search by name, student code, or email...',
+                        hintText: _selectedStudentIds.isNotEmpty && widget.shift != null
+                            ? 'Search to add/remove students...'
+                            : 'Search by name, student code, or email...',
                         prefixIcon: const Icon(Icons.search, size: 20),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
@@ -772,8 +1397,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide:
-                              const BorderSide(color: Color(0xffE2E8F0)),
+                          borderSide: BorderSide(
+                            color: _selectedStudentIds.isNotEmpty
+                                ? const Color(0xff10B981).withOpacity(0.5)
+                                : const Color(0xffE2E8F0),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
@@ -1287,15 +1915,39 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   Widget _buildDatePicker() {
+    final isPrefilled = widget.initialDate != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Date',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: const Color(0xff6B7280),
-          ),
+        Row(
+          children: [
+            Text(
+              'Date',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+            if (isPrefilled && widget.shift == null)
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff0386FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Pre-filled',
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      color: const Color(0xff0386FF),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 4),
         InkWell(
@@ -1303,7 +1955,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             final date = await showDatePicker(
               context: context,
               initialDate: _shiftDate,
-              firstDate: DateTime.now(),
+              firstDate: DateTime.now().subtract(const Duration(days: 30)),
               lastDate: DateTime.now().add(const Duration(days: 365)),
             );
             if (date != null) {
@@ -1315,18 +1967,40 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xffD1D5DB)),
+              border: Border.all(
+                color: isPrefilled && widget.shift == null
+                    ? const Color(0xff0386FF).withOpacity(0.5)
+                    : const Color(0xffD1D5DB),
+                width: isPrefilled && widget.shift == null ? 2 : 1,
+              ),
               borderRadius: BorderRadius.circular(8),
+              color: isPrefilled && widget.shift == null
+                  ? const Color(0xff0386FF).withOpacity(0.05)
+                  : null,
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today,
-                    size: 20, color: Color(0xff6B7280)),
+                Icon(
+                  Icons.calendar_today,
+                  size: 20,
+                  color: isPrefilled && widget.shift == null
+                      ? const Color(0xff0386FF)
+                      : const Color(0xff6B7280),
+                ),
                 const SizedBox(width: 8),
                 Text(
-                  '${_shiftDate.day}/${_shiftDate.month}/${_shiftDate.year}',
-                  style: GoogleFonts.inter(),
+                  DateFormat('EEE, MMM d, yyyy').format(_shiftDate),
+                  style: GoogleFonts.inter(
+                    fontWeight: isPrefilled && widget.shift == null
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                    color: isPrefilled && widget.shift == null
+                        ? const Color(0xff0386FF)
+                        : const Color(0xff374151),
+                  ),
                 ),
+                const Spacer(),
+                const Icon(Icons.edit, size: 16, color: Color(0xff9CA3AF)),
               ],
             ),
           ),
@@ -1396,15 +2070,39 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   Widget _buildTimePickers() {
+    final isTimePrefilled = widget.initialTime != null && widget.shift == null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Time (${TimezoneUtils.getTimezoneAbbreviation(_selectedTimezone)})',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: const Color(0xff6B7280),
-          ),
+        Row(
+          children: [
+            Text(
+              'Time (${TimezoneUtils.getTimezoneAbbreviation(_selectedTimezone)})',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+            if (isTimePrefilled)
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff0386FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Pre-filled',
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      color: const Color(0xff0386FF),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 4),
         Row(
@@ -1436,13 +2134,41 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xffD1D5DB)),
+                    border: Border.all(
+                      color: isTimePrefilled
+                          ? const Color(0xff0386FF).withOpacity(0.5)
+                          : const Color(0xffD1D5DB),
+                      width: isTimePrefilled ? 2 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(8),
+                    color: isTimePrefilled
+                        ? const Color(0xff0386FF).withOpacity(0.05)
+                        : null,
                   ),
-                  child: Text(
-                    _startTime.format(context),
-                    style: GoogleFonts.inter(),
-                    textAlign: TextAlign.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 18,
+                        color: isTimePrefilled
+                            ? const Color(0xff0386FF)
+                            : const Color(0xff6B7280),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _startTime.format(context),
+                        style: GoogleFonts.inter(
+                          fontWeight: isTimePrefilled
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                          color: isTimePrefilled
+                              ? const Color(0xff0386FF)
+                              : const Color(0xff374151),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1484,13 +2210,41 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xffD1D5DB)),
+                    border: Border.all(
+                      color: isTimePrefilled
+                          ? const Color(0xff0386FF).withOpacity(0.5)
+                          : const Color(0xffD1D5DB),
+                      width: isTimePrefilled ? 2 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(8),
+                    color: isTimePrefilled
+                        ? const Color(0xff0386FF).withOpacity(0.05)
+                        : null,
                   ),
-                  child: Text(
-                    _endTime.format(context),
-                    style: GoogleFonts.inter(),
-                    textAlign: TextAlign.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 18,
+                        color: isTimePrefilled
+                            ? const Color(0xff0386FF)
+                            : const Color(0xff6B7280),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _endTime.format(context),
+                        style: GoogleFonts.inter(
+                          fontWeight: isTimePrefilled
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                          color: isTimePrefilled
+                              ? const Color(0xff0386FF)
+                              : const Color(0xff374151),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1678,7 +2432,29 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
   Future<void> _saveShift() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedStudentIds.isEmpty) return;
+
+    // Validate category-specific requirements
+    if (_selectedCategory == ShiftCategory.teaching) {
+      if (_selectedStudentIds.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select at least one student for teaching shifts'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    } else {
+      if (_selectedLeaderRole == null || _selectedLeaderRole!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a duty type for leader schedules'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
 
     // Validate that end time is after start time
     final startMinutes = _startTime.hour * 60 + _startTime.minute;
@@ -1818,8 +2594,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         // Create new shift
         await ShiftService.createShift(
           teacherId: teacherUid,
-          studentIds: studentUids,
-          studentNames: studentNames,
+          studentIds: _selectedCategory == ShiftCategory.teaching ? studentUids : [],
+          studentNames: _selectedCategory == ShiftCategory.teaching ? studentNames : [],
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
           adminTimezone:
@@ -1839,6 +2615,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           recurrenceEndDate: _recurrenceEndDate,
           originalLocalStart: shiftStartLocal,
           originalLocalEnd: shiftEndLocal,
+          // NEW: Category and leader role
+          category: _selectedCategory,
+          leaderRole: _selectedLeaderRole,
         );
       } else {
         // Update existing shift - convert emails back to UIDs
@@ -1906,8 +2685,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         final updatedShift = widget.shift!.copyWith(
           teacherId: teacherUid,
           teacherName: teacherName,
-          studentIds: studentUids,
-          studentNames: studentNames,
+          studentIds: _selectedCategory == ShiftCategory.teaching ? studentUids : [],
+          studentNames: _selectedCategory == ShiftCategory.teaching ? studentNames : [],
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
           subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
@@ -1920,6 +2699,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               : null,
           recurrence: _recurrence,
           recurrenceEndDate: _recurrenceEndDate,
+          // NEW: Category and leader role
+          category: _selectedCategory,
+          leaderRole: _selectedLeaderRole,
         );
 
         AppLogger.debug('CreateShiftDialog: Updating shift with:');

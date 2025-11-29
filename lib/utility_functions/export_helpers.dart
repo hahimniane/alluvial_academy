@@ -291,8 +291,8 @@ class ExportHelpers {
 
     // Add headers
     for (int i = 0; i < headers.length; i++) {
-      var cell = sheet
-          .cell(xl.CellIndex.indexByString('${String.fromCharCode(65 + i)}1'));
+      final colRef = _columnIndexToExcelRef(i);
+      var cell = sheet.cell(xl.CellIndex.indexByString('${colRef}1'));
       cell.value = xl.TextCellValue(headers[i]);
       cell.cellStyle = xl.CellStyle(
         bold: true,
@@ -306,8 +306,8 @@ class ExportHelpers {
       for (int colIndex = 0;
           colIndex < row.length && colIndex < headers.length;
           colIndex++) {
-        String cellAddress =
-            '${String.fromCharCode(65 + colIndex)}${rowIndex + 2}';
+        final colRef = _columnIndexToExcelRef(colIndex);
+        String cellAddress = '$colRef${rowIndex + 2}';
         var cell = sheet.cell(xl.CellIndex.indexByString(cellAddress));
         var value = row[colIndex];
 
@@ -331,6 +331,134 @@ class ExportHelpers {
         } else {
           cell.value = xl.TextCellValue(value.toString());
         }
+      }
+    }
+
+    // Auto-size columns based on content
+    _autoSizeColumns(sheet, headers.length);
+  }
+
+  /// Convert column index (0-based) to Excel column reference (A, B, ..., Z, AA, AB, ...)
+  static String _columnIndexToExcelRef(int colIndex) {
+    String result = '';
+    int index = colIndex;
+    while (index >= 0) {
+      result = String.fromCharCode(65 + (index % 26)) + result;
+      index = (index ~/ 26) - 1;
+    }
+    return result;
+  }
+
+  /// Auto-size columns based on header and content width
+  static void _autoSizeColumns(xl.Sheet sheet, int columnCount) {
+    // Define optimal column widths based on common column patterns
+    final Map<int, double> optimalWidths = {};
+    
+    // Predefined widths for common column types (in Excel units, where 1 unit ≈ 7 pixels)
+    final Map<String, double> columnTypeWidths = {
+      'First name': 15.0,
+      'Last name': 15.0,
+      'Scheduled shift title': 25.0,
+      'Type': 12.0,
+      'Sub-job': 20.0,
+      'Start Date': 18.0,
+      'In': 12.0,
+      'Start - device': 15.0,
+      'End Date': 18.0,
+      'Out': 12.0,
+      'End - device': 15.0,
+      'Employee notes': 30.0,
+      'Manager notes': 30.0,
+      'Shift hours': 12.0,
+      'Daily totals': 15.0,
+      'Weekly totals': 15.0,
+    };
+    
+    // Calculate max width for each column
+    for (int colIndex = 0; colIndex < columnCount; colIndex++) {
+      double maxWidth = 12.0; // Default minimum width
+      
+      // Check header width and use predefined width if available
+      try {
+        final colRef = _columnIndexToExcelRef(colIndex);
+        final headerCell = sheet.cell(xl.CellIndex.indexByString('${colRef}1'));
+        if (headerCell.value != null) {
+          final headerText = headerCell.value.toString().trim();
+          
+          // Check if we have a predefined width for this column
+          if (columnTypeWidths.containsKey(headerText)) {
+            maxWidth = columnTypeWidths[headerText]!;
+          } else {
+            // Calculate based on header length
+            maxWidth = (headerText.length * 1.3).clamp(12.0, 40.0);
+          }
+        }
+      } catch (e) {
+        // If header check fails, use default
+      }
+      
+      // Check data width (sample first 30 rows for performance)
+      final rowsToCheck = sheet.maxRows > 30 ? 30 : sheet.maxRows;
+      for (int rowIndex = 2; rowIndex <= rowsToCheck + 1 && rowIndex <= sheet.maxRows; rowIndex++) {
+        try {
+          final colRef = _columnIndexToExcelRef(colIndex);
+          final cell = sheet.cell(xl.CellIndex.indexByString('$colRef$rowIndex'));
+          if (cell.value != null) {
+            final cellText = cell.value.toString();
+            // For dates (DateTime objects), use fixed width
+            if (cellText.contains('T') && cellText.contains('-') && cellText.length > 10) {
+              maxWidth = 18.0; // Date columns
+            } else if (cellText.length > maxWidth * 0.7) {
+              // Adjust width based on content, but be reasonable
+              final textWidth = (cellText.length * 1.2).clamp(12.0, 50.0);
+              if (textWidth > maxWidth) {
+                maxWidth = textWidth;
+              }
+            }
+          }
+        } catch (e) {
+          // Skip invalid cells
+        }
+      }
+      
+      // Set reasonable min/max bounds
+      maxWidth = maxWidth.clamp(12.0, 50.0);
+      optimalWidths[colIndex] = maxWidth;
+    }
+    
+    // Apply column widths using reflection/dynamic calls since API might vary
+    for (int colIndex = 0; colIndex < columnCount; colIndex++) {
+      try {
+        final width = optimalWidths[colIndex] ?? 15.0;
+        
+        // Try to set column width - the Excel package API may vary
+        // We'll use dynamic invocation to handle different API versions
+        try {
+          // Attempt to call setColumnWidth if it exists
+          final sheetDynamic = sheet as dynamic;
+          if (sheetDynamic.setColumnWidth != null) {
+            sheetDynamic.setColumnWidth(colIndex, width);
+          }
+        } catch (e) {
+          // If dynamic call fails, try accessing columns directly
+          try {
+            final sheetDynamic = sheet as dynamic;
+            if (sheetDynamic.columns != null) {
+              final columns = sheetDynamic.columns as List;
+              if (columns.length > colIndex && columns[colIndex] != null) {
+                final column = columns[colIndex] as dynamic;
+                if (column.width != null) {
+                  column.width = width;
+                }
+              }
+            }
+          } catch (e2) {
+            // If all methods fail, that's okay - Excel will use default widths
+            AppLogger.debug('Column width auto-sizing not available for column $colIndex');
+          }
+        }
+      } catch (e) {
+        // Silently continue - column widths are a nice-to-have feature
       }
     }
   }

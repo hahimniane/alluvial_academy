@@ -412,10 +412,8 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ProgramSelectionPage(
-                        initialSubject: subject,
-                        isLanguageSelection: isLanguageSelection,
-                        initialAfricanLanguage: selectedLanguage,
+                      builder: (context) => const ProgramSelectionPage(
+                        initialSubject: 'AfroLanguage: Poular, Mandingo, Swahili',
                       ),
                     ),
                   );
@@ -471,7 +469,9 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(isLanguageSelection: true),
+                  builder: (context) => const ProgramSelectionPage(
+                    initialSubject: 'AfroLanguage: Poular, Mandingo, Swahili',
+                  ),
                 ),
               );
             },

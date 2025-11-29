@@ -350,9 +350,12 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
             runSpacing: 12,
             children: [
               _TextCategoryLink('Islamic Studies', categoryType: CategoryType.islamicStudies),
+              _TextCategoryLink('Languages', categoryType: CategoryType.languages),
+              _TextCategoryLink('Adult Literacy', categoryType: CategoryType.adultLiteracy),
+              _TextCategoryLink('After School Tutoring', categoryType: CategoryType.afterSchoolTutoring),
               _TextCategoryLink('Maths', categoryType: CategoryType.math),
-              _TextCategoryLink('English', categoryType: CategoryType.english),
               _TextCategoryLink('Programming', categoryType: CategoryType.programming),
+              _TextCategoryLink('English (Students)', categoryType: CategoryType.english),
             ],
           ),
         ),
@@ -571,11 +574,39 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
         title: 'Languages',
         icon: Icons.language_rounded,
         color: const Color(0xffF59E0B),
-        description: 'English, French & African languages',
+        description: 'French & African languages',
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AfrolingualPage()),
+          );
+        },
+      ),
+      _ProgramCard(
+        title: 'Adult Literacy',
+        icon: Icons.menu_book_rounded,
+        color: const Color(0xffEC4899),
+        description: 'English learning for adults',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ProgramSelectionPage(initialSubject: 'Adult Literacy'),
+            ),
+          );
+        },
+      ),
+      _ProgramCard(
+        title: 'After School Tutoring',
+        icon: Icons.school_rounded,
+        color: const Color(0xffEF4444),
+        description: 'Math, Science, Programming & more',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ProgramSelectionPage(initialSubject: 'After School Tutoring'),
+            ),
           );
         },
       ),
@@ -600,18 +631,6 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ProgrammingPage()),
-          );
-        },
-      ),
-      _ProgramCard(
-        title: 'After School Tutoring',
-        icon: Icons.school_rounded,
-        color: const Color(0xffEF4444),
-        description: 'Academic support & literacy programs',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TutoringLiteracyPage()),
           );
         },
       ),
@@ -1420,6 +1439,9 @@ enum CategoryType {
   math,
   programming,
   english,
+  adultLiteracy,
+  languages,
+  afterSchoolTutoring,
   general,
 }
 
@@ -1533,6 +1555,27 @@ class _TextCategoryLink extends StatefulWidget {
 class _TextCategoryLinkState extends State<_TextCategoryLink> {
   bool _isHovered = false;
 
+  String _getTooltipMessage(CategoryType categoryType) {
+    switch (categoryType) {
+      case CategoryType.islamicStudies:
+        return 'Quran, Hadith, Arabic, Tawhid, Tafsir & more';
+      case CategoryType.languages:
+        return 'English, French & African languages (Yoruba, Hausa, Swahili, Adlam, Wolof, Amharic) - Authentic instruction from native speakers';
+      case CategoryType.adultLiteracy:
+        return 'English learning for adults - Reading, writing & speaking for everyday and professional use';
+      case CategoryType.afterSchoolTutoring:
+        return 'Math, Science, Programming, History & English support for students';
+      case CategoryType.math:
+        return 'Math support for students - From elementary to advanced calculus';
+      case CategoryType.programming:
+        return 'Programming for students - Web, mobile & software development';
+      case CategoryType.english:
+        return 'English support for students - Part of After School Tutoring';
+      case CategoryType.general:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -1567,10 +1610,35 @@ class _TextCategoryLinkState extends State<_TextCategoryLink> {
               );
               break;
             case CategoryType.english:
+              // English for students - goes to After School Tutoring
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EnglishPage(),
+                  builder: (context) => const ProgramSelectionPage(initialSubject: 'After School Tutoring'),
+                ),
+              );
+              break;
+            case CategoryType.adultLiteracy:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Adult Literacy'),
+                ),
+              );
+              break;
+            case CategoryType.languages:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AfrolingualPage(),
+                ),
+              );
+              break;
+            case CategoryType.afterSchoolTutoring:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProgramSelectionPage(initialSubject: 'After School Tutoring'),
                 ),
               );
               break;
@@ -1584,14 +1652,17 @@ class _TextCategoryLinkState extends State<_TextCategoryLink> {
               break;
           }
         },
-        child: Text(
-          widget.label,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: _isHovered ? const Color(0xff3B82F6) : Colors.white, // Blue on hover, white otherwise
-            decoration: _isHovered ? TextDecoration.underline : TextDecoration.none,
-            decorationColor: const Color(0xff3B82F6),
+        child: Tooltip(
+          message: _getTooltipMessage(widget.categoryType),
+          child: Text(
+            widget.label,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _isHovered ? const Color(0xff3B82F6) : Colors.white, // Blue on hover, white otherwise
+              decoration: _isHovered ? TextDecoration.underline : TextDecoration.none,
+              decorationColor: const Color(0xff3B82F6),
+            ),
           ),
         ),
       ),

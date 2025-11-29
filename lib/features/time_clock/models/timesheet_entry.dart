@@ -32,6 +32,23 @@ class TimesheetEntry {
   final double? clockOutLongitude;
   final String? clockOutAddress;
 
+  // Export fields (for ConnectTeam-style export)
+  final String? shiftTitle; // Cached shift display name
+  final String? shiftType; // Formatted type string (e.g., "Stu - John - Teacher (1hr)")
+  final String? clockInPlatform; // Device used for clock-in
+  final String? clockOutPlatform; // Device used for clock-out
+  final DateTime? scheduledStart; // Original scheduled start time
+  final DateTime? scheduledEnd; // Original scheduled end time
+  final int? scheduledDurationMinutes; // Scheduled duration in minutes
+  final String? employeeNotes; // Notes from teacher
+  final String? managerNotes; // Notes from admin
+  
+  // Readiness Form linkage
+  final String? formResponseId; // ID of the linked form response
+  final bool formCompleted; // Whether the post-class form was filled
+  final double? reportedHours; // Hours reported in the form (for comparison)
+  final String? formNotes; // Any notes from the form
+
   const TimesheetEntry({
     this.documentId,
     required this.date,
@@ -57,5 +74,18 @@ class TimesheetEntry {
     this.clockOutLatitude,
     this.clockOutLongitude,
     this.clockOutAddress,
+    this.shiftTitle,
+    this.shiftType,
+    this.clockInPlatform,
+    this.clockOutPlatform,
+    this.scheduledStart,
+    this.scheduledEnd,
+    this.scheduledDurationMinutes,
+    this.employeeNotes,
+    this.managerNotes,
+    this.formResponseId,
+    this.formCompleted = false,
+    this.reportedHours,
+    this.formNotes,
   });
 }

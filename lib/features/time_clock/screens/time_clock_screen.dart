@@ -31,6 +31,7 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/timesheet_table.dart' show TimesheetTable;
 import '../widgets/mobile_timesheet_view.dart' show MobileTimesheetView;
+import '../widgets/readiness_form_prompt_dialog.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/models/teaching_shift.dart';
@@ -580,6 +581,41 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _debugLog(
           'Successfully reset clock-out state - timer stopped, explicitFlag=${!skipExplicitFlag}');
     }
+  }
+
+  /// Show the readiness form prompt after a successful clock-out
+  /// This prompts the teacher to fill the post-class form
+  void _showReadinessFormPrompt({
+    required String timesheetId,
+    required TeachingShift shift,
+    required DateTime clockInTime,
+    required DateTime clockOutTime,
+  }) {
+    _debugLog('Showing readiness form prompt for timesheet: $timesheetId');
+    
+    // Get teacher name
+    final user = FirebaseAuth.instance.currentUser;
+    final teacherName = user?.displayName ?? user?.email ?? 'Teacher';
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ReadinessFormPromptDialog(
+        timesheetId: timesheetId,
+        shiftId: shift.id,
+        shiftTitle: shift.displayName,
+        teacherName: teacherName,
+        clockInTime: clockInTime,
+        clockOutTime: clockOutTime,
+        onFormSubmitted: () {
+          _debugLog('Readiness form submitted successfully');
+          _refreshTimesheetData();
+        },
+        onSkipped: () {
+          _debugLog('Readiness form skipped by user');
+        },
+      ),
+    );
   }
 
   /// Show a less alarming error when UI state is out of sync with backend
@@ -1351,16 +1387,28 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && clockOutLocation != null) {
         _debugLog('Calling ShiftTimesheetService.clockOutFromShift');
+        // Detect platform for tracking
+        final platform = PlatformUtils.detectPlatform();
+        _debugLog('Clock-out platform detected: $platform');
         final result = await ShiftTimesheetService.clockOutFromShift(
           user.uid,
           _currentShift!.id,
           location: clockOutLocation,
+          platform: platform,
         );
 
         _debugLog(
             'Clock-out result: success=${result['success']}, message=${result['message']}');
 
         if (result['success']) {
+          // Store shift info before reset for form prompt
+          final shiftForForm = _currentShift;
+          final clockInTimeForForm = _clockInTime;
+          final clockOutTimeForForm = DateTime.now();
+          // Get timesheet ID from the result
+          final timesheetEntry = result['timesheetEntry'] as Map<String, dynamic>?;
+          final timesheetId = timesheetEntry?['documentId'] as String?;
+          
           // Clock-out successful
           _resetClockOutState(clockOutLocation);
 
@@ -1375,6 +1423,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           // Refresh timesheet data
           _refreshTimesheetData();
           _checkForActiveShift();
+          
+          // Show readiness form prompt after successful clock-out
+          if (shiftForForm != null && timesheetId != null && mounted) {
+            _showReadinessFormPrompt(
+              timesheetId: timesheetId,
+              shift: shiftForForm,
+              clockInTime: clockInTimeForForm ?? clockOutTimeForForm.subtract(const Duration(hours: 1)),
+              clockOutTime: clockOutTimeForForm,
+            );
+          }
         } else {
           // Handle failure without getting stuck
           setState(() {

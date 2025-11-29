@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/teaching_shift.dart';
+import '../enums/shift_enums.dart';
 import 'location_service.dart';
 import 'shift_service.dart';
 
@@ -273,7 +274,7 @@ class ShiftTimesheetService {
   /// Clock out from a shift with location and timesheet update
   static Future<Map<String, dynamic>> clockOutFromShift(
       String teacherId, String shiftId,
-      {required LocationData location}) async {
+      {required LocationData location, String? platform}) async {
     try {
       AppLogger.debug(
           'ShiftTimesheetService: Starting clock-out process for shift $shiftId');
@@ -314,7 +315,7 @@ class ShiftTimesheetService {
 
       // Update timesheet entry with clock-out data FIRST
       final timesheetEntry =
-          await _updateTimesheetEntryWithClockOut(shift, location);
+          await _updateTimesheetEntryWithClockOut(shift, location, platform: platform);
 
       // Then update shift status (if this fails, we still have the timesheet)
       try {
@@ -523,6 +524,9 @@ class ShiftTimesheetService {
         }
       } catch (_) {}
 
+      // Build shift type string for export (ConnectTeam-style)
+      final shiftTypeString = _buildShiftTypeString(shift);
+
       // Create timesheet entry data with proper clock-in timestamp
       final entryData = {
         'teacher_id': user.uid,
@@ -555,6 +559,14 @@ class ShiftTimesheetService {
         'clock_out_longitude': null,
         'clock_out_address': null,
         'clock_out_neighborhood': null,
+        // NEW: Export fields for ConnectTeam-style export
+        'shift_title': shift.displayName, // CRITICAL: Cached shift display name
+        'shift_type': shiftTypeString, // Formatted type string
+        'scheduled_start': Timestamp.fromDate(shift.shiftStart),
+        'scheduled_end': Timestamp.fromDate(shift.shiftEnd),
+        'scheduled_duration_minutes': shift.scheduledDurationMinutes,
+        'employee_notes': '', // Empty initially, can be filled later
+        'manager_notes': '', // Empty initially, admin can add later
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       };
@@ -578,7 +590,7 @@ class ShiftTimesheetService {
 
   /// Update timesheet entry with clock-out data
   static Future<Map<String, dynamic>> _updateTimesheetEntryWithClockOut(
-      TeachingShift shift, LocationData location) async {
+      TeachingShift shift, LocationData location, {String? platform}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
@@ -637,6 +649,7 @@ class ShiftTimesheetService {
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
+        'clock_out_platform': platform ?? 'unknown', // NEW: Platform tracking
         'completion_method': 'manual',
         'updated_at': FieldValue.serverTimestamp(),
       });
@@ -734,6 +747,7 @@ class ShiftTimesheetService {
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
+        'clock_out_platform': 'auto', // Auto clock-out
         'completion_method': 'auto_logout',
         'auto_logout_time': Timestamp.fromDate(autoClockOutTimeUtc),
         'updated_at': FieldValue.serverTimestamp(),
@@ -962,5 +976,37 @@ class ShiftTimesheetService {
       AppLogger.error('Error getting timesheet entry for shift: $e');
       return null;
     }
+  }
+
+  /// Build shift type string for ConnectTeam-style export
+  /// Format: "Stu - Student Name - Teacher Name (1hr 2days weekly)"
+  static String _buildShiftTypeString(TeachingShift shift) {
+    final parts = <String>[];
+
+    // Student info (if teaching category)
+    if (shift.category == ShiftCategory.teaching && shift.studentNames.isNotEmpty) {
+      parts.add('Stu - ${shift.studentNames.first}');
+    } else if (shift.category != ShiftCategory.teaching) {
+      // For leader shifts, use role
+      parts.add(shift.leaderRole ?? 'Leader');
+    }
+
+    // Teacher/Leader name
+    parts.add(shift.teacherName);
+
+    // Schedule info
+    final duration = shift.shiftDurationHours;
+    String scheduleInfo;
+    if (shift.enhancedRecurrence.type != EnhancedRecurrenceType.none) {
+      final days = shift.enhancedRecurrence.selectedWeekdays.length;
+      scheduleInfo = '${duration.toStringAsFixed(0)}hr ${days}days weekly';
+    } else if (shift.recurrence != RecurrencePattern.none) {
+      scheduleInfo = '${duration.toStringAsFixed(0)}hr ${shift.recurrence.name}';
+    } else {
+      scheduleInfo = '${duration.toStringAsFixed(0)}hr one-time';
+    }
+    parts.add('($scheduleInfo)');
+
+    return parts.join(' - ');
   }
 }
