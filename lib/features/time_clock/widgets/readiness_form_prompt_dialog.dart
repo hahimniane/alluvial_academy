@@ -168,51 +168,50 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+        return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 500,
-          maxHeight: 600,
-        ),
-        child: IntrinsicHeight(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(),
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                )
-              else
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxHeight: 400,
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildShiftSummary(),
-                        const SizedBox(height: 20),
-                        _buildHoursInput(),
-                        if (_formFields.isNotEmpty) ...[
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: constraints.maxWidth > 500 ? 500 : constraints.maxWidth * 0.9,
+              maxHeight: constraints.maxHeight > 600 ? 600 : constraints.maxHeight * 0.9,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  )
+                else
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildShiftSummary(),
                           const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          ..._buildFormFields(),
+                          _buildHoursInput(),
+                          if (_formFields.isNotEmpty) ...[
+                            const SizedBox(height: 20),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            ..._buildFormFields(),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              _buildActions(),
-            ],
-          ),
-        ),
+                _buildActions(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -238,6 +237,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Class Completion Form',
@@ -246,6 +246,8 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 Text(
                   'Please fill this form after your class',
@@ -253,6 +255,8 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                     fontSize: 12,
                     color: Colors.white.withOpacity(0.8),
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
@@ -263,6 +267,8 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
               widget.onSkipped?.call();
               Navigator.of(context).pop(false);
             },
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
           ),
         ],
       ),
@@ -312,6 +318,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 80,
@@ -331,6 +338,8 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                 fontWeight: FontWeight.w500,
                 color: const Color(0xff111827),
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
         ],
@@ -627,44 +636,51 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
       ),
       child: Row(
         children: [
-          TextButton(
-            onPressed: _isSubmitting
-                ? null
-                : () {
-                    widget.onSkipped?.call();
-                    Navigator.of(context).pop(false);
-                  },
-            child: Text(
-              'Skip for now',
-              style: GoogleFonts.inter(
-                color: const Color(0xff6B7280),
+          Flexible(
+            child: TextButton(
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      widget.onSkipped?.call();
+                      Navigator.of(context).pop(false);
+                    },
+              child: Text(
+                'Skip for now',
+                style: GoogleFonts.inter(
+                  color: const Color(0xff6B7280),
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
-          const Spacer(),
-          ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitForm,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff0386FF),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          const SizedBox(width: 8),
+          Flexible(
+            child: ElevatedButton(
+              onPressed: _isSubmitting ? null : _submitForm,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                minimumSize: const Size(0, 40),
               ),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'Submit',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                : Text(
-                    'Submit',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
+            ),
           ),
         ],
       ),

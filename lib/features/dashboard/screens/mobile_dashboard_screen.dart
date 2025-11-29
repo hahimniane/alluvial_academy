@@ -498,28 +498,34 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Alluwal Academy',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).textTheme.titleLarge?.color,
-                  ),
-                ),
-                if (_userData?['name'] != null)
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    _userData!['name'],
+                    'Alluwal Academy',
                     style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).textTheme.titleLarge?.color,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-              ],
+                  if (_userData?['name'] != null)
+                    Text(
+                      _userData!['name'],
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                ],
+              ),
             ),
           ],
         ),
