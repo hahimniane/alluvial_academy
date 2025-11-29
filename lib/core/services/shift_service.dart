@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import '../models/teaching_shift.dart';
 import '../models/employee_model.dart';
 import '../models/enhanced_recurrence.dart';
@@ -190,6 +191,9 @@ class ShiftService {
     Map<String, dynamic>? recurrenceSettings,
     DateTime? originalLocalStart,
     DateTime? originalLocalEnd,
+    // NEW: Category and leader role
+    ShiftCategory category = ShiftCategory.teaching,
+    String? leaderRole,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -272,6 +276,9 @@ class ShiftService {
         recurrenceEndDate: recurrenceEndDate,
         recurrenceSettings: recurrenceSettings,
         notes: notes,
+        // NEW: Category and leader role
+        category: category,
+        leaderRole: leaderRole,
       );
 
       // Validate that end time is after start time
@@ -746,6 +753,110 @@ class ShiftService {
     }
   }
 
+  /// Update shift directly without re-scheduling lifecycle tasks
+  /// Use for quick edits like time changes
+  static Future<void> updateShiftDirect(TeachingShift shift) async {
+    try {
+      await _shiftsCollection.doc(shift.id).update(shift.toFirestore());
+      AppLogger.debug('Shift updated directly (quick edit)');
+    } catch (e) {
+      AppLogger.error('Error updating shift directly: $e');
+      throw Exception('Failed to update shift');
+    }
+  }
+
+  /// Duplicate a shift with new date/time
+  static Future<String> duplicateShift(
+    TeachingShift originalShift, {
+    DateTime? newDate,
+    TimeOfDay? newStartTime,
+    TimeOfDay? newEndTime,
+  }) async {
+    try {
+      // Calculate new times
+      final baseDate = newDate ?? originalShift.shiftStart.add(const Duration(days: 1));
+      final startTime = newStartTime ?? TimeOfDay.fromDateTime(originalShift.shiftStart);
+      final endTime = newEndTime ?? TimeOfDay.fromDateTime(originalShift.shiftEnd);
+      
+      final newStart = DateTime(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        startTime.hour,
+        startTime.minute,
+      );
+      final newEnd = DateTime(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        endTime.hour,
+        endTime.minute,
+      );
+
+      // Create new shift with same details but new times
+      final newShiftId = await createShift(
+        teacherId: originalShift.teacherId,
+        studentIds: originalShift.studentIds,
+        studentNames: originalShift.studentNames,
+        shiftStart: newStart,
+        shiftEnd: newEnd,
+        adminTimezone: originalShift.adminTimezone,
+        subject: originalShift.subject,
+        subjectId: originalShift.subjectId,
+        subjectDisplayName: originalShift.subjectDisplayName,
+        customName: originalShift.customName,
+        notes: originalShift.notes,
+        recurrence: RecurrencePattern.none, // Don't duplicate recurrence
+        category: originalShift.category,
+        leaderRole: originalShift.leaderRole,
+      );
+
+      AppLogger.debug('Duplicated shift ${originalShift.id} -> $newShiftId');
+      return newShiftId;
+    } catch (e) {
+      AppLogger.error('Error duplicating shift: $e');
+      throw Exception('Failed to duplicate shift');
+    }
+  }
+
+  /// Duplicate all shifts from one week to another
+  static Future<int> duplicateWeek(
+    DateTime sourceWeekStart,
+    DateTime targetWeekStart,
+    {String? teacherId}
+  ) async {
+    try {
+      // Get all shifts from source week
+      final sourceWeekEnd = sourceWeekStart.add(const Duration(days: 7));
+      
+      Query query = _shiftsCollection
+          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(sourceWeekStart))
+          .where('shift_start', isLessThan: Timestamp.fromDate(sourceWeekEnd));
+      
+      if (teacherId != null) {
+        query = query.where('teacher_id', isEqualTo: teacherId);
+      }
+      
+      final snapshot = await query.get();
+      final shifts = snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+      
+      int duplicatedCount = 0;
+      final dayDifference = targetWeekStart.difference(sourceWeekStart).inDays;
+      
+      for (final shift in shifts) {
+        final newDate = shift.shiftStart.add(Duration(days: dayDifference));
+        await duplicateShift(shift, newDate: newDate);
+        duplicatedCount++;
+      }
+      
+      AppLogger.debug('Duplicated $duplicatedCount shifts from week ${sourceWeekStart.toIso8601String()} to ${targetWeekStart.toIso8601String()}');
+      return duplicatedCount;
+    } catch (e) {
+      AppLogger.error('Error duplicating week: $e');
+      throw Exception('Failed to duplicate week');
+    }
+  }
+
   /// Clock in to a shift.
   ///
   /// Validations:
@@ -982,6 +1093,96 @@ class ShiftService {
       return shifts;
     } catch (e) {
       AppLogger.error('Error getting shifts needing auto-logout: $e');
+      return [];
+    }
+  }
+
+  /// Get available leaders (admins and admin-teachers) for leader shift assignment.
+  ///
+  /// Returns users where user_type == 'admin' OR (user_type == 'teacher' AND is_admin_teacher == true)
+  static Future<List<Employee>> getAvailableLeaders() async {
+    try {
+      AppLogger.debug('ShiftService: Querying for leaders...');
+      
+      // Query for admins
+      final adminSnapshot = await _firestore
+          .collection('users')
+          .where('user_type', isEqualTo: 'admin')
+          .where('is_active', isEqualTo: true)
+          .get();
+      
+      // Query for admin-teachers
+      final adminTeacherSnapshot = await _firestore
+          .collection('users')
+          .where('user_type', isEqualTo: 'teacher')
+          .where('is_admin_teacher', isEqualTo: true)
+          .where('is_active', isEqualTo: true)
+          .get();
+      
+      // Combine admin and admin-teacher snapshots
+      final allDocs = [...adminSnapshot.docs, ...adminTeacherSnapshot.docs];
+      
+      // Use the same mapping method as getAvailableTeachers
+      final leaders = allDocs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final userType = data['user_type'] ?? '';
+        
+        String dateAdded = '';
+        if (data['date_added'] != null) {
+          if (data['date_added'] is Timestamp) {
+            dateAdded = (data['date_added'] as Timestamp).toDate().toString();
+          } else if (data['date_added'] is String) {
+            dateAdded = data['date_added'] as String;
+          }
+        }
+        
+        String lastLogin = '';
+        if (data['last_login'] != null) {
+          if (data['last_login'] is Timestamp) {
+            lastLogin = (data['last_login'] as Timestamp).toDate().toString();
+          } else if (data['last_login'] is String) {
+            lastLogin = data['last_login'] as String;
+          }
+        }
+        
+        // Format employment start date
+        String employmentStartDate = '';
+        if (data['employment_start_date'] != null) {
+          if (data['employment_start_date'] is Timestamp) {
+            employmentStartDate = (data['employment_start_date'] as Timestamp).toDate().toString();
+          } else if (data['employment_start_date'] is String) {
+            employmentStartDate = data['employment_start_date'] as String;
+          }
+        }
+        
+        // Get kiosk code
+        String kioskCode = data['kiosk_code'] ?? '';
+        if (userType == 'student' && kioskCode.isEmpty) {
+          kioskCode = doc.id; // Use document ID as student ID
+        }
+        
+        return Employee(
+          firstName: data['first_name'] ?? '',
+          lastName: data['last_name'] ?? '',
+          email: data['e-mail'] ?? data['email'] ?? '',
+          countryCode: data['country_code'] ?? '',
+          mobilePhone: data['mobile_phone'] ?? data['phone_number'] ?? '',
+          userType: userType,
+          title: data['title'] ?? '',
+          employmentStartDate: employmentStartDate,
+          kioskCode: kioskCode,
+          dateAdded: dateAdded,
+          lastLogin: lastLogin,
+          documentId: doc.id,
+          isAdminTeacher: data['is_admin_teacher'] == true,
+          isActive: data['is_active'] ?? true,
+        );
+      }).toList();
+      
+      AppLogger.debug('ShiftService: Found ${leaders.length} leaders');
+      return Future.value(leaders);
+    } catch (e) {
+      AppLogger.error('ShiftService: Error getting available leaders: $e');
       return [];
     }
   }

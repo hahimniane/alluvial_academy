@@ -16,8 +16,9 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class AddEditTaskDialog extends StatefulWidget {
   final Task? task;
+  final String? preSelectedAssignee;
 
-  const AddEditTaskDialog({super.key, this.task});
+  const AddEditTaskDialog({super.key, this.task, this.preSelectedAssignee});
 
   @override
   _AddEditTaskDialogState createState() => _AddEditTaskDialogState();
@@ -30,8 +31,10 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
   final _fileService = FileAttachmentService();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  late TabController _tabController;
 
   late DateTime _dueDate;
+  DateTime? _startDate; // Start date for ConnectTeam-style display
   TaskPriority _priority = TaskPriority.medium;
   List<String> _assignedTo = [];
   bool _isRecurring = false;
@@ -42,6 +45,17 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
   bool _isSaving = false;
   bool _isUploadingFiles = false;
   List<TaskAttachment> _attachments = [];
+  // Draft/Publish and additional fields
+  bool _saveAsDraft = false;
+  final _locationController = TextEditingController();
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+  // Labels and Sub-tasks (ConnectTeam style)
+  List<String> _labels = [];
+  final _labelController = TextEditingController();
+  List<String> _subTaskIds = [];
+  final List<TextEditingController> _subTaskControllers = [];
+  bool _showMoreDetails = false; // Track if "Add more details" is expanded
 
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -50,6 +64,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _setupAnimations();
     _initializeData();
     _fetchUsers();
@@ -83,6 +98,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
   void _initializeData() {
     _dueDate =
         widget.task?.dueDate ?? DateTime.now().add(const Duration(days: 1));
+    _startDate = widget.task?.startDate ?? DateTime.now(); // Default to today
     _titleController.text = widget.task?.title ?? '';
     _descriptionController.text = widget.task?.description ?? '';
     _priority = widget.task?.priority ?? TaskPriority.medium;
@@ -92,6 +108,22 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     _enhancedRecurrence =
         widget.task?.enhancedRecurrence ?? const EnhancedRecurrence();
     _attachments = List<TaskAttachment>.from(widget.task?.attachments ?? []);
+    // Initialize new fields
+    _saveAsDraft = widget.task?.isDraft ?? false;
+    _locationController.text = widget.task?.location ?? '';
+    // Parse time strings if they exist
+    if (widget.task?.startTime != null) {
+      final parts = widget.task!.startTime!.split(':');
+      if (parts.length == 2) {
+        _startTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    }
+    if (widget.task?.endTime != null) {
+      final parts = widget.task!.endTime!.split(':');
+      if (parts.length == 2) {
+        _endTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    }
   }
 
   Future<void> _fetchUsers() async {
@@ -146,31 +178,499 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
 
   Widget _buildModernDialog() {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.9,
-      height: MediaQuery.of(context).size.height * 0.85,
+      width: 480,
       constraints: const BoxConstraints(
-        maxWidth: 600,
-        maxHeight: 700,
+        maxWidth: 480,
+        maxHeight: 600,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildHeader(),
-          Expanded(
-            child: _buildForm(),
+          _buildCompactHeader(),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Task title (required)
+                  _buildCompactTextField(
+                    controller: _titleController,
+                    label: 'Task title',
+                    hint: 'Type here',
+                    isRequired: true,
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Please enter a title' : null,
+                  ),
+                  const SizedBox(height: 20),
+                  // Assign to (required)
+                  _buildAssignToSection(),
+                  const SizedBox(height: 16),
+                  // Add more details (expandable)
+                  _buildMoreDetailsSection(),
+                ],
+              ),
+            ),
           ),
-          _buildActions(),
+          _buildCompactActions(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xffE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => _closeDialog(),
+            icon: const Icon(Icons.arrow_back, size: 20, color: Color(0xff374151)),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              widget.task == null ? 'New task' : 'Edit task',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    String? Function(String?)? validator,
+    bool isRequired = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff374151),
+              ),
+            ),
+            if (isRequired) ...[
+              const SizedBox(width: 4),
+              Text(
+                '•',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xffEF4444),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          style: GoogleFonts.inter(fontSize: 15),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.inter(
+              fontSize: 15,
+              color: const Color(0xff9CA3AF),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffEF4444), width: 1),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            isDense: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssignToSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Assign to',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '•',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xffEF4444),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_assignedTo.isEmpty)
+          OutlinedButton.icon(
+            onPressed: () => _openUserSelectionDialog(),
+            icon: const Icon(Icons.add, size: 18, color: Color(0xff0386FF)),
+            label: const Text('Add users'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xff0386FF),
+              side: const BorderSide(color: Color(0xff0386FF)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ..._assignedTo.map((userId) {
+                final userName = _getUserName(userId);
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffE0F2FE),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xff0386FF).withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        userName,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff0386FF),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _assignedTo.remove(userId);
+                          });
+                        },
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Color(0xff0386FF),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              OutlinedButton.icon(
+                onPressed: () => _openUserSelectionDialog(),
+                icon: const Icon(Icons.add, size: 16, color: Color(0xff0386FF)),
+                label: const Text('Add users'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xff0386FF),
+                  side: const BorderSide(color: Color(0xff0386FF)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMoreDetailsSection() {
+    return Column(
+      children: [
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showMoreDetails = !_showMoreDetails;
+            });
+          },
+          child: Row(
+            children: [
+              Icon(
+                _showMoreDetails ? Icons.remove : Icons.add,
+                size: 18,
+                color: const Color(0xff0386FF),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Add more details',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff0386FF),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_showMoreDetails) ...[
+          const SizedBox(height: 20),
+          _buildCompactTextField(
+            controller: _descriptionController,
+            label: 'Description',
+            hint: 'Type here',
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _buildStartDateSelector()),
+              const SizedBox(width: 12),
+              Expanded(child: _buildDateSelector()),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildPrioritySelector(),
+          const SizedBox(height: 20),
+          _buildCompactTextField(
+            controller: _locationController,
+            label: 'Location',
+            hint: 'Type here',
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _buildTimeSelector('Start Time', _startTime, (time) => setState(() => _startTime = time))),
+              const SizedBox(width: 12),
+              Expanded(child: _buildTimeSelector('End Time', _endTime, (time) => setState(() => _endTime = time))),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Labels
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tags',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff374151),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ..._labels.map((label) => Chip(
+                    label: Text(label, style: GoogleFonts.inter(fontSize: 12)),
+                    onDeleted: () {
+                      setState(() => _labels.remove(label));
+                    },
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                    labelStyle: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff0386FF),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  )),
+                  InputChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.add, size: 14, color: Color(0xff6B7280)),
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          width: 80,
+                          child: TextField(
+                            controller: _labelController,
+                            style: GoogleFonts.inter(fontSize: 12),
+                            decoration: const InputDecoration(
+                              hintText: 'Add tag',
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onSubmitted: (value) {
+                              if (value.trim().isNotEmpty && !_labels.contains(value.trim())) {
+                                setState(() {
+                                  _labels.add(value.trim());
+                                  _labelController.clear();
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    onPressed: () {
+                      if (_labelController.text.trim().isNotEmpty && !_labels.contains(_labelController.text.trim())) {
+                        setState(() {
+                          _labels.add(_labelController.text.trim());
+                          _labelController.clear();
+                        });
+                      }
+                    },
+                    backgroundColor: Colors.grey[100],
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCompactActions() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xffE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : () {
+                setState(() => _saveAsDraft = false);
+                _saveTask();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      widget.task == null ? 'Publish task' : 'Update task',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: _isSaving ? null : () {
+              setState(() => _saveAsDraft = true);
+              _saveTask();
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xff374151),
+              side: const BorderSide(color: Color(0xffD1D5DB)),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Save draft',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getUserName(String userId) {
+    try {
+      final user = _users.firstWhere(
+        (u) => u.id == userId,
+      );
+      final name = user.name;
+      if (name != null && name.isNotEmpty) {
+        return name;
+      }
+      return user.email ?? userId;
+    } catch (e) {
+      return userId;
+    }
+  }
+
+  Future<void> _openUserSelectionDialog() async {
+    // Show user selection dialog
+    await showDialog(
+      context: context,
+      builder: (context) => UserSelectionDialog(
+        users: _users,
+        selectedUserIds: _assignedTo,
+        onSelectionChanged: (selectedIds) {
+          if (mounted) {
+            setState(() {
+              _assignedTo = selectedIds;
+            });
+          }
+        },
       ),
     );
   }
@@ -243,6 +743,257 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     );
   }
 
+  Widget _buildTaskDetailsTab() {
+    return Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Task Title (required)
+            _buildModernTextField(
+              controller: _titleController,
+              label: 'Task title',
+              hint: 'Type here',
+              validator: (value) =>
+                  value?.isEmpty ?? true ? 'Please enter a title' : null,
+              isRequired: true,
+            ),
+            const SizedBox(height: 24),
+            // Description
+            _buildModernTextField(
+              controller: _descriptionController,
+              label: 'Description',
+              hint: 'Type here',
+              maxLines: 4,
+            ),
+            const SizedBox(height: 24),
+            // Assign to
+            _buildMultiUserSelector(),
+            const SizedBox(height: 24),
+            // Start date and Due date side by side
+            Row(
+              children: [
+                Expanded(child: _buildStartDateSelector()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildDateSelector()),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Priority
+            _buildPrioritySelector(),
+            const SizedBox(height: 24),
+            // Location
+            _buildModernTextField(
+              controller: _locationController,
+              label: 'Location (Optional)',
+              hint: 'Enter task location',
+            ),
+            const SizedBox(height: 24),
+            // Start Time and End Time
+            Row(
+              children: [
+                Expanded(child: _buildTimeSelector('Start Time', _startTime, (time) => setState(() => _startTime = time))),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTimeSelector('End Time', _endTime, (time) => setState(() => _endTime = time))),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Labels
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tags',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff374151),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ..._labels.map((label) => Chip(
+                      label: Text(label),
+                      onDeleted: () {
+                        setState(() => _labels.remove(label));
+                      },
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                      labelStyle: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff0386FF),
+                      ),
+                    )),
+                    InputChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add, size: 16, color: Color(0xff6B7280)),
+                          const SizedBox(width: 4),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _labelController,
+                              style: GoogleFonts.inter(fontSize: 12),
+                              decoration: const InputDecoration(
+                                hintText: 'Add tag',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onSubmitted: (value) {
+                                if (value.trim().isNotEmpty && !_labels.contains(value.trim())) {
+                                  setState(() {
+                                    _labels.add(value.trim());
+                                    _labelController.clear();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      onPressed: () {
+                        if (_labelController.text.trim().isNotEmpty && !_labels.contains(_labelController.text.trim())) {
+                          setState(() {
+                            _labels.add(_labelController.text.trim());
+                            _labelController.clear();
+                          });
+                        }
+                      },
+                      backgroundColor: Colors.grey[100],
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Recurrence (if needed)
+            _buildRecurrenceSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubTasksTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Sub tasks',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff374151),
+                ),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _subTaskControllers.add(TextEditingController());
+                  });
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add sub task'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xffE0F2FE),
+                  foregroundColor: const Color(0xff0386FF),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_subTaskControllers.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.task_alt, size: 48, color: Colors.grey[400]),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No sub-tasks yet',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Click "Add sub task" to create one',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...List.generate(_subTaskControllers.length, (index) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xffE5E7EB)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _subTaskControllers[index],
+                        style: GoogleFonts.inter(fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Sub-task ${index + 1}',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _subTaskControllers[index].dispose();
+                          _subTaskControllers.removeAt(index);
+                        });
+                      },
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: 'Remove sub-task',
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildForm() {
     return Form(
       key: _formKey,
@@ -286,9 +1037,208 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
               title: 'Timeline',
               icon: Icons.schedule_outlined,
               children: [
-                _buildDateSelector(),
+                Row(
+                  children: [
+                    Expanded(child: _buildStartDateSelector()),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildDateSelector()),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 _buildRecurrenceSection(),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _buildSection(
+              title: 'Additional Details (Optional)',
+              icon: Icons.add_circle_outline,
+              children: [
+                _buildModernTextField(
+                  controller: _locationController,
+                  label: 'Location',
+                  hint: 'Enter task location (e.g., Office, Remote, etc.)',
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: _buildTimeSelector('Start Time', _startTime, (time) => setState(() => _startTime = time))),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildTimeSelector('End Time', _endTime, (time) => setState(() => _endTime = time))),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _buildSection(
+              title: 'Labels & Sub-tasks (Optional)',
+              icon: Icons.label_outline,
+              children: [
+                // Labels section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Labels',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff374151),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ..._labels.map((label) => Chip(
+                          label: Text(label),
+                          onDeleted: () {
+                            setState(() => _labels.remove(label));
+                          },
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                          labelStyle: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff0386FF),
+                          ),
+                        )),
+                        InputChip(
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add, size: 16, color: Color(0xff6B7280)),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 100,
+                                child: TextField(
+                                  controller: _labelController,
+                                  style: GoogleFonts.inter(fontSize: 12),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Add label',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onSubmitted: (value) {
+                                    if (value.trim().isNotEmpty && !_labels.contains(value.trim())) {
+                                      setState(() {
+                                        _labels.add(value.trim());
+                                        _labelController.clear();
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          onPressed: () {
+                            if (_labelController.text.trim().isNotEmpty && !_labels.contains(_labelController.text.trim())) {
+                              setState(() {
+                                _labels.add(_labelController.text.trim());
+                                _labelController.clear();
+                              });
+                            }
+                          },
+                          backgroundColor: Colors.grey[100],
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // Sub-tasks section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Sub-tasks',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff374151),
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _subTaskControllers.add(TextEditingController());
+                            });
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Add Sub-task'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_subTaskControllers.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'No sub-tasks. Click "Add Sub-task" to create one.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ...List.generate(_subTaskControllers.length, (index) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _subTaskControllers[index],
+                                  decoration: InputDecoration(
+                                    hintText: 'Sub-task ${index + 1}',
+                                    prefixIcon: const Icon(Icons.check_box_outline_blank, size: 18),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _subTaskControllers[index].dispose();
+                                    _subTaskControllers.removeAt(index);
+                                  });
+                                },
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                tooltip: 'Remove sub-task',
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 32),
@@ -350,14 +1300,18 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     required String hint,
     String? Function(String?)? validator,
     int maxLines = 1,
+    bool isRequired = false,
   }) {
     return TextFormField(
       controller: controller,
       validator: validator,
       maxLines: maxLines,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: isRequired ? '$label *' : label,
         hintText: hint,
+        labelStyle: TextStyle(
+          color: isRequired ? Colors.red : Colors.grey[700],
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey[300]!),
@@ -377,7 +1331,6 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
         filled: true,
         fillColor: Colors.grey[50],
         contentPadding: const EdgeInsets.all(16),
-        labelStyle: TextStyle(color: Colors.grey[700]),
         hintStyle: TextStyle(color: Colors.grey[400]),
       ),
     );
@@ -595,6 +1548,54 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildStartDateSelector() {
+    return InkWell(
+      onTap: _selectStartDate,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.play_arrow_outlined, color: Color(0xff10B981)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Start Date',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _startDate != null
+                        ? DateFormat('EEEE, MMMM d, yyyy').format(_startDate!)
+                        : 'Not set',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: _startDate != null ? const Color(0xFF1A202C) : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
     );
   }
 
@@ -990,11 +1991,45 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+          // Save as Draft button
+          OutlinedButton(
+            onPressed: _isSaving ? null : () {
+              setState(() => _saveAsDraft = true);
+              _saveTask();
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              side: const BorderSide(color: Color(0xff6B7280)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.save_outlined, size: 18, color: Color(0xff6B7280)),
+                const SizedBox(width: 6),
+                Text(
+                  'Save as Draft',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Publish button
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveTask,
+              onPressed: _isSaving ? null : () {
+                setState(() => _saveAsDraft = false);
+                _saveTask();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
@@ -1015,10 +2050,10 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.save_outlined, size: 20),
+                        const Icon(Icons.publish, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          widget.task == null ? 'Create Task' : 'Update Task',
+                          widget.task == null ? 'Publish Task' : 'Update Task',
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
@@ -1067,11 +2102,36 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     }
   }
 
+  Future<void> _selectStartDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xff10B981),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (pickedDate != null) {
+      setState(() => _startDate = pickedDate);
+    }
+  }
+
   Future<void> _selectDate() async {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: _dueDate,
-      firstDate: DateTime.now(),
+      firstDate: _startDate ?? DateTime.now(),
       lastDate: DateTime(2101),
       builder: (context, child) {
         return Theme(
@@ -1090,6 +2150,62 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
     if (pickedDate != null) {
       setState(() => _dueDate = pickedDate);
     }
+  }
+
+  Widget _buildTimeSelector(String label, TimeOfDay? currentTime, Function(TimeOfDay?) onTimeSelected) {
+    return InkWell(
+      onTap: () async {
+        final pickedTime = await showTimePicker(
+          context: context,
+          initialTime: currentTime ?? TimeOfDay.now(),
+        );
+        if (pickedTime != null) {
+          onTimeSelected(pickedTime);
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: Colors.grey[600], size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentTime != null 
+                        ? currentTime.format(context)
+                        : 'Not set',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: currentTime != null ? const Color(0xFF1A202C) : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
   }
 
   void _closeDialog() {
@@ -1115,6 +2231,44 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
         return;
       }
 
+      // Format times as HH:mm strings
+      final startTimeStr = _startTime != null 
+          ? '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}'
+          : null;
+      final endTimeStr = _endTime != null
+          ? '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}'
+          : null;
+
+      // Create sub-tasks first if any (only for new tasks)
+      final List<String> createdSubTaskIds = [];
+      if (_subTaskControllers.isNotEmpty && widget.task == null) {
+        for (var controller in _subTaskControllers) {
+          if (controller.text.trim().isNotEmpty) {
+            final subTask = Task(
+              id: FirebaseFirestore.instance.collection('tasks').doc().id,
+              title: controller.text.trim(),
+              description: 'Sub-task of: ${_titleController.text.trim()}',
+              createdBy: currentUser.uid,
+              assignedTo: _assignedTo, // Inherit assignees from parent
+              dueDate: _dueDate, // Inherit due date from parent
+              priority: _priority,
+              status: TaskStatus.todo,
+              isRecurring: false,
+              recurrenceType: RecurrenceType.none,
+              enhancedRecurrence: const EnhancedRecurrence(),
+              createdAt: Timestamp.now(),
+              attachments: const [],
+              startDate: _startDate,
+              isDraft: _saveAsDraft,
+              publishedAt: _saveAsDraft ? null : Timestamp.now(),
+              labels: _labels, // Inherit labels from parent
+            );
+            await _taskService.createTask(subTask);
+            createdSubTaskIds.add(subTask.id);
+          }
+        }
+      }
+
       final task = Task(
         id: widget.task?.id ??
             FirebaseFirestore.instance.collection('tasks').doc().id,
@@ -1131,6 +2285,14 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog>
             _isRecurring ? _enhancedRecurrence : const EnhancedRecurrence(),
         createdAt: widget.task?.createdAt ?? Timestamp.now(),
         attachments: _attachments,
+        startDate: _startDate,
+        isDraft: _saveAsDraft,
+        publishedAt: _saveAsDraft ? null : (widget.task?.publishedAt ?? Timestamp.now()),
+        location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        labels: _labels,
+        subTaskIds: widget.task != null ? widget.task!.subTaskIds : createdSubTaskIds,
       );
 
       if (widget.task == null) {

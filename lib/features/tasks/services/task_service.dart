@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../models/task.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/enums/task_enums.dart';
 import 'file_attachment_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -17,7 +18,7 @@ class TaskService {
     // Get a document reference to get the ID first
     final docRef = _taskCollection.doc();
 
-    // Create task with the generated ID
+    // Create task with the generated ID (include all new fields)
     final taskWithId = Task(
       id: docRef.id,
       title: task.title,
@@ -32,6 +33,14 @@ class TaskService {
       enhancedRecurrence: task.enhancedRecurrence,
       createdAt: task.createdAt,
       attachments: task.attachments,
+      startDate: task.startDate,
+      isDraft: task.isDraft,
+      publishedAt: task.publishedAt,
+      location: task.location,
+      startTime: task.startTime,
+      endTime: task.endTime,
+      labels: task.labels,
+      subTaskIds: task.subTaskIds,
     );
 
     // Save the task with the proper ID
@@ -547,6 +556,127 @@ class TaskService {
       );
 
       await updateTask(taskId, updatedTask);
+    }
+  }
+
+  /// Archive a task
+  Future<void> archiveTask(String taskId) async {
+    final taskDoc = await _taskCollection.doc(taskId).get();
+    if (taskDoc.exists) {
+      final task = Task.fromFirestore(taskDoc);
+      final archivedTask = task.copyWith(
+        isArchived: true,
+        archivedAt: Timestamp.now(),
+      );
+      await updateTask(taskId, archivedTask);
+    }
+  }
+
+  /// Unarchive a task
+  Future<void> unarchiveTask(String taskId) async {
+    final taskDoc = await _taskCollection.doc(taskId).get();
+    if (taskDoc.exists) {
+      final task = Task.fromFirestore(taskDoc);
+      final unarchivedTask = task.copyWith(
+        isArchived: false,
+        archivedAt: null,
+      );
+      await updateTask(taskId, unarchivedTask);
+    }
+  }
+
+  /// Bulk update multiple tasks (for bulk actions)
+  Future<void> bulkUpdateTasks(List<String> taskIds, Map<String, dynamic> updates) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      
+      for (final taskId in taskIds) {
+        final taskRef = _taskCollection.doc(taskId);
+        batch.update(taskRef, updates);
+      }
+      
+      await batch.commit();
+      AppLogger.debug('TaskService: Bulk updated ${taskIds.length} tasks');
+    } catch (e) {
+      AppLogger.error('TaskService: Error bulk updating tasks: $e');
+      rethrow;
+    }
+  }
+
+  /// Bulk mark tasks as done
+  Future<void> bulkMarkAsDone(List<String> taskIds) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final now = Timestamp.now();
+      
+      for (final taskId in taskIds) {
+        final taskRef = _taskCollection.doc(taskId);
+        final taskDoc = await taskRef.get();
+        
+        if (taskDoc.exists) {
+          final task = Task.fromFirestore(taskDoc);
+          final taskData = taskDoc.data() as Map<String, dynamic>;
+          final dueDate = (taskData['dueDate'] as Timestamp).toDate();
+          
+          // Calculate overdue days if task is overdue
+          int? overdueDays;
+          if (now.toDate().isAfter(dueDate)) {
+            overdueDays = now.toDate().difference(dueDate).inDays;
+          }
+          
+          batch.update(taskRef, {
+            'status': TaskStatus.done.toString(),
+            'completedAt': now,
+            if (overdueDays != null) 'overdueDaysAtCompletion': overdueDays,
+          });
+        }
+      }
+      
+      await batch.commit();
+      AppLogger.debug('TaskService: Bulk marked ${taskIds.length} tasks as done');
+    } catch (e) {
+      AppLogger.error('TaskService: Error bulk marking tasks as done: $e');
+      rethrow;
+    }
+  }
+
+  /// Bulk delete tasks
+  Future<void> bulkDeleteTasks(List<String> taskIds) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      
+      for (final taskId in taskIds) {
+        final taskRef = _taskCollection.doc(taskId);
+        batch.delete(taskRef);
+      }
+      
+      await batch.commit();
+      AppLogger.debug('TaskService: Bulk deleted ${taskIds.length} tasks');
+    } catch (e) {
+      AppLogger.error('TaskService: Error bulk deleting tasks: $e');
+      rethrow;
+    }
+  }
+
+  /// Bulk archive tasks
+  Future<void> bulkArchiveTasks(List<String> taskIds) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final now = Timestamp.now();
+      
+      for (final taskId in taskIds) {
+        final taskRef = _taskCollection.doc(taskId);
+        batch.update(taskRef, {
+          'isArchived': true,
+          'archivedAt': now,
+        });
+      }
+      
+      await batch.commit();
+      AppLogger.debug('TaskService: Bulk archived ${taskIds.length} tasks');
+    } catch (e) {
+      AppLogger.error('TaskService: Error bulk archiving tasks: $e');
+      rethrow;
     }
   }
 }

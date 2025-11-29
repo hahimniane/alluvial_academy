@@ -90,7 +90,7 @@ class _EnglishPageState extends State<EnglishPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'From grammar fundamentals to advanced writing and communication skills, our comprehensive English program helps students excel in reading, writing, speaking, and listening.',
+                'Designed for adults who want to learn English from scratch or improve their skills. Our comprehensive program covers reading, writing, speaking, and listening for everyday and professional use.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -386,7 +386,7 @@ class _EnglishPageState extends State<EnglishPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ProgramSelectionPage(initialSubject: 'English'),
+                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Adult Literacy'),
                     ),
                   );
                 },
@@ -418,7 +418,7 @@ class _EnglishPageState extends State<EnglishPage> {
       child: Column(
         children: [
           Text(
-            'Unlock Your English Potential Today',
+            'Adult English Literacy Program',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -429,10 +429,19 @@ class _EnglishPageState extends State<EnglishPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Join thousands of students mastering English',
+            'Learn English reading, writing & speaking for adults',
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Note: Students needing English help should choose "After School Tutoring"',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.8),
+              fontStyle: FontStyle.italic,
             ),
           ),
           const SizedBox(height: 32),

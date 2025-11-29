@@ -9,6 +9,7 @@ const taskHandlers = require('./handlers/tasks');
 const shiftHandlers = require('./handlers/shifts');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
+const enrollmentHandlers = require('./handlers/enrollments');
 
 admin.initializeApp();
 
@@ -46,6 +47,9 @@ exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 // Timezone management functions
 exports.updateUserTimezone = timezoneHandlers.updateUserTimezone;
 exports.getUserTimezone = timezoneHandlers.getUserTimezone;
+
+// Enrollment management functions
+exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

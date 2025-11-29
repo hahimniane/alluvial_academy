@@ -386,7 +386,7 @@ class _MathPageState extends State<MathPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Maths'),
+                      builder: (context) => const ProgramSelectionPage(initialSubject: 'Math'),
                     ),
                   );
                 },
@@ -441,7 +441,7 @@ class _MathPageState extends State<MathPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Maths'),
+                  builder: (context) => const ProgramSelectionPage(initialSubject: 'Math'),
                 ),
               );
             },

@@ -54,6 +54,10 @@ class TeachingShift {
   final String?
       originalTeacherName; // Original teacher name (preserved when claimed)
 
+  // Shift category and leader role fields
+  final ShiftCategory category; // Distinguishes teaching vs leadership schedules
+  final String? leaderRole; // Role for leader shifts (admin, coordination, meeting, etc.)
+
   TeachingShift({
     required this.id,
     required this.teacherId,
@@ -93,6 +97,8 @@ class TeachingShift {
     this.publishedAt,
     this.originalTeacherId,
     this.originalTeacherName,
+    this.category = ShiftCategory.teaching,
+    this.leaderRole,
   });
 
   // Get the display name (custom name takes priority over auto-generated)
@@ -358,6 +364,8 @@ class TeachingShift {
           publishedAt != null ? Timestamp.fromDate(publishedAt!) : null,
       'original_teacher_id': originalTeacherId,
       'original_teacher_name': originalTeacherName,
+      'shift_category': category.name,
+      'leader_role': leaderRole,
     };
   }
 
@@ -428,6 +436,11 @@ class TeachingShift {
           : null,
       originalTeacherId: data['original_teacher_id'],
       originalTeacherName: data['original_teacher_name'],
+      category: ShiftCategory.values.firstWhere(
+        (e) => e.name == (data['shift_category'] ?? 'teaching'),
+        orElse: () => ShiftCategory.teaching,
+      ),
+      leaderRole: data['leader_role'],
     );
   }
 
@@ -471,6 +484,8 @@ class TeachingShift {
     DateTime? publishedAt,
     String? originalTeacherId,
     String? originalTeacherName,
+    ShiftCategory? category,
+    String? leaderRole,
   }) {
     return TeachingShift(
       id: id ?? this.id,
@@ -511,6 +526,8 @@ class TeachingShift {
       publishedAt: publishedAt ?? this.publishedAt,
       originalTeacherId: originalTeacherId ?? this.originalTeacherId,
       originalTeacherName: originalTeacherName ?? this.originalTeacherName,
+      category: category ?? this.category,
+      leaderRole: leaderRole ?? this.leaderRole,
     );
   }
 }

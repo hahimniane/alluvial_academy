@@ -71,6 +71,20 @@ class Task {
   // Completion tracking
   final Timestamp? completedAt; // when status first moved to done
   final int? overdueDaysAtCompletion; // freeze overdue days at completion
+  // Archive and date fields
+  final bool isArchived; // For "Archived" tab
+  final Timestamp? archivedAt; // When task was archived
+  final DateTime? startDate; // Start date for ConnectTeam-style display
+  // Draft/Publish fields
+  final bool isDraft; // Whether task is saved as draft
+  final Timestamp? publishedAt; // When task was published
+  // Additional details (ConnectTeam style)
+  final String? location; // Optional location field
+  final String? startTime; // Start time (HH:mm format)
+  final String? endTime; // End time (HH:mm format)
+  // Labels and Sub-tasks (ConnectTeam style)
+  final List<String> labels; // Task labels/tags
+  final List<String> subTaskIds; // IDs of sub-tasks (references to other tasks)
 
   Task({
     required this.id,
@@ -88,6 +102,16 @@ class Task {
     this.attachments = const [],
     this.completedAt,
     this.overdueDaysAtCompletion,
+    this.isArchived = false,
+    this.archivedAt,
+    this.startDate,
+    this.isDraft = false,
+    this.publishedAt,
+    this.location,
+    this.startTime,
+    this.endTime,
+    this.labels = const [],
+    this.subTaskIds = const [],
   });
 
   factory Task.fromFirestore(DocumentSnapshot doc) {
@@ -150,6 +174,18 @@ class Task {
       attachments: attachmentsList,
       completedAt: data['completedAt'],
       overdueDaysAtCompletion: data['overdueDaysAtCompletion'],
+      isArchived: data['isArchived'] ?? false,
+      archivedAt: data['archivedAt'],
+      startDate: data['startDate'] != null
+          ? (data['startDate'] as Timestamp).toDate()
+          : null,
+      isDraft: data['isDraft'] ?? false,
+      publishedAt: data['publishedAt'],
+      location: data['location'],
+      startTime: data['startTime'],
+      endTime: data['endTime'],
+      labels: data['labels'] != null ? List<String>.from(data['labels']) : [],
+      subTaskIds: data['subTaskIds'] != null ? List<String>.from(data['subTaskIds']) : [],
     );
   }
 
@@ -173,7 +209,71 @@ class Task {
       if (completedAt != null) 'completedAt': completedAt,
       if (overdueDaysAtCompletion != null)
         'overdueDaysAtCompletion': overdueDaysAtCompletion,
+      'isArchived': isArchived,
+      if (archivedAt != null) 'archivedAt': archivedAt,
+      if (startDate != null) 'startDate': Timestamp.fromDate(startDate!),
+      'isDraft': isDraft,
+      if (publishedAt != null) 'publishedAt': publishedAt,
+      if (location != null) 'location': location,
+      if (startTime != null) 'startTime': startTime,
+      if (endTime != null) 'endTime': endTime,
+      'labels': labels,
+      'subTaskIds': subTaskIds,
     };
+  }
+
+  Task copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? createdBy,
+    List<String>? assignedTo,
+    DateTime? dueDate,
+    TaskPriority? priority,
+    TaskStatus? status,
+    bool? isRecurring,
+    RecurrenceType? recurrenceType,
+    EnhancedRecurrence? enhancedRecurrence,
+    Timestamp? createdAt,
+    List<TaskAttachment>? attachments,
+    Timestamp? completedAt,
+    int? overdueDaysAtCompletion,
+    bool? isArchived,
+    Timestamp? archivedAt,
+    DateTime? startDate,
+    bool? isDraft,
+    Timestamp? publishedAt,
+    String? location,
+    String? startTime,
+    String? endTime,
+  }) {
+    return Task(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      createdBy: createdBy ?? this.createdBy,
+      assignedTo: assignedTo ?? this.assignedTo,
+      dueDate: dueDate ?? this.dueDate,
+      priority: priority ?? this.priority,
+      status: status ?? this.status,
+      isRecurring: isRecurring ?? this.isRecurring,
+      recurrenceType: recurrenceType ?? this.recurrenceType,
+      enhancedRecurrence: enhancedRecurrence ?? this.enhancedRecurrence,
+      createdAt: createdAt ?? this.createdAt,
+      attachments: attachments ?? this.attachments,
+      completedAt: completedAt ?? this.completedAt,
+      overdueDaysAtCompletion: overdueDaysAtCompletion ?? this.overdueDaysAtCompletion,
+      isArchived: isArchived ?? this.isArchived,
+      archivedAt: archivedAt ?? this.archivedAt,
+      startDate: startDate ?? this.startDate,
+      isDraft: isDraft ?? this.isDraft,
+      publishedAt: publishedAt ?? this.publishedAt,
+      location: location ?? this.location,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      labels: labels ?? this.labels,
+      subTaskIds: subTaskIds ?? this.subTaskIds,
+    );
   }
 
   /// Convert old RecurrenceType to EnhancedRecurrence for backward compatibility

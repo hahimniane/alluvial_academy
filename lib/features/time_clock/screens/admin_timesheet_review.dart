@@ -122,6 +122,47 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           '${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}'
               .trim();
 
+      // Parse new export fields
+      final clockInTimestamp = data['clock_in_timestamp'] as Timestamp?;
+      final clockOutTimestamp = data['clock_out_timestamp'] as Timestamp?;
+      final scheduledStart = data['scheduled_start'] as Timestamp?;
+      final scheduledEnd = data['scheduled_end'] as Timestamp?;
+      final scheduledDurationMinutes = data['scheduled_duration_minutes'] as int?;
+      
+      // If scheduled times are missing, try to fetch from shift if shift_id exists
+      DateTime? finalScheduledStart = scheduledStart?.toDate();
+      DateTime? finalScheduledEnd = scheduledEnd?.toDate();
+      int? finalScheduledDurationMinutes = scheduledDurationMinutes;
+      
+      final shiftId = data['shift_id'] as String?;
+      if ((finalScheduledStart == null || finalScheduledEnd == null || finalScheduledDurationMinutes == null) && shiftId != null) {
+        try {
+          final shiftDoc = await FirebaseFirestore.instance
+              .collection('teaching_shifts')
+              .doc(shiftId)
+              .get();
+          if (shiftDoc.exists) {
+            final shiftData = shiftDoc.data() as Map<String, dynamic>?;
+            if (shiftData != null) {
+              if (finalScheduledStart == null && shiftData['shift_start'] != null) {
+                finalScheduledStart = (shiftData['shift_start'] as Timestamp).toDate();
+              }
+              if (finalScheduledEnd == null && shiftData['shift_end'] != null) {
+                finalScheduledEnd = (shiftData['shift_end'] as Timestamp).toDate();
+              }
+              if (finalScheduledDurationMinutes == null) {
+                // Calculate from shift times
+                if (finalScheduledStart != null && finalScheduledEnd != null) {
+                  finalScheduledDurationMinutes = finalScheduledEnd.difference(finalScheduledStart).inMinutes;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          AppLogger.debug('Could not fetch shift data for shift_id $shiftId: $e');
+        }
+      }
+
       return TimesheetEntry(
         documentId: doc.id,
         date: data['date'] ?? '',
@@ -141,6 +182,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         rejectionReason: data['rejection_reason'] as String?,
         paymentAmount: data['payment_amount'] as double?,
         source: data['source'] as String? ?? 'manual',
+        // NEW: Export fields
+        shiftTitle: data['shift_title'] as String?,
+        shiftType: data['shift_type'] as String?,
+        clockInPlatform: data['clock_in_platform'] as String?,
+        clockOutPlatform: data['clock_out_platform'] as String?,
+        scheduledStart: finalScheduledStart,
+        scheduledEnd: finalScheduledEnd,
+        scheduledDurationMinutes: finalScheduledDurationMinutes,
+        employeeNotes: data['employee_notes'] as String?,
+        managerNotes: data['manager_notes'] as String?,
       );
     } catch (e) {
       AppLogger.error('Error creating timesheet entry for doc ${doc.id}: $e');
@@ -1108,6 +1159,331 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     );
   }
 
+  /// ConnectTeam-style export with detailed columns
+  void _exportConnectTeamStyle() {
+    // ConnectTeam-style headers (enhanced with more columns)
+    final headers = [
+      "First name",
+      "Last name",
+      "Scheduled shift title",
+      "Type",
+      "Sub-job",
+      "Start Date",
+      "Scheduled In",  // Scheduled start time
+      "In",
+      "Start - device",
+      "End Date",
+      "Scheduled Out", // Scheduled end time
+      "Out",
+      "End - device",
+      "Employee notes",
+      "Manager notes",
+      "Shift hours",
+      "Scheduled hours", // Scheduled duration
+      "Form completed", // NEW: Whether readiness form was filled
+      "Reported hours", // NEW: Hours reported in form
+      "Hours difference", // NEW: Actual vs reported from form
+      "Daily difference", // Actual vs scheduled for day
+      "Daily totals",
+      "Weekly totals",
+      "Total scheduled", // Total scheduled hours for week
+      "Total difference", // Total actual vs scheduled
+      "Total paid hours",
+      "Total overtime", // Hours over 8/day
+    ];
+
+    List<List<dynamic>> rows = [];
+
+    // Group by employee and date for calculations
+    final Map<String, Map<String, double>> dailyTotals = {}; // employee|date -> hours
+    final Map<String, Map<String, double>> weeklyTotals = {}; // employee|week -> hours
+    final Map<String, Map<String, double>> dailyScheduled = {}; // employee|date -> scheduled hours
+    final Map<String, Map<String, double>> weeklyScheduled = {}; // employee|week -> scheduled hours
+    final Map<String, Map<String, double>> dailyOvertime = {}; // employee|date -> overtime hours
+
+    // Helper to get first/last name from full name
+    List<String> _splitName(String fullName) {
+      final parts = fullName.trim().split(' ');
+      if (parts.isEmpty) return ['', ''];
+      if (parts.length == 1) return [parts[0], ''];
+      return [parts[0], parts.sublist(1).join(' ')];
+    }
+
+    // Helper to parse hours string to decimal
+    double _parseHours(String timeString) {
+      try {
+        if (timeString.isEmpty) return 0.0;
+        final parts = timeString.split(':');
+        if (parts.length != 2) return 0.0;
+        final hours = int.parse(parts[0]);
+        final minutes = int.parse(parts[1]);
+        return hours + (minutes / 60.0);
+      } catch (e) {
+        return 0.0;
+      }
+    }
+
+    // Helper to get week start (Monday)
+    DateTime _getWeekStart(DateTime date) {
+      return date.subtract(Duration(days: date.weekday - 1));
+    }
+
+    // Process each timesheet entry
+    for (var entry in _filteredTimesheets) {
+      final names = _splitName(entry.teacherName);
+      final firstName = names[0];
+      final lastName = names[1];
+
+      // Parse dates
+      DateTime? startDate;
+      DateTime? endDate;
+      try {
+        startDate = _parseEntryDate(entry.date);
+        endDate = startDate; // Same day for start/end
+      } catch (e) {
+        startDate = DateTime.now();
+        endDate = DateTime.now();
+      }
+
+      // Parse times
+      String inTime = entry.start;
+      String outTime = entry.end;
+
+      // Get device info
+      final clockInPlatform = entry.clockInPlatform ?? 'unknown';
+      final clockOutPlatform = entry.clockOutPlatform ?? 'unknown';
+
+      // Get shift info
+      final shiftTitle = entry.shiftTitle ?? entry.subject;
+      final shiftType = entry.shiftType ?? '';
+      final subJob = entry.subject; // Student name as sub-job
+
+      // Notes
+      final employeeNotes = entry.employeeNotes ?? '';
+      final managerNotes = entry.managerNotes ?? '';
+
+      // Hours
+      final shiftHours = _parseHours(entry.totalHours);
+      
+      // Scheduled times - try multiple sources
+      String scheduledIn = '--';
+      String scheduledOut = '--';
+      double scheduledHours = 0.0;
+      
+      // First, try to get from timesheet entry fields (most reliable)
+      if (entry.scheduledStart != null) {
+        scheduledIn = DateFormat('HH:mm').format(entry.scheduledStart!);
+      }
+      if (entry.scheduledEnd != null) {
+        scheduledOut = DateFormat('HH:mm').format(entry.scheduledEnd!);
+      }
+      
+      // Calculate scheduled hours - prioritize scheduledDurationMinutes
+      if (entry.scheduledDurationMinutes != null && entry.scheduledDurationMinutes! > 0) {
+        scheduledHours = entry.scheduledDurationMinutes! / 60.0;
+      } else if (entry.scheduledStart != null && entry.scheduledEnd != null) {
+        // Calculate from start/end times
+        final duration = entry.scheduledEnd!.difference(entry.scheduledStart!);
+        scheduledHours = duration.inMinutes / 60.0;
+      } else if (entry.shiftTitle != null && entry.shiftTitle!.isNotEmpty) {
+        // If we have shift title but no scheduled times, try to parse from shift title
+        // This is a fallback - ideally scheduled times should be in the entry
+        // For now, use actual hours as fallback
+        scheduledHours = shiftHours;
+        AppLogger.debug('Using actual hours as scheduled hours fallback for entry: ${entry.documentId}');
+      }
+      
+      // Form data
+      final formCompleted = entry.formCompleted ? 'Yes' : 'No';
+      final reportedHours = entry.reportedHours;
+      final hoursDifference = reportedHours != null 
+          ? (shiftHours - reportedHours).toStringAsFixed(2) 
+          : '--';
+
+      // Add row
+      rows.add([
+        firstName,
+        lastName,
+        shiftTitle,
+        shiftType,
+        subJob,
+        startDate,
+        scheduledIn,  // Scheduled start time
+        inTime,
+        clockInPlatform,
+        endDate,
+        scheduledOut, // Scheduled end time
+        outTime,
+        clockOutPlatform,
+        employeeNotes,
+        managerNotes,
+        shiftHours,
+        scheduledHours, // Scheduled hours
+        formCompleted, // Form completed
+        reportedHours ?? '--', // Reported hours from form
+        hoursDifference, // Difference between actual and reported
+        '', // Daily difference (calculated below)
+        '', // Daily totals (calculated below)
+        '', // Weekly totals (calculated below)
+        '', // Total scheduled (calculated below)
+        '', // Total difference (calculated below)
+        '', // Total paid hours (calculated below)
+        '', // Total overtime (calculated below)
+      ]);
+
+      // Track totals
+      final employeeKey = entry.teacherName;
+      final dateKey = DateFormat('yyyy-MM-dd').format(startDate!);
+      final weekKey = DateFormat('yyyy-MM-dd').format(_getWeekStart(startDate));
+
+      dailyTotals.putIfAbsent(employeeKey, () => {});
+      dailyTotals[employeeKey]![dateKey] =
+          (dailyTotals[employeeKey]![dateKey] ?? 0.0) + shiftHours;
+
+      weeklyTotals.putIfAbsent(employeeKey, () => {});
+      weeklyTotals[employeeKey]![weekKey] =
+          (weeklyTotals[employeeKey]![weekKey] ?? 0.0) + shiftHours;
+          
+      // Track scheduled hours
+      dailyScheduled.putIfAbsent(employeeKey, () => {});
+      dailyScheduled[employeeKey]![dateKey] =
+          (dailyScheduled[employeeKey]![dateKey] ?? 0.0) + scheduledHours;
+
+      weeklyScheduled.putIfAbsent(employeeKey, () => {});
+      weeklyScheduled[employeeKey]![weekKey] =
+          (weeklyScheduled[employeeKey]![weekKey] ?? 0.0) + scheduledHours;
+          
+      // Track overtime (hours over 8 per day)
+      dailyOvertime.putIfAbsent(employeeKey, () => {});
+      final currentDayTotal = dailyTotals[employeeKey]![dateKey] ?? 0.0;
+      if (currentDayTotal > 8.0) {
+        dailyOvertime[employeeKey]![dateKey] = currentDayTotal - 8.0;
+      }
+    }
+
+    // Fill in daily and weekly totals
+    for (int i = 0; i < rows.length; i++) {
+      final entry = _filteredTimesheets[i];
+      final names = _splitName(entry.teacherName);
+      final employeeKey = entry.teacherName;
+
+      DateTime? entryDate;
+      try {
+        entryDate = _parseEntryDate(entry.date);
+      } catch (e) {
+        entryDate = DateTime.now();
+      }
+
+      final dateKey = DateFormat('yyyy-MM-dd').format(entryDate!);
+      final weekKey = DateFormat('yyyy-MM-dd').format(_getWeekStart(entryDate));
+
+      final dailyTotal = dailyTotals[employeeKey]?[dateKey] ?? 0.0;
+      final weeklyTotal = weeklyTotals[employeeKey]?[weekKey] ?? 0.0;
+      final dailyScheduledTotal = dailyScheduled[employeeKey]?[dateKey] ?? 0.0;
+      final weeklyScheduledTotal = weeklyScheduled[employeeKey]?[weekKey] ?? 0.0;
+      final weeklyOvertimeTotal = dailyOvertime[employeeKey]?.values.fold<double>(0.0, (a, b) => a + b) ?? 0.0;
+      
+      // Column indices (0-based):
+      // 20: Daily difference, 21: Daily totals, 22: Weekly totals
+      // 23: Total scheduled, 24: Total difference, 25: Total paid hours, 26: Total overtime
+      rows[i][20] = (dailyTotal - dailyScheduledTotal).toStringAsFixed(2); // Daily difference
+      rows[i][21] = dailyTotal.toStringAsFixed(2); // Daily totals
+      rows[i][22] = weeklyTotal.toStringAsFixed(2); // Weekly totals
+      rows[i][23] = weeklyScheduledTotal.toStringAsFixed(2); // Total scheduled
+      rows[i][24] = (weeklyTotal - weeklyScheduledTotal).toStringAsFixed(2); // Total difference
+      rows[i][25] = weeklyTotal.toStringAsFixed(2); // Total paid hours (same as weekly for now)
+      rows[i][26] = weeklyOvertimeTotal.toStringAsFixed(2); // Total overtime
+    }
+
+    // Sort by employee name, then by date
+    rows.sort((a, b) {
+      final nameCompare = (a[0] as String).compareTo(b[0] as String);
+      if (nameCompare != 0) return nameCompare;
+      final dateCompare = (a[5] as DateTime).compareTo(b[5] as DateTime);
+      return dateCompare;
+    });
+
+    // Create sheets: 1 summary sheet + 1 sheet per teacher
+    final Map<String, List<String>> sheetsHeaders = {};
+    final Map<String, List<List<dynamic>>> sheetsData = {};
+    
+    // Summary sheet (all data)
+    sheetsHeaders['All Teachers'] = headers;
+    sheetsData['All Teachers'] = rows;
+    
+    // Group by employee for individual sheets
+    final Map<String, List<List<dynamic>>> employeeRows = {};
+    for (var row in rows) {
+      final employeeName = '${row[0]} ${row[1]}';
+      employeeRows.putIfAbsent(employeeName, () => []);
+      employeeRows[employeeName]!.add(row);
+    }
+    
+    // Create a sheet for each employee (limit name length for sheet name)
+    for (var entry in employeeRows.entries) {
+      String sheetName = entry.key;
+      // Excel sheet names max 31 chars, no special chars
+      if (sheetName.length > 28) {
+        sheetName = '${sheetName.substring(0, 28)}...';
+      }
+      sheetName = sheetName.replaceAll(RegExp(r'[\\/*?\[\]:]'), '_');
+      
+      sheetsHeaders[sheetName] = headers;
+      sheetsData[sheetName] = entry.value;
+    }
+    
+    // Add summary statistics sheet
+    final summaryHeaders = ['Teacher', 'Total Shifts', 'Total Hours', 'Avg Hours/Shift'];
+    final summaryRows = <List<dynamic>>[];
+    
+    for (var entry in employeeRows.entries) {
+      final teacherRows = entry.value;
+      final totalShifts = teacherRows.length;
+      final totalHours = teacherRows.fold<double>(0.0, (sum, row) {
+        // row[15] is shiftHours (double)
+        final hours = row[15];
+        if (hours is double) {
+          return sum + hours;
+        } else if (hours is num) {
+          return sum + hours.toDouble();
+        } else if (hours is String) {
+          return sum + (double.tryParse(hours) ?? 0.0);
+        }
+        return sum;
+      });
+      final avgHours = totalShifts > 0 ? totalHours / totalShifts : 0.0;
+      
+      summaryRows.add([
+        entry.key,
+        totalShifts,
+        totalHours.toStringAsFixed(2),
+        avgHours.toStringAsFixed(2),
+      ]);
+    }
+    
+    // Sort summary by total hours descending
+    summaryRows.sort((a, b) => (double.tryParse(b[2].toString()) ?? 0).compareTo(double.tryParse(a[2].toString()) ?? 0));
+    
+    sheetsHeaders['Summary'] = summaryHeaders;
+    sheetsData['Summary'] = summaryRows;
+
+    String fileName = 'timesheet_export';
+    if (_selectedDateRange != null) {
+      fileName +=
+          '_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.start)}_to_${DateFormat('yyyy-MM-dd').format(_selectedDateRange!.end)}';
+    } else {
+      fileName += '_${_selectedFilter.toLowerCase()}';
+    }
+    fileName += '_${DateTime.now().toString().split(' ')[0]}';
+
+    ExportHelpers.showExportDialog(
+      context,
+      sheetsHeaders,
+      sheetsData,
+      fileName,
+    );
+  }
+
   // Re-adding helper method for hour parsing as it is needed for duration calculation
   double _parseHoursToDecimal(String timeString) {
     try {
@@ -1450,27 +1826,54 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                     const Spacer(),
                     // Export Button
+                    // Export Button with dropdown
                     Material(
                       elevation: 2,
                       borderRadius: BorderRadius.circular(12),
-                      child: ElevatedButton.icon(
-                        onPressed: _filteredTimesheets.isNotEmpty
-                            ? _exportTimesheets
-                            : null,
-                        icon: const Icon(Icons.file_download, size: 18),
-                        label: const Text(
-                          'Export',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff10B981),
-                          foregroundColor: Colors.white,
+                      child: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'advanced') {
+                            _exportTimesheets();
+                          } else if (value == 'connectteam') {
+                            _exportConnectTeamStyle();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'advanced',
+                            child: Text('Advanced Export (Multi-sheet)'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'connectteam',
+                            child: Text('ConnectTeam Style Export'),
+                          ),
+                        ],
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(
+                          decoration: BoxDecoration(
+                            color: _filteredTimesheets.isNotEmpty
+                                ? const Color(0xff10B981)
+                                : Colors.grey,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          elevation: 0,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.file_download,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Export',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.arrow_drop_down,
+                                  size: 18, color: Colors.white),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1741,6 +2144,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                               GridColumn(
                                 columnName: 'source',
+                                width: 120, // Fixed width to prevent overflow
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
@@ -1761,6 +2165,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                               GridColumn(
                                 columnName: 'actions',
+                                width: 140, // Fixed width to prevent overflow
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
@@ -1880,7 +2285,7 @@ class TimesheetReviewDataSource extends DataGridSource {
             alignment: Alignment.center,
             padding: const EdgeInsets.all(8.0),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
                 color: isClockIn
                     ? const Color(0xff10B981).withOpacity(0.1)
@@ -1889,6 +2294,7 @@ class TimesheetReviewDataSource extends DataGridSource {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     isClockIn ? Icons.access_time : Icons.edit,
@@ -1898,14 +2304,18 @@ class TimesheetReviewDataSource extends DataGridSource {
                         : const Color(0xff0386FF),
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    isClockIn ? 'Clock In' : 'Unclocked',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isClockIn
-                          ? const Color(0xff10B981)
-                          : const Color(0xff0386FF),
+                  Flexible(
+                    child: Text(
+                      isClockIn ? 'Clock In' : 'Unclocked',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isClockIn
+                            ? const Color(0xff10B981)
+                            : const Color(0xff0386FF),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -1960,7 +2370,7 @@ class TimesheetReviewDataSource extends DataGridSource {
 
           return Container(
             alignment: Alignment.center,
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -1969,6 +2379,11 @@ class TimesheetReviewDataSource extends DataGridSource {
                   onPressed: () => onViewDetails(timesheet),
                   icon: const Icon(Icons.visibility, size: 18),
                   tooltip: 'View Details',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
                 if (timesheet.status == TimesheetStatus.pending) ...[
                   IconButton(
@@ -1976,11 +2391,21 @@ class TimesheetReviewDataSource extends DataGridSource {
                     icon: const Icon(Icons.check_circle,
                         color: Colors.green, size: 18),
                     tooltip: 'Approve',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                   IconButton(
                     onPressed: () => onReject(timesheet),
                     icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
                     tooltip: 'Reject',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                 ],
               ],
