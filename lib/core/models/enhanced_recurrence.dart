@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../enums/shift_enums.dart';
+import '../utils/timezone_utils.dart';
 
 /// Enhanced recurrence configuration
 class EnhancedRecurrence {
@@ -195,6 +197,9 @@ class EnhancedRecurrence {
     }
 
     // Check excluded weekdays
+    // Note: This method doesn't have timezone context, so it uses date.weekday
+    // which is based on the DateTime's timezone context. For accurate results,
+    // ensure the date is already in the correct timezone before calling this.
     final weekday =
         WeekDay.values.firstWhere((day) => day.value == date.weekday);
     if (excludedWeekdays.contains(weekday)) {
@@ -205,7 +210,10 @@ class EnhancedRecurrence {
   }
 
   /// Generate next occurrence dates based on the recurrence pattern
-  List<DateTime> generateOccurrences(DateTime startDate, int maxCount) {
+  /// 
+  /// [timezoneId] is the timezone to use for weekday calculations (e.g., "America/New_York")
+  /// If not provided, uses the system timezone (for backward compatibility)
+  List<DateTime> generateOccurrences(DateTime startDate, int maxCount, {String? timezoneId}) {
     if (type == EnhancedRecurrenceType.none || !isValid) {
       return [startDate];
     }
@@ -213,6 +221,35 @@ class EnhancedRecurrence {
     final List<DateTime> occurrences = [];
     DateTime currentDate = startDate;
     int count = 0;
+
+    // Helper function to get weekday in the specified timezone
+    // The date parameter represents a date/time already in the target timezone context
+    int getWeekdayInTimezone(DateTime date, String? tzId) {
+      if (tzId == null || tzId == 'UTC') {
+        return date.weekday;
+      }
+      try {
+        TimezoneUtils.initializeTimezones();
+        final location = tz.getLocation(tzId);
+        // Create a TZDateTime directly in the target timezone using the date components
+        // This ensures the weekday is calculated in the correct timezone
+        final tzDate = tz.TZDateTime(
+          location,
+          date.year,
+          date.month,
+          date.day,
+          date.hour,
+          date.minute,
+          date.second,
+          date.millisecond,
+          date.microsecond,
+        );
+        return tzDate.weekday;
+      } catch (e) {
+        // Fallback to regular weekday if timezone conversion fails
+        return date.weekday;
+      }
+    }
 
     while (count < maxCount &&
         (endDate == null || currentDate.isBefore(endDate!))) {
@@ -226,8 +263,10 @@ class EnhancedRecurrence {
           break;
 
         case EnhancedRecurrenceType.weekly:
+          // Use timezone-aware weekday calculation
+          final weekdayValue = getWeekdayInTimezone(currentDate, timezoneId);
           final weekday = WeekDay.values
-              .firstWhere((day) => day.value == currentDate.weekday);
+              .firstWhere((day) => day.value == weekdayValue);
           if (selectedWeekdays.contains(weekday) &&
               !isDateExcluded(currentDate)) {
             occurrences.add(currentDate);
