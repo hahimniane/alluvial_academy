@@ -8,6 +8,7 @@ import '../models/employee_model.dart';
 import '../models/enhanced_recurrence.dart';
 import 'wage_management_service.dart';
 import '../enums/shift_enums.dart';
+import '../utils/timezone_utils.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -349,10 +350,13 @@ class ShiftService {
             'Selected weekdays: ${enhancedRecurrence.selectedWeekdays.map((d) => d.name).join(', ')}');
 
         // Generate occurrences using enhanced recurrence
+        // Convert base shift start to local timezone for date generation
+        final localBaseStart = TimezoneUtils.convertToTimezone(
+            baseShift.shiftStart, baseShift.adminTimezone);
         final occurrences = enhancedRecurrence.generateOccurrences(
-          baseShift.shiftStart
-              .add(const Duration(days: 1)), // Start from next day
+          localBaseStart.add(const Duration(days: 1)), // Start from next day in local timezone
           100, // Max occurrences
+          timezoneId: baseShift.adminTimezone, // Pass timezone for correct weekday calculation
         );
 
         AppLogger.debug('Generated ${occurrences.length} occurrence dates');
@@ -365,10 +369,30 @@ class ShiftService {
             continue;
           }
 
-          // Create shift start and end times for this occurrence
-          // Use original local times if available, otherwise fall back to base shift times
-          final localStartTime = originalLocalStart ?? baseShift.shiftStart;
-          final localEndTime = originalLocalEnd ?? baseShift.shiftEnd;
+          // Get the admin timezone used for scheduling
+          final adminTimezone = baseShift.adminTimezone;
+
+          // Extract local time components from original local times
+          // If originalLocalStart is provided, it's a naive DateTime in the admin timezone
+          // If not, we need to convert the UTC baseShift times back to local time first
+          DateTime localStartTime;
+          DateTime localEndTime;
+
+          if (originalLocalStart != null && originalLocalEnd != null) {
+            // Use the provided local times (naive DateTime in admin timezone)
+            localStartTime = originalLocalStart;
+            localEndTime = originalLocalEnd;
+            AppLogger.debug(
+                'Recurring shift (enhanced): Using original local times - Start: ${localStartTime.hour}:${localStartTime.minute.toString().padLeft(2, '0')}, End: ${localEndTime.hour}:${localEndTime.minute.toString().padLeft(2, '0')} ($adminTimezone)');
+          } else {
+            // Fallback: convert UTC times back to local timezone
+            localStartTime = TimezoneUtils.convertToTimezone(
+                baseShift.shiftStart, adminTimezone);
+            localEndTime = TimezoneUtils.convertToTimezone(
+                baseShift.shiftEnd, adminTimezone);
+            AppLogger.debug(
+                'Recurring shift (enhanced): Converted UTC to local - Start: ${localStartTime.hour}:${localStartTime.minute.toString().padLeft(2, '0')}, End: ${localEndTime.hour}:${localEndTime.minute.toString().padLeft(2, '0')} ($adminTimezone)');
+          }
 
           // Calculate duration from original times to ensure consistency
           // If original end is before start, it means it crosses midnight, so add a day to end
@@ -379,7 +403,9 @@ class ShiftService {
           final Duration shiftDuration =
               effectiveOriginalEnd.difference(localStartTime);
 
-          final shiftStart = DateTime(
+          // Create a naive DateTime for the new occurrence with the same local time
+          // This represents the time in the admin timezone
+          final naiveShiftStart = DateTime(
             occurrence.year,
             occurrence.month,
             occurrence.day,
@@ -391,7 +417,11 @@ class ShiftService {
 
           // Calculate end time by adding duration to start time
           // This correctly handles shifts that cross midnight (end time will be next day)
-          final shiftEnd = shiftStart.add(shiftDuration);
+          final naiveShiftEnd = naiveShiftStart.add(shiftDuration);
+
+          // Convert from admin timezone to UTC for storage
+          final shiftStart = TimezoneUtils.convertToUtc(naiveShiftStart, adminTimezone);
+          final shiftEnd = TimezoneUtils.convertToUtc(naiveShiftEnd, adminTimezone);
 
           // Check if a shift already exists at this exact time
           final hasConflict = await hasConflictingShift(
@@ -407,8 +437,10 @@ class ShiftService {
           }
 
           // Debug logging to track time preservation
+          final localShiftStart = TimezoneUtils.convertToTimezone(shiftStart, adminTimezone);
+          final localShiftEnd = TimezoneUtils.convertToTimezone(shiftEnd, adminTimezone);
           AppLogger.debug(
-              'Creating recurring shift: ${occurrence.toString().substring(0, 10)} ${shiftStart.hour}:${shiftStart.minute.toString().padLeft(2, '0')} - ${shiftEnd.hour}:${shiftEnd.minute.toString().padLeft(2, '0')}');
+              'Creating recurring shift: ${occurrence.toString().substring(0, 10)} ${localShiftStart.hour}:${localShiftStart.minute.toString().padLeft(2, '0')} - ${localShiftEnd.hour}:${localShiftEnd.minute.toString().padLeft(2, '0')} ($adminTimezone)');
 
           // Create recurring shift
           final recurringShift = baseShift.copyWith(
@@ -422,9 +454,33 @@ class ShiftService {
         }
       } else {
         // Fall back to old recurrence pattern logic
-        final localStartTime = originalLocalStart ?? baseShift.shiftStart;
-        final localEndTime = originalLocalEnd ?? baseShift.shiftEnd;
-        DateTime currentDate = baseShift.shiftStart;
+        // Get the admin timezone used for scheduling
+        final adminTimezone = baseShift.adminTimezone;
+        
+        // Extract local time components from original local times
+        DateTime localStartTime;
+        DateTime localEndTime;
+
+        if (originalLocalStart != null && originalLocalEnd != null) {
+          // Use the provided local times (naive DateTime in admin timezone)
+          localStartTime = originalLocalStart;
+          localEndTime = originalLocalEnd;
+          AppLogger.debug(
+              'Recurring shift (legacy): Using original local times - Start: ${localStartTime.hour}:${localStartTime.minute.toString().padLeft(2, '0')}, End: ${localEndTime.hour}:${localEndTime.minute.toString().padLeft(2, '0')} ($adminTimezone)');
+        } else {
+          // Fallback: convert UTC times back to local timezone
+          localStartTime = TimezoneUtils.convertToTimezone(
+              baseShift.shiftStart, adminTimezone);
+          localEndTime = TimezoneUtils.convertToTimezone(
+              baseShift.shiftEnd, adminTimezone);
+          AppLogger.debug(
+              'Recurring shift (legacy): Converted UTC to local - Start: ${localStartTime.hour}:${localStartTime.minute.toString().padLeft(2, '0')}, End: ${localEndTime.hour}:${localEndTime.minute.toString().padLeft(2, '0')} ($adminTimezone)');
+        }
+        
+        // Convert baseShift.shiftStart to local timezone for date calculations
+        final localBaseStart = TimezoneUtils.convertToTimezone(
+            baseShift.shiftStart, adminTimezone);
+        DateTime currentDate = localBaseStart;
         int maxRecurringShifts = 50;
         int createdCount = 0;
 
@@ -440,12 +496,13 @@ class ShiftService {
               nextDate = currentDate.add(const Duration(days: 7));
               break;
             case RecurrencePattern.monthly:
+              // For monthly, increment month but keep the same day and time
               nextDate = DateTime(
                 currentDate.year,
                 currentDate.month + 1,
                 currentDate.day,
-                currentDate.hour,
-                currentDate.minute,
+                localStartTime.hour,
+                localStartTime.minute,
               );
               break;
             default:
@@ -455,6 +512,7 @@ class ShiftService {
           if (nextDate.isAfter(endDate)) break;
 
           // Calculate duration from original times to ensure consistency
+          // Note: localStartTime and localEndTime are already defined before the loop
           // If original end is before start, it means it crosses midnight, so add a day to end
           DateTime effectiveOriginalEnd = localEndTime;
           if (localEndTime.isBefore(localStartTime)) {
@@ -463,8 +521,9 @@ class ShiftService {
           final Duration shiftDuration =
               effectiveOriginalEnd.difference(localStartTime);
 
-          // Create start time on the next occurrence date
-          final DateTime nextShiftStart = DateTime(
+          // Create a naive DateTime for the new occurrence with the same local time
+          // This represents the time in the admin timezone
+          final naiveNextShiftStart = DateTime(
             nextDate.year,
             nextDate.month,
             nextDate.day,
@@ -476,7 +535,11 @@ class ShiftService {
 
           // Calculate end time by adding duration to start time
           // This correctly handles shifts that cross midnight (end time will be next day)
-          final DateTime nextShiftEnd = nextShiftStart.add(shiftDuration);
+          final naiveNextShiftEnd = naiveNextShiftStart.add(shiftDuration);
+
+          // Convert from admin timezone to UTC for storage
+          final nextShiftStart = TimezoneUtils.convertToUtc(naiveNextShiftStart, adminTimezone);
+          final nextShiftEnd = TimezoneUtils.convertToUtc(naiveNextShiftEnd, adminTimezone);
 
           // Check for conflicts before creating
           final hasConflict = await hasConflictingShift(
