@@ -114,6 +114,7 @@ class SubjectService {
     String? description,
     String? arabicName,
     required int sortOrder,
+    double? defaultWage,
   }) async {
     try {
       await _firestore.collection(_collection).add({
@@ -122,6 +123,7 @@ class SubjectService {
         'description': description,
         'arabicName': arabicName,
         'sortOrder': sortOrder,
+        'defaultWage': defaultWage,
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -138,6 +140,7 @@ class SubjectService {
     String? description,
     String? arabicName,
     required int sortOrder,
+    double? defaultWage,
   }) async {
     final name = await generateUniqueInternalName(displayName);
     return addSubject(
@@ -146,6 +149,7 @@ class SubjectService {
       description: description,
       arabicName: arabicName,
       sortOrder: sortOrder,
+      defaultWage: defaultWage,
     );
   }
 

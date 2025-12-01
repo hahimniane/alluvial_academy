@@ -336,18 +336,30 @@ class TaskService {
   }
 
   Future<void> deleteTask(String taskId) async {
-    // Get task to delete its attachments
+    // Get task to verify permissions
     final taskDoc = await _taskCollection.doc(taskId).get();
-    if (taskDoc.exists) {
-      final task = Task.fromFirestore(taskDoc);
+    if (!taskDoc.exists) {
+      throw Exception('Task not found');
+    }
 
-      // Send notification to admins about deletion
-      await _sendTaskDeletionNotification(task);
+    final task = Task.fromFirestore(taskDoc);
+    
+    // Permission check: Only the creator can delete the task
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+    
+    if (task.createdBy != currentUser.uid) {
+      throw Exception('Only the task creator can delete this task');
+    }
 
-      // Delete all attachments from storage
-      for (final attachment in task.attachments) {
-        await _fileService.deleteFile(attachment, taskId);
-      }
+    // Send notification to admins about deletion
+    await _sendTaskDeletionNotification(task);
+
+    // Delete all attachments from storage
+    for (final attachment in task.attachments) {
+      await _fileService.deleteFile(attachment, taskId);
     }
 
     await _taskCollection.doc(taskId).delete();

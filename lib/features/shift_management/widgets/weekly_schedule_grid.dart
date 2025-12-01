@@ -21,6 +21,10 @@ class WeeklyScheduleGrid extends StatefulWidget {
   final Function(TeachingShift)? onEditShift; // Edit shift callback
   final Function(String userId, DateTime date, TimeOfDay time) onCreateShift;
   final Function(String) onUserTap;
+  final Function(DateTime)? onWeekChanged; // Week navigation callback
+  final Set<String> selectedShiftIds; // Multi-select support
+  final Function(String, bool)? onShiftSelectionChanged; // Selection callback
+  final bool isSelectionMode; // Whether selection mode is active
 
   const WeeklyScheduleGrid({
     super.key,
@@ -35,6 +39,10 @@ class WeeklyScheduleGrid extends StatefulWidget {
     this.onEditShift,
     required this.onCreateShift,
     required this.onUserTap,
+    this.onWeekChanged,
+    this.selectedShiftIds = const {},
+    this.onShiftSelectionChanged,
+    this.isSelectionMode = false,
   });
 
   @override
@@ -58,7 +66,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   @override
   void didUpdateWidget(WeeklyScheduleGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.searchQuery != widget.searchQuery) {
+    if (oldWidget.searchQuery != widget.searchQuery && _searchController.text != widget.searchQuery) {
       _searchController.text = widget.searchQuery;
     }
   }
@@ -79,7 +87,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
         // Calculate responsive column widths
         final availableWidth = constraints.maxWidth;
         final userColumnWidth = (availableWidth * 0.18).clamp(120.0, 180.0);
-        final dayColumnWidth = (availableWidth - userColumnWidth) / 7;
+        final weekNavWidth = widget.onWeekChanged != null ? 80.0 : 0.0;
+        final dayColumnWidth = (availableWidth - userColumnWidth - weekNavWidth) / 7;
 
         return Column(
           children: [
@@ -95,7 +104,9 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                   if (item.isHeader) {
                     return _buildSectionHeader(item.title ?? '');
                   }
-                  return _buildUserShiftRow(item.user!, weekDays, userColumnWidth, dayColumnWidth);
+                  // FIX: Pass the weekNavWidth here
+                  return _buildUserShiftRow(
+                      item.user!, weekDays, userColumnWidth, dayColumnWidth, weekNavWidth);
                 },
               ),
             ),
@@ -170,106 +181,152 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
 
   Widget _buildDayHeaderRow(List<DateTime> weekDays, double userColumnWidth, double dayColumnWidth) {
     final today = DateTime.now();
+    final weekEnd = weekDays.last;
     
     return Container(
       height: 56, // Compact header height
       color: const Color(0xffFAFAFA),
       child: Row(
         children: [
-          // Search users column header - Functional search field
+          // User column header (no search bar - moved to parent)
           Container(
             width: userColumnWidth,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: const BoxDecoration(
               border: Border(right: BorderSide(color: Color(0xffE2E8F0))),
             ),
-            child: TextField(
-              controller: _searchController,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: const Color(0xff374151),
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search users',
-                hintStyle: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: const Color(0xff9CA3AF),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'TEACHERS',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff6B7280),
+                    letterSpacing: 0.5,
+                  ),
                 ),
-                prefixIcon: const Icon(Icons.search, size: 14, color: Color(0xff6B7280)),
-                suffixIcon: widget.searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 14, color: Color(0xff6B7280)),
-                        onPressed: () {
-                          _searchController.clear();
-                          widget.onSearchChanged('');
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      )
-                    : null,
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 4),
-              ),
+                Text(
+                  '(${_getFilteredUsers().length})',
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    color: const Color(0xff9CA3AF),
+                  ),
+                ),
+              ],
             ),
           ),
-          // Day columns
-          ...weekDays.map((day) {
-            final isToday = day.year == today.year && 
-                           day.month == today.month && 
-                           day.day == today.day;
-            final stats = _calculateDayStats(_getShiftsForDay(day));
-            
-            return Container(
-              width: dayColumnWidth,
-              decoration: BoxDecoration(
-                border: const Border(right: BorderSide(color: Color(0xffE2E8F0))),
-                color: isToday ? const Color(0xff0386FF).withOpacity(0.05) : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Day name and date
-                  Text(
-                    DateFormat('EEE').format(day),
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isToday ? const Color(0xff0386FF) : const Color(0xff374151),
+          // Week navigation and day columns
+          Expanded(
+            child: Row(
+              children: [
+                // Week navigation arrows
+                if (widget.onWeekChanged != null)
+                  Container(
+                    width: 80,
+                    decoration: const BoxDecoration(
+                      border: Border(right: BorderSide(color: Color(0xffE2E8F0))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left, size: 18),
+                          color: const Color(0xff6B7280),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Previous week',
+                          onPressed: () {
+                            widget.onWeekChanged!(widget.weekStart.subtract(const Duration(days: 7)));
+                          },
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${DateFormat('EEE M/d').format(weekDays.first)} → ${DateFormat('EEE M/d').format(weekEnd)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xff374151),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right, size: 18),
+                          color: const Color(0xff6B7280),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Next week',
+                          onPressed: () {
+                            widget.onWeekChanged!(widget.weekStart.add(const Duration(days: 7)));
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    DateFormat('M/d').format(day),
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: isToday ? const Color(0xff0386FF) : const Color(0xff6B7280),
+                // Day columns
+                ...weekDays.map((day) {
+                  final isToday = day.year == today.year && 
+                                 day.month == today.month && 
+                                 day.day == today.day;
+                  final stats = _calculateDayStats(_getShiftsForDay(day));
+                  
+                  return Container(
+                    width: dayColumnWidth,
+                    decoration: BoxDecoration(
+                      border: const Border(right: BorderSide(color: Color(0xffE2E8F0))),
+                      color: isToday ? const Color(0xff0386FF).withOpacity(0.05) : null,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  // Stats row - compact
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.access_time, size: 10, color: const Color(0xff9CA3AF)),
-                      const SizedBox(width: 2),
-                      Text(
-                        stats.totalHours,
-                        style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff9CA3AF)),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.assignment, size: 10, color: const Color(0xff9CA3AF)),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${stats.shiftCount}',
-                        style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff9CA3AF)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Day name and date
+                        Text(
+                          DateFormat('EEE').format(day),
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isToday ? const Color(0xff0386FF) : const Color(0xff374151),
+                          ),
+                        ),
+                        Text(
+                          DateFormat('M/d').format(day),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: isToday ? const Color(0xff0386FF) : const Color(0xff6B7280),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // Stats row - compact
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time, size: 10, color: const Color(0xff9CA3AF)),
+                            const SizedBox(width: 2),
+                            Text(
+                              stats.totalHours,
+                              style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff9CA3AF)),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.assignment, size: 10, color: const Color(0xff9CA3AF)),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${stats.shiftCount}',
+                              style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff9CA3AF)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -302,14 +359,35 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     );
   }
 
-  Widget _buildUserShiftRow(Employee user, List<DateTime> weekDays, double userColumnWidth, double dayColumnWidth) {
+  // FIX: Update signature to accept weekNavWidth
+  Widget _buildUserShiftRow(Employee user, List<DateTime> weekDays, 
+      double userColumnWidth, double dayColumnWidth, double weekNavWidth) {
+    
+    // 1. Calculate the maximum number of shifts this user has on any single day this week
+    int maxShifts = 0;
+    for (var day in weekDays) {
+      final shifts = _getUserShiftsForDay(user, day);
+      if (shifts.length > maxShifts) {
+        maxShifts = shifts.length;
+      }
+    }
+
+    // 2. Define heights
+    const double singleShiftHeight = 36.0; // Increased from 22 to 36 so text fits!
+    const double gap = 4.0;
+    
+    // 3. Calculate dynamic height based on the busiest day
+    // Minimum height is 80 (for aesthetics), otherwise grow to fit all shifts
+    double contentHeight = (maxShifts * (singleShiftHeight + gap)) + 16.0; // 16 for padding
+    double rowHeight = contentHeight < 80.0 ? 80.0 : contentHeight;
+
     return Container(
-      height: 60, // Fixed height to avoid constraint issues
+      height: rowHeight, // FIX: Use the calculated dynamic height
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch to fill height
         children: [
           // User info column (responsive width)
           Container(
@@ -383,11 +461,26 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
               ),
             ),
           ),
+          
+          // FIX: Add this Spacer to align rows with the header
+          if (weekNavWidth > 0)
+            Container(
+              width: weekNavWidth,
+              decoration: const BoxDecoration(
+                border: Border(right: BorderSide(color: Color(0xffE2E8F0))),
+              ),
+            ),
+
           // Day columns with shifts
           ...weekDays.map((day) {
+            final now = DateTime.now();
+            final dayStart = DateTime(day.year, day.month, day.day);
+            final isPastDate = dayStart.isBefore(DateTime(now.year, now.month, now.day));
+            
             return SizedBox(
               width: dayColumnWidth,
-              child: _buildDayCell(user, day),
+              height: rowHeight, // Pass the dynamic height down
+              child: _buildDayCell(user, day, isPastDate, singleShiftHeight, rowHeight),
             );
           }).toList(),
         ],
@@ -395,67 +488,236 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     );
   }
 
-  Widget _buildDayCell(Employee user, DateTime day) {
+  Widget _buildDayCell(Employee user, DateTime day, bool isPastDate, double shiftHeight, double rowHeight) {
     final userShifts = _getUserShiftsForDay(user, day);
     
-    return SizedBox(
-      height: 60, // Fixed height to match row height
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: Color(0xffE2E8F0))),
-        ),
+    return Container(
+      height: rowHeight, // Use the row height from parent
+      width: double.infinity, // Ensure full width
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        border: const Border(right: BorderSide(color: Color(0xffE2E8F0))),
+        // Color-code past date cells with shifts
+        color: isPastDate && userShifts.isNotEmpty 
+            ? _getPastDateBackgroundColor(userShifts.first)
+            : null,
+      ),
+      child: ClipRect(
         child: userShifts.isEmpty
-            ? _buildEmptyCell(user, day)
+            ? _buildEmptyCell(user, day, isPastDate, rowHeight)
             : userShifts.length == 1
                 // Single shift - full height with hover actions
-                ? ShiftBlock(
-                    shift: userShifts.first,
-                    onTap: () => widget.onShiftTap(userShifts.first),
-                    onViewDetails: () => widget.onShiftTap(userShifts.first),
-                    onEdit: widget.onEditShift != null 
-                        ? () => widget.onEditShift!(userShifts.first)
-                        : null,
-                    onAddShift: () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0)),
-                    teacherEmail: user.email,
-                    compact: true,
-                  )
-                // Multiple shifts - scrollable list with hover support
-                : MouseRegion(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: userShifts.map((shift) {
-                          return SizedBox(
-                            height: 36, // Fixed height per shift block
-                            child: ShiftBlock(
-                              shift: shift,
-                              onTap: () => widget.onShiftTap(shift),
-                              onViewDetails: () => widget.onShiftTap(shift),
-                              onEdit: widget.onEditShift != null 
-                                  ? () => widget.onEditShift!(shift)
-                                  : null,
-                              onAddShift: () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0)),
-                              teacherEmail: user.email,
-                              compact: true,
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                ? SizedBox(
+                    height: rowHeight - 4, // Account for padding
+                    width: double.infinity,
+                    child: ShiftBlock(
+                      shift: userShifts.first,
+                      onTap: () => widget.onShiftTap(userShifts.first),
+                      onViewDetails: () => widget.onShiftTap(userShifts.first),
+                      onEdit: widget.onEditShift != null && !isPastDate
+                          ? () => widget.onEditShift!(userShifts.first)
+                          : null,
+                      onAddShift: !isPastDate 
+                          ? () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0))
+                          : null,
+                      teacherEmail: user.email,
+                      compact: true,
+                      isPastDate: isPastDate,
+                      isSelected: widget.selectedShiftIds.contains(userShifts.first.id),
+                      onSelectionChanged: widget.onShiftSelectionChanged != null
+                          ? (selected) => widget.onShiftSelectionChanged!(userShifts.first.id, selected)
+                          : null,
+                      isSelectionMode: widget.isSelectionMode,
                     ),
-                  ),
+                  )
+                // Multiple shifts - show grouped view with better hover actions
+                : _buildMultipleShiftsCell(user, day, userShifts, isPastDate, shiftHeight),
       ),
     );
   }
 
-  Widget _buildEmptyCell(Employee user, DateTime day) {
+  Widget _buildMultipleShiftsCell(Employee user, DateTime day, List<TeachingShift> shifts, bool isPastDate, double shiftHeight) {
+    const double spacing = 4.0; // More breathing room
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: shifts.asMap().entries.map((entry) {
+        final index = entry.key;
+        final shift = entry.value;
+        return Container(
+          height: shiftHeight, // Use the taller height (36.0)
+          margin: EdgeInsets.only(bottom: index < shifts.length - 1 ? spacing : 0),
+          child: ShiftBlock(
+            shift: shift,
+            onTap: () => widget.onShiftTap(shift),
+            onViewDetails: () => _showMultipleShiftsMenu(user, day, shifts),
+            onEdit: widget.onEditShift != null && !isPastDate
+                ? () => widget.onEditShift!(shift)
+                : null,
+            onAddShift: !isPastDate 
+                ? () => widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0))
+                : null,
+            teacherEmail: user.email,
+            compact: true,
+            isPastDate: isPastDate,
+            isSelected: widget.selectedShiftIds.contains(shift.id),
+            onSelectionChanged: widget.onShiftSelectionChanged != null
+                ? (selected) => widget.onShiftSelectionChanged!(shift.id, selected)
+                : null,
+            isSelectionMode: widget.isSelectionMode,
+            showMultipleShiftsIndicator: true,
+            shiftIndex: index + 1,
+            totalShifts: shifts.length,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showMultipleShiftsMenu(Employee user, DateTime day, List<TeachingShift> shifts) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          '${user.firstName} ${user.lastName} - ${DateFormat('EEE, M/d').format(day)}',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${shifts.length} shifts scheduled',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...shifts.asMap().entries.map((entry) {
+                final index = entry.key;
+                final shift = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xffE2E8F0)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Shift #${index + 1}',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (widget.onEditShift != null)
+                              TextButton.icon(
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('Edit'),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  widget.onEditShift!(shift);
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${DateFormat('h:mma').format(shift.shiftStart)} - ${DateFormat('h:mma').format(shift.shiftEnd)}',
+                          style: GoogleFonts.inter(fontSize: 12),
+                        ),
+                        Text(
+                          shift.displayName,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              if (!_isPastDate(day))
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Another Shift'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0));
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Close',
+              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isPastDate(DateTime day) {
+    final now = DateTime.now();
+    final dayStart = DateTime(day.year, day.month, day.day);
+    return dayStart.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
+  Color _getPastDateBackgroundColor(TeachingShift shift) {
+    switch (shift.status) {
+      case ShiftStatus.missed:
+        return const Color(0xFFFDE0E0); // Light red
+      case ShiftStatus.completed:
+      case ShiftStatus.fullyCompleted:
+        return const Color(0xFFE6F7E8); // Light green
+      case ShiftStatus.partiallyCompleted:
+        return const Color(0xFFFFF7D1); // Light yellow
+      case ShiftStatus.scheduled:
+      case ShiftStatus.active:
+        return const Color(0xFFDDEAFF); // Light blue
+      case ShiftStatus.cancelled:
+        return const Color(0xFFF3F4F6); // Light gray
+    }
+  }
+
+  Widget _buildEmptyCell(Employee user, DateTime day, bool isPastDate, double cellHeight) {
+    // Past dates: show blank, non-clickable cell
+    if (isPastDate) {
+      return Container(
+        height: cellHeight,
+        width: double.infinity,
+        color: Colors.transparent,
+      );
+    }
+    
+    // Future dates: show hover indicator with add button
     return InkWell(
       onTap: () {
         // Create shift at default time (2 PM)
         widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0));
       },
       child: Container(
-        height: 60,
+        height: cellHeight,
         width: double.infinity, // Fill entire cell width
         alignment: Alignment.center,
         child: EmptyCellHoverIndicator(

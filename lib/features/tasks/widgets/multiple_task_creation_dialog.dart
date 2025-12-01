@@ -8,6 +8,7 @@ import '../../../core/models/user.dart';
 import '../../../core/models/enhanced_recurrence.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
+import '../../../core/utils/connecteam_style.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Dialog for creating multiple tasks at once (ConnectTeam style)
@@ -44,19 +45,22 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
 
   Future<void> _fetchUsers() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('is_active', isEqualTo: true)
-          .get();
+      // Fetch all users and filter in memory to avoid index issues
+      final snapshot = await FirebaseFirestore.instance.collection('users').get();
 
-      _users = snapshot.docs.map((doc) {
-        return AppUser.fromFirestore(doc);
-      }).toList();
+      _users = snapshot.docs
+          .map((doc) => AppUser.fromFirestore(doc))
+          .where((user) => user.isActive) // Filter for active users
+          .toList();
 
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     } catch (e) {
       AppLogger.error('Error fetching users: $e');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -314,6 +318,9 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                       ),
                     ),
                     const SizedBox(height: 28),
+                    // Header Row (Spreadsheet style)
+                    _buildHeaderRow(),
+                    const SizedBox(height: 12),
                     // Task rows
                     ...List.generate(_taskRows.length, (index) {
                       return _buildTaskRow(index);
@@ -415,6 +422,39 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderRow() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: const [
+          Expanded(flex: 4, child: Text("Task Name", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+          SizedBox(width: 12),
+          Expanded(flex: 2, child: Text("Assignee", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+          SizedBox(width: 12),
+          Expanded(flex: 2, child: Text("Due Date", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _spreadsheetInputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      filled: true,
+      fillColor: Colors.white,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xffE0E0E0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: ConnecteamStyle.primaryBlue),
       ),
     );
   }

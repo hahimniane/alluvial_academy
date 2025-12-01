@@ -509,6 +509,31 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
+                      if (subject.defaultWage != null) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.attach_money, size: 14, color: Colors.green),
+                              Text(
+                                'Rate: \$${subject.defaultWage!.toStringAsFixed(2)}/hr',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -641,6 +666,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
     final displayNameController = TextEditingController();
     final arabicNameController = TextEditingController();
     final descriptionController = TextEditingController();
+    final wageController = TextEditingController();
 
     showDialog(
       context: context,
@@ -688,6 +714,14 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               ),
               const SizedBox(height: 16),
               _buildTextField(
+                controller: wageController,
+                label: 'Default Hourly Wage (Optional)',
+                hint: 'e.g., 15.00',
+                icon: Icons.attach_money,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: descriptionController,
                 label: 'Description (Optional)',
                 hint: 'Brief description of the subject',
@@ -708,7 +742,8 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
           ElevatedButton(
             onPressed: () async {
               final displayName = displayNameController.text.trim();
-
+              final wageText = wageController.text.trim();
+              
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -717,6 +752,20 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                   ),
                 );
                 return;
+              }
+
+              double? wage;
+              if (wageText.isNotEmpty) {
+                wage = double.tryParse(wageText);
+                if (wage == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid wage amount'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
               }
 
               try {
@@ -737,6 +786,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                       ? null
                       : descriptionController.text.trim(),
                   sortOrder: maxSortOrder + 1,
+                  defaultWage: wage,
                 );
 
                 Navigator.of(context).pop();
@@ -769,6 +819,8 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
         TextEditingController(text: subject.arabicName);
     final descriptionController =
         TextEditingController(text: subject.description);
+    final wageController = TextEditingController(
+        text: subject.defaultWage != null ? subject.defaultWage!.toStringAsFixed(2) : '');
 
     showDialog(
       context: context,
@@ -814,6 +866,14 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               ),
               const SizedBox(height: 16),
               _buildTextField(
+                controller: wageController,
+                label: 'Default Hourly Wage (Optional)',
+                hint: 'e.g., 15.00',
+                icon: Icons.attach_money,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: descriptionController,
                 label: 'Description (Optional)',
                 maxLines: 3,
@@ -833,6 +893,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
           ElevatedButton(
             onPressed: () async {
               final displayName = displayNameController.text.trim();
+              final wageText = wageController.text.trim();
 
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -844,6 +905,20 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 return;
               }
 
+              double? wage;
+              if (wageText.isNotEmpty) {
+                wage = double.tryParse(wageText);
+                if (wage == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid wage amount'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+              }
+
               try {
                 await SubjectService.updateSubject(subject.id, {
                   'displayName': displayName,
@@ -853,6 +928,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                   'description': descriptionController.text.trim().isEmpty
                       ? null
                       : descriptionController.text.trim(),
+                  'defaultWage': wage,
                 });
 
                 Navigator.of(context).pop();
@@ -885,6 +961,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
     String? helperText,
     int maxLines = 1,
     IconData? icon,
+    TextInputType? keyboardType,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -901,6 +978,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
         TextFormField(
           controller: controller,
           maxLines: maxLines,
+          keyboardType: keyboardType,
           style: GoogleFonts.inter(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
