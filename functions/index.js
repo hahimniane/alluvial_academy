@@ -32,6 +32,7 @@ exports.sendTaskStatusUpdateNotification = onCall(taskHandlers.sendTaskStatusUpd
 exports.sendTaskCommentNotification = onCall(taskHandlers.sendTaskCommentNotification);
 exports.sendTaskDeletionNotification = onCall(taskHandlers.sendTaskDeletionNotification);
 exports.sendTaskEditNotification = onCall(taskHandlers.sendTaskEditNotification);
+exports.sendRecurringTaskReminders = taskHandlers.sendRecurringTaskReminders;
 
 exports.processTaskCommentEmail = taskHandlers.processTaskCommentEmail;
 

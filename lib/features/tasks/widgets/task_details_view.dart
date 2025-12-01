@@ -9,6 +9,10 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
 import 'task_comments_section.dart';
+import 'add_edit_task_dialog.dart';
+import '../../../core/utils/connecteam_style.dart';
+import '../../../core/models/enhanced_recurrence.dart';
+import '../../../core/enums/shift_enums.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -192,6 +196,24 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                   ),
                 ),
               ),
+              // Edit button - allows editing and publishing drafts
+              IconButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close details dialog
+                  // Open edit dialog
+                  showDialog(
+                    context: context,
+                    builder: (context) => AddEditTaskDialog(
+                      task: widget.task,
+                    ),
+                  ).then((_) {
+                    // Refresh task when dialog closes
+                    widget.onTaskUpdated();
+                  });
+                },
+                icon: const Icon(Icons.edit, color: Colors.white),
+                tooltip: widget.task.isDraft ? 'Edit & Publish Draft' : 'Edit Task',
+              ),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close, color: Colors.white),
@@ -204,6 +226,32 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               _buildStatusChip(_currentStatus),
               const SizedBox(width: 12),
               _buildPriorityChip(widget.task.priority),
+              if (widget.task.isRecurring && widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none) ...[
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.repeat, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Recurring',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -274,46 +322,178 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             'Created',
             DateFormat('MMM dd, yyyy').format(widget.task.createdAt.toDate()),
           ),
+          // Recurrence Details Section
+          if (widget.task.isRecurring && widget.task.enhancedRecurrence.type != EnhancedRecurrenceType.none) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xffE2E8F0)),
+            const SizedBox(height: 16),
+            _buildRecurrenceSection(),
+          ],
         ],
       ),
     );
   }
 
+  Widget _buildRecurrenceSection() {
+    final recurrence = widget.task.enhancedRecurrence;
+    final nextOccurrences = _getNextOccurrences(recurrence, widget.task.dueDate);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Recurrence Pattern
+        _buildInfoRow(
+          Icons.repeat,
+          'Recurrence',
+          recurrence.description,
+        ),
+        const SizedBox(height: 16),
+        // Next Occurrence
+        if (nextOccurrences.isNotEmpty) ...[
+          _buildInfoRow(
+            Icons.calendar_today,
+            'Next Due',
+            _formatNextOccurrence(nextOccurrences.first),
+          ),
+          const SizedBox(height: 16),
+        ] else ...[
+          _buildInfoRow(
+            Icons.event_busy,
+            'Next Due',
+            'No more occurrences',
+          ),
+          const SizedBox(height: 16),
+        ],
+        // End Date (if set)
+        if (recurrence.endDate != null) ...[
+          _buildInfoRow(
+            Icons.event_busy,
+            'Ends On',
+            DateFormat('MMM dd, yyyy').format(recurrence.endDate!),
+          ),
+          const SizedBox(height: 16),
+        ],
+        // Upcoming Occurrences Preview (next 3)
+        if (nextOccurrences.length > 1) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ConnecteamStyle.primaryBlue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: ConnecteamStyle.primaryBlue.withOpacity(0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 14,
+                      color: ConnecteamStyle.primaryBlue,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Upcoming Occurrences',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: ConnecteamStyle.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ...nextOccurrences.skip(1).take(3).map((date) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '• ${_formatNextOccurrence(date)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: ConnecteamStyle.textGrey,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<DateTime> _getNextOccurrences(EnhancedRecurrence recurrence, DateTime startDate) {
+    if (recurrence.type == EnhancedRecurrenceType.none) {
+      return [];
+    }
+
+    // Get next 5 occurrences starting from today
+    final now = DateTime.now();
+    final startFrom = now.isAfter(startDate) ? now : startDate;
+    
+    // Generate occurrences (up to 5)
+    final occurrences = recurrence.generateOccurrences(
+      startFrom,
+      5,
+      timezoneId: null, // Use system timezone
+    );
+
+    // Filter out past dates and respect end date
+    final validOccurrences = occurrences.where((date) {
+      if (date.isBefore(now)) return false;
+      if (recurrence.endDate != null && date.isAfter(recurrence.endDate!)) return false;
+      return true;
+    }).toList();
+
+    return validOccurrences;
+  }
+
+  String _formatNextOccurrence(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final taskDate = DateTime(date.year, date.month, date.day);
+    final daysDiff = taskDate.difference(today).inDays;
+
+    if (daysDiff == 0) {
+      return 'Today ${DateFormat('h:mm a').format(date)}';
+    } else if (daysDiff == 1) {
+      return 'Tomorrow ${DateFormat('h:mm a').format(date)}';
+    } else if (daysDiff < 7) {
+      return DateFormat('EEEE, MMM d • h:mm a').format(date);
+    } else {
+      return DateFormat('MMM d, yyyy • h:mm a').format(date);
+    }
+  }
+
   Widget _buildInfoRow(IconData icon, String label, String value) {
+    return _buildAttributeRow(
+      icon: icon,
+      label: label,
+      child: Text(value, style: ConnecteamStyle.cellText),
+    );
+  }
+
+  Widget _buildAttributeRow({required IconData icon, required String label, required Widget child}) {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xff0386FF).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: const Color(0xff0386FF), size: 18),
-        ),
+        Icon(icon, color: Colors.grey, size: 20),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff64748B),
-                ),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff1E293B),
-                ),
-              ),
-            ],
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
+        Expanded(child: child),
       ],
     );
   }

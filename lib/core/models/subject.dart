@@ -7,6 +7,7 @@ class Subject {
   final String? description;
   final String? arabicName;
   final int sortOrder;
+  final double? defaultWage; // Hourly wage for this subject
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -18,6 +19,7 @@ class Subject {
     this.description,
     this.arabicName,
     required this.sortOrder,
+    this.defaultWage,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -32,6 +34,7 @@ class Subject {
       description: data['description'],
       arabicName: data['arabicName'],
       sortOrder: data['sortOrder'] ?? 0,
+      defaultWage: (data['defaultWage'] as num?)?.toDouble(),
       isActive: data['isActive'] ?? true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -45,6 +48,7 @@ class Subject {
       'description': description,
       'arabicName': arabicName,
       'sortOrder': sortOrder,
+      'defaultWage': defaultWage,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -58,6 +62,7 @@ class Subject {
     String? description,
     String? arabicName,
     int? sortOrder,
+    double? defaultWage,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -69,6 +74,7 @@ class Subject {
       description: description ?? this.description,
       arabicName: arabicName ?? this.arabicName,
       sortOrder: sortOrder ?? this.sortOrder,
+      defaultWage: defaultWage ?? this.defaultWage,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

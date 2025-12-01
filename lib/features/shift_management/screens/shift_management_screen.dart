@@ -352,39 +352,6 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       ),
       child: Column(
         children: [
-          // Teacher Search Bar - compact
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
-              ),
-            ),
-            // Search functionality moved to grid header
-            child: Row(
-              children: [
-                // Search bar removed - now in grid header
-                if (_searchQuery.isNotEmpty && _viewMode == 'grid') ...[
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      '${_getFilteredShiftsCount()} results',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF0386FF),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
           // View toggle + Tabs - compact
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -422,6 +389,87 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
           ),
           const Divider(height: 1),
+          // Search Bar - Single search bar below tabs
+          if (_viewMode == 'grid' || _viewMode == 'week' || _viewMode == 'list')
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff374151),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search users or shifts...',
+                        hintStyle: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff9CA3AF),
+                        ),
+                        prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xff6B7280)),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 20, color: Color(0xff6B7280)),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _filterShifts();
+                                  });
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                          _filterShifts();
+                        });
+                      },
+                    ),
+                  ),
+                  if (_searchQuery.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0386FF).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '${_getFilteredShiftsCount()} results',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF0386FF),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           // Tab contents - fixed, scrollable region
           SizedBox(
             height: tabViewHeight,
@@ -732,22 +780,39 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 : const Color(0xff0386FF),
                           ),
                         ),
-                        if (_isSelectionMode &&
-                            _selectedShiftIds.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: _deleteSelectedShifts,
-                            icon: const Icon(Icons.delete, size: 20),
-                            label: Text(
-                              'Delete (${_selectedShiftIds.length})',
-                              style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600),
+                        if (_isSelectionMode) ...[
+                          if (_selectedShiftIds.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0386FF).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                '${_selectedShiftIds.length} selected',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF0386FF),
+                                ),
+                              ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _deleteSelectedShifts,
+                              icon: const Icon(Icons.delete, size: 20),
+                              label: Text(
+                                'Delete (${_selectedShiftIds.length})',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                         if (!_isSelectionMode) ...[
                           const SizedBox(width: 12),
@@ -1114,7 +1179,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         });
       },
       onShiftTap: _showShiftDetails,
-      onEditShift: _editShift,
+      onEditShift: _isAdmin ? _editShift : null,
       onCreateShift: (userId, date, time) {
         // Open create shift dialog with pre-filled teacher
         _showCreateShiftDialogWithPrefill(
@@ -1133,6 +1198,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _filterShifts();
         });
       },
+      onWeekChanged: (newWeekStart) {
+        setState(() {
+          _currentWeekStart = newWeekStart;
+        });
+      },
+      selectedShiftIds: _selectedShiftIds,
+      onShiftSelectionChanged: _isAdmin && _isSelectionMode
+          ? (shiftId, isSelected) => _onShiftSelectionChanged(shiftId, isSelected)
+          : null,
+      isSelectionMode: _isAdmin && _isSelectionMode,
     );
   }
 

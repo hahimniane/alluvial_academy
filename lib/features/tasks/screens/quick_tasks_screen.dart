@@ -11,10 +11,12 @@ import '../widgets/connectteam_task_list.dart';
 import '../widgets/multiple_task_creation_dialog.dart';
 import '../widgets/user_selection_dialog.dart' as task_filters;
 import '../../../core/services/user_role_service.dart';
+import '../../../core/models/user.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import '../../../core/utils/connecteam_style.dart';
 
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
@@ -40,12 +42,18 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   bool _isAdmin = false;
   Stream<List<Task>>? _taskStream;
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
   
   // NEW: Tab navigation and view mode
   late TabController _tabController;
   String _viewMode = 'list'; // 'grid' or 'list' - default to list for ConnectTeam style
   String _groupBy = 'assignee'; // 'none' or 'assignee' - default to assignee for ConnectTeam style
   String _selectedTab = 'all'; // 'created_by_me', 'my_tasks', 'all', 'archived'
+  
+  // Bulk selection
+  Set<String> _selectedTaskIds = {};
+  bool _isBulkMode = false;
+  bool? _filterRecurring; // null = all, true = recurring only, false = non-recurring only
 
   @override
   void initState() {
@@ -187,18 +195,29 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: Column(
-        children: [
-          // NEW: Tab navigation
-          _buildTabBar(),
-          // NEW: Toolbar with view toggle and filters
-          _buildToolbar(),
-          // Task content
-          Expanded(
-            child: StreamBuilder<List<Task>>(
-              stream: _taskStream,
-              builder: (context, snapshot) {
+      backgroundColor: ConnecteamStyle.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Connecteam Header
+            _buildConnecteamHeader(),
+            // Filter Tabs
+            _buildFilterTabs(),
+            // Comprehensive Filter Bar
+            _buildComprehensiveFilterBar(),
+            // Bulk Actions Bar (when tasks are selected)
+            if (_selectedTaskIds.isNotEmpty) _buildBulkActionsBar(),
+            // Task content
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16.0,
+                  right: 16.0,
+                  bottom: _isAdmin ? 80.0 : 16.0, // Extra space for FAB
+                ),
+                child: StreamBuilder<List<Task>>(
+                  stream: _taskStream,
+                  builder: (context, snapshot) {
                 if (_isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -240,95 +259,50 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                           ? _buildGroupedTaskList(tasks)
                           : _buildTaskGridView(tasks),
                     ),
+                    // Bulk Mode Toggle Button
+                    if (_isAdmin)
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isBulkMode = !_isBulkMode;
+                                  if (!_isBulkMode) {
+                                    _selectedTaskIds.clear();
+                                  }
+                                });
+                              },
+                              icon: Icon(_isBulkMode ? Icons.check_box : Icons.check_box_outline_blank),
+                              label: Text(_isBulkMode ? 'Exit Selection' : 'Select Multiple'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: ConnecteamStyle.primaryBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 );
-              },
-            ),
-          ),
-        ],
-      ),
-      // Only show floating action button for admins
-      floatingActionButton: _isAdmin
-          ? ScaleTransition(
-              scale: _fabAnimationController,
-              child: PopupMenuButton<String>(
-                offset: const Offset(0, -60),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  },
                 ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xff0386FF),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xff0386FF).withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Add Task',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
-                    ],
-                  ),
-                ),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'single',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.add_task, color: Color(0xff0386FF), size: 20),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Add single task',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'multiple',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.add_circle_outline, color: Color(0xff0386FF), size: 20),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Add multiple tasks',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'single') {
-                    _showAddEditTaskDialog();
-                  } else if (value == 'multiple') {
-                    _showMultipleTaskCreationDialog();
-                  }
-                },
               ),
+            ),
+          ],
+        ),
+      ),
+      // Floating action button
+      floatingActionButton: _isAdmin
+          ? FloatingActionButton.extended(
+              backgroundColor: ConnecteamStyle.primaryBlue,
+              label: Text(
+                "Add Task",
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+              icon: const Icon(Icons.add),
+              onPressed: () => _showAddEditTaskDialog(),
             )
           : null,
     );
@@ -362,6 +336,337 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         ),
       ),
     );
+  }
+
+  /// Connecteam Header
+  Widget _buildConnecteamHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.white,
+      child: Row(
+        children: [
+          Text("Tasks", style: ConnecteamStyle.headerTitle),
+          const Spacer(),
+          // Search Bar (Pill shaped)
+          Container(
+            width: 250,
+            height: 40,
+            decoration: BoxDecoration(
+              color: ConnecteamStyle.background,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: ConnecteamStyle.borderColor),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: const InputDecoration(
+                hintText: "Search tasks...",
+                prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.only(top: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Filter Tabs (Simplified Connecteam style)
+  Widget _buildFilterTabs() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          _buildTabItem("All Tasks", 'all', isActive: _selectedTab == 'all'),
+          _buildTabItem("My Tasks", 'my_tasks', isActive: _selectedTab == 'my_tasks'),
+          _buildTabItem("Today", 'today', isActive: _selectedTab == 'today'),
+          if (_isAdmin) _buildTabItem("Drafts", 'drafts', isActive: _selectedTab == 'drafts'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabItem(String label, String tabKey, {bool isActive = false}) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTab = tabKey;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(right: 24.0),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
+              ),
+            ),
+            if (isActive)
+              Container(
+                height: 2,
+                width: 20,
+                margin: const EdgeInsets.only(top: 4),
+                color: ConnecteamStyle.primaryBlue,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Comprehensive Filter Bar (Connecteam style)
+  Widget _buildComprehensiveFilterBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Status Filter
+            _buildFilterChip(
+              label: 'Status',
+              icon: Icons.flag_outlined,
+              isActive: _selectedStatus != null,
+              onTap: () => _showStatusFilter(),
+              activeLabel: _selectedStatus != null ? _getStatusLabel(_selectedStatus!) : null,
+            ),
+            const SizedBox(width: 8),
+            // Priority Filter
+            _buildFilterChip(
+              label: 'Priority',
+              icon: Icons.priority_high,
+              isActive: _selectedPriority != null,
+              onTap: () => _showPriorityFilter(),
+              activeLabel: _selectedPriority != null ? _getPriorityLabel(_selectedPriority!) : null,
+            ),
+            const SizedBox(width: 8),
+            // Assigned To Filter
+            _buildFilterChip(
+              label: 'Assigned To',
+              icon: Icons.person_outline,
+              isActive: _filterAssignedToUserIds.isNotEmpty,
+              onTap: () => _showAssignedToFilter(),
+              activeLabel: _filterAssignedToUserIds.isNotEmpty 
+                  ? '${_filterAssignedToUserIds.length} selected' 
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            // Assigned By Filter (Admin only)
+            if (_isAdmin)
+              _buildFilterChip(
+                label: 'Assigned By',
+                icon: Icons.person_add_outlined,
+                isActive: _filterAssignedByUserId != null,
+                onTap: () => _showAssignedByFilter(),
+                activeLabel: _filterAssignedByUserId != null 
+                    ? _userIdToName[_filterAssignedByUserId] ?? 'Unknown'
+                    : null,
+              ),
+            if (_isAdmin) const SizedBox(width: 8),
+            // Due Date Filter
+            _buildFilterChip(
+              label: 'Due Date',
+              icon: Icons.calendar_today_outlined,
+              isActive: _dueDateRange != null,
+              onTap: () => _showDueDateFilter(),
+              activeLabel: _dueDateRange != null
+                  ? '${DateFormat('MMM d').format(_dueDateRange!.start)} - ${DateFormat('MMM d').format(_dueDateRange!.end)}'
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            // Recurring Filter
+            _buildFilterChip(
+              label: 'Recurring',
+              icon: Icons.repeat,
+              isActive: _filterRecurring != null,
+              onTap: () => _showRecurringFilter(),
+              activeLabel: _filterRecurring == true 
+                  ? 'Recurring Only'
+                  : _filterRecurring == false 
+                      ? 'One-time Only'
+                      : null,
+            ),
+            const SizedBox(width: 8),
+            // Clear All Filters
+            if (_hasActiveFilters())
+              InkWell(
+                onTap: _clearAllFilters,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.clear, size: 16, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Clear All',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+    String? activeLabel,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? ConnecteamStyle.primaryBlue.withOpacity(0.1)
+              : ConnecteamStyle.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive 
+                ? ConnecteamStyle.primaryBlue
+                : ConnecteamStyle.borderColor,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              activeLabel ?? label,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
+              ),
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.close,
+                size: 14,
+                color: ConnecteamStyle.primaryBlue,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bulk Actions Bar
+  Widget _buildBulkActionsBar() {
+    return Container(
+      color: ConnecteamStyle.primaryBlue.withOpacity(0.1),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Text(
+            '${_selectedTaskIds.length} selected',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: ConnecteamStyle.primaryBlue,
+            ),
+          ),
+          const Spacer(),
+          // Bulk Status Change
+          TextButton.icon(
+            onPressed: () => _showBulkStatusChange(),
+            icon: const Icon(Icons.flag_outlined, size: 16),
+            label: const Text('Change Status'),
+            style: TextButton.styleFrom(
+              foregroundColor: ConnecteamStyle.primaryBlue,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Bulk Priority Change
+          TextButton.icon(
+            onPressed: () => _showBulkPriorityChange(),
+            icon: const Icon(Icons.priority_high, size: 16),
+            label: const Text('Change Priority'),
+            style: TextButton.styleFrom(
+              foregroundColor: ConnecteamStyle.primaryBlue,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Bulk Delete
+          TextButton.icon(
+            onPressed: () => _showBulkDeleteConfirmation(),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: const Text('Delete'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Cancel Selection
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _selectedTaskIds.clear();
+                _isBulkMode = false;
+              });
+            },
+            icon: const Icon(Icons.close, size: 20),
+            color: ConnecteamStyle.textGrey,
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _hasActiveFilters() {
+    return _selectedStatus != null ||
+        _selectedPriority != null ||
+        _filterAssignedToUserIds.isNotEmpty ||
+        _filterAssignedByUserId != null ||
+        _dueDateRange != null ||
+        _filterRecurring != null;
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _selectedStatus = null;
+      _selectedPriority = null;
+      _filterAssignedToUserIds = [];
+      _filterAssignedByUserId = null;
+      _dueDateRange = null;
+      _filterRecurring = null;
+    });
   }
 
   /// NEW: Tab bar for task filtering (ConnectTeam style with counts)
@@ -711,7 +1016,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
     
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: _isAdmin ? 96.0 : 16, // Extra space for FAB
+      ),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 16,
@@ -1572,6 +1882,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             t.assignedTo.contains(currentUser.uid) && 
             !t.isArchived &&
             !t.isDraft).toList();
+      case 'today':
+        // Filter tasks due today (same date, ignoring time)
+        final now = DateTime.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
+        final todayEnd = todayStart.add(const Duration(days: 1));
+        return tasks.where((t) {
+          if (t.isArchived || t.isDraft) return false;
+          final dueDate = t.dueDate;
+          return dueDate.isAfter(todayStart) && dueDate.isBefore(todayEnd);
+        }).toList();
       case 'archived':
         return tasks.where((t) => t.isArchived).toList();
       case 'drafts':
@@ -1628,6 +1948,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               task.description
                   .toLowerCase()
                   .contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+
+    // Recurring filter
+    if (_filterRecurring != null) {
+      filteredTasks = filteredTasks
+          .where((task) => task.isRecurring == _filterRecurring)
           .toList();
     }
 
@@ -1738,6 +2065,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       return const SizedBox.shrink();
     }
 
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final canDelete = currentUser != null && task.createdBy == currentUser.uid;
+
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert, color: Colors.grey[400]),
       onSelected: (value) {
@@ -1752,7 +2082,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       },
       itemBuilder: (context) => [
         const PopupMenuItem(value: 'edit', child: Text('Edit Task')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete Task')),
+        if (canDelete)
+          const PopupMenuItem(value: 'delete', child: Text('Delete Task')),
       ],
     );
   }
@@ -2186,6 +2517,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       },
       onAddTask: (assigneeId) => _showAddEditTaskDialog(preSelectedAssignee: assigneeId),
       userIdToName: _userIdToName,
+      selectedTaskIds: _selectedTaskIds,
+      onTaskDelete: (task) => _showDeleteConfirmation(task),
+      currentUserId: FirebaseAuth.instance.currentUser?.uid,
+      onSelectionChanged: (taskId, isSelected) {
+        setState(() {
+          if (isSelected) {
+            _selectedTaskIds.add(taskId);
+          } else {
+            _selectedTaskIds.remove(taskId);
+          }
+        });
+      },
+      isBulkMode: _isBulkMode,
     );
   }
 
@@ -2625,6 +2969,433 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
   }
 
+  // Filter Dialog Methods
+  void _showStatusFilter() {
+    // If already filtered, clicking again clears it
+    if (_selectedStatus != null) {
+      setState(() => _selectedStatus = null);
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Filter by Status', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Statuses'),
+              leading: Radio<TaskStatus?>(
+                value: null,
+                groupValue: _selectedStatus,
+                onChanged: (value) {
+                  setState(() => _selectedStatus = null);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...TaskStatus.values.map((status) => ListTile(
+              title: Text(_getStatusLabel(status)),
+              leading: Radio<TaskStatus>(
+                value: status,
+                groupValue: _selectedStatus,
+                onChanged: (value) {
+                  setState(() => _selectedStatus = value);
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPriorityFilter() {
+    // If already filtered, clicking again clears it
+    if (_selectedPriority != null) {
+      setState(() => _selectedPriority = null);
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Filter by Priority', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Priorities'),
+              leading: Radio<TaskPriority?>(
+                value: null,
+                groupValue: _selectedPriority,
+                onChanged: (value) {
+                  setState(() => _selectedPriority = null);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...TaskPriority.values.map((priority) => ListTile(
+              title: Text(_getPriorityLabel(priority)),
+              leading: Radio<TaskPriority>(
+                value: priority,
+                groupValue: _selectedPriority,
+                onChanged: (value) {
+                  setState(() => _selectedPriority = value);
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAssignedToFilter() async {
+    // If already filtered, clicking again clears it
+    if (_filterAssignedToUserIds.isNotEmpty) {
+      setState(() => _filterAssignedToUserIds = []);
+      return;
+    }
+    
+    final users = await _getAllUsers();
+    final selectedIds = List<String>.from(_filterAssignedToUserIds);
+    
+    await showDialog(
+      context: context,
+      builder: (context) => task_filters.UserSelectionDialog(
+        title: 'Filter by Assigned To',
+        subtitle: 'Select users to filter tasks',
+        availableUsers: users.map<Map<String, dynamic>>((u) => {
+          'id': u.id,
+          'name': u.name,
+          'email': u.email,
+        }).toList(),
+        selectedUserIds: selectedIds,
+        allowMultiple: true,
+        onUsersSelected: (ids) {
+          setState(() => _filterAssignedToUserIds = ids);
+        },
+      ),
+    );
+  }
+
+  void _showAssignedByFilter() async {
+    // If already filtered, clicking again clears it
+    if (_filterAssignedByUserId != null) {
+      setState(() => _filterAssignedByUserId = null);
+      return;
+    }
+    
+    final users = await _getAllUsers();
+    final currentSelected = _filterAssignedByUserId;
+    
+    await showDialog(
+      context: context,
+      builder: (context) => task_filters.UserSelectionDialog(
+        title: 'Filter by Assigned By',
+        subtitle: 'Select user who created the tasks',
+        availableUsers: users.map<Map<String, dynamic>>((u) => {
+          'id': u.id,
+          'name': u.name,
+          'email': u.email,
+        }).toList(),
+        selectedUserIds: currentSelected != null ? [currentSelected] : [],
+        allowMultiple: false,
+        onUsersSelected: (ids) {
+          setState(() => _filterAssignedByUserId = ids.isNotEmpty ? ids.first : null);
+        },
+      ),
+    );
+  }
+
+  void _showDueDateFilter() async {
+    // If already filtered, clicking again clears it
+    if (_dueDateRange != null) {
+      setState(() => _dueDateRange = null);
+      return;
+    }
+    
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 5),
+      initialDateRange: _dueDateRange,
+      currentDate: now,
+      helpText: 'Select Due Date Range',
+    );
+    if (range != null) {
+      setState(() => _dueDateRange = range);
+    }
+  }
+
+  void _showRecurringFilter() {
+    // If already filtered, clicking again clears it
+    if (_filterRecurring != null) {
+      setState(() => _filterRecurring = null);
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Filter Recurring Tasks', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Tasks'),
+              leading: Radio<bool?>(
+                value: null,
+                groupValue: _filterRecurring,
+                onChanged: (value) {
+                  setState(() => _filterRecurring = null);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ListTile(
+              title: const Text('Recurring Only'),
+              leading: Radio<bool?>(
+                value: true,
+                groupValue: _filterRecurring,
+                onChanged: (value) {
+                  setState(() => _filterRecurring = true);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ListTile(
+              title: const Text('One-time Only'),
+              leading: Radio<bool?>(
+                value: false,
+                groupValue: _filterRecurring,
+                onChanged: (value) {
+                  setState(() => _filterRecurring = false);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<List<AppUser>> _getAllUsers() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+      return snapshot.docs
+          .map((doc) => AppUser.fromFirestore(doc))
+          .where((user) => user.isActive)
+          .toList();
+    } catch (e) {
+      AppLogger.error('Error fetching users: $e');
+      return [];
+    }
+  }
+
+  // Bulk Operation Methods
+  void _showBulkStatusChange() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Change Status for ${_selectedTaskIds.length} Tasks', 
+            style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TaskStatus.values.map((status) => ListTile(
+            title: Text(_getStatusLabel(status)),
+            onTap: () async {
+              Navigator.pop(context);
+              await _bulkChangeStatus(status);
+            },
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _showBulkPriorityChange() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Change Priority for ${_selectedTaskIds.length} Tasks',
+            style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TaskPriority.values.map((priority) => ListTile(
+            title: Text(_getPriorityLabel(priority)),
+            onTap: () async {
+              Navigator.pop(context);
+              await _bulkChangePriority(priority);
+            },
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _showBulkDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Tasks'),
+        content: Text('Are you sure you want to delete ${_selectedTaskIds.length} task(s)? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _bulkDeleteTasks();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _bulkChangeStatus(TaskStatus status) async {
+    try {
+      final selectedCount = _selectedTaskIds.length;
+      // Get tasks from Firestore and update them
+      final batch = FirebaseFirestore.instance.batch();
+      for (final taskId in _selectedTaskIds) {
+        final taskRef = FirebaseFirestore.instance.collection('tasks').doc(taskId);
+        batch.update(taskRef, {'status': status.name});
+      }
+      await batch.commit();
+      
+      setState(() {
+        _selectedTaskIds.clear();
+        _isBulkMode = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Updated $selectedCount task(s)')),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error bulk changing status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating tasks: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _bulkChangePriority(TaskPriority priority) async {
+    try {
+      final selectedCount = _selectedTaskIds.length;
+      // Get tasks from Firestore and update them
+      final batch = FirebaseFirestore.instance.batch();
+      for (final taskId in _selectedTaskIds) {
+        final taskRef = FirebaseFirestore.instance.collection('tasks').doc(taskId);
+        batch.update(taskRef, {'priority': priority.name});
+      }
+      await batch.commit();
+      
+      setState(() {
+        _selectedTaskIds.clear();
+        _isBulkMode = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Updated $selectedCount task(s)')),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error bulk changing priority: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating tasks: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _bulkDeleteTasks() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must be logged in to delete tasks'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Filter tasks to only those created by current user
+    final tasksToDelete = <String>[];
+    for (final taskId in _selectedTaskIds) {
+      try {
+        final taskDoc = await FirebaseFirestore.instance
+            .collection('tasks')
+            .doc(taskId)
+            .get();
+        if (taskDoc.exists) {
+          final task = Task.fromFirestore(taskDoc);
+          if (task.createdBy == currentUser.uid) {
+            tasksToDelete.add(taskId);
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Error checking task $taskId: $e');
+      }
+    }
+
+    if (tasksToDelete.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can only delete tasks you created'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    int count = 0;
+    int failed = 0;
+    for (final taskId in tasksToDelete) {
+      try {
+        await _taskService.deleteTask(taskId);
+        count++;
+      } catch (e) {
+        AppLogger.error('Error deleting task $taskId: $e');
+        failed++;
+      }
+    }
+
+    setState(() {
+      _selectedTaskIds.clear();
+      _isBulkMode = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failed > 0
+                ? 'Deleted $count task(s), $failed failed'
+                : 'Deleted $count task(s)',
+          ),
+          backgroundColor: failed > 0 ? Colors.orange : Colors.green,
+        ),
+      );
+    }
+  }
+
   void _showAddEditTaskDialog({Task? task, String? preSelectedAssignee}) {
     showDialog(
       context: context,
@@ -2680,6 +3451,19 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   void _showDeleteConfirmation(Task task) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final canDelete = currentUser != null && task.createdBy == currentUser.uid;
+    
+    if (!canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only the task creator can delete this task'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2692,9 +3476,29 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              _taskService.deleteTask(task.id);
-              Navigator.of(context).pop();
+            onPressed: () async {
+              try {
+                await _taskService.deleteTask(task.id);
+                if (mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Task deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
