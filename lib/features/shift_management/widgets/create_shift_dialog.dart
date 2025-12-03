@@ -78,6 +78,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   RecurrencePattern _recurrence = RecurrencePattern.none;
   EnhancedRecurrence _enhancedRecurrence = const EnhancedRecurrence();
   DateTime? _recurrenceEndDate;
+  
+  // Hourly rate field
+  final TextEditingController _hourlyRateController = TextEditingController();
+  double? _customHourlyRate;
 
   // Subjects list
   List<Subject> _availableSubjects = [];
@@ -182,6 +186,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     _notesController.dispose();
     _teacherSearchController.dispose();
     _studentSearchController.dispose();
+    _hourlyRateController.dispose();
     super.dispose();
   }
 
@@ -713,6 +718,12 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
 
       if (shift.notes != null) {
         _notesController.text = shift.notes!;
+      }
+      
+      // Load hourly rate from existing shift
+      if (shift.hourlyRate > 0) {
+        _hourlyRateController.text = shift.hourlyRate.toStringAsFixed(2);
+        _customHourlyRate = shift.hourlyRate;
       }
     } else {
       // For new shifts, use initialCategory if provided, otherwise default to teaching
@@ -1722,6 +1733,21 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           onChanged: (value) {
             setState(() {
               _selectedSubjectId = value;
+              // Update hourly rate when subject changes
+              if (value != null) {
+                final selectedSubject = _availableSubjects.firstWhere(
+                  (s) => s.id == value,
+                  orElse: () => _availableSubjects.first,
+                );
+                if (selectedSubject.defaultWage != null && selectedSubject.defaultWage! > 0) {
+                  _hourlyRateController.text = selectedSubject.defaultWage!.toStringAsFixed(2);
+                  _customHourlyRate = selectedSubject.defaultWage;
+                } else {
+                  // Clear if no default wage
+                  _hourlyRateController.clear();
+                  _customHourlyRate = null;
+                }
+              }
             });
           },
           validator: (value) {
@@ -1753,6 +1779,51 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             },
           ),
         ],
+        const SizedBox(height: 16),
+        // Hourly Rate Field
+        Text(
+          'Hourly Rate (USD)',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1F2937),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _hourlyRateController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            prefixText: '\$',
+            hintText: 'Auto-filled from subject or leave empty for default',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xff0386FF)),
+            ),
+          ),
+          style: GoogleFonts.inter(),
+          onChanged: (value) {
+            final rate = double.tryParse(value);
+            _customHourlyRate = rate;
+          },
+          validator: (value) {
+            if (value != null && value.trim().isNotEmpty) {
+              final rate = double.tryParse(value.trim());
+              if (rate == null) return 'Enter a valid number';
+              if (rate <= 0) return 'Rate must be greater than 0';
+              if (rate > 1000) return 'Rate seems too high';
+            }
+            return null;
+          },
+        ),
       ],
     );
   }
@@ -2661,6 +2732,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           // NEW: Category and leader role
           category: _selectedCategory,
           leaderRole: _selectedLeaderRole,
+          // NEW: Hourly rate (if custom rate provided)
+          hourlyRate: _customHourlyRate,
         );
       } else {
         // Update existing shift - convert emails back to UIDs
