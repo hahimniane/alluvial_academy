@@ -192,7 +192,7 @@ exports.onShiftCreateNew = onDocumentCreated(
     // If the rule has COUNT or UNTIL, RRule handles it.
     // If infinite, we limit to 6 months.
     const now = new Date();
-    const sixMonthsLater = new Date(now.setMonth(now.getMonth() + 6));
+    const sixMonthsLater = new Date(now.getFullYear(), now.getMonth() + 6, now.getDate());
     
     // If rule doesn't have COUNT/UNTIL, force a limit? 
     // rrulestr usually respects the string. If it's infinite, we need 'between'.
@@ -506,7 +506,7 @@ exports.exportTimesheet = onCall(async (request) => {
             notes: shift.notes,
             zoom_link: shift.zoom_link,
             created_by: shift.created_by,
-            created_at_utc: fmt(shift.created_at_utc.toDate()),
+            created_at_utc: shift.created_at_utc ? fmt(shift.created_at_utc.toDate()) : '',
             recurrence_rule: shift.recurrence_rule,
             recurrence_instance_index: shift.recurrence_instance_index,
             status: shift.status
