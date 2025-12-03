@@ -292,49 +292,53 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
               child: Row(
                 children: [
                   if (widget.allowMultiple) ...[
-                    Text(
-                      '${_tempSelectedUserIds.length} selected',
-                      style: GoogleFonts.openSans(
-                        fontSize: 14,
-                        color: const Color(0xff718096),
+                    Flexible(
+                      child: Text(
+                        '${_tempSelectedUserIds.length} selected',
+                        style: GoogleFonts.openSans(
+                          fontSize: 14,
+                          color: const Color(0xff718096),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
-                  ] else ...[
-                    const Spacer(),
+                    const SizedBox(width: 8),
                   ],
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.openSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff718096),
+                  Flexible(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _tempSelectedUserIds.isNotEmpty
-                        ? () {
-                            widget.onUsersSelected(_tempSelectedUserIds);
-                            Navigator.of(context).pop();
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff0386FF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _tempSelectedUserIds.isNotEmpty
+                          ? () {
+                              widget.onUsersSelected(_tempSelectedUserIds);
+                              Navigator.of(context).pop();
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff0386FF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      widget.allowMultiple ? 'Select Users' : 'Select User',
-                      style: GoogleFonts.openSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                      child: Text(
+                        widget.allowMultiple ? 'Select Users' : 'Select User',
+                        style: GoogleFonts.openSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ),

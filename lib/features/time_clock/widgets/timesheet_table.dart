@@ -961,6 +961,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           'Clock-in Location',
           'Clock-out Location',
           'Status',
+          'Form Completed',
         ];
         final rows = visible.map((e) {
           String inLoc = '';
@@ -989,6 +990,7 @@ class _TimesheetTableState extends State<TimesheetTable>
             inLoc,
             outLoc,
             e.status.name,
+            e.formCompleted ? 'Yes' : 'No',
           ];
         }).toList();
 

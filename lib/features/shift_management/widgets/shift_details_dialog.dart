@@ -389,6 +389,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           const SizedBox(height: 20),
                           _buildTimesheetSection(),
                           const SizedBox(height: 20),
+                          _buildApprovalStatusSection(),
+                          const SizedBox(height: 20),
                           _buildFormSection(),
                   ],
                 ),
@@ -683,6 +685,286 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     }
     
     return const SizedBox.shrink();
+  }
+
+  // Approval status and earnings section
+  Widget _buildApprovalStatusSection() {
+    // Only show if there's a timesheet entry
+    if (_timesheetEntry == null) return const SizedBox.shrink();
+    
+    final status = (_timesheetEntry!['status'] as String?) ?? 'pending';
+    final approvedBy = _timesheetEntry!['approved_by'] as String?;
+    final approvedAt = _timesheetEntry!['approved_at'] as Timestamp?;
+    final isEdited = _timesheetEntry!['is_edited'] as bool? ?? false;
+    final editApproved = _timesheetEntry!['edit_approved'] as bool? ?? false;
+    
+    // Calculate earnings
+    final clockIn = _timesheetEntry!['clock_in_time'] ?? _timesheetEntry!['clock_in_timestamp'];
+    final clockOut = _timesheetEntry!['clock_out_time'] ?? _timesheetEntry!['clock_out_timestamp'];
+    final hourlyRate = (widget.shift.hourlyRate > 0) 
+        ? widget.shift.hourlyRate 
+        : (_timesheetEntry!['hourly_rate'] as num?)?.toDouble() ?? 15.0;
+    
+    double hoursWorked = 0;
+    double earnings = 0;
+    
+    if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
+      final duration = clockOut.toDate().difference(clockIn.toDate());
+      hoursWorked = duration.inMinutes / 60.0;
+      earnings = hoursWorked * hourlyRate;
+    }
+    
+    // Determine status display
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+    String statusSubtitle = '';
+    
+    switch (status.toLowerCase()) {
+      case 'approved':
+        statusColor = const Color(0xFF10B981);
+        statusIcon = Icons.check_circle;
+        statusText = 'Approved';
+        if (approvedAt != null) {
+          statusSubtitle = 'Approved on ${DateFormat('MMM d, yyyy').format(approvedAt.toDate())}';
+        }
+        break;
+      case 'paid':
+        statusColor = const Color(0xFF059669);
+        statusIcon = Icons.payments;
+        statusText = 'Paid';
+        statusSubtitle = 'Payment processed';
+        break;
+      case 'rejected':
+        statusColor = const Color(0xFFEF4444);
+        statusIcon = Icons.cancel;
+        statusText = 'Rejected';
+        statusSubtitle = 'Please review and resubmit';
+        break;
+      default: // pending
+        statusColor = const Color(0xFFF59E0B);
+        statusIcon = Icons.pending;
+        statusText = 'Pending Approval';
+        statusSubtitle = 'Awaiting admin review';
+    }
+    
+    // Check for edit status
+    if (isEdited && !editApproved) {
+      statusColor = const Color(0xFF8B5CF6);
+      statusIcon = Icons.edit_note;
+      statusText = 'Edit Pending';
+      statusSubtitle = 'Your edit is awaiting approval';
+    }
+    
+    return _buildSection(
+      title: "Approval & Earnings",
+      icon: Icons.verified,
+      children: [
+        // Status badge
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: statusColor.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(statusIcon, color: statusColor, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      statusText,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                      ),
+                    ),
+                    if (statusSubtitle.isNotEmpty)
+                      Text(
+                        statusSubtitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: statusColor.withOpacity(0.8),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Earnings card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF0386FF).withOpacity(0.1),
+                const Color(0xFF10B981).withOpacity(0.1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Estimated Earnings',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${earnings.toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (status == 'approved' || status == 'paid') 
+                          ? const Color(0xFF10B981).withOpacity(0.2)
+                          : const Color(0xFFF59E0B).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      (status == 'approved' || status == 'paid') 
+                          ? Icons.check_circle 
+                          : Icons.schedule,
+                      color: (status == 'approved' || status == 'paid') 
+                          ? const Color(0xFF10B981) 
+                          : const Color(0xFFF59E0B),
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildEarningDetail(
+                    label: 'Hours',
+                    value: '${hoursWorked.toStringAsFixed(1)}h',
+                    icon: Icons.access_time,
+                  ),
+                  _buildEarningDetail(
+                    label: 'Rate',
+                    value: '\$${hourlyRate.toStringAsFixed(2)}/hr',
+                    icon: Icons.attach_money,
+                  ),
+                  _buildEarningDetail(
+                    label: 'Status',
+                    value: status == 'approved' || status == 'paid' ? '✓ Confirmed' : 'Pending',
+                    icon: (status == 'approved' || status == 'paid') 
+                        ? Icons.verified 
+                        : Icons.pending,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        // Manager notes if available
+        if (_timesheetEntry!['manager_notes'] != null && 
+            (_timesheetEntry!['manager_notes'] as String).isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.comment, size: 18, color: Color(0xFF64748B)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Manager Notes',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _timesheetEntry!['manager_notes'] as String,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+  
+  Widget _buildEarningDetail({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF64748B)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1E293B),
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildFormSection() {

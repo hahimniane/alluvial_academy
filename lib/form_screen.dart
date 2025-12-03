@@ -8,10 +8,20 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'core/services/user_role_service.dart';
+import 'core/services/shift_form_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 class FormScreen extends StatefulWidget {
-  const FormScreen({super.key});
+  final String? timesheetId;
+  final String? shiftId;
+  final String? autoSelectFormId; // Auto-select and open a specific form by ID
+
+  const FormScreen({
+    super.key,
+    this.timesheetId,
+    this.shiftId,
+    this.autoSelectFormId,
+  });
 
   @override
   State<FormScreen> createState() => _FormScreenState();
@@ -58,6 +68,34 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
     _loadUserFormSubmissions();
     _loadCurrentUserData();
+    
+    // Auto-select form if specified
+    if (widget.autoSelectFormId != null) {
+      _autoSelectForm(widget.autoSelectFormId!);
+    }
+  }
+  
+  /// Auto-select a form by ID (used when navigating from clock-out)
+  Future<void> _autoSelectForm(String formId) async {
+    try {
+      AppLogger.debug('FormScreen: Auto-selecting form: $formId');
+      final formDoc = await FirebaseFirestore.instance
+          .collection('form')
+          .doc(formId)
+          .get();
+      
+      if (formDoc.exists && mounted) {
+        final formData = formDoc.data()!;
+        // Delay to ensure the widget is fully built
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleFormSelection(formId, formData);
+        });
+      } else {
+        AppLogger.error('FormScreen: Form not found for auto-select: $formId');
+      }
+    } catch (e) {
+      AppLogger.error('FormScreen: Error auto-selecting form: $e');
+    }
   }
 
   Future<void> _loadUserFormSubmissions() async {
@@ -3261,8 +3299,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final userFirstName = userData.data()?['first_name'] as String? ?? '';
       final userLastName = userData.data()?['last_name'] as String? ?? '';
 
-      final docRef =
-          await FirebaseFirestore.instance.collection('form_responses').add({
+      final Map<String, dynamic> submissionData = {
         'formId': selectedFormId,
         'userId': currentUser.uid,
         'userEmail': currentUser.email,
@@ -3272,13 +3309,32 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         'submittedAt': FieldValue.serverTimestamp(),
         'status': 'completed',
         'lastUpdated': FieldValue.serverTimestamp(),
-      }).timeout(
+      };
+
+      // Add linkage IDs if present
+      if (widget.timesheetId != null) submissionData['timesheetId'] = widget.timesheetId;
+      if (widget.shiftId != null) submissionData['shiftId'] = widget.shiftId;
+
+      final docRef = await FirebaseFirestore.instance
+          .collection('form_responses')
+          .add(submissionData)
+          .timeout(
         const Duration(seconds: 30),
         onTimeout: () {
           AppLogger.debug('Firestore submission timeout after 30 seconds');
           throw Exception('Firestore submission timeout');
         },
       );
+
+      // CRITICAL: Update Timesheet Entry (Linkage)
+      // This ensures that when viewing a shift's details, the form will appear there
+      if (widget.timesheetId != null) {
+        await ShiftFormService.linkFormToTimesheet(
+          timesheetId: widget.timesheetId!,
+          formResponseId: docRef.id,
+          reportedHours: null, // Can be extracted from form responses if needed
+        );
+      }
 
       AppLogger.info(
           'Form submitted to Firestore successfully! Document ID: ${docRef.id}');
