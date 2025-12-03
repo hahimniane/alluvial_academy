@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/user_role_service.dart';
 import 'dashboard.dart';
+import 'features/dashboard/screens/teacher_home_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -286,8 +287,18 @@ class TeacherDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DashboardPage(); // For now, use the same dashboard
-    // TODO: Create role-specific dashboard with limited features
+    // Check screen width to determine if we should show web or mobile view
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 768) {
+          // Web/Desktop view - use the main DashboardPage with sidebar
+          return const DashboardPage();
+        } else {
+          // Mobile view - use the dedicated mobile app screen
+          return const TeacherHomeScreen();
+        }
+      },
+    );
   }
 }
 

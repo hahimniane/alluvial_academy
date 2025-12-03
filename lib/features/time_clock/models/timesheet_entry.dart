@@ -43,6 +43,13 @@ class TimesheetEntry {
   final String? employeeNotes; // Notes from teacher
   final String? managerNotes; // Notes from admin
   
+  // Edit tracking fields
+  final bool isEdited; // Whether this timesheet was edited
+  final bool editApproved; // Whether the edit was approved by admin
+  final Map<String, dynamic>? originalData; // Original data before edit (for comparison)
+  final Timestamp? editedAt; // When the timesheet was edited
+  final String? editedBy; // Who edited the timesheet
+  
   // Readiness Form linkage
   final String? formResponseId; // ID of the linked form response
   final bool formCompleted; // Whether the post-class form was filled
@@ -83,6 +90,11 @@ class TimesheetEntry {
     this.scheduledDurationMinutes,
     this.employeeNotes,
     this.managerNotes,
+    this.isEdited = false,
+    this.editApproved = false,
+    this.originalData,
+    this.editedAt,
+    this.editedBy,
     this.formResponseId,
     this.formCompleted = false,
     this.reportedHours,
