@@ -10,6 +10,8 @@ const shiftHandlers = require('./handlers/shifts');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
+const { fixDecemberForms } = require('./fix_december_forms');
+const newImplementation = require('./new_implementation');
 
 admin.initializeApp();
 
@@ -83,4 +85,14 @@ exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+// One-time data fix function: Link December 2025 forms to timesheets
+exports.fixDecemberForms = functions.https.onRequest(fixDecemberForms);
+
+// New shift management functions (recurrence generation and notifications)
+exports.onShiftCreateNew = newImplementation.onShiftCreateNew;
+exports.onShiftUpdateNew = newImplementation.onShiftUpdateNew;
+
+// Timesheet export function
+exports.exportTimesheet = newImplementation.exportTimesheet;
 
