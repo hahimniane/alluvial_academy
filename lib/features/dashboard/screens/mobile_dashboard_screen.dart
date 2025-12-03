@@ -9,10 +9,15 @@ import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../../form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
+import '../../zoom/screens/zoom_screen.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../notifications/screens/mobile_notification_screen.dart';
 import '../../user_management/screens/mobile_user_management_screen.dart';
+import './teacher_home_screen.dart'; // Import the new TeacherHomeScreen
+// import './teacher_mobile_home.dart'; // Remove the old one
+import './teacher_job_board_screen.dart';
+import '../../profile/screens/teacher_profile_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -183,6 +188,43 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
               const SizedBox(height: 24),
               
               // Menu Options
+              // View Profile option
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: Theme.of(context).primaryColor,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'View Profile',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).textTheme.titleMedium?.color,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: Theme.of(context).iconTheme.color,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherProfileScreen(),
+                    ),
+                  );
+                },
+              ),
+              
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -297,15 +339,14 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   List<Widget> get _screens {
     final role = _userRole?.toLowerCase();
 
-    // ONLY Teachers get time clock, shifts, forms
+    // ONLY Teachers get time clock, shifts, zoom, job board
     if (role == 'teacher') {
       return [
-        const AdminDashboard(refreshTrigger: 0),
-        const FormScreen(),
-        const MySubmissionsScreen(),
-        const TimeClockScreen(),
+        const TeacherHomeScreen(), // Use the new screen
         const TeacherShiftScreen(),
-        const QuickTasksScreen(),
+        const ChatPage(),
+        const ZoomScreen(), // Replaced MySubmissionsScreen with Zoom
+        const TeacherJobBoardScreen(),
       ];
     }
 
@@ -333,15 +374,14 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   List<_NavItemData> get _navItems {
     final role = _userRole?.toLowerCase();
 
-    // ONLY Teachers get Clock, Shifts, and Forms tabs
+    // ONLY Teachers get Clock, Shifts, Zoom, and Job Board tabs
     if (role == 'teacher') {
       return [
         _NavItemData(Icons.home_rounded, 'Home', 0),
-        _NavItemData(Icons.description_rounded, 'Fill', 1),
-        _NavItemData(Icons.assignment_turned_in_rounded, 'My Forms', 2),
-        _NavItemData(Icons.access_time_rounded, 'Clock', 3),
-        _NavItemData(Icons.calendar_today_rounded, 'Shifts', 4),
-        _NavItemData(Icons.task_alt_rounded, 'Tasks', 5),
+        _NavItemData(Icons.calendar_today_rounded, 'Shifts', 1),
+        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 2),
+        _NavItemData(Icons.video_call_rounded, 'Zoom', 3),
+        _NavItemData(Icons.work_outline_rounded, 'Jobs', 4),
       ];
     }
 
@@ -476,7 +516,8 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
+      // Hide AppBar for Teachers (new home screen has its own header)
+      appBar: (_userRole?.toLowerCase() == 'teacher' && _selectedIndex == 0) ? null : AppBar(
         elevation: 0,
         backgroundColor: Theme.of(context).cardColor,
         toolbarHeight: 70,
@@ -530,11 +571,18 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           ],
         ),
         actions: [
-          // Profile Picture Button
+          // Profile Picture Button - Navigate directly to TeacherProfileScreen for consistency
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
-              onTap: () => _showProfileMenu(),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TeacherProfileScreen(),
+                  ),
+                );
+              },
               child: Container(
                 width: 40,
                 height: 40,

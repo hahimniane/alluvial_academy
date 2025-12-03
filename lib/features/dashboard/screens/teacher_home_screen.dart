@@ -11,6 +11,8 @@ import '../../tasks/models/task.dart';
 import '../../tasks/services/task_service.dart';
 import '../../../form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
+import '../../assignments/screens/teacher_assignments_screen.dart';
+import '../screens/admin_dashboard_screen.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/enums/task_enums.dart';
@@ -38,6 +40,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   double _hoursThisWeek = 0;
   int _classesThisWeek = 0;
   int _totalStudents = 0;
+  
+  // Earnings and Approval Stats
+  double _earningsThisWeek = 0;
+  double _earningsThisMonth = 0;
+  double _earningsToday = 0;
+  int _pendingApprovals = 0;
+  int _approvedThisWeek = 0;
+  double _defaultHourlyRate = 15.0; // Default hourly rate if not specified
 
   @override
   void initState() {
@@ -152,11 +162,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day, 0, 0, 0);
       final endOfWeekDate = startOfWeekDate.add(const Duration(days: 7));
       
+      // Start of month
+      final startOfMonth = DateTime(now.year, now.month, 1, 0, 0, 0);
+      final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+      
+      // Start of today
+      final startOfToday = DateTime(now.year, now.month, now.day, 0, 0, 0);
+      final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+      
       debugPrint('📊 Loading stats for teacher: $teacherId');
       debugPrint('📅 Week range: ${startOfWeekDate.toIso8601String()} to ${endOfWeekDate.toIso8601String()}');
       
-      // Fetch this teacher's timesheet entries for THIS WEEK
-      // Use separate queries to avoid complex index requirements
+      // Fetch this teacher's timesheet entries
       final timesheetQuery = await FirebaseFirestore.instance
           .collection('timesheet_entries')
           .where('teacher_id', isEqualTo: teacherId)
@@ -165,30 +182,86 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       double totalHours = 0;
       int classCount = 0;
       Set<String> uniqueStudents = {};
+      
+      // Earnings tracking
+      double weeklyEarnings = 0;
+      double monthlyEarnings = 0;
+      double dailyEarnings = 0;
+      int pendingCount = 0;
+      int approvedThisWeekCount = 0;
 
       for (var doc in timesheetQuery.docs) {
         final data = doc.data();
         // Support both naming conventions
         final clockIn = (data['clock_in_time'] ?? data['clock_in_timestamp']) as Timestamp?;
         final clockOut = (data['clock_out_time'] ?? data['clock_out_timestamp']) as Timestamp?;
+        final status = data['status'] as String? ?? 'pending';
+        final hourlyRate = (data['hourly_rate'] as num?)?.toDouble() ?? _defaultHourlyRate;
         
         if (clockIn == null) continue;
         
         final clockInDate = clockIn.toDate();
         
-        // Filter for this week only
-        if (clockInDate.isBefore(startOfWeekDate) || clockInDate.isAfter(endOfWeekDate)) {
-          continue;
-        }
+        // Check if this is an edited timesheet
+        final isEdited = data['is_edited'] as bool? ?? false;
+        final editApproved = data['edit_approved'] as bool? ?? false;
         
+        // Calculate hours worked
+        double hoursWorked = 0;
         if (clockOut != null) {
           final duration = clockOut.toDate().difference(clockInDate);
-          totalHours += duration.inMinutes / 60.0;
+          hoursWorked = duration.inMinutes / 60.0;
+        }
+        
+        // Check timesheet status
+        if (status == 'pending') {
+          pendingCount++;
+        }
+        
+        // Check if this week for weekly stats
+        final isThisWeek = clockInDate.isAfter(startOfWeekDate.subtract(const Duration(seconds: 1))) && 
+                           clockInDate.isBefore(endOfWeekDate);
+        
+        // Check if this month
+        final isThisMonth = clockInDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && 
+                            clockInDate.isBefore(endOfMonth);
+        
+        // Check if today
+        final isToday = clockInDate.isAfter(startOfToday.subtract(const Duration(seconds: 1))) && 
+                        clockInDate.isBefore(endOfToday);
+        
+        // Determine correct earnings value
+        double shiftEarnings = hoursWorked * hourlyRate;
+        
+        // If edited and approved, verify against total_hours if available or recalculate
+        if (isEdited && editApproved) {
+           // The hoursWorked calculated above uses the clock_in/out from the document
+           // Since the document is updated upon edit, hoursWorked should already be correct
+           // However, if there's a total_hours string override or specific earnings override, check here
+           shiftEarnings = hoursWorked * hourlyRate;
+        }
+        
+        if (isThisWeek && clockOut != null) {
+          totalHours += hoursWorked;
           classCount++;
+          
+          // Calculate earnings for approved timesheets
+          if (status == 'approved' || status == 'paid') {
+            weeklyEarnings += shiftEarnings;
+            approvedThisWeekCount++;
+          }
+        }
+        
+        if (isThisMonth && clockOut != null && (status == 'approved' || status == 'paid')) {
+          monthlyEarnings += shiftEarnings;
+        }
+        
+        if (isToday && clockOut != null && (status == 'approved' || status == 'paid')) {
+          dailyEarnings += shiftEarnings;
         }
         
         // Get unique students from shift
-        if (data['shift_id'] != null) {
+        if (data['shift_id'] != null && isThisWeek) {
           try {
             final shiftDoc = await FirebaseFirestore.instance
                 .collection('teaching_shifts')
@@ -213,11 +286,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       }
 
       debugPrint('📊 Stats calculated: Hours: $totalHours, Classes: $classCount, Students: ${uniqueStudents.length}');
+      debugPrint('💰 Earnings: Weekly: \$${weeklyEarnings.toStringAsFixed(2)}, Monthly: \$${monthlyEarnings.toStringAsFixed(2)}');
+      debugPrint('📋 Approvals: Pending: $pendingCount, Approved this week: $approvedThisWeekCount');
 
       if (mounted) {
         setState(() {
           _hoursThisWeek = totalHours;
           _classesThisWeek = classCount;
+          _earningsThisWeek = weeklyEarnings;
+          _earningsThisMonth = monthlyEarnings;
+          _earningsToday = dailyEarnings;
+          _pendingApprovals = pendingCount;
+          _approvedThisWeek = approvedThisWeekCount;
           _totalStudents = uniqueStudents.length;
         });
       }
@@ -231,27 +311,42 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       debugPrint('🌐 Attempting to open URL: $url');
       final uri = Uri.parse(url);
       
-      if (await canLaunchUrl(uri)) {
+      // Don't use canLaunchUrl on mobile - it often returns false incorrectly
+      // Just try to launch directly and catch errors
+      try {
         final launched = await launchUrl(
           uri,
           mode: LaunchMode.externalApplication,
         );
         if (!launched && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Could not open $url'),
-              backgroundColor: Colors.red,
-            ),
+          // Try with inAppWebView as fallback
+          final fallbackLaunched = await launchUrl(
+            uri,
+            mode: LaunchMode.inAppWebView,
           );
+          if (!fallbackLaunched && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not open $url'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Could not open $url'),
-              backgroundColor: Colors.red,
-            ),
-          );
+      } catch (launchError) {
+        debugPrint('❌ Launch error, trying fallback: $launchError');
+        // Try inAppWebView as fallback
+        try {
+          await launchUrl(uri, mode: LaunchMode.inAppWebView);
+        } catch (fallbackError) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not open $url'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -280,12 +375,17 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
-                const SizedBox(height: 12), // Add spacing between header and stats
+                const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _buildStatsRow(),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildCompactEarningsCard(),
+                ),
+                const SizedBox(height: 16),
                 if (_activeShift != null) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -427,13 +527,100 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           ),
           const SizedBox(width: 12),
           _buildStatCard(
-            icon: Icons.people,
-            value: '$_totalStudents',
-            label: 'Students',
-            color: const Color(0xFFF59E0B),
+            icon: Icons.attach_money,
+            value: '\$${_earningsThisWeek.toStringAsFixed(2)}',
+            label: 'Approved',
+            color: const Color(0xFF10B981),
           ),
         ],
       );
+  }
+  
+  // Compact Earnings Card - much smaller and professional
+  Widget _buildCompactEarningsCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0386FF), Color(0xFF0066CC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0386FF).withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Earnings values
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildCompactEarningItem('Today', _earningsToday),
+                Container(width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
+                _buildCompactEarningItem('Week', _earningsThisWeek),
+                Container(width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
+                _buildCompactEarningItem('Month', _earningsThisMonth),
+              ],
+            ),
+          ),
+          // Approval badge
+          if (_pendingApprovals > 0)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBBF24),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.pending, size: 12, color: Color(0xFF78350F)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$_pendingApprovals',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF78350F),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildCompactEarningItem(String label, double amount) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '\$${amount.toStringAsFixed(0)}',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 9,
+            color: Colors.white.withOpacity(0.8),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildStatCard({
@@ -444,26 +631,27 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 4),
             Text(
               value,
               style: GoogleFonts.inter(
-                fontSize: 20,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF1E293B),
               ),
@@ -471,7 +659,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             Text(
               label,
               style: GoogleFonts.inter(
-                fontSize: 11,
+                fontSize: 9,
                 color: const Color(0xFF64748B),
               ),
               maxLines: 1,
@@ -961,10 +1149,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 label: 'Assignments',
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Assignments feature coming soon!'),
-                      duration: Duration(seconds: 2),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherAssignmentsScreen(),
                     ),
                   );
                 },

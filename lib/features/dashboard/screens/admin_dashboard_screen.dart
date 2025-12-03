@@ -7460,9 +7460,131 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
               ],
             ],
           ),
+          // Show attachments/files if they exist
+          if (assignment['attachments'] != null && (assignment['attachments'] as List).isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: Color(0xffE5E7EB)),
+            const SizedBox(height: 12),
+            Text(
+              'Attached Files:',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: (assignment['attachments'] as List).map<Widget>((attachment) {
+                final attachmentMap = attachment as Map<String, dynamic>;
+                final fileName = attachmentMap['name'] ?? attachmentMap['originalName'] ?? 'Unknown file';
+                final downloadUrl = attachmentMap['downloadURL'] ?? attachmentMap['url'] ?? '';
+                return InkWell(
+                  onTap: downloadUrl.isNotEmpty ? () => _openFile(downloadUrl) : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xffE5E7EB)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _getFileIcon(fileName),
+                          size: 16,
+                          color: const Color(0xff3B82F6),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            fileName,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff374151),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (downloadUrl.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.download,
+                            size: 14,
+                            color: Color(0xff3B82F6),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  // Open/download file from URL
+  Future<void> _openFile(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      // Try external application first, then in-app as fallback
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        await launchUrl(uri, mode: LaunchMode.inAppWebView);
+      }
+    } catch (e) {
+      AppLogger.error('Error opening file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening file: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Get file icon based on file name
+  IconData _getFileIcon(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      case 'ppt':
+      case 'pptx':
+        return Icons.slideshow;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return Icons.image;
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+        return Icons.video_file;
+      case 'mp3':
+      case 'wav':
+        return Icons.audio_file;
+      default:
+        return Icons.attach_file;
+    }
   }
 
   String _formatDate(Timestamp timestamp) {

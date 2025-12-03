@@ -393,11 +393,15 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     children: [
                       const Icon(Icons.calendar_today, size: 20, color: Color(0xFF64748B)),
                       const SizedBox(width: 12),
-                      Text(
-                        DateFormat('EEEE, MMMM d, yyyy').format(_timesheetDate!),
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          color: const Color(0xFF1E293B),
+                      Expanded(
+                        child: Text(
+                          DateFormat('EEEE, MMMM d, yyyy').format(_timesheetDate!),
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: const Color(0xFF1E293B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                         ),
                       ),
                     ],

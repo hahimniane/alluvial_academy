@@ -171,8 +171,12 @@ class _JobCardState extends State<_JobCard> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -195,11 +199,12 @@ class _JobCardState extends State<_JobCard> {
                             : const Color(0xff1D4ED8),
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                    if (widget.isFilled) ...[
-                      const SizedBox(width: 8),
+                      if (widget.isFilled)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
@@ -217,7 +222,7 @@ class _JobCardState extends State<_JobCard> {
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
                 Text(
                   DateFormat('MMM d').format(widget.job.createdAt),

@@ -346,28 +346,30 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       child: Row(
         children: [
           Text("Tasks", style: ConnecteamStyle.headerTitle),
-          const Spacer(),
-          // Search Bar (Pill shaped)
-          Container(
-            width: 250,
-            height: 40,
-            decoration: BoxDecoration(
-              color: ConnecteamStyle.background,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: ConnecteamStyle.borderColor),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: const InputDecoration(
-                hintText: "Search tasks...",
-                prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.only(top: 8),
+          const SizedBox(width: 12),
+          // Search Bar (Pill shaped) - Made flexible for mobile
+          Expanded(
+            child: Container(
+              height: 40,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: ConnecteamStyle.background,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: ConnecteamStyle.borderColor),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                decoration: const InputDecoration(
+                  hintText: "Search tasks...",
+                  prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.only(top: 8),
+                ),
               ),
             ),
           ),
@@ -382,13 +384,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       margin: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          _buildTabItem("All Tasks", 'all', isActive: _selectedTab == 'all'),
-          _buildTabItem("My Tasks", 'my_tasks', isActive: _selectedTab == 'my_tasks'),
-          _buildTabItem("Today", 'today', isActive: _selectedTab == 'today'),
-          if (_isAdmin) _buildTabItem("Drafts", 'drafts', isActive: _selectedTab == 'drafts'),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildTabItem("All Tasks", 'all', isActive: _selectedTab == 'all'),
+            _buildTabItem("My Tasks", 'my_tasks', isActive: _selectedTab == 'my_tasks'),
+            _buildTabItem("Today", 'today', isActive: _selectedTab == 'today'),
+            if (_isAdmin) _buildTabItem("Drafts", 'drafts', isActive: _selectedTab == 'drafts'),
+          ],
+        ),
       ),
     );
   }
@@ -424,111 +429,106 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
-  /// Comprehensive Filter Bar (Connecteam style)
+  /// Comprehensive Filter Bar (Connecteam style) - Mobile-friendly with Wrap
   Widget _buildComprehensiveFilterBar() {
     return Container(
+      width: double.infinity,
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Status Filter
+      // Use Wrap to make all filters visible without scrolling
+      child: Wrap(
+        spacing: 8.0, // Horizontal space between chips
+        runSpacing: 8.0, // Vertical space between lines
+        children: [
+          // Status Filter
+          _buildFilterChip(
+            label: 'Status',
+            icon: Icons.flag_outlined,
+            isActive: _selectedStatus != null,
+            onTap: () => _showStatusFilter(),
+            activeLabel: _selectedStatus != null ? _getStatusLabel(_selectedStatus!) : null,
+          ),
+          // Priority Filter
+          _buildFilterChip(
+            label: 'Priority',
+            icon: Icons.priority_high,
+            isActive: _selectedPriority != null,
+            onTap: () => _showPriorityFilter(),
+            activeLabel: _selectedPriority != null ? _getPriorityLabel(_selectedPriority!) : null,
+          ),
+          // Assigned To Filter
+          _buildFilterChip(
+            label: 'Assigned To',
+            icon: Icons.person_outline,
+            isActive: _filterAssignedToUserIds.isNotEmpty,
+            onTap: () => _showAssignedToFilter(),
+            activeLabel: _filterAssignedToUserIds.isNotEmpty 
+                ? '${_filterAssignedToUserIds.length} selected' 
+                : null,
+          ),
+          // Assigned By Filter (Admin only)
+          if (_isAdmin)
             _buildFilterChip(
-              label: 'Status',
-              icon: Icons.flag_outlined,
-              isActive: _selectedStatus != null,
-              onTap: () => _showStatusFilter(),
-              activeLabel: _selectedStatus != null ? _getStatusLabel(_selectedStatus!) : null,
-            ),
-            const SizedBox(width: 8),
-            // Priority Filter
-            _buildFilterChip(
-              label: 'Priority',
-              icon: Icons.priority_high,
-              isActive: _selectedPriority != null,
-              onTap: () => _showPriorityFilter(),
-              activeLabel: _selectedPriority != null ? _getPriorityLabel(_selectedPriority!) : null,
-            ),
-            const SizedBox(width: 8),
-            // Assigned To Filter
-            _buildFilterChip(
-              label: 'Assigned To',
-              icon: Icons.person_outline,
-              isActive: _filterAssignedToUserIds.isNotEmpty,
-              onTap: () => _showAssignedToFilter(),
-              activeLabel: _filterAssignedToUserIds.isNotEmpty 
-                  ? '${_filterAssignedToUserIds.length} selected' 
+              label: 'Assigned By',
+              icon: Icons.person_add_outlined,
+              isActive: _filterAssignedByUserId != null,
+              onTap: () => _showAssignedByFilter(),
+              activeLabel: _filterAssignedByUserId != null 
+                  ? _userIdToName[_filterAssignedByUserId] ?? 'Unknown'
                   : null,
             ),
-            const SizedBox(width: 8),
-            // Assigned By Filter (Admin only)
-            if (_isAdmin)
-              _buildFilterChip(
-                label: 'Assigned By',
-                icon: Icons.person_add_outlined,
-                isActive: _filterAssignedByUserId != null,
-                onTap: () => _showAssignedByFilter(),
-                activeLabel: _filterAssignedByUserId != null 
-                    ? _userIdToName[_filterAssignedByUserId] ?? 'Unknown'
+          // Due Date Filter
+          _buildFilterChip(
+            label: 'Due Date',
+            icon: Icons.calendar_today_outlined,
+            isActive: _dueDateRange != null,
+            onTap: () => _showDueDateFilter(),
+            activeLabel: _dueDateRange != null
+                ? '${DateFormat('MMM d').format(_dueDateRange!.start)} - ${DateFormat('MMM d').format(_dueDateRange!.end)}'
+                : null,
+          ),
+          // Recurring Filter
+          _buildFilterChip(
+            label: 'Recurring',
+            icon: Icons.repeat,
+            isActive: _filterRecurring != null,
+            onTap: () => _showRecurringFilter(),
+            activeLabel: _filterRecurring == true 
+                ? 'Recurring Only'
+                : _filterRecurring == false 
+                    ? 'One-time Only'
                     : null,
-              ),
-            if (_isAdmin) const SizedBox(width: 8),
-            // Due Date Filter
-            _buildFilterChip(
-              label: 'Due Date',
-              icon: Icons.calendar_today_outlined,
-              isActive: _dueDateRange != null,
-              onTap: () => _showDueDateFilter(),
-              activeLabel: _dueDateRange != null
-                  ? '${DateFormat('MMM d').format(_dueDateRange!.start)} - ${DateFormat('MMM d').format(_dueDateRange!.end)}'
-                  : null,
-            ),
-            const SizedBox(width: 8),
-            // Recurring Filter
-            _buildFilterChip(
-              label: 'Recurring',
-              icon: Icons.repeat,
-              isActive: _filterRecurring != null,
-              onTap: () => _showRecurringFilter(),
-              activeLabel: _filterRecurring == true 
-                  ? 'Recurring Only'
-                  : _filterRecurring == false 
-                      ? 'One-time Only'
-                      : null,
-            ),
-            const SizedBox(width: 8),
-            // Clear All Filters
-            if (_hasActiveFilters())
-              InkWell(
-                onTap: _clearAllFilters,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.clear, size: 16, color: Colors.red),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Clear All',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.red,
-                        ),
+          ),
+          // Clear All Filters Button
+          if (_hasActiveFilters())
+            InkWell(
+              onTap: _clearAllFilters,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.clear, size: 16, color: Colors.red),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Clear All',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.red,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -2440,7 +2440,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           width: 1,
         ),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 8.0,
+        runSpacing: 8.0,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             'The view contains',
@@ -2450,7 +2453,6 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -2466,7 +2468,6 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
           ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -2482,7 +2483,6 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
           ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -2503,34 +2503,147 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
-  // NEW: Grouped task list using ConnectTeam-style component
+  // Mobile-friendly list view to prevent overflow
   Widget _buildGroupedTaskList(List<Task> tasks) {
-    return ConnectTeamTaskList(
-      tasks: tasks,
-      groupBy: _groupBy,
-      onTaskTap: (task) => _showTaskDetailsDialog(task),
-      onTaskStatusChange: (task) async {
-        final newStatus = task.status == TaskStatus.done 
-            ? TaskStatus.todo 
-            : TaskStatus.done;
-        await _taskService.updateTask(task.id, task.copyWith(status: newStatus));
+    return ListView.separated(
+      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
+      itemCount: tasks.length,
+      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        final isSelected = _selectedTaskIds.contains(task.id);
+
+        return InkWell(
+          onTap: _isBulkMode 
+              ? () => _toggleTaskSelection(task.id)
+              : () => _showTaskDetailsDialog(task),
+          child: Container(
+            color: isSelected ? ConnecteamStyle.primaryBlue.withOpacity(0.05) : Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Checkbox for bulk mode or quick complete
+                if (_isBulkMode)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12, top: 2),
+                    child: Icon(
+                      isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                      color: isSelected ? ConnecteamStyle.primaryBlue : Colors.grey,
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12, top: 2),
+                    child: InkWell(
+                      onTap: () => _toggleTaskStatus(task, task.status != TaskStatus.done),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: task.status == TaskStatus.done 
+                                ? ConnecteamStyle.statusDoneText 
+                                : Colors.grey.shade400,
+                            width: 2
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          color: task.status == TaskStatus.done 
+                              ? ConnecteamStyle.statusDoneText 
+                              : Colors.transparent,
+                        ),
+                        child: task.status == TaskStatus.done
+                            ? const Icon(Icons.check, size: 14, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                  ),
+                
+                // Task Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Task Title and Priority Badge
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              task.title,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                decoration: task.status == TaskStatus.done 
+                                    ? TextDecoration.lineThrough 
+                                    : null,
+                                color: task.status == TaskStatus.done 
+                                    ? Colors.grey 
+                                    : const Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          if (task.priority == TaskPriority.high)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'High',
+                                style: GoogleFonts.inter(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Meta info row (Due date, assignee)
+                      Row(
+                        children: [
+                          if (task.dueDate != null) ...[
+                            Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade500),
+                            const SizedBox(width: 4),
+                            Text(
+                              DateFormat('MMM d, h:mm a').format(task.dueDate!),
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: task.dueDate!.isBefore(DateTime.now()) && task.status != TaskStatus.done
+                                    ? Colors.red 
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (task.assignedTo.isNotEmpty) ...[
+                            Icon(Icons.person_outline, size: 12, color: Colors.grey.shade500),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${task.assignedTo.length} assignee${task.assignedTo.length > 1 ? 's' : ''}',
+                              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
-      onAddTask: (assigneeId) => _showAddEditTaskDialog(preSelectedAssignee: assigneeId),
-      userIdToName: _userIdToName,
-      selectedTaskIds: _selectedTaskIds,
-      onTaskDelete: (task) => _showDeleteConfirmation(task),
-      currentUserId: FirebaseAuth.instance.currentUser?.uid,
-      onSelectionChanged: (taskId, isSelected) {
-        setState(() {
-          if (isSelected) {
-            _selectedTaskIds.add(taskId);
-          } else {
-            _selectedTaskIds.remove(taskId);
-          }
-        });
-      },
-      isBulkMode: _isBulkMode,
     );
+  }
+
+  // Helper method for toggling task selection in bulk mode
+  void _toggleTaskSelection(String taskId) {
+    setState(() {
+      if (_selectedTaskIds.contains(taskId)) {
+        _selectedTaskIds.remove(taskId);
+      } else {
+        _selectedTaskIds.add(taskId);
+      }
+    });
   }
 
   Widget _buildGroupedByAssignee(List<Task> tasks) {
