@@ -52,3 +52,28 @@ app.*.map.json
 
 # Local Netlify folder
 .netlify
+
+# Sensitive files
+serviceAccountKey.json
+*.hprof
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Documentation files (optional - remove if you want to track them)
+FIXES_APPLIED.md
+FIX_STORAGE_PERMISSION.md
+FORM_LINKING_SOLUTION.md
+HOW_TO_RUN_FORM_FIX.md
+MANUAL_FIX_STEPS.md
+QUICK_FIX_INSTRUCTIONS.md
+RUN_MOBILE_APP.md
+SYSTEM_STATUS.md
+TEACHER_HOME_SCREEN_REDESIGN.md
+TEACHER_LOGIN_FLOW_FILES.md
+TEACHER_MOBILE_APP_FILES.md
+RUN_IN_FIREBASE_CONSOLE.js
+functions/fix_december_forms.js
+lib/core/services/data_fix_service.dart
+lib/features/dashboard/screens/teacher_mobile_home.dart
