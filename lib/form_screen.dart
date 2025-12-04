@@ -79,6 +79,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   Future<void> _autoSelectForm(String formId) async {
     try {
       AppLogger.debug('FormScreen: Auto-selecting form: $formId');
+      debugPrint('📋 FormScreen: Auto-selecting form with ID: $formId');
+      debugPrint('📋 FormScreen: timesheetId=${widget.timesheetId}, shiftId=${widget.shiftId}');
+      
       final formDoc = await FirebaseFirestore.instance
           .collection('form')
           .doc(formId)
@@ -86,15 +89,35 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       
       if (formDoc.exists && mounted) {
         final formData = formDoc.data()!;
+        debugPrint('✅ FormScreen: Form found - "${formData['title'] ?? 'Untitled'}"');
+        
         // Delay to ensure the widget is fully built
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _handleFormSelection(formId, formData);
+          if (mounted) {
+            _handleFormSelection(formId, formData);
+            debugPrint('✅ FormScreen: Form selected and displayed');
+          }
         });
       } else {
         AppLogger.error('FormScreen: Form not found for auto-select: $formId');
+        debugPrint('❌ FormScreen: Form with ID $formId NOT FOUND in database!');
+        
+        // Show error message to user
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Readiness Form not found (ID: $formId). Please contact admin.'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          });
+        }
       }
     } catch (e) {
       AppLogger.error('FormScreen: Error auto-selecting form: $e');
+      debugPrint('❌ FormScreen: Error auto-selecting form: $e');
     }
   }
 

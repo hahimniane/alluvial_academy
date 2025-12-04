@@ -54,8 +54,9 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
 
   void _calculateDefaultHours() {
     final duration = widget.clockOutTime.difference(widget.clockInTime);
-    final hours = duration.inMinutes / 60.0;
-    _hoursController.text = hours.toStringAsFixed(2);
+    // Use seconds for precision - even short sessions are captured
+    final hours = duration.inSeconds / 3600.0;
+    _hoursController.text = hours.toStringAsFixed(4); // More precision for short sessions
   }
 
   Future<void> _loadFormTemplate() async {

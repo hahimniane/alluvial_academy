@@ -64,5 +64,28 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        
+        <!-- Allow querying for Zoom app -->
+        <package android:name="us.zoom.videomeetings" />
+        <package android:name="com.zoom.videomeetings" />
+        
+        <!-- Allow querying for browsers and web apps -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        
+        <!-- Allow querying for Zoom protocol -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="zoommtg" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="zoomus" />
+        </intent>
     </queries>
 </manifest>

@@ -89,9 +89,12 @@ class ShiftTimesheetService {
             '  - Current UTC time in window: ${nowUtc.isAfter(clockInWindowUtc) && nowUtc.isBefore(clockOutWindowUtc)}');
 
         // Allow clock-in only during exact shift time (no grace period)
-        // Use inclusive comparison (!isBefore and !isAfter) to include exact start/end times
-        if (!nowUtc.isBefore(clockInWindowUtc) &&
-            !nowUtc.isAfter(clockOutWindowUtc)) {
+      // Use inclusive comparison (!isBefore and !isAfter) to include exact start/end times
+      // Add 2 minute buffer to start time to align with UI logic
+      final bufferedStartUtc = clockInWindowUtc.subtract(const Duration(minutes: 2));
+      
+      if (!nowUtc.isBefore(bufferedStartUtc) &&
+          !nowUtc.isAfter(clockOutWindowUtc)) {
           AppLogger.debug(
               'ShiftTimesheetService: ✅ VALID SHIFT FOUND: ${shift.id} - ${shift.displayName}');
           validShifts.add(shift);
@@ -319,10 +322,18 @@ class ShiftTimesheetService {
 
       // Then update shift status (if this fails, we still have the timesheet)
       try {
-        final clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
+        var clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
+        
+        // Retry if failed
+        if (!clockOutSuccess) {
+          AppLogger.debug('ShiftTimesheetService: First clock-out attempt failed, retrying...');
+          await Future.delayed(const Duration(milliseconds: 500));
+          clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
+        }
+
         if (!clockOutSuccess) {
           AppLogger.error(
-              'ShiftTimesheetService: ⚠️ ShiftService.clockOut returned false, but continuing');
+              'ShiftTimesheetService: ⚠️ ShiftService.clockOut failed after retry. Shift status may be out of sync.');
         }
       } catch (e) {
         AppLogger.error(
@@ -609,7 +620,16 @@ class ShiftTimesheetService {
       final docRef = querySnapshot.docs.first.reference;
       final docData = querySnapshot.docs.first.data() as Map<String, dynamic>?;
 
-      final now = DateTime.now();
+      DateTime now = DateTime.now();
+      
+      // Cap clock-out time at shift end time (no overtime)
+      final shiftEndTime = shift.shiftEnd;
+      if (now.isAfter(shiftEndTime)) {
+        AppLogger.debug(
+            'ShiftTimesheetService: Clock-out time capped at shift end time. Current: ${now.toIso8601String()}, Shift end: ${shiftEndTime.toIso8601String()}');
+        now = shiftEndTime;
+      }
+      
       final endTime = DateFormat('h:mm a').format(now);
 
       // Calculate total hours using the stored clock-in timestamp
@@ -632,7 +652,7 @@ class ShiftTimesheetService {
 
       final duration = now.difference(startDateTime);
       final totalHours =
-          '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}';
+          '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
 
       AppLogger.debug(
           'ShiftTimesheetService: Updating timesheet ${docRef.id} with clock-out data...');
@@ -659,22 +679,27 @@ class ShiftTimesheetService {
       AppLogger.info(
           'ShiftTimesheetService: ✅ Timesheet end_time set to: "$endTime" (should not be empty)');
 
-      // Verify the update persisted correctly (wrapped in try-catch to not block clock-out)
+      // Verify the update persisted correctly (CRITICAL)
       try {
-        final verifyDoc = await docRef.get();
+        // Force get from server to ensure we're not reading cache
+        final verifyDoc = await docRef.get(const GetOptions(source: Source.server));
         final verifyData = verifyDoc.data() as Map<String, dynamic>?;
         final verifiedEndTime = verifyData?['end_time'];
         AppLogger.debug(
             'ShiftTimesheetService: Verification - end_time in database: "$verifiedEndTime"');
 
         if (verifiedEndTime == null || verifiedEndTime == '') {
-          AppLogger.error(
-              'ShiftTimesheetService: ⚠️ WARNING: Clock-out update may have failed! end_time is still empty/null');
+          throw Exception('Clock-out verification failed: end_time not persisted in database');
         }
       } catch (verifyError) {
-        // Verification read failed (likely permissions) but clock-out update should have succeeded
-        AppLogger.debug(
-            'ShiftTimesheetService: Verification read failed (this is okay): $verifyError');
+        AppLogger.error('ShiftTimesheetService: Verification failed: $verifyError');
+        
+        // If it's a "not found" or "value missing" error, rethrow to prevent false success
+        if (verifyError.toString().contains('end_time not persisted')) {
+          rethrow;
+        }
+        // For network errors during verification (e.g. offline), we proceed cautiously
+        // but log the warning. The update() call didn't throw, so it's likely pending.
       }
 
       return {
@@ -714,10 +739,13 @@ class ShiftTimesheetService {
       final docRef = querySnapshot.docs.first.reference;
       final docData = querySnapshot.docs.first.data() as Map<String, dynamic>?;
 
-      // Use shift end time + 15 minutes for auto clock-out
-      final autoClockOutTimeUtc = shift.clockOutDeadline;
+      // Use shift end time (NOT +15 minutes) for auto clock-out - no overtime allowed
+      final autoClockOutTimeUtc = shift.shiftEnd.toUtc();
       final autoClockOutTimeLocal = autoClockOutTimeUtc.toLocal();
       final endTime = DateFormat('h:mm a').format(autoClockOutTimeLocal);
+      
+      AppLogger.debug(
+          'ShiftTimesheetService: Auto clock-out capped at shift end time: ${autoClockOutTimeLocal.toIso8601String()}');
 
       // Calculate total hours using stored clock-in timestamp
       DateTime startDateTime;
@@ -736,7 +764,7 @@ class ShiftTimesheetService {
 
       final duration = autoClockOutTimeLocal.difference(startDateTime);
       final totalHours =
-          '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}';
+          '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
 
       // Update the timesheet entry
       await docRef.update({
