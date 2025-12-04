@@ -33,12 +33,12 @@ const formatShiftDateTime = (timestamp) => {
   }
 };
 
-const formatMinutes = (minutes) => {
-  const hrs = Math.floor(minutes / 60)
-    .toString()
-    .padStart(2, '0');
-  const mins = (minutes % 60).toString().padStart(2, '0');
-  return `${hrs}:${mins}`;
+const formatDuration = (ms) => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+  const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
 };
 
 const parseClockIn = (data, defaultDate) => {
@@ -315,19 +315,29 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       .where('shift_id', '==', shiftId)
       .get();
 
-    let workedMinutes = 0;
+    let workedMs = 0;
     let autoClockOutPerformed = false;
     
     // If no timesheet entries but shift has clock_in_time, calculate from that
     if (timesheetsSnapshot.empty && hasClockInOnShift) {
       const clockInTime = shiftData.clock_in_time.toDate();
       const clockOutTime = shiftData.clock_out_time ? shiftData.clock_out_time.toDate() : endDate;
-      workedMinutes = Math.max(0, Math.round((clockOutTime.getTime() - clockInTime.getTime()) / 60000));
+      workedMs = Math.max(0, clockOutTime.getTime() - clockInTime.getTime());
       
       if (!shiftData.clock_out_time) {
         autoClockOutPerformed = true;
       }
     }
+
+    // Check for overlap to prevent double counting
+    // Sort by clock-in time
+    timesheetsSnapshot.docs.sort((a, b) => {
+      const timeA = a.data().clock_in_timestamp ? a.data().clock_in_timestamp.toDate().getTime() : 0;
+      const timeB = b.data().clock_in_timestamp ? b.data().clock_in_timestamp.toDate().getTime() : 0;
+      return timeA - timeB;
+    });
+
+    let lastEndTime = 0;
 
     for (const doc of timesheetsSnapshot.docs) {
       const data = doc.data();
@@ -347,13 +357,22 @@ const handleShiftEndTask = onRequest(async (req, res) => {
         updates.clock_out_platform = 'system';
       }
 
-      const durationMinutes = Math.max(
-        0,
-        Math.round((clockOut.getTime() - clockIn.getTime()) / 60000)
-      );
-      workedMinutes += durationMinutes;
+      // Calculate effective duration (handling overlaps)
+      const startTimeMs = clockIn.getTime();
+      const endTimeMs = clockOut.getTime();
+      
+      // Only count time that hasn't been counted yet
+      const effectiveStartTime = Math.max(startTimeMs, lastEndTime);
+      
+      if (endTimeMs > effectiveStartTime) {
+        const durationMs = Math.max(0, endTimeMs - effectiveStartTime);
+        workedMs += durationMs;
+        lastEndTime = endTimeMs;
+      }
 
-      const totalHoursString = formatMinutes(durationMinutes);
+      const rawDurationMs = Math.max(0, endTimeMs - startTimeMs);
+
+      const totalHoursString = formatDuration(rawDurationMs);
       if (!data.total_hours || data.total_hours === '00:00' || updates.completion_method === 'auto') {
         updates.total_hours = totalHoursString;
       }
@@ -364,11 +383,15 @@ const handleShiftEndTask = onRequest(async (req, res) => {
       }
     }
 
+    // Calculate worked minutes (round up to ensure any work counts)
+    const workedMinutes = Math.ceil(workedMs / 60000);
+
     const scheduledMinutes = Math.max(
       1,
       Math.round((endDate.getTime() - startDate.getTime()) / 60000)
     );
-    const toleranceMinutes = 2;
+    // No tolerance
+    const toleranceMinutes = 0;
 
     let newStatus = 'partiallyCompleted';
     let completionState = 'partial';

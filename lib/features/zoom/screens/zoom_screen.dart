@@ -23,6 +23,131 @@ class _ZoomScreenState extends State<ZoomScreen> {
     _meetingIdController.text = _defaultMeetingId;
   }
 
+  /// Joins the default Alluvial Academy room
+  /// Tries Zoom app first, falls back to browser
+  Future<void> _joinDefaultRoom() async {
+    const defaultRoomUrl = 'https://rochester.zoom.us/j/92753792146';
+    const meetingId = '92753792146';
+    
+    try {
+      final httpsUri = Uri.parse(defaultRoomUrl);
+      
+      // Primary strategy: Open HTTPS URL - Android will show chooser if multiple apps available
+      // This works because browsers can handle https:// URLs
+      if (await canLaunchUrl(httpsUri)) {
+        try {
+          // Use externalApplication to open in browser or Zoom app (if installed)
+          await launchUrl(
+            httpsUri,
+            mode: LaunchMode.externalApplication,
+          );
+          debugPrint('✅ Successfully launched Zoom URL');
+          return;
+        } catch (e) {
+          debugPrint('❌ Launch failed: $e');
+        }
+      }
+      
+      // Fallback: Try Zoom app protocol directly
+      try {
+        final zoomUri = Uri.parse('zoommtg://zoom.us/join?confno=$meetingId');
+        if (await canLaunchUrl(zoomUri)) {
+          await launchUrl(zoomUri, mode: LaunchMode.externalApplication);
+          debugPrint('✅ Opened Zoom app directly');
+          return;
+        }
+      } catch (e) {
+        debugPrint('Zoom app protocol not available: $e');
+      }
+      
+      // If all strategies failed, show dialog with link
+      if (mounted) {
+        _showZoomLinkDialog(defaultRoomUrl);
+      }
+    } catch (e) {
+      debugPrint('❌ Error opening Zoom room: $e');
+      if (mounted) {
+        _showZoomLinkDialog(defaultRoomUrl);
+      }
+    }
+  }
+  
+  /// Shows a dialog with the Zoom link that user can copy or open manually
+  void _showZoomLinkDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.videocam, color: Color(0xFF0386FF)),
+            const SizedBox(width: 12),
+            Text(
+              'Open Zoom Meeting',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Unable to open Zoom automatically. Please use one of these options:',
+              style: GoogleFonts.inter(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: SelectableText(
+                url,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF0386FF),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Close',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              // Try one more time
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            icon: const Icon(Icons.open_in_browser, size: 18),
+            label: Text(
+              'Open in Browser',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0386FF),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _meetingIdController.dispose();
@@ -31,70 +156,13 @@ class _ZoomScreenState extends State<ZoomScreen> {
   }
 
   Future<void> _startNewMeeting() async {
-    try {
-      // Try to open Zoom app first (zoommtg://zoom.us/start)
-      final zoomAppUrl = Uri.parse('zoommtg://zoom.us/start');
-      if (await canLaunchUrl(zoomAppUrl)) {
-        await launchUrl(zoomAppUrl, mode: LaunchMode.externalApplication);
-      } else {
-        // Fallback to web
-        final webUrl = Uri.parse('https://zoom.us/start');
-        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening Zoom: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    // Always join the default Alluvial Academy room
+    await _joinDefaultRoom();
   }
 
   Future<void> _joinMeeting() async {
-    final meetingId = _meetingIdController.text.trim();
-    if (meetingId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a meeting ID'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    try {
-      final password = _meetingPasswordController.text.trim();
-      
-      // Try to open Zoom app first
-      String zoomAppUrl = 'zoommtg://zoom.us/join?confno=$meetingId';
-      if (password.isNotEmpty) {
-        zoomAppUrl += '&pwd=$password';
-      }
-      
-      final zoomUri = Uri.parse(zoomAppUrl);
-      if (await canLaunchUrl(zoomUri)) {
-        await launchUrl(zoomUri, mode: LaunchMode.externalApplication);
-      } else {
-        // Fallback to web
-        String webUrl = 'https://zoom.us/j/$meetingId';
-        if (password.isNotEmpty) {
-          webUrl += '?pwd=$password';
-        }
-        await launchUrl(Uri.parse(webUrl), mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error joining meeting: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    // Always join the default Alluvial Academy room
+    await _joinDefaultRoom();
   }
 
   Future<void> _openZoomWeb() async {

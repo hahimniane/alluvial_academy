@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "firebase-admin": "^13.6.0"
+    "exceljs": "^4.4.0",
+    "firebase-admin": "^13.6.0",
+    "luxon": "^3.7.2",
+    "rrule": "^2.8.1"
   }
 }

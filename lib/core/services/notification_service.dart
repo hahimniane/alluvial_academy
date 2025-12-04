@@ -226,7 +226,44 @@ class NotificationService {
   /// Handle notification tap from local notification
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('Local notification tapped: ${response.payload}');
-    // TODO: Navigate based on payload
+    
+    if (response.payload == null) return;
+    
+    try {
+      final data = Map<String, dynamic>.from(
+        // ignore: inference_failure_on_untyped_parameter
+        (response.payload!.isNotEmpty ? 
+          Map<String, dynamic>.from(response.payload as Map) : <String, dynamic>{})
+      );
+      
+      _handleNotificationNavigation(data);
+    } catch (e) {
+      debugPrint('Error parsing notification payload: $e');
+    }
+  }
+  
+  /// Handle navigation based on notification data
+  void _handleNotificationNavigation(Map<String, dynamic> data) {
+    debugPrint('🔔 Handling notification navigation: $data');
+    
+    final type = data['type'] as String?;
+    
+    if (type == 'form_required') {
+      // Store the navigation data for the app to handle
+      // This will be picked up by the main app when it's ready
+      _pendingNavigation = data;
+      debugPrint('📋 Stored pending form navigation: ${data['shiftId']}');
+    }
+  }
+  
+  // Store pending navigation data
+  Map<String, dynamic>? _pendingNavigation;
+  
+  /// Get and clear pending navigation data
+  Map<String, dynamic>? getPendingNavigation() {
+    final data = _pendingNavigation;
+    _pendingNavigation = null;
+    return data;
   }
 
   /// Setup listener for token refresh

@@ -34,8 +34,12 @@ import '../widgets/mobile_timesheet_view.dart' show MobileTimesheetView;
 import '../widgets/readiness_form_prompt_dialog.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
+import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/utils/platform_utils.dart';
+import '../../../form_screen.dart';
+import 'dart:convert';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -550,8 +554,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   ///
   /// Resets all session-related state variables and stops all timers
   void _resetClockOutState(LocationData? finalLocation,
-      {bool skipExplicitFlag = false}) {
-    _debugLog('Resetting clock-out state (skipExplicitFlag=$skipExplicitFlag)');
+      {bool skipExplicitFlag = false, bool clearShift = true}) {
+    _debugLog('Resetting clock-out state (skipExplicitFlag=$skipExplicitFlag, clearShift=$clearShift)');
 
     if (mounted) {
       // Cancel timers BEFORE setState to prevent race conditions
@@ -560,6 +564,10 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _stopwatch.stop();
       _stopwatch.reset();
       _stopAutoLogoutTimer();
+      
+      if (clearShift) {
+        _currentShift = null;
+      }
 
       setState(() {
         _isClockingIn = false;
@@ -570,6 +578,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _totalHoursWorked = "00:00:00";
         _lastSessionId = null;
         _lastSessionCheck = null;
+        if (clearShift) {
+          _currentShift = null;
+        }
 
         // Only set the explicit flag if not skipping
         if (!skipExplicitFlag) {
@@ -577,46 +588,19 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               true; // Mark that user explicitly clocked out
         }
       });
+      
+      // Double-check timer is stopped after setState
+      if (_timer != null && _timer!.isActive) {
+        _debugLog('⚠️ Timer still active after reset - force cancelling');
+        _timer!.cancel();
+        _timer = null;
+      }
 
       _debugLog(
           'Successfully reset clock-out state - timer stopped, explicitFlag=${!skipExplicitFlag}');
     }
   }
 
-  /// Show the readiness form prompt after a successful clock-out
-  /// This prompts the teacher to fill the post-class form
-  void _showReadinessFormPrompt({
-    required String timesheetId,
-    required TeachingShift shift,
-    required DateTime clockInTime,
-    required DateTime clockOutTime,
-  }) {
-    _debugLog('Showing readiness form prompt for timesheet: $timesheetId');
-    
-    // Get teacher name
-    final user = FirebaseAuth.instance.currentUser;
-    final teacherName = user?.displayName ?? user?.email ?? 'Teacher';
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => ReadinessFormPromptDialog(
-        timesheetId: timesheetId,
-        shiftId: shift.id,
-        shiftTitle: shift.displayName,
-        teacherName: teacherName,
-        clockInTime: clockInTime,
-        clockOutTime: clockOutTime,
-        onFormSubmitted: () {
-          _debugLog('Readiness form submitted successfully');
-          _refreshTimesheetData();
-        },
-        onSkipped: () {
-          _debugLog('Readiness form skipped by user');
-        },
-      ),
-    );
-  }
 
   /// Show a less alarming error when UI state is out of sync with backend
   ///
@@ -1147,12 +1131,24 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   void _startTimer() {
     _timer?.cancel(); // Cancel any existing timer
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-
-      // Check if we still have an active session
-      if (!_isClockingIn || _clockInTime == null) {
-        _debugLog('Timer running but no active session - stopping timer');
+      if (!mounted) {
         timer.cancel();
+        return;
+      }
+
+      // Check if we still have an active session - be very defensive
+      if (!_isClockingIn || _clockInTime == null || _currentShift == null) {
+        _debugLog('Timer running but no active session - stopping timer (isClockingIn=$_isClockingIn, clockInTime=$_clockInTime, currentShift=${_currentShift?.id})');
+        timer.cancel();
+        _timer = null;
+        if (mounted) {
+          setState(() {
+            // Ensure state is clean
+            if (_isClockingIn) {
+              _isClockingIn = false;
+            }
+          });
+        }
         return;
       }
 
@@ -1243,61 +1239,89 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     _stopwatch.stop();
 
     try {
-      // Get current location for auto clock-out
-      LocationData? location = await LocationService.getCurrentLocation();
+      // Get current location for auto clock-out (with timeout)
+      LocationData? location;
+      try {
+        location = await LocationService.getCurrentLocation().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => null,
+        );
+      } catch (e) {
+        _debugLog('Location error during auto-logout: $e');
+        location = null;
+      }
 
-      if (location != null) {
-        // Use the shift-timesheet service for auto clock-out
-        final result = await ShiftTimesheetService.autoClockOutFromShift(
-          FirebaseAuth.instance.currentUser!.uid,
-          shift.id,
-          location: location,
+      // CRITICAL: Use fallback location if actual location unavailable
+      // This ensures auto clock-out ALWAYS saves to database
+      location ??= LocationData(
+        latitude: 0.0,
+        longitude: 0.0,
+        address: 'Auto-logout - location unavailable',
+        neighborhood: 'Auto clock-out',
+      );
+
+      // ALWAYS call the service to save to database
+      final result = await ShiftTimesheetService.autoClockOutFromShift(
+        FirebaseAuth.instance.currentUser!.uid,
+        shift.id,
+        location: location,
+      );
+
+      if (mounted) {
+        _resetClockOutState(location, skipExplicitFlag: true);
+
+        // Extract timesheet ID from result
+        final timesheetEntry = result['timesheetEntry'] as Map<String, dynamic>?;
+        final timesheetId = timesheetEntry?['documentId'];
+
+        // Refresh timesheet data
+        _refreshTimesheetData();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Shift ended - automatically clocked out from ${shift.displayName}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
         );
 
-        if (mounted) {
-          _resetClockOutState(location, skipExplicitFlag: true);
-
-          // Show auto-logout notification
-          final endTime = shift.clockOutDeadline;
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Session automatically ended at ${DateFormat('h:mm a').format(endTime)}'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-
-          // Refresh timesheet data
-          _refreshTimesheetData();
-        }
-      } else {
-        // Handle case where location couldn't be obtained
-        if (mounted) {
-          _resetClockOutState(null, skipExplicitFlag: true);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Session automatically ended (location not captured)'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
+        // Show dialog prompt for Readiness Form after a short delay
+        // to ensure UI state is settled and SnackBar doesn't interfere
+        _debugLog('📋 Scheduling Readiness Form prompt with timesheetId=$timesheetId');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showReadinessFormPrompt(shift, timesheetId);
+          }
+        });
       }
     } catch (e) {
       _debugLog('Error during auto-logout: $e', isError: true);
+
+      // Even on error, try one more time with minimal data
+      try {
+        await ShiftTimesheetService.autoClockOutFromShift(
+          FirebaseAuth.instance.currentUser!.uid,
+          shift.id,
+          location: LocationData(
+            latitude: 0.0,
+            longitude: 0.0,
+            address: 'Auto-logout - error recovery',
+            neighborhood: 'Auto clock-out (retry)',
+          ),
+        );
+      } catch (retryError) {
+        _debugLog('Auto-logout retry also failed: $retryError', isError: true);
+      }
 
       if (mounted) {
         _resetClockOutState(null, skipExplicitFlag: true);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Session automatically ended (error occurred)'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
+            content: Text('Shift ended - clock-out recorded'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -1410,7 +1434,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           final timesheetId = timesheetEntry?['documentId'] as String?;
           
           // Clock-out successful
-          _resetClockOutState(clockOutLocation);
+          // Don't clear the shift, so user can see "Tap to Clock In" again if shift is valid
+          _resetClockOutState(clockOutLocation, clearShift: false);
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1422,17 +1447,16 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
           // Refresh timesheet data
           _refreshTimesheetData();
-          _checkForActiveShift();
           
-          // Show readiness form prompt after successful clock-out
-          if (shiftForForm != null && timesheetId != null && mounted) {
-            _showReadinessFormPrompt(
-              timesheetId: timesheetId,
-              shift: shiftForForm,
-              clockInTime: clockInTimeForForm ?? clockOutTimeForForm.subtract(const Duration(hours: 1)),
-              clockOutTime: clockOutTimeForForm,
-            );
-          }
+          // Wait a bit before checking for active shifts to ensure clock-out is fully committed
+          // This prevents the session from being immediately resumed
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted && !_isClockingIn) {
+              _checkForActiveShift();
+            }
+          });
+          
+          // Note: Readiness form prompt removed here as it's now handled by the new dialog-based approach
         } else {
           // Handle failure without getting stuck
           setState(() {
@@ -1937,5 +1961,152 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
       ),
     );
+  }
+
+  /// Shows a dialog prompting the teacher to complete the Readiness Form
+  /// after auto clock-out, with a fallback notification if dismissed
+  Future<void> _showReadinessFormPrompt(TeachingShift shift, String? timesheetId) async {
+    _debugLog('📋 _showReadinessFormPrompt called - timesheetId=$timesheetId, mounted=$mounted');
+    
+    if (!mounted) {
+      _debugLog('📋 Form prompt skipped - widget not mounted');
+      return;
+    }
+    
+    if (timesheetId == null) {
+      _debugLog('📋 Form prompt skipped - timesheetId is null');
+      return;
+    }
+    
+    _debugLog('📋 Showing Readiness Form prompt dialog for shift ${shift.id}');
+
+    // Show dialog
+    final shouldFillForm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.assignment_turned_in,
+                color: Color(0xFF10B981),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Shift Completed',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your shift "${shift.displayName}" has ended.',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: const Color(0xFF374151),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Would you like to complete the Readiness Form now?',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF111827),
+              ),
+            ),
+          ],
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: Text(
+              'Later',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Complete Now',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldFillForm == true && mounted) {
+      // User chose to complete now - navigate to form
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FormScreen(
+            timesheetId: timesheetId,
+            shiftId: shift.id,
+            autoSelectFormId: ShiftFormService.readinessFormId,
+          ),
+        ),
+      );
+    } else {
+      // User chose "Later" - send a local notification as reminder
+      _sendFormReminderNotification(shift, timesheetId);
+    }
+  }
+
+  /// Sends a local notification reminding the teacher to complete the form
+  Future<void> _sendFormReminderNotification(TeachingShift shift, String timesheetId) async {
+    try {
+      await NotificationService().showLocalNotification(
+        id: timesheetId.hashCode,
+        title: 'Readiness Form Required',
+        body: 'Please complete your Readiness Form for "${shift.displayName}"',
+        payload: jsonEncode({
+          'type': 'form_required',
+          'timesheetId': timesheetId,
+          'shiftId': shift.id,
+          'formId': ShiftFormService.readinessFormId,
+        }),
+      );
+      _debugLog('📬 Sent form reminder notification for shift ${shift.id}');
+    } catch (e) {
+      _debugLog('⚠️ Failed to send form reminder notification: $e', isError: true);
+    }
   }
 }

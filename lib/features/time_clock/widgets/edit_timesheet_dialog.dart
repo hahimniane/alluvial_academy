@@ -25,6 +25,9 @@ class EditTimesheetDialog extends StatefulWidget {
 class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
   final _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
+  bool _hasFollowingShift = false;
+  bool _isCheckingShifts = true;
+  DateTime? _shiftEndTime;
   
   // Time controllers
   late TextEditingController _clockInTimeController;
@@ -39,10 +42,31 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
   @override
   void initState() {
     super.initState();
+    
+    // Check if timesheet is approved - if so, close dialog immediately
+    final status = widget.timesheetData['status'] as String?;
+    final editApproved = widget.timesheetData['edit_approved'] as bool?;
+    
+    if (status == 'approved' || editApproved == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This timesheet has been approved and cannot be edited'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      });
+      return;
+    }
+    
     _initializeTimes();
     _notesController = TextEditingController(
       text: widget.timesheetData['employee_notes'] ?? '',
     );
+    _checkForFollowingShift();
   }
 
   void _initializeTimes() {
@@ -185,20 +209,113 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     }
   }
 
+  /// Check if there's a following shift that would prevent editing the end time
+  Future<void> _checkForFollowingShift() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() => _isCheckingShifts = false);
+        return;
+      }
+
+      // Get the shift ID from the timesheet data
+      final shiftId = widget.timesheetData['shift_id'] ?? widget.timesheetData['shiftId'];
+      if (shiftId == null) {
+        setState(() => _isCheckingShifts = false);
+        return;
+      }
+
+      // Fetch the current shift to get its end time
+      final shiftDoc = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(shiftId)
+          .get();
+
+      if (!shiftDoc.exists) {
+        setState(() => _isCheckingShifts = false);
+        return;
+      }
+
+      final shiftData = shiftDoc.data();
+      if (shiftData == null) {
+        setState(() => _isCheckingShifts = false);
+        return;
+      }
+
+      // Get shift end time
+      final shiftEndTimestamp = shiftData['shift_end'] as Timestamp?;
+      if (shiftEndTimestamp != null) {
+        _shiftEndTime = shiftEndTimestamp.toDate();
+      }
+
+      // Query for any shifts that start within 15 minutes after this shift ends
+      if (_shiftEndTime != null) {
+        final followingShiftsQuery = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .where('teacher_id', isEqualTo: user.uid)
+            .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(_shiftEndTime!))
+            .where('shift_start', isLessThanOrEqualTo: Timestamp.fromDate(_shiftEndTime!.add(const Duration(minutes: 15))))
+            .limit(1)
+            .get();
+
+        if (mounted) {
+          setState(() {
+            _hasFollowingShift = followingShiftsQuery.docs.isNotEmpty;
+            _isCheckingShifts = false;
+          });
+        }
+      } else {
+        setState(() => _isCheckingShifts = false);
+      }
+    } catch (e) {
+      AppLogger.error('Error checking for following shifts: $e');
+      if (mounted) {
+        setState(() => _isCheckingShifts = false);
+      }
+    }
+  }
+
   Future<void> _selectClockOutTime() async {
+    // Prevent editing if there's a following shift
+    if (_hasFollowingShift) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Cannot edit clock-out time: You have another shift scheduled immediately after this one'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_clockOutDateTime!),
     );
     if (picked != null) {
-      setState(() {
-        _clockOutDateTime = DateTime(
-          _timesheetDate!.year,
-          _timesheetDate!.month,
-          _timesheetDate!.day,
-          picked.hour,
-          picked.minute,
+      DateTime newClockOutDateTime = DateTime(
+        _timesheetDate!.year,
+        _timesheetDate!.month,
+        _timesheetDate!.day,
+        picked.hour,
+        picked.minute,
+      );
+
+      // Enforce maximum clock-out time at shift end
+      if (_shiftEndTime != null && newClockOutDateTime.isAfter(_shiftEndTime!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Clock-out time cannot exceed scheduled shift end time (${DateFormat('h:mm a').format(_shiftEndTime!)})'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
         );
+        // Cap at shift end time
+        newClockOutDateTime = _shiftEndTime!;
+      }
+
+      setState(() {
+        _clockOutDateTime = newClockOutDateTime;
         _clockOutTimeController.text = DateFormat('h:mm a').format(_clockOutDateTime!);
       });
     }
@@ -370,7 +487,63 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                
+                // Warning banner for following shift restriction
+                if (_hasFollowingShift)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber, color: Color(0xFFEF4444), size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Clock-out time cannot be edited: Another shift follows immediately after.',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFFEF4444),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_hasFollowingShift) const SizedBox(height: 16),
+                
+                // Max time warning
+                if (_shiftEndTime != null && !_hasFollowingShift)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDEEBFF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF90CAF9)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time, color: Color(0xFF0386FF), size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Clock-out time cannot exceed shift end: ${DateFormat('h:mm a').format(_shiftEndTime!)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF0386FF),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_shiftEndTime != null && !_hasFollowingShift) const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
                 // Date display (read-only)
                 Text(

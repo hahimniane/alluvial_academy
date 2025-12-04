@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,6 +18,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/enums/task_enums.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_form_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/profile_picture_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -48,11 +50,65 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   int _pendingApprovals = 0;
   int _approvedThisWeek = 0;
   double _defaultHourlyRate = 15.0; // Default hourly rate if not specified
+  
+  // Pending forms count and details
+  int _pendingFormsCount = 0;
+  List<Map<String, dynamic>> _pendingFormShifts = []; // List of shifts needing forms
+
+  // Real-time stream subscriptions
+  StreamSubscription? _shiftsSubscription;
+  StreamSubscription? _timesheetSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _setupRealtimeListeners();
+  }
+
+  @override
+  void dispose() {
+    _shiftsSubscription?.cancel();
+    _timesheetSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time listeners for automatic refresh
+  void _setupRealtimeListeners() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Listen for shift status changes (active, completed, etc.)
+    _shiftsSubscription = FirebaseFirestore.instance
+        .collection('teaching_shifts')
+        .where('teacher_id', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      
+      // Reload data when shifts change
+      debugPrint('🔄 Home: Shifts updated - reloading data');
+      _loadData();
+    }, onError: (e) {
+      debugPrint('❌ Home: Shift stream error: $e');
+    });
+
+    // Listen for timesheet changes (clock-in/out, status changes)
+    _timesheetSubscription = FirebaseFirestore.instance
+        .collection('timesheet_entries')
+        .where('teacher_id', isEqualTo: user.uid)
+        .orderBy('created_at', descending: true)
+        .limit(10) // Only listen to recent entries
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      
+      // Reload stats when timesheets change
+      debugPrint('🔄 Home: Timesheets updated - reloading stats');
+      _loadStats(user.uid);
+    }, onError: (e) {
+      debugPrint('❌ Home: Timesheet stream error: $e');
+    });
   }
 
   String _getGreeting() {
@@ -102,6 +158,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         
         // Load stats
         await _loadStats(user.uid);
+        
+        // Load pending forms count
+        await _loadPendingFormsCount(user.uid);
 
         if (mounted) {
           setState(() {
@@ -114,6 +173,113 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     } catch (e) {
       debugPrint('Error loading teacher home data: $e');
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Check for pending Readiness Forms from completed shifts in the last 2 days
+  Future<void> _loadPendingFormsCount(String teacherId) async {
+    try {
+      final now = DateTime.now();
+      final twoDaysAgo = now.subtract(const Duration(days: 2));
+
+      // Query completed shifts from the last 2 days
+      final completedShifts = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .where('teacher_id', isEqualTo: teacherId)
+          .where('shift_end', isGreaterThanOrEqualTo: Timestamp.fromDate(twoDaysAgo))
+          .where('shift_end', isLessThanOrEqualTo: Timestamp.fromDate(now))
+          .get();
+
+      int pendingCount = 0;
+      List<Map<String, dynamic>> pendingShifts = [];
+
+      for (final shiftDoc in completedShifts.docs) {
+        final shiftData = shiftDoc.data();
+        final shiftId = shiftDoc.id;
+        final status = shiftData['status'] as String?;
+
+        // Only check completed shifts
+        if (status != 'fullyCompleted' &&
+            status != 'partiallyCompleted' &&
+            status != 'completed') {
+          continue;
+        }
+
+        // Check for timesheet entries
+        final timesheetEntries = await FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .where('shift_id', isEqualTo: shiftId)
+            .get();
+
+        for (final timesheetDoc in timesheetEntries.docs) {
+          final timesheetId = timesheetDoc.id;
+          final timesheetData = timesheetDoc.data();
+          final formResponseId = timesheetData['form_response_id'];
+
+          // Check if form response exists
+          bool hasFormResponse = false;
+
+          if (formResponseId != null) {
+            final formDoc = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .doc(formResponseId)
+                .get();
+            hasFormResponse = formDoc.exists;
+          }
+
+          // Try alternate fields
+          if (!hasFormResponse) {
+            final formQuery = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .where('timesheet_id', isEqualTo: timesheetId)
+                .limit(1)
+                .get();
+            hasFormResponse = formQuery.docs.isNotEmpty;
+          }
+
+          if (!hasFormResponse) {
+            final formQuery = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .where('timesheetId', isEqualTo: timesheetId)
+                .limit(1)
+                .get();
+            hasFormResponse = formQuery.docs.isNotEmpty;
+          }
+
+          if (!hasFormResponse) {
+            pendingCount++;
+            // Store shift details for display
+            pendingShifts.add({
+              'shiftId': shiftId,
+              'timesheetId': timesheetId,
+              'displayName': shiftData['display_name'] ?? shiftData['class_name'] ?? 'Class',
+              'shiftDate': (shiftData['shift_start'] as Timestamp?)?.toDate(),
+              'shiftEnd': (shiftData['shift_end'] as Timestamp?)?.toDate(),
+              'subject': shiftData['subject'] ?? '',
+              'studentNames': shiftData['student_names'] ?? [],
+            });
+          }
+        }
+      }
+
+      // Sort by date (most recent first)
+      pendingShifts.sort((a, b) {
+        final dateA = a['shiftDate'] as DateTime?;
+        final dateB = b['shiftDate'] as DateTime?;
+        if (dateA == null || dateB == null) return 0;
+        return dateB.compareTo(dateA);
+      });
+
+      if (mounted) {
+        setState(() {
+          _pendingFormsCount = pendingCount;
+          _pendingFormShifts = pendingShifts;
+        });
+      }
+
+      debugPrint('📋 Pending forms count: $pendingCount');
+    } catch (e) {
+      debugPrint('Error loading pending forms count: $e');
     }
   }
 
@@ -206,11 +372,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         final isEdited = data['is_edited'] as bool? ?? false;
         final editApproved = data['edit_approved'] as bool? ?? false;
         
-        // Calculate hours worked
+        // Calculate hours worked (using seconds for precision)
         double hoursWorked = 0;
         if (clockOut != null) {
           final duration = clockOut.toDate().difference(clockInDate);
-          hoursWorked = duration.inMinutes / 60.0;
+          hoursWorked = duration.inSeconds / 3600.0; // Use seconds for accurate sub-minute tracking
         }
         
         // Check timesheet status
@@ -386,6 +552,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   child: _buildCompactEarningsCard(),
                 ),
                 const SizedBox(height: 16),
+                if (_pendingFormsCount > 0) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildPendingFormsBanner(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 if (_activeShift != null) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -670,6 +843,329 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ),
       ),
     );
+  }
+
+  /// Builds a banner/card alerting the teacher to pending Readiness Forms
+  Widget _buildPendingFormsBanner() {
+    return GestureDetector(
+      onTap: () {
+        // Show dialog with list of shifts that need forms
+        _showPendingFormsDialog();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF59E0B).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.assignment_late,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _pendingFormsCount == 1
+                        ? '1 Readiness Form Required'
+                        : '$_pendingFormsCount Readiness Forms Required',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Complete your forms from recent shifts',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: Colors.white,
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Shows a dialog with list of shifts that need Readiness Forms
+  void _showPendingFormsDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_late,
+                      color: Color(0xFFF59E0B),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pending Readiness Forms',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1E293B),
+                          ),
+                        ),
+                        Text(
+                          'Select a shift to fill out its form',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // List of pending shifts
+            Flexible(
+              child: _pendingFormShifts.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.check_circle_outline,
+                              size: 48,
+                              color: Color(0xFF10B981),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'All forms completed!',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _pendingFormShifts.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                      itemBuilder: (context, index) {
+                        final shift = _pendingFormShifts[index];
+                        final shiftDate = shift['shiftDate'] as DateTime?;
+                        final shiftEnd = shift['shiftEnd'] as DateTime?;
+                        final subject = shift['subject'] as String? ?? '';
+                        final studentNames = shift['studentNames'] as List<dynamic>? ?? [];
+                        final studentDisplay = studentNames.isNotEmpty 
+                            ? studentNames.join(', ') 
+                            : 'Student';
+                        
+                        return InkWell(
+                          onTap: () {
+                            Navigator.pop(context); // Close the bottom sheet
+                            _navigateToFormForShift(shift);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            child: Row(
+                              children: [
+                                // Left side - shift info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Student - Subject
+                                      Text(
+                                        '$studentDisplay - $subject',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF1E293B),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      // Time: Start - End
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.access_time, size: 14, color: Color(0xFF64748B)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            shiftDate != null && shiftEnd != null
+                                                ? '${DateFormat('h:mm a').format(shiftDate)} - ${DateFormat('h:mm a').format(shiftEnd)}'
+                                                : 'Time not available',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              color: const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      // Date
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.calendar_today, size: 14, color: Color(0xFF94A3B8)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            shiftDate != null
+                                                ? DateFormat('EEEE, MMMM d, yyyy').format(shiftDate)
+                                                : 'Date not available',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              color: const Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Fill Form button
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0386FF),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.edit_document, size: 16, color: Colors.white),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Fill',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Navigate to FormScreen for a specific shift
+  void _navigateToFormForShift(Map<String, dynamic> shift) {
+    final timesheetId = shift['timesheetId'] as String?;
+    final shiftId = shift['shiftId'] as String?;
+    
+    if (timesheetId == null || shiftId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Missing timesheet or shift information'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    debugPrint('📋 Navigating to form for shift: $shiftId, timesheet: $timesheetId');
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FormScreen(
+          timesheetId: timesheetId,
+          shiftId: shiftId,
+          autoSelectFormId: ShiftFormService.readinessFormId,
+        ),
+      ),
+    ).then((_) {
+      // Refresh data after returning from form
+      _loadData();
+    });
   }
 
   Widget _buildActiveSessionCard() {

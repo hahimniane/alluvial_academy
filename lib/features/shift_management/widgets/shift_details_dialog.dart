@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -37,6 +38,11 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   Map<String, dynamic>? _timesheetEntry;
   Map<String, dynamic>? _formResponse;
 
+  // Timer for live elapsed time display
+  Timer? _elapsedTimer;
+  String _elapsedTime = "00:00:00";
+  DateTime? _clockInTime;
+
   // Mapping of long question IDs to simplified labels for the Readiness Form
   static const Map<String, String> _simplifiedLabels = {
     '1762629945642': 'Teacher Name',
@@ -65,10 +71,83 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     '1764288691217': 'Zoom Host',
   };
 
+  List<Map<String, dynamic>> _allTimesheetEntries = [];
+
+  // Stream subscriptions for real-time updates
+  StreamSubscription? _timesheetSubscription;
+  StreamSubscription? _shiftSubscription;
+
+  // Cached shift data (for real-time status updates)
+  TeachingShift? _liveShift;
+
   @override
   void initState() {
     super.initState();
+    _liveShift = widget.shift;
     _loadDetails();
+    _setupRealtimeListeners();
+  }
+
+  @override
+  void dispose() {
+    _elapsedTimer?.cancel();
+    _timesheetSubscription?.cancel();
+    _shiftSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time listeners for shift and timesheet changes
+  void _setupRealtimeListeners() {
+    // Listen for timesheet entry changes
+    _timesheetSubscription = FirebaseFirestore.instance
+        .collection('timesheet_entries')
+        .where('shift_id', isEqualTo: widget.shift.id)
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      
+      if (snapshot.docs.isNotEmpty) {
+        final entries = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        
+        setState(() {
+          _allTimesheetEntries = entries;
+          _timesheetEntry = entries.first;
+        });
+        
+        // Restart elapsed timer if needed
+        _startElapsedTimerIfActive();
+        
+        debugPrint("🔄 Real-time update: ${entries.length} timesheet entries");
+      }
+    }, onError: (e) {
+      debugPrint("❌ Timesheet stream error: $e");
+    });
+
+    // Listen for shift status changes
+    _shiftSubscription = FirebaseFirestore.instance
+        .collection('teaching_shifts')
+        .doc(widget.shift.id)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted || !snapshot.exists) return;
+      
+      try {
+        final updatedShift = TeachingShift.fromFirestore(snapshot);
+        setState(() {
+          _liveShift = updatedShift;
+        });
+        debugPrint("🔄 Shift status updated: ${updatedShift.status}");
+      } catch (e) {
+        debugPrint("❌ Shift stream parse error: $e");
+      }
+    }, onError: (e) {
+      debugPrint("❌ Shift stream error: $e");
+    });
   }
 
   Future<void> _loadDetails() async {
@@ -76,12 +155,11 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     try {
       debugPrint("🔍 Loading details for shift: ${widget.shift.id}");
       
-      // 1. Find Timesheet Entry for this shift
-      // Try multiple queries to be robust
+      // 1. Find ALL Timesheet Entries for this shift
       QuerySnapshot timesheetQuery = await FirebaseFirestore.instance
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: widget.shift.id)
-          .limit(1)
+          .orderBy('created_at', descending: true)
           .get();
       
       if (timesheetQuery.docs.isEmpty) {
@@ -89,22 +167,28 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         timesheetQuery = await FirebaseFirestore.instance
           .collection('timesheet_entries')
           .where('shiftId', isEqualTo: widget.shift.id)
-          .limit(1)
+          .orderBy('created_at', descending: true)
           .get();
       }
       
       if (timesheetQuery.docs.isNotEmpty) {
-        final timesheetDoc = timesheetQuery.docs.first;
-        debugPrint("✅ Found timesheet: ${timesheetDoc.id}");
-        
+        _allTimesheetEntries = timesheetQuery.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+
+        // Set the most recent one as _timesheetEntry for backward compatibility / status check
         if (mounted) {
           setState(() {
-             _timesheetEntry = timesheetDoc.data() as Map<String, dynamic>;
-             _timesheetEntry!['id'] = timesheetDoc.id;
+             _timesheetEntry = _allTimesheetEntries.first;
           });
         }
         
-        // 2. Find Form Response
+        debugPrint("✅ Found ${_allTimesheetEntries.length} timesheet entries");
+
+        // 2. Find Form Response (link to the most recent timesheet or shift)
+        // ... existing form logic ...
         final formId = _timesheetEntry!['form_response_id'];
         Map<String, dynamic>? formResponse;
         
@@ -120,14 +204,14 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           // Fallback queries for form response
           var formQuery = await FirebaseFirestore.instance
               .collection('form_responses')
-              .where('timesheetId', isEqualTo: timesheetDoc.id)
+              .where('timesheetId', isEqualTo: _timesheetEntry!['id'])
               .limit(1)
               .get();
           
           if (formQuery.docs.isEmpty) {
             formQuery = await FirebaseFirestore.instance
                 .collection('form_responses')
-                .where('timesheet_id', isEqualTo: timesheetDoc.id)
+                .where('timesheet_id', isEqualTo: _timesheetEntry!['id'])
                 .limit(1)
                 .get();
           }
@@ -142,6 +226,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             _formResponse = formResponse;
             });
           }
+        
+        // Start timer if there's an active clock-in (no clock-out)
+        _startElapsedTimerIfActive();
         } else {
         debugPrint("❌ No timesheet found for shift: ${widget.shift.id} after all attempts");
       }
@@ -152,53 +239,134 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     }
   }
 
+  /// Starts the elapsed time timer if the user is currently clocked in
+  void _startElapsedTimerIfActive() {
+    // Check if there's an active timesheet entry (has clock-in but no clock-out)
+    for (final entry in _allTimesheetEntries) {
+      final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+      
+      if (clockIn != null && (clockOut == null || clockOut == '')) {
+        // Found an active entry - start the timer
+        if (clockIn is Timestamp) {
+          _clockInTime = clockIn.toDate();
+        } else if (clockIn is DateTime) {
+          _clockInTime = clockIn;
+        }
+        
+        if (_clockInTime != null) {
+          _startElapsedTimer();
+        }
+        break;
+      }
+    }
+  }
+
+  /// Starts the timer that updates elapsed time every second
+  void _startElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _clockInTime == null) {
+        timer.cancel();
+        return;
+      }
+
+      final elapsed = DateTime.now().difference(_clockInTime!);
+      setState(() {
+        _elapsedTime = _formatDuration(elapsed);
+      });
+    });
+    
+    // Update immediately
+    if (_clockInTime != null) {
+      final elapsed = DateTime.now().difference(_clockInTime!);
+      setState(() {
+        _elapsedTime = _formatDuration(elapsed);
+      });
+    }
+  }
+
+  /// Stops the elapsed time timer
+  void _stopElapsedTimer() {
+    _elapsedTimer?.cancel();
+    setState(() {
+      _elapsedTime = "00:00:00";
+      _clockInTime = null;
+    });
+  }
+
+  /// Formats a duration into HH:MM:SS string
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
   // Check if clock-in is allowed right now
   bool get _canClockInNow {
     final now = DateTime.now();
     final shiftStart = widget.shift.shiftStart;
     final shiftEnd = widget.shift.shiftEnd;
 
+    // Use live shift status for real-time updates
+    final status = _liveShift?.status ?? widget.shift.status;
+    
     // Allow clock-in from shift start to shift end
+    // Also allow if status is active (re-entry)
     return now.isAfter(shiftStart.subtract(const Duration(minutes: 1))) &&
         now.isBefore(shiftEnd) &&
-        widget.shift.status == ShiftStatus.scheduled;
+        (status == ShiftStatus.scheduled || status == ShiftStatus.active);
   }
 
   // Check if this is an upcoming shift (not yet time to clock in)
   bool get _isUpcoming {
     final now = DateTime.now();
+    final status = _liveShift?.status ?? widget.shift.status;
+    
+    // If status is active, it's definitely not upcoming
+    if (status == ShiftStatus.active) return false;
+    
     return widget.shift.shiftStart.isAfter(now) &&
-        widget.shift.status == ShiftStatus.scheduled;
+        status == ShiftStatus.scheduled;
   }
 
   // Check if shift is currently active (clocked in)
   bool get _isActive {
-    if (_timesheetEntry != null) {
-      final clockIn = _timesheetEntry!['clock_in_time'] ?? _timesheetEntry!['clock_in_timestamp'];
-      final clockOut = _timesheetEntry!['clock_out_time'] ?? _timesheetEntry!['clock_out_timestamp'];
-      if (clockIn != null && clockOut == null) return true;
+    // Check if ANY entry is currently active (has clock in but no clock out)
+    for (final entry in _allTimesheetEntries) {
+      final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+      
+      if (clockIn != null && (clockOut == null || clockOut == '')) {
+        return true;
+      }
     }
-    return widget.shift.status == ShiftStatus.active;
+    
+    // STRICT CHECK: Only return true if we found an active timesheet entry.
+    // ShiftStatus.active just means the class time has started, not that the teacher clocked in.
+    return false;
   }
 
   // Check if shift is completed
   bool get _isCompleted {
-    if (_timesheetEntry != null) {
-      final clockOut = _timesheetEntry!['clock_out_time'] ?? _timesheetEntry!['clock_out_timestamp'];
-      if (clockOut != null) return true;
-    }
+    final status = _liveShift?.status ?? widget.shift.status;
     
-    return widget.shift.status == ShiftStatus.completed ||
-        widget.shift.status == ShiftStatus.fullyCompleted ||
-        widget.shift.status == ShiftStatus.partiallyCompleted;
+    // STRICT: Only show completed if the cloud function has determined it
+    // The cloud function (handleShiftEndTask) sets the status based on worked vs scheduled time
+    // We trust the backend's calculation with 0 tolerance
+    return status == ShiftStatus.completed ||
+        status == ShiftStatus.fullyCompleted;
   }
 
   // Check if shift was missed
   bool get _isMissed {
     final now = DateTime.now();
-    return (widget.shift.status == ShiftStatus.missed) ||
+    final status = _liveShift?.status ?? widget.shift.status;
+    
+    return (status == ShiftStatus.missed) ||
         (widget.shift.shiftEnd.isBefore(now) &&
-            widget.shift.status == ShiftStatus.scheduled &&
+            status == ShiftStatus.scheduled &&
             _timesheetEntry == null);
   }
 
@@ -232,6 +400,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       );
 
       if (result['success'] == true) {
+        // Start the elapsed timer
+        _clockInTime = DateTime.now();
+        _startElapsedTimer();
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -289,9 +461,13 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         user.uid,
         widget.shift.id,
         location: location,
+        platform: 'mobile',
       );
 
       if (result['success'] == true) {
+        // Stop the elapsed timer
+        _stopElapsedTimer();
+        
         if (mounted) {
           Navigator.pop(context); // Close the shift details dialog
 
@@ -302,25 +478,36 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           
           debugPrint('🕐 Clock-out successful. TimesheetId: $timesheetId');
 
+          // RELOAD details to fetch all timesheets including the new one
+          if (mounted) {
+            await _loadDetails();
+          }
+
           // Navigate to the ACTUAL Readiness Form from the database
           // This uses the same form that appears in "Available Forms"
-          if (timesheetId != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => FormScreen(
-                  timesheetId: timesheetId,
-                  shiftId: widget.shift.id,
-                  autoSelectFormId: ShiftFormService.readinessFormId, // The actual form ID
+          if (mounted) {
+            // Only navigate if we are fully clocked out (no active sessions left)
+            // For now, we assume one session at a time per shift in UI logic, 
+            // but _isActive checks all. If we just clocked out, _isActive should be false unless parallel sessions exist (unlikely)
+            
+            if (timesheetId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FormScreen(
+                    timesheetId: timesheetId,
+                    shiftId: widget.shift.id,
+                    autoSelectFormId: ShiftFormService.readinessFormId, // The actual form ID
+                  ),
                 ),
-              ),
-            ).then((_) {
-              // Refresh after returning from form
+              ).then((_) {
+                // Refresh after returning from form
+                widget.onRefresh?.call();
+              });
+            } else {
+              // If no timesheetId, still refresh
               widget.onRefresh?.call();
-            });
-          } else {
-            // If no timesheetId, still refresh
-            widget.onRefresh?.call();
+            }
           }
         }
       } else {
@@ -346,6 +533,42 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   void _showEditTimesheetDialog(String timesheetId) {
     if (_timesheetEntry == null) return;
+    
+    // Check if timesheet has been approved - if so, prevent editing
+    final status = _timesheetEntry!['status'] as String?;
+    final editApproved = _timesheetEntry!['edit_approved'] as bool?;
+    
+    // Prevent editing if:
+    // 1. Status is 'approved' OR
+    // 2. edit_approved is true (admin has approved an edit)
+    if (status == 'approved' || editApproved == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.lock, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'This timesheet has been approved and can no longer be edited',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      return;
+    }
     
     showDialog(
       context: context,
@@ -465,12 +688,17 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       color = const Color(0xFF10B981);
       label = "In Progress";
       icon = Icons.play_circle_fill;
-      subtitle = "You are currently clocked in";
+      subtitle = "Elapsed Time: $_elapsedTime";
     } else if (_isCompleted) {
       color = const Color(0xFF8B5CF6);
-      label = "Completed";
+      label = "Fully Completed";
       icon = Icons.check_circle;
-      subtitle = "This shift has been completed";
+      subtitle = "All scheduled time was worked";
+    } else if ((_liveShift?.status ?? widget.shift.status) == ShiftStatus.partiallyCompleted) {
+      color = const Color(0xFFF59E0B);
+      label = "Partially Completed";
+      icon = Icons.timelapse;
+      subtitle = "Some time was worked";
     } else if (_isMissed) {
       color = const Color(0xFFEF4444);
       label = "Missed";
@@ -495,7 +723,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       }
     } else {
       color = const Color(0xFF64748B);
-      label = widget.shift.status.name.toUpperCase();
+      label = (_liveShift?.status ?? widget.shift.status).name.toUpperCase();
       icon = Icons.info_outline;
     }
 
@@ -592,62 +820,120 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   }
 
   Widget _buildTimesheetSection() {
-    // 1. If we have a timesheet entry, ALWAYS show it
-    if (_timesheetEntry != null) {
-      // Support both field naming conventions
-      final clockIn = _timesheetEntry!['clock_in_time'] ?? _timesheetEntry!['clock_in_timestamp'];
+    // 1. If we have timesheet entries, show them
+    if (_allTimesheetEntries.isNotEmpty) {
       
-      if (clockIn != null && clockIn is Timestamp) {
-        final start = clockIn.toDate();
+      // Calculate total worked seconds across all entries (for precision)
+      int totalSeconds = 0;
+      for (final entry in _allTimesheetEntries) {
+        final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+        final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
         
-        // Support both field naming conventions for clock out
-        final clockOutRaw = _timesheetEntry!['clock_out_time'] ?? _timesheetEntry!['clock_out_timestamp'];
-        final end = clockOutRaw != null && clockOutRaw is Timestamp ? clockOutRaw.toDate() : null;
+        if (clockIn != null && clockIn is Timestamp && clockOut != null && clockOut is Timestamp) {
+           totalSeconds += clockOut.toDate().difference(clockIn.toDate()).inSeconds;
+        }
+      }
 
-    // Check if timesheet is completed (has clock-out time)
-    final isCompleted = end != null;
-    final timesheetId = _timesheetEntry!['id'] as String?;
-    
-    return _buildSection(
-          title: "Timesheet Record",
-          icon: Icons.access_time,
-          children: [
-            _detailRow("Clock In", DateFormat('h:mm a').format(start)),
-            _detailRow("Clock Out", end != null ? DateFormat('h:mm a').format(end) : "Still active"),
-            if (end != null) ...[
-              _detailRow("Worked", "${end.difference(start).inMinutes} minutes"),
-              if (_timesheetEntry!['reported_hours'] != null)
-                _detailRow("Reported Hours", "${_timesheetEntry!['reported_hours']} hrs"),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           _buildSection(
+            title: "Timesheet Records (${_allTimesheetEntries.length})",
+            icon: Icons.access_time,
+            children: [
+              if (totalSeconds > 0)
+                 _detailRow("Total Worked", _formatDuration(Duration(seconds: totalSeconds))),
+              const Divider(),
+              ..._allTimesheetEntries.map((entry) {
+                 final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+                 final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+                 DateTime? start;
+                 DateTime? end;
+                 
+                 if (clockIn != null && clockIn is Timestamp) start = clockIn.toDate();
+                 if (clockOut != null && clockOut is Timestamp) end = clockOut.toDate();
+                 
+                 final isEntryCompleted = end != null;
+                 final timesheetId = entry['id'] as String?;
+
+                 return Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     _detailRow("Clock In", start != null ? DateFormat('h:mm a').format(start) : "Unknown"),
+                     _detailRow("Clock Out", end != null ? DateFormat('h:mm a').format(end) : "Active Now"),
+                     if (end != null && start != null)
+                        _detailRow("Duration", _formatDuration(end.difference(start))),
+                     
+                     if (isEntryCompleted && timesheetId != null) ...[
+                       Padding(
+                         padding: const EdgeInsets.only(top: 8.0),
+                         child: () {
+                           // Check if this entry is approved
+                           final entryStatus = entry['status'] as String?;
+                           final editApproved = entry['edit_approved'] as bool?;
+                           final isApproved = entryStatus == 'approved' || editApproved == true;
+                           
+                           return SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: isApproved ? null : () => _showEditTimesheetDialog(timesheetId),
+                                icon: Icon(
+                                  isApproved ? Icons.lock : Icons.edit,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  isApproved ? "Approved (Locked)" : "Edit Entry",
+                                  style: GoogleFonts.inter(fontSize: 12),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  visualDensity: VisualDensity.compact,
+                                  foregroundColor: isApproved ? const Color(0xFF64748B) : null,
+                                  side: BorderSide(
+                                    color: isApproved ? const Color(0xFFE2E8F0) : const Color(0xFF0386FF),
+                                  ),
+                                ),
+                              ),
+                           );
+                         }(),
+                       ),
+                       // Show approval badge if approved
+                       if ((entry['status'] as String?) == 'approved' || (entry['edit_approved'] as bool?) == true)
+                         Padding(
+                           padding: const EdgeInsets.only(top: 8.0),
+                           child: Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                             decoration: BoxDecoration(
+                               color: const Color(0xFFDCFCE7),
+                               borderRadius: BorderRadius.circular(6),
+                               border: Border.all(color: const Color(0xFF86EFAC)),
+                             ),
+                             child: Row(
+                               mainAxisSize: MainAxisSize.min,
+                               children: [
+                                 const Icon(Icons.verified, size: 14, color: Color(0xFF059669)),
+                                 const SizedBox(width: 6),
+                                 Text(
+                                   'Admin Approved',
+                                   style: GoogleFonts.inter(
+                                     fontSize: 11,
+                                     fontWeight: FontWeight.w600,
+                                     color: const Color(0xFF059669),
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                         ),
+                     ],
+                     const Divider(),
+                   ],
+                 );
+              }).toList(),
             ],
-            // Add Edit button for completed timesheets
-            if (isCompleted && timesheetId != null) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _showEditTimesheetDialog(timesheetId),
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: Text(
-                    "Edit Timesheet",
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0386FF),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    side: const BorderSide(color: Color(0xFF0386FF)),
-                  ),
-                ),
-              ),
-            ],
-      ],
-    );
-  }
+          ),
+        ],
+      );
     }
 
     // 2. If no timesheet, show warning ONLY if it should exist (past/completed)
@@ -689,30 +975,44 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   // Approval status and earnings section
   Widget _buildApprovalStatusSection() {
-    // Only show if there's a timesheet entry
-    if (_timesheetEntry == null) return const SizedBox.shrink();
+    // Only show if there are timesheet entries
+    if (_allTimesheetEntries.isEmpty) return const SizedBox.shrink();
     
-    final status = (_timesheetEntry!['status'] as String?) ?? 'pending';
-    final approvedBy = _timesheetEntry!['approved_by'] as String?;
-    final approvedAt = _timesheetEntry!['approved_at'] as Timestamp?;
-    final isEdited = _timesheetEntry!['is_edited'] as bool? ?? false;
-    final editApproved = _timesheetEntry!['edit_approved'] as bool? ?? false;
+    // Use the first entry for status tracking (all entries share the same approval status)
+    final status = (_timesheetEntry?['status'] as String?) ?? 'pending';
+    final approvedBy = _timesheetEntry?['approved_by'] as String?;
+    final approvedAt = _timesheetEntry?['approved_at'] as Timestamp?;
+    final isEdited = _timesheetEntry?['is_edited'] as bool? ?? false;
+    final editApproved = _timesheetEntry?['edit_approved'] as bool? ?? false;
     
-    // Calculate earnings
-    final clockIn = _timesheetEntry!['clock_in_time'] ?? _timesheetEntry!['clock_in_timestamp'];
-    final clockOut = _timesheetEntry!['clock_out_time'] ?? _timesheetEntry!['clock_out_timestamp'];
+    // Calculate total earnings across ALL entries
     final hourlyRate = (widget.shift.hourlyRate > 0) 
         ? widget.shift.hourlyRate 
-        : (_timesheetEntry!['hourly_rate'] as num?)?.toDouble() ?? 15.0;
+        : (_timesheetEntry?['hourly_rate'] as num?)?.toDouble() ?? 15.0;
     
-    double hoursWorked = 0;
+    int totalSeconds = 0;
     double earnings = 0;
     
-    if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
-      final duration = clockOut.toDate().difference(clockIn.toDate());
-      hoursWorked = duration.inMinutes / 60.0;
-      earnings = hoursWorked * hourlyRate;
+    // Calculate total time worked across ALL entries (using seconds for precision)
+    for (final entry in _allTimesheetEntries) {
+      final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+      
+      if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
+        final duration = clockOut.toDate().difference(clockIn.toDate());
+        totalSeconds += duration.inSeconds;
+      }
     }
+    
+    // Convert seconds to hours for earnings calculation (precise)
+    final hoursWorked = totalSeconds / 3600.0;
+    earnings = hoursWorked * hourlyRate;
+    
+    // Format total time as HH:MM:SS for display
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    final formattedTime = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     
     // Determine status display
     Color statusColor;
@@ -870,8 +1170,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildEarningDetail(
-                    label: 'Hours',
-                    value: '${hoursWorked.toStringAsFixed(1)}h',
+                    label: 'Time Worked',
+                    value: formattedTime,
                     icon: Icons.access_time,
                   ),
                   _buildEarningDetail(
@@ -893,7 +1193,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         ),
         
         // Manager notes if available
-        if (_timesheetEntry!['manager_notes'] != null && 
+        if (_timesheetEntry != null && 
+            _timesheetEntry!['manager_notes'] != null && 
             (_timesheetEntry!['manager_notes'] as String).isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
@@ -1067,22 +1368,54 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  // Navigate to the ACTUAL Readiness Form from the database
-                  Navigator.pop(context); // Close the dialog first
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => FormScreen(
-                        timesheetId: _timesheetEntry!['id'],
-                        shiftId: widget.shift.id,
-                        autoSelectFormId: ShiftFormService.readinessFormId, // The actual form ID
+                onPressed: () async {
+                  final timesheetId = _timesheetEntry!['id'];
+                  final shiftId = widget.shift.id;
+                  final formId = ShiftFormService.readinessFormId;
+                  
+                  debugPrint('📋 Fill Form button pressed:');
+                  debugPrint('   - timesheetId: $timesheetId');
+                  debugPrint('   - shiftId: $shiftId');
+                  debugPrint('   - formId: $formId');
+                  
+                  // Verify the form exists before navigating
+                  final formDoc = await FirebaseFirestore.instance
+                      .collection('form')
+                      .doc(formId)
+                      .get();
+                  
+                  if (!formDoc.exists) {
+                    debugPrint('❌ Form with ID $formId does NOT exist in database!');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Form not found. Please contact admin. (ID: $formId)'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                    return;
+                  }
+                  
+                  debugPrint('✅ Form exists: ${formDoc.data()?['title'] ?? 'Untitled'}');
+                  
+                  // Navigate to the form
+                  if (mounted) {
+                    Navigator.pop(context); // Close the dialog first
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FormScreen(
+                          timesheetId: timesheetId,
+                          shiftId: shiftId,
+                          autoSelectFormId: formId,
+                        ),
                       ),
-                    ),
-                  ).then((_) {
-                    // Refresh after returning from form
-                    widget.onRefresh?.call();
-                  });
+                    ).then((_) {
+                      // Refresh after returning from form
+                      widget.onRefresh?.call();
+                    });
+                  }
                 },
                 icon: const Icon(Icons.assignment),
                 label: const Text("Fill Class Report Now"),

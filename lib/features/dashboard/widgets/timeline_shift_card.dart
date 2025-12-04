@@ -29,9 +29,10 @@ class TimelineShiftCard extends StatelessWidget {
     final shiftEnd = shift.shiftEnd;
 
     // Allow clock-in from shift start to shift end
+    // Also allow if status is active (re-entry) but ensure not already clocked in (checked by caller or separate logic)
     return now.isAfter(shiftStart.subtract(const Duration(minutes: 1))) &&
         now.isBefore(shiftEnd) &&
-        shift.status == ShiftStatus.scheduled;
+        (shift.status == ShiftStatus.scheduled || shift.status == ShiftStatus.active);
   }
 
   // Check if this is an upcoming shift (not yet time to clock in)
@@ -42,7 +43,9 @@ class TimelineShiftCard extends StatelessWidget {
 
   // Check if shift is currently active (clocked in)
   bool get _isActive {
-    return shift.status == ShiftStatus.active || shift.isClockedIn;
+    // Only consider active if explicitly clocked in
+    // ShiftStatus.active just means the time window has started
+    return shift.isClockedIn;
   }
 
   @override
