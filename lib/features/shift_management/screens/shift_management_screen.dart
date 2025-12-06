@@ -100,13 +100,19 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _isAdmin = isAdmin;
         });
 
-        // Load data based on role
-        await _loadShiftData();
+        // OPTIMIZATION: Load data in parallel instead of sequentially
+        // This reduces initial load time significantly
+        final futures = <Future>[
+          _loadShiftData(),
+          if (_isAdmin) ...[
+            _loadTeachers(),
+            _loadLeaders(),
+          ],
+        ];
+        
+        // Load statistics after shifts are loaded (it depends on shifts)
+        await Future.wait(futures);
         await _loadShiftStatistics();
-        if (_isAdmin) {
-          await _loadTeachers();
-          await _loadLeaders();
-        }
       }
     } catch (e) {
       AppLogger.error('Error initializing user role: $e');
@@ -144,15 +150,14 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
       shiftsStream.listen((shifts) async {
         if (mounted) {
-          // Load actual payment amounts from timesheets for each shift
-          final paymentMap = <String, double>{};
+          // OPTIMIZATION: Batch load all payments in a single query instead of N queries
+          // This reduces loading time from O(n) sequential queries to O(1) batch query
+          final shiftIds = shifts.map((s) => s.id).toList();
+          final paymentMap = await ShiftTimesheetService.getActualPaymentsForShifts(shiftIds);
+          
+          // Fill in any missing shifts with scheduled payment as fallback
           for (var shift in shifts) {
-            try {
-              final actualPayment = await ShiftTimesheetService.getActualPaymentForShift(shift.id);
-              paymentMap[shift.id] = actualPayment;
-            } catch (e) {
-              AppLogger.error('Error loading payment for shift ${shift.id}: $e');
-              // Fallback to scheduled payment if timesheet payment can't be loaded
+            if (!paymentMap.containsKey(shift.id) || paymentMap[shift.id] == 0.0) {
               paymentMap[shift.id] = shift.totalPayment;
             }
           }
@@ -164,8 +169,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             _isLoading = false;
           });
 
-          // Reload statistics when shifts change
-          await _loadShiftStatistics();
+          // Reload statistics when shifts change (non-blocking)
+          _loadShiftStatistics();
         }
       });
     } catch (e) {
@@ -209,9 +214,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       AppLogger.debug(
           'ShiftManagement: ShiftService returned ${teachers.length} teachers');
 
-      // Build email to document ID mapping by querying each teacher's document
+      // OPTIMIZATION: Batch load email to document ID mapping in parallel
       final emailToIdMap = <String, String>{};
-      for (final teacher in teachers) {
+      final emailQueries = teachers.map((teacher) async {
         try {
           final teacherSnapshot = await FirebaseFirestore.instance
               .collection('users')
@@ -220,9 +225,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               .get();
 
           if (teacherSnapshot.docs.isNotEmpty) {
-            emailToIdMap[teacher.email] = teacherSnapshot.docs.first.id;
             AppLogger.debug(
                 'ShiftManagement: ✅ Mapped ${teacher.email} -> ${teacherSnapshot.docs.first.id}');
+            return MapEntry(teacher.email, teacherSnapshot.docs.first.id);
           } else {
             AppLogger.error(
                 'ShiftManagement: ❌ No document found for email: ${teacher.email}');
@@ -230,6 +235,15 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         } catch (e) {
           AppLogger.error(
               'ShiftManagement: Error mapping teacher email to ID: $e');
+        }
+        return null;
+      }).toList();
+      
+      // Wait for all queries in parallel
+      final emailResults = await Future.wait(emailQueries);
+      for (final entry in emailResults) {
+        if (entry != null) {
+          emailToIdMap[entry.key] = entry.value;
         }
       }
 

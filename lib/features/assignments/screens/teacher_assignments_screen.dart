@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart'; // for kIsWeb
 import 'package:file_picker/file_picker.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:universal_html/html.dart' as html; // for web file handling
+import '../services/assignment_file_service.dart';
 
 class TeacherAssignmentsScreen extends StatefulWidget {
   const TeacherAssignmentsScreen({super.key});
@@ -118,7 +119,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   }
 
   // Open/download file from URL
-  Future<void> _openFile(String url) async {
+  Future<void> _openFile(String url, String fileName) async {
     try {
       // Check if URL is a valid HTTP(S) URL
       if (url.isEmpty || 
@@ -136,7 +137,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'File upload to Firebase Storage is required to view/download files. This feature will be available after file upload is implemented.',
+                      'This file was not uploaded to Firebase Storage. Please re-upload the file.',
                     ),
                   ),
                 ],
@@ -156,14 +157,48 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
         throw Exception('Invalid URL format');
       }
 
-      // Try external application first, then in-app as fallback
+      // Show loading indicator
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // Try external application first (better for downloads)
       try {
-        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final launched = await launchUrl(
+          uri, 
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (mounted) Navigator.pop(context); // Close loading
+        
         if (!launched && mounted) {
           // Try in-app web view as fallback
           await launchUrl(uri, mode: LaunchMode.inAppWebView);
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Opening $fileName...'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       } catch (launchError) {
+        if (mounted) Navigator.pop(context); // Close loading
         AppLogger.error('Error launching URL: $launchError');
         // Try in-app web view as fallback
         try {
@@ -173,8 +208,12 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
         }
       }
     } catch (e) {
-      AppLogger.error('Error opening file: $e');
       if (mounted) {
+        // Close loading if still open
+        try {
+          Navigator.pop(context);
+        } catch (_) {}
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -191,6 +230,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           ),
         );
       }
+      AppLogger.error('Error opening file: $e');
     }
   }
 
@@ -584,15 +624,73 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                         !downloadUrl.contains('example.com') &&
                         !downloadUrl.startsWith('/storage/') &&
                         !downloadUrl.startsWith('file://');
-                    return ListTile(
-                      leading: Icon(_getFileIcon(fileName), color: const Color(0xff3B82F6)),
-                      title: Text(fileName, style: GoogleFonts.inter(fontSize: 14)),
-                      trailing: isValidUrl
-                          ? IconButton(
-                              icon: const Icon(Icons.download, color: Color(0xff3B82F6)),
-                              onPressed: () => _openFile(downloadUrl),
-                            )
-                          : null,
+                    
+                    // Format file size
+                    final fileSize = attachmentMap['size'] as int? ?? 0;
+                    final sizeText = fileSize > 0 
+                        ? (fileSize < 1024 
+                            ? '${fileSize}B' 
+                            : fileSize < 1024 * 1024 
+                                ? '${(fileSize / 1024).toStringAsFixed(1)}KB'
+                                : '${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB')
+                        : '';
+                    
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff3B82F6).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(_getFileIcon(fileName), color: const Color(0xff3B82F6), size: 24),
+                        ),
+                        title: Text(
+                          fileName,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: sizeText.isNotEmpty
+                            ? Text(
+                                sizeText,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              )
+                            : null,
+                        trailing: isValidUrl
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility, color: Color(0xff3B82F6)),
+                                    tooltip: 'View file',
+                                    onPressed: () => _openFile(downloadUrl, fileName),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.download, color: Color(0xff3B82F6)),
+                                    tooltip: 'Download file',
+                                    onPressed: () => _openFile(downloadUrl, fileName),
+                                  ),
+                                ],
+                              )
+                            : Tooltip(
+                                message: 'File not uploaded to storage',
+                                child: Icon(Icons.error_outline, color: Colors.orange.shade700),
+                              ),
+                        onTap: isValidUrl ? () => _openFile(downloadUrl, fileName) : null,
+                      ),
                     );
                   }).toList(),
                 ],
@@ -745,22 +843,49 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                     !downloadUrl.startsWith('/storage/') &&
                     !downloadUrl.startsWith('file://');
                 return InkWell(
-                  onTap: isValidUrl ? () => _openFile(downloadUrl) : null,
+                  onTap: isValidUrl ? () => _openFile(downloadUrl, fileName) : null,
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xffF3F4F6),
+                      color: isValidUrl 
+                          ? const Color(0xff3B82F6).withOpacity(0.1)
+                          : Colors.orange.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xffE5E7EB)),
+                      border: Border.all(
+                        color: isValidUrl 
+                            ? const Color(0xff3B82F6).withOpacity(0.3)
+                            : Colors.orange.withOpacity(0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_getFileIcon(fileName), size: 16, color: const Color(0xff3B82F6)),
+                        Icon(
+                          _getFileIcon(fileName), 
+                          size: 16, 
+                          color: isValidUrl ? const Color(0xff3B82F6) : Colors.orange.shade700,
+                        ),
                         const SizedBox(width: 6),
-                        Flexible(child: Text(fileName, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                        if (downloadUrl.isNotEmpty) ...[const SizedBox(width: 4), const Icon(Icons.download, size: 14, color: Color(0xff3B82F6))],
+                        Flexible(
+                          child: Text(
+                            fileName, 
+                            style: GoogleFonts.inter(
+                              fontSize: 12, 
+                              color: const Color(0xff374151), 
+                              fontWeight: FontWeight.w500,
+                            ), 
+                            maxLines: 1, 
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isValidUrl) ...[
+                          const SizedBox(width: 4), 
+                          const Icon(Icons.download, size: 14, color: Color(0xff3B82F6)),
+                        ] else ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.error_outline, size: 14, color: Colors.orange.shade700),
+                        ],
                       ],
                     ),
                   ),
@@ -861,6 +986,10 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     setState(() => _isUploadingFile = true);
 
     try {
+      // Generate a temporary assignment ID for new assignments
+      // If editing, use existing assignment ID
+      final tempAssignmentId = widget.existingAssignment?['id'] ?? 'temp_${DateTime.now().millisecondsSinceEpoch}';
+      
       if (kIsWeb) {
         // Create a file input element for web
         final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
@@ -875,29 +1004,48 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
 
         if (uploadInput.files!.isNotEmpty) {
           final file = uploadInput.files!.first;
+          
+          // Show upload progress
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text('Uploading "${file.name}"...'),
+                    ),
+                  ],
+                ),
+                backgroundColor: const Color(0xff0386FF),
+                duration: const Duration(seconds: 30),
+              ),
+            );
+          }
 
-          // Create file object (in production, upload to Firebase Storage and get downloadURL)
-          final attachment = {
-            'name': file.name,
-            'size': file.size,
-            'url': 'https://example.com/${file.name}', // Placeholder - replace with Firebase Storage URL
-            'downloadURL': 'https://example.com/${file.name}', // Placeholder
-            'type': file.type,
-            'lastModified': file.lastModified,
-          };
+          // Upload to Firebase Storage
+          final attachment = await AssignmentFileService.uploadFile(file, tempAssignmentId);
 
           setState(() {
             _attachments.add(attachment);
           });
 
           if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
                   children: [
                     const Icon(Icons.check_circle, color: Colors.white),
                     const SizedBox(width: 8),
-                    Text('File "${file.name}" added successfully!'),
+                    Expanded(
+                      child: Text('File "${file.name}" uploaded successfully!'),
+                    ),
                   ],
                 ),
                 backgroundColor: const Color(0xff10B981),
@@ -911,29 +1059,44 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
           type: FileType.custom,
           allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'ppt', 'pptx', 'xls', 'xlsx'],
           allowMultiple: false,
+          withData: true, // Get file bytes for upload
         );
 
-        if (result != null && result.files.single.path != null) {
-          final file = result.files.single;
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
           
-          // Create attachment object
-          // Note: For production, you should upload to Firebase Storage here
-          // and get the downloadURL. For now, we store the file name and path info
-          final attachment = {
-            'name': file.name,
-            'size': file.size,
-            'path': file.path, // Mobile file path
-            'url': file.path, // Temporary - replace with Firebase Storage URL
-            'downloadURL': file.path, // Temporary - replace with Firebase Storage URL
-            'type': file.extension ?? 'unknown',
-            'platform': 'mobile',
-          };
+          // Show upload progress
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text('Uploading "${file.name}"...'),
+                    ),
+                  ],
+                ),
+                backgroundColor: const Color(0xff0386FF),
+                duration: const Duration(seconds: 30),
+              ),
+            );
+          }
+
+          // Upload to Firebase Storage
+          final attachment = await AssignmentFileService.uploadFile(file, tempAssignmentId);
 
           setState(() {
             _attachments.add(attachment);
           });
 
           if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -941,7 +1104,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                     const Icon(Icons.check_circle, color: Colors.white),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('File "${file.name}" added successfully!'),
+                      child: Text('File "${file.name}" uploaded successfully!'),
                     ),
                   ],
                 ),
@@ -964,16 +1127,20 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     } catch (e) {
       AppLogger.error('Error adding attachment: $e');
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error, color: Colors.white),
+                const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Failed to add file: $e')),
+                Expanded(
+                  child: Text('Error uploading file: ${e.toString()}'),
+                ),
               ],
             ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
