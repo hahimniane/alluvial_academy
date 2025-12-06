@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'dart:math' as math;
 import '../../../core/enums/shift_enums.dart';
 
 /// Compact header for shift management screen (ConnectTeam-inspired)
@@ -213,6 +214,8 @@ class CompactShiftHeader extends StatelessWidget {
         _menuItem(Icons.checklist, 'Bulk Select', 'select'),
         _menuItem(Icons.person_remove, 'Delete Teacher Shifts', 'delete_teacher'),
       ],
+      // Ensure menu is scrollable if it gets too long
+      constraints: const BoxConstraints(maxHeight: 400),
     );
   }
 

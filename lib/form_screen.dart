@@ -3349,11 +3349,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         },
       );
 
-      // CRITICAL: Update Timesheet Entry (Linkage)
+      // CRITICAL: Update Timesheet Entry or Shift (Linkage)
       // This ensures that when viewing a shift's details, the form will appear there
       if (widget.timesheetId != null) {
+        // Link to timesheet entry (normal case - teacher clocked in)
         await ShiftFormService.linkFormToTimesheet(
           timesheetId: widget.timesheetId!,
+          formResponseId: docRef.id,
+          reportedHours: null, // Can be extracted from form responses if needed
+        );
+      } else if (widget.shiftId != null) {
+        // Link directly to shift (missed shift case - no timesheet entry)
+        await ShiftFormService.linkFormToShift(
+          shiftId: widget.shiftId!,
           formResponseId: docRef.id,
           reportedHours: null, // Can be extracted from form responses if needed
         );

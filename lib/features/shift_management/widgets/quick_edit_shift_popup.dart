@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/enums/shift_enums.dart';
+import '../../../core/utils/timezone_utils.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Quick edit popup for modifying shift times and basic info
@@ -32,17 +33,25 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
   late TimeOfDay _endTime;
   late TextEditingController _notesController;
   bool _isLoading = false;
+  String _selectedTimezone = 'UTC';
 
   @override
   void initState() {
     super.initState();
+    // Initialize timezone from shift's teacher timezone
+    _selectedTimezone = widget.shift.teacherTimezone ?? 'UTC';
+    
+    // Convert shift times from UTC to selected timezone for display
+    final startLocal = TimezoneUtils.convertToTimezone(widget.shift.shiftStart, _selectedTimezone);
+    final endLocal = TimezoneUtils.convertToTimezone(widget.shift.shiftEnd, _selectedTimezone);
+    
     _shiftDate = DateTime(
-      widget.shift.shiftStart.year,
-      widget.shift.shiftStart.month,
-      widget.shift.shiftStart.day,
+      startLocal.year,
+      startLocal.month,
+      startLocal.day,
     );
-    _startTime = TimeOfDay.fromDateTime(widget.shift.shiftStart);
-    _endTime = TimeOfDay.fromDateTime(widget.shift.shiftEnd);
+    _startTime = TimeOfDay.fromDateTime(startLocal);
+    _endTime = TimeOfDay.fromDateTime(endLocal);
     _notesController = TextEditingController(text: widget.shift.notes ?? '');
   }
 
@@ -134,6 +143,10 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             
             // Date selector
             _buildDateSelector(),
+            const SizedBox(height: 12),
+            
+            // Timezone selector
+            _buildTimezoneSelector(),
             const SizedBox(height: 12),
             
             // Time selectors
@@ -288,6 +301,100 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
     );
   }
 
+  Widget _buildTimezoneSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Timezone',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'The timezone for the times below',
+              child: Icon(
+                Icons.info_outline,
+                size: 14,
+                color: const Color(0xff9CA3AF),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xffD1D5DB)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: TimezoneUtils.getCommonTimezones()
+                      .contains(_selectedTimezone)
+                  ? _selectedTimezone
+                  : 'UTC',
+              isExpanded: true,
+              isDense: true,
+              icon: const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280), size: 20),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff111827),
+              ),
+              items: TimezoneUtils.getCommonTimezones().map((String tz) {
+                return DropdownMenuItem<String>(
+                  value: tz,
+                  child: Text(tz, style: GoogleFonts.inter(fontSize: 13)),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    // Get current times in old timezone as naive DateTime
+                    final currentStart = DateTime(
+                      _shiftDate.year,
+                      _shiftDate.month,
+                      _shiftDate.day,
+                      _startTime.hour,
+                      _startTime.minute,
+                    );
+                    final currentEnd = DateTime(
+                      _shiftDate.year,
+                      _shiftDate.month,
+                      _shiftDate.day,
+                      _endTime.hour,
+                      _endTime.minute,
+                    );
+                    
+                    // Convert to UTC using old timezone, then to new timezone
+                    final utcStart = TimezoneUtils.convertToUtc(currentStart, _selectedTimezone);
+                    final utcEnd = TimezoneUtils.convertToUtc(currentEnd, _selectedTimezone);
+                    final newStartLocal = TimezoneUtils.convertToTimezone(utcStart, newValue);
+                    final newEndLocal = TimezoneUtils.convertToTimezone(utcEnd, newValue);
+                    
+                    _selectedTimezone = newValue;
+                    _shiftDate = DateTime(
+                      newStartLocal.year,
+                      newStartLocal.month,
+                      newStartLocal.day,
+                    );
+                    _startTime = TimeOfDay.fromDateTime(newStartLocal);
+                    _endTime = TimeOfDay.fromDateTime(newEndLocal);
+                  });
+                }
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTimeSelector(String label, TimeOfDay time, Function(TimeOfDay) onChanged) {
     return InkWell(
       onTap: () async {
@@ -306,15 +413,30 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
           border: Border.all(color: const Color(0xffD1D5DB)),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '$label: ',
-              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280)),
+            Row(
+              children: [
+                Text(
+                  '$label: ',
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280)),
+                ),
+                Expanded(
+                  child: Text(
+                    time.format(context),
+                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151)),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 2),
             Text(
-              time.format(context),
-              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151)),
+              TimezoneUtils.getTimezoneAbbreviation(_selectedTimezone),
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                color: const Color(0xff9CA3AF),
+              ),
             ),
           ],
         ),
@@ -375,24 +497,36 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
   Future<void> _saveChanges() async {
     setState(() => _isLoading = true);
     try {
-      final newStart = DateTime(
+      // Create naive DateTime in selected timezone
+      final naiveStart = DateTime(
         _shiftDate.year,
         _shiftDate.month,
         _shiftDate.day,
         _startTime.hour,
         _startTime.minute,
       );
-      final newEnd = DateTime(
+      
+      // Handle end time - if it's before start time, assume next day
+      DateTime naiveEnd = DateTime(
         _shiftDate.year,
         _shiftDate.month,
         _shiftDate.day,
         _endTime.hour,
         _endTime.minute,
       );
+      
+      if (naiveEnd.isBefore(naiveStart)) {
+        naiveEnd = naiveEnd.add(const Duration(days: 1));
+      }
+
+      // Convert to UTC using selected timezone
+      final utcStart = TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
+      final utcEnd = TimezoneUtils.convertToUtc(naiveEnd, _selectedTimezone);
 
       final updatedShift = widget.shift.copyWith(
-        shiftStart: newStart,
-        shiftEnd: newEnd,
+        shiftStart: utcStart,
+        shiftEnd: utcEnd,
+        teacherTimezone: _selectedTimezone, // Update timezone if changed
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 

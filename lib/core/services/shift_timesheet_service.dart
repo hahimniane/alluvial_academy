@@ -554,7 +554,7 @@ class ShiftTimesheetService {
         'hourly_rate': shift.hourlyRate, // Add hourly rate from shift
         'description':
             'Teaching session: ${shift.subjectDisplayName} - ${shift.displayName}',
-        'status': 'draft',
+        'status': 'pending', // Changed: Immediately set to pending on clock-in (not draft)
         'source': 'shift_clock_in',
         'completion_method': 'pending',
         // Store the actual clock-in timestamp for persistence
@@ -620,17 +620,17 @@ class ShiftTimesheetService {
       final docRef = querySnapshot.docs.first.reference;
       final docData = querySnapshot.docs.first.data() as Map<String, dynamic>?;
 
-      DateTime now = DateTime.now();
+      final now = DateTime.now(); // Actual clock out time
       
-      // Cap clock-out time at shift end time (no overtime)
-      final shiftEndTime = shift.shiftEnd;
-      if (now.isAfter(shiftEndTime)) {
+      // --- FIX 1: CAP PAYMENT TIME TO SCHEDULED DURATION ---
+      // For calculation purposes, cap both start and end times to scheduled shift window
+      // This prevents overpayment for early clock-ins or late clock-outs
+      DateTime effectiveEndTime = now;
+      if (now.isAfter(shift.shiftEnd)) {
         AppLogger.debug(
-            'ShiftTimesheetService: Clock-out time capped at shift end time. Current: ${now.toIso8601String()}, Shift end: ${shiftEndTime.toIso8601String()}');
-        now = shiftEndTime;
+            'ShiftTimesheetService: Clock-out is after shift end. Capping calculation time.');
+        effectiveEndTime = shift.shiftEnd;
       }
-      
-      final endTime = DateFormat('h:mm a').format(now);
 
       // Calculate total hours using the stored clock-in timestamp
       DateTime startDateTime;
@@ -645,39 +645,87 @@ class ShiftTimesheetService {
           startDateTime = DateTime(now.year, now.month, now.day,
               startDateTime.hour, startDateTime.minute);
         } else {
-          // If no start time, use current time as fallback
-          startDateTime = now;
+          // If no start time, use shift start as fallback
+          startDateTime = shift.shiftStart;
         }
       }
 
-      final duration = now.difference(startDateTime);
+      // Cap start time to shift start (no payment for early clock-ins)
+      DateTime effectiveStartTime = startDateTime;
+      if (startDateTime.isBefore(shift.shiftStart)) {
+        AppLogger.debug(
+            'ShiftTimesheetService: Clock-in is before shift start. Capping calculation time.');
+        effectiveStartTime = shift.shiftStart;
+      }
+
+      // Calculate duration using the EFFECTIVE (capped) times
+      Duration rawDuration = effectiveEndTime.difference(effectiveStartTime);
+      
+      // Cap total duration to scheduled shift duration (prevent overpayment)
+      final scheduledDuration = shift.shiftEnd.difference(shift.shiftStart);
+      final validDuration = rawDuration > scheduledDuration 
+          ? scheduledDuration 
+          : (rawDuration.isNegative ? Duration.zero : rawDuration);
+      
+      AppLogger.debug(
+          'ShiftTimesheetService: Payment calculation - Actual: ${rawDuration.inMinutes} min, Scheduled: ${scheduledDuration.inMinutes} min, Billable: ${validDuration.inMinutes} min');
+      
+      // Format the display string based on the CAPPED end time
+      final endTimeString = DateFormat('h:mm a').format(effectiveEndTime);
+      
       final totalHours =
-          '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+          '${validDuration.inHours.toString().padLeft(2, '0')}:${(validDuration.inMinutes % 60).toString().padLeft(2, '0')}:${(validDuration.inSeconds % 60).toString().padLeft(2, '0')}';
+
+      // --- FIX 2: CALCULATE PAY AND SAVE TO DB ---
+      double hourlyRate = shift.hourlyRate;
+      if (hourlyRate <= 0) {
+        // Fallback to rate stored in timesheet if shift rate is missing
+        hourlyRate = (docData?['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+      }
+
+      final double hoursWorked = validDuration.inSeconds / 3600.0;
+      final double calculatedPay = hoursWorked * hourlyRate;
 
       AppLogger.debug(
           'ShiftTimesheetService: Updating timesheet ${docRef.id} with clock-out data...');
-      AppLogger.debug('ShiftTimesheetService: Setting end_time to: "$endTime"');
+      AppLogger.debug('ShiftTimesheetService: Setting end_time to: "$endTimeString"');
       AppLogger.debug(
           'ShiftTimesheetService: Setting total_hours to: $totalHours');
+      AppLogger.debug(
+          'ShiftTimesheetService: Actual clock-out time: ${now.toIso8601String()}, Effective (capped) time: ${effectiveEndTime.toIso8601String()}');
+      AppLogger.debug(
+          'ShiftTimesheetService: Calculated payment - Hours: $hoursWorked, Rate: \$$hourlyRate, Pay: \$$calculatedPay');
 
+      // --- FIX 3: SAVE PAYMENT DATA AND UPDATE STATUS ---
       // Update the timesheet entry
       await docRef.update({
-        'end_time': endTime,
+        'end_time': endTimeString,
         'total_hours': totalHours,
-        'clock_out_timestamp': Timestamp.fromDate(now),
+        'clock_out_timestamp': Timestamp.fromDate(now), // Save ACTUAL time for audit
+        'effective_end_timestamp': Timestamp.fromDate(effectiveEndTime), // Save PAID time
+        
+        // SAVE PAYMENT DATA SO ADMIN PANEL SEES IT
+        'total_pay': calculatedPay,
+        'payment_amount': calculatedPay, // Saving as both keys to be safe with legacy admin code
+        'hourly_rate': hourlyRate, // Ensure rate is locked in
+        
+        // UPDATE STATUS
+        'status': 'pending', // Changed from 'draft' to 'pending'
+        'completion_method': 'manual',
+        
+        // Location data
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
         'clock_out_neighborhood': location.neighborhood,
-        'clock_out_platform': platform ?? 'unknown', // NEW: Platform tracking
-        'completion_method': 'manual',
+        'clock_out_platform': platform ?? 'unknown',
         'updated_at': FieldValue.serverTimestamp(),
       });
 
       AppLogger.info(
           'ShiftTimesheetService: ✅ Updated timesheet entry ${docRef.id} with clock-out data');
       AppLogger.info(
-          'ShiftTimesheetService: ✅ Timesheet end_time set to: "$endTime" (should not be empty)');
+          'ShiftTimesheetService: ✅ Timesheet end_time set to: "$endTimeString" (should not be empty)');
 
       // Verify the update persisted correctly (CRITICAL)
       try {
@@ -705,8 +753,11 @@ class ShiftTimesheetService {
       return {
         'documentId': docRef.id,
         if (docData != null) ...docData,
-        'end_time': endTime,
+        'end_time': endTimeString,
         'total_hours': totalHours,
+        'status': 'pending',
+        'total_pay': calculatedPay,
+        'payment_amount': calculatedPay,
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
@@ -742,10 +793,11 @@ class ShiftTimesheetService {
       // Use shift end time (NOT +15 minutes) for auto clock-out - no overtime allowed
       final autoClockOutTimeUtc = shift.shiftEnd.toUtc();
       final autoClockOutTimeLocal = autoClockOutTimeUtc.toLocal();
-      final endTime = DateFormat('h:mm a').format(autoClockOutTimeLocal);
+      final effectiveEndTime = autoClockOutTimeLocal; // Already capped at shift end
+      final endTime = DateFormat('h:mm a').format(effectiveEndTime);
       
       AppLogger.debug(
-          'ShiftTimesheetService: Auto clock-out capped at shift end time: ${autoClockOutTimeLocal.toIso8601String()}');
+          'ShiftTimesheetService: Auto clock-out capped at shift end time: ${effectiveEndTime.toIso8601String()}');
 
       // Calculate total hours using stored clock-in timestamp
       DateTime startDateTime;
@@ -756,21 +808,57 @@ class ShiftTimesheetService {
         final startTime = docData?['start_time'] as String? ?? '';
         if (startTime.isNotEmpty) {
           startDateTime = DateFormat('h:mm a').parse(startTime);
+          // Adjust to today's date
+          startDateTime = DateTime(effectiveEndTime.year, effectiveEndTime.month, effectiveEndTime.day,
+              startDateTime.hour, startDateTime.minute);
         } else {
-          // If no start time, use auto clock-out time as fallback
-          startDateTime = autoClockOutTimeLocal;
+          // If no start time, use shift start as fallback
+          startDateTime = shift.shiftStart;
         }
       }
 
-      final duration = autoClockOutTimeLocal.difference(startDateTime);
+      // Cap start time to shift start (no payment for early clock-ins)
+      DateTime effectiveStartTime = startDateTime;
+      if (startDateTime.isBefore(shift.shiftStart)) {
+        AppLogger.debug(
+            'ShiftTimesheetService: Auto clock-out - Clock-in was before shift start. Capping calculation time.');
+        effectiveStartTime = shift.shiftStart;
+      }
+
+      // Calculate duration using effective (capped) times
+      Duration rawDuration = effectiveEndTime.difference(effectiveStartTime);
+      
+      // Cap total duration to scheduled shift duration (prevent overpayment)
+      final scheduledDuration = shift.shiftEnd.difference(shift.shiftStart);
+      final validDuration = rawDuration > scheduledDuration 
+          ? scheduledDuration 
+          : (rawDuration.isNegative ? Duration.zero : rawDuration);
+      
+      AppLogger.debug(
+          'ShiftTimesheetService: Auto clock-out payment calculation - Actual: ${rawDuration.inMinutes} min, Scheduled: ${scheduledDuration.inMinutes} min, Billable: ${validDuration.inMinutes} min');
       final totalHours =
-          '${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+          '${validDuration.inHours.toString().padLeft(2, '0')}:${(validDuration.inMinutes % 60).toString().padLeft(2, '0')}:${(validDuration.inSeconds % 60).toString().padLeft(2, '0')}';
+
+      // Calculate payment for auto clock-out
+      double hourlyRate = shift.hourlyRate;
+      if (hourlyRate <= 0) {
+        hourlyRate = (docData?['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+      }
+      final double hoursWorked = validDuration.inSeconds / 3600.0;
+      final double calculatedPay = hoursWorked * hourlyRate;
 
       // Update the timesheet entry
       await docRef.update({
         'end_time': endTime,
         'total_hours': totalHours,
-        'clock_out_timestamp': Timestamp.fromDate(autoClockOutTimeUtc),
+        'clock_out_timestamp': Timestamp.fromDate(autoClockOutTimeUtc), // Actual time
+        'effective_end_timestamp': Timestamp.fromDate(effectiveEndTime), // Effective (capped) time
+        
+        // SAVE PAYMENT DATA SO ADMIN PANEL SEES IT
+        'total_pay': calculatedPay,
+        'payment_amount': calculatedPay,
+        'hourly_rate': hourlyRate,
+        
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
@@ -778,6 +866,7 @@ class ShiftTimesheetService {
         'clock_out_platform': 'auto', // Auto clock-out
         'completion_method': 'auto_logout',
         'auto_logout_time': Timestamp.fromDate(autoClockOutTimeUtc),
+        'status': 'pending', // Auto-submit on clock-out
         'updated_at': FieldValue.serverTimestamp(),
       });
 
@@ -789,6 +878,9 @@ class ShiftTimesheetService {
         if (docData != null) ...docData,
         'end_time': endTime,
         'total_hours': totalHours,
+        'status': 'pending',
+        'total_pay': calculatedPay,
+        'payment_amount': calculatedPay,
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
@@ -1003,6 +1095,35 @@ class ShiftTimesheetService {
     } catch (e) {
       AppLogger.error('Error getting timesheet entry for shift: $e');
       return null;
+    }
+  }
+
+  /// Get actual payment amount from timesheet for a shift
+  /// Returns the sum of all payment_amount from timesheet entries for this shift
+  static Future<double> getActualPaymentForShift(String shiftId) async {
+    try {
+      // Get all timesheet entries for this shift (not just for current user, for admin view)
+      final snapshot = await _firestore
+          .collection('timesheet_entries')
+          .where('shift_id', isEqualTo: shiftId)
+          .get();
+
+      if (snapshot.docs.isEmpty) return 0.0;
+
+      double totalPayment = 0.0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        // Prefer payment_amount, fallback to total_pay
+        final payment = (data['payment_amount'] as num?)?.toDouble() ??
+            (data['total_pay'] as num?)?.toDouble() ??
+            0.0;
+        totalPayment += payment;
+      }
+
+      return totalPayment;
+    } catch (e) {
+      AppLogger.error('Error getting actual payment for shift: $e');
+      return 0.0;
     }
   }
 

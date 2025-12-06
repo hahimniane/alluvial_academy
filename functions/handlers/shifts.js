@@ -357,24 +357,41 @@ const handleShiftEndTask = onRequest(async (req, res) => {
         updates.clock_out_platform = 'system';
       }
 
-      // Calculate effective duration (handling overlaps)
+      // CRITICAL: Cap clock-in and clock-out times to scheduled shift boundaries
+      // No payment for time outside scheduled window
       const startTimeMs = clockIn.getTime();
       const endTimeMs = clockOut.getTime();
+      const effectiveStartTimeMs = Math.max(startTimeMs, startDate.getTime());
+      const effectiveEndTimeMs = Math.min(endTimeMs, endDate.getTime());
       
-      // Only count time that hasn't been counted yet
-      const effectiveStartTime = Math.max(startTimeMs, lastEndTime);
+      // Calculate effective duration (handling overlaps and capping to scheduled time)
+      const effectiveStartTime = Math.max(effectiveStartTimeMs, lastEndTime);
       
-      if (endTimeMs > effectiveStartTime) {
-        const durationMs = Math.max(0, endTimeMs - effectiveStartTime);
+      if (effectiveEndTimeMs > effectiveStartTime) {
+        const durationMs = Math.max(0, effectiveEndTimeMs - effectiveStartTime);
         workedMs += durationMs;
-        lastEndTime = endTimeMs;
+        lastEndTime = effectiveEndTimeMs;
       }
 
-      const rawDurationMs = Math.max(0, endTimeMs - startTimeMs);
+      // Calculate billable duration (capped to scheduled duration)
+      const scheduledDurationMs = endDate.getTime() - startDate.getTime();
+      const rawDurationMs = Math.max(0, effectiveEndTimeMs - effectiveStartTimeMs);
+      const billableDurationMs = Math.min(rawDurationMs, scheduledDurationMs);
 
-      const totalHoursString = formatDuration(rawDurationMs);
+      const totalHoursString = formatDuration(billableDurationMs);
       if (!data.total_hours || data.total_hours === '00:00' || updates.completion_method === 'auto') {
         updates.total_hours = totalHoursString;
+      }
+
+      // Calculate and save payment (capped to scheduled duration)
+      if (updates.completion_method === 'auto' || !data.payment_amount) {
+        const hourlyRate = data.hourly_rate || shiftData.hourly_rate || 0;
+        const hoursWorked = billableDurationMs / 3600000; // Convert ms to hours
+        const calculatedPay = Math.round(hoursWorked * hourlyRate * 100) / 100; // Round to 2 decimals
+        
+        updates.total_pay = calculatedPay;
+        updates.payment_amount = calculatedPay;
+        updates.effective_end_timestamp = admin.firestore.Timestamp.fromDate(new Date(effectiveEndTimeMs));
       }
 
       if (Object.keys(updates).length > 0) {

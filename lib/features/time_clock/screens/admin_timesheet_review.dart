@@ -185,7 +185,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         approvedAt: data['approved_at'] as Timestamp?,
         rejectedAt: data['rejected_at'] as Timestamp?,
         rejectionReason: data['rejection_reason'] as String?,
-        paymentAmount: data['payment_amount'] as double?,
+        paymentAmount: (data['payment_amount'] as num?)?.toDouble() ?? 
+                       (data['total_pay'] as num?)?.toDouble(),
         source: data['source'] as String? ?? 'manual',
         // NEW: Export fields
         shiftTitle: data['shift_title'] as String?,
@@ -766,14 +767,22 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
   double _calculatePayment(TimesheetEntry timesheet) {
     try {
-      // Parse total hours (format: "HH:MM")
-      // This uses the current totalHours which should reflect edited times if the timesheet was edited
+      // Use payment_amount from database if available (preferred - already validated and capped)
+      if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
+        return timesheet.paymentAmount!;
+      }
+      
+      // Fallback: Calculate from hours if payment_amount is missing (legacy data)
+      // Parse total hours (format: "HH:MM" or "HH:MM:SS")
       final parts = timesheet.totalHours.split(':');
-      if (parts.length != 2) return 0.0;
+      if (parts.length < 2) return 0.0;
 
       final hours = int.parse(parts[0]);
       final minutes = int.parse(parts[1]);
-      final totalHoursDecimal = hours + (minutes / 60.0);
+      final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
+      
+      // Calculate total hours including seconds for accuracy
+      final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
 
       // Payment = hours worked × hourly rate
       // Hourly rate comes from the shift or teacher's rate
@@ -3240,12 +3249,22 @@ class TimesheetReviewDataSource extends DataGridSource {
 
   double _calculatePayment(TimesheetEntry timesheet) {
     try {
+      // Use payment_amount from database if available (preferred - already validated and capped)
+      if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
+        return timesheet.paymentAmount!;
+      }
+      
+      // Fallback: Calculate from hours if payment_amount is missing (legacy data)
+      // Parse total hours (format: "HH:MM" or "HH:MM:SS")
       final parts = timesheet.totalHours.split(':');
-      if (parts.length != 2) return 0.0;
+      if (parts.length < 2) return 0.0;
 
       final hours = int.parse(parts[0]);
       final minutes = int.parse(parts[1]);
-      final totalHoursDecimal = hours + (minutes / 60.0);
+      final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
+      
+      // Calculate total hours including seconds for accuracy
+      final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
 
       return totalHoursDecimal * timesheet.hourlyRate;
     } catch (e) {
