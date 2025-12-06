@@ -1127,6 +1127,50 @@ class ShiftTimesheetService {
     }
   }
 
+  /// OPTIMIZATION: Batch get payments for multiple shifts in a single query
+  /// This is much faster than calling getActualPaymentForShift multiple times
+  static Future<Map<String, double>> getActualPaymentsForShifts(List<String> shiftIds) async {
+    if (shiftIds.isEmpty) return {};
+    
+    try {
+      // Use 'in' query to get all timesheet entries for all shifts at once
+      // Note: Firestore 'in' queries are limited to 10 items, so we need to batch
+      final paymentMap = <String, double>{};
+      
+      // Initialize all shift IDs with 0.0
+      for (final shiftId in shiftIds) {
+        paymentMap[shiftId] = 0.0;
+      }
+      
+      // Process in batches of 10 (Firestore 'in' query limit)
+      for (int i = 0; i < shiftIds.length; i += 10) {
+        final batch = shiftIds.skip(i).take(10).toList();
+        final snapshot = await _firestore
+            .collection('timesheet_entries')
+            .where('shift_id', whereIn: batch)
+            .get();
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final shiftId = data['shift_id'] as String?;
+          if (shiftId == null || !paymentMap.containsKey(shiftId)) continue;
+          
+          // Prefer payment_amount, fallback to total_pay
+          final payment = (data['payment_amount'] as num?)?.toDouble() ??
+              (data['total_pay'] as num?)?.toDouble() ??
+              0.0;
+          paymentMap[shiftId] = (paymentMap[shiftId] ?? 0.0) + payment;
+        }
+      }
+      
+      return paymentMap;
+    } catch (e) {
+      AppLogger.error('Error batch getting payments for shifts: $e');
+      // Fallback: return map with zeros
+      return {for (var id in shiftIds) id: 0.0};
+    }
+  }
+
   /// Build shift type string for ConnectTeam-style export
   /// Format: "Stu - Student Name - Teacher Name (1hr 2days weekly)"
   static String _buildShiftTypeString(TeachingShift shift) {

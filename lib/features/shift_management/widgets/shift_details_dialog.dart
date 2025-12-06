@@ -178,23 +178,30 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     try {
       debugPrint("🔍 Loading details for shift: ${widget.shift.id}");
       
-      // 1. Find ALL Timesheet Entries for this shift
-      QuerySnapshot timesheetQuery = await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .where('shift_id', isEqualTo: widget.shift.id)
-          .orderBy('created_at', descending: true)
-          .get();
+      // OPTIMIZATION: Try both field names in parallel instead of sequentially
+      final timesheetQueries = await Future.wait([
+        FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .where('shift_id', isEqualTo: widget.shift.id)
+            .orderBy('created_at', descending: true)
+            .get(),
+        FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .where('shiftId', isEqualTo: widget.shift.id)
+            .orderBy('created_at', descending: true)
+            .get(),
+      ]);
       
-      if (timesheetQuery.docs.isEmpty) {
-        debugPrint("⚠️ No timesheet found by shift_id (snake_case). Trying shiftId (camelCase)...");
-        timesheetQuery = await FirebaseFirestore.instance
-          .collection('timesheet_entries')
-          .where('shiftId', isEqualTo: widget.shift.id)
-          .orderBy('created_at', descending: true)
-          .get();
+      // Use the first non-empty result
+      QuerySnapshot? timesheetQuery;
+      if (timesheetQueries[0].docs.isNotEmpty) {
+        timesheetQuery = timesheetQueries[0];
+      } else if (timesheetQueries[1].docs.isNotEmpty) {
+        debugPrint("⚠️ Found timesheet using shiftId (camelCase)");
+        timesheetQuery = timesheetQueries[1];
       }
       
-      if (timesheetQuery.docs.isNotEmpty) {
+      if (timesheetQuery != null && timesheetQuery.docs.isNotEmpty) {
         _allTimesheetEntries = timesheetQuery.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           data['id'] = doc.id;
