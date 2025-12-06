@@ -730,7 +730,7 @@ class ShiftService {
     }
   }
 
-  /// Delete a shift
+  /// Delete a shift and all related data (timesheets, form responses, etc.)
   static Future<void> deleteShift(String shiftId) async {
     try {
       TeachingShift? existingShift;
@@ -747,11 +747,112 @@ class ShiftService {
         }
       }
 
+      // Delete all related data before deleting the shift
+      await _deleteShiftRelatedData(shiftId);
+
+      // Finally, delete the shift itself
       await _shiftsCollection.doc(shiftId).delete();
-      AppLogger.error('Shift deleted successfully');
+      AppLogger.error('Shift deleted successfully along with all related data');
     } catch (e) {
       AppLogger.error('Error deleting shift: $e');
       throw Exception('Failed to delete shift');
+    }
+  }
+
+  /// Delete all data related to a shift (timesheets, form responses, etc.)
+  static Future<void> _deleteShiftRelatedData(String shiftId) async {
+    try {
+      AppLogger.debug('ShiftService: Deleting related data for shift $shiftId');
+      final batch = _firestore.batch();
+      int deletedCount = 0;
+
+      // 1. Delete all timesheet entries for this shift
+      final timesheetSnapshot = await _firestore
+          .collection('timesheet_entries')
+          .where('shift_id', isEqualTo: shiftId)
+          .get();
+      
+      for (var doc in timesheetSnapshot.docs) {
+        batch.delete(doc.reference);
+        deletedCount++;
+      }
+
+      // Also check for camelCase shiftId field (legacy)
+      final timesheetSnapshotCamel = await _firestore
+          .collection('timesheet_entries')
+          .where('shiftId', isEqualTo: shiftId)
+          .get();
+      
+      for (var doc in timesheetSnapshotCamel.docs) {
+        batch.delete(doc.reference);
+        deletedCount++;
+      }
+
+      // 2. Delete all form responses linked to this shift
+      final formResponseSnapshot = await _firestore
+          .collection('form_responses')
+          .where('shiftId', isEqualTo: shiftId)
+          .get();
+      
+      for (var doc in formResponseSnapshot.docs) {
+        batch.delete(doc.reference);
+        deletedCount++;
+      }
+
+      // Also check for snake_case shift_id field
+      final formResponseSnapshotSnake = await _firestore
+          .collection('form_responses')
+          .where('shift_id', isEqualTo: shiftId)
+          .get();
+      
+      for (var doc in formResponseSnapshotSnake.docs) {
+        batch.delete(doc.reference);
+        deletedCount++;
+      }
+
+      // 3. Delete form responses linked via timesheet entries
+      // Get timesheet IDs first, then find form responses
+      final allTimesheetIds = <String>{};
+      for (var doc in timesheetSnapshot.docs) {
+        allTimesheetIds.add(doc.id);
+      }
+      for (var doc in timesheetSnapshotCamel.docs) {
+        allTimesheetIds.add(doc.id);
+      }
+
+      for (var timesheetId in allTimesheetIds) {
+        final formByTimesheet = await _firestore
+            .collection('form_responses')
+            .where('timesheetId', isEqualTo: timesheetId)
+            .get();
+        
+        for (var doc in formByTimesheet.docs) {
+          batch.delete(doc.reference);
+          deletedCount++;
+        }
+
+        // Also check snake_case
+        final formByTimesheetSnake = await _firestore
+            .collection('form_responses')
+            .where('timesheet_id', isEqualTo: timesheetId)
+            .get();
+        
+        for (var doc in formByTimesheetSnake.docs) {
+          batch.delete(doc.reference);
+          deletedCount++;
+        }
+      }
+
+      // Commit all deletions
+      if (deletedCount > 0) {
+        await batch.commit();
+        AppLogger.info('ShiftService: Deleted $deletedCount related documents for shift $shiftId');
+      } else {
+        AppLogger.debug('ShiftService: No related data found to delete for shift $shiftId');
+      }
+    } catch (e) {
+      AppLogger.error('Error deleting shift related data: $e');
+      // Don't throw - continue with shift deletion even if related data deletion fails
     }
   }
 
@@ -760,10 +861,9 @@ class ShiftService {
     try {
       AppLogger.debug('ShiftService: Deleting ${shiftIds.length} shifts');
 
-      // Use a batch to delete all shifts atomically
-      final batch = FirebaseFirestore.instance.batch();
       final schedulingFutures = <Future<void>>[];
 
+      // Delete related data for each shift first
       for (String shiftId in shiftIds) {
         final docRef = _shiftsCollection.doc(shiftId);
         final snapshot = await docRef.get();
@@ -774,6 +874,14 @@ class ShiftService {
               .catchError((error) => AppLogger.error(
                   'ShiftService: Warning - unable to cancel lifecycle tasks for shift ${shift.id}: $error')));
         }
+        // Delete related data (timesheets, form responses)
+        await _deleteShiftRelatedData(shiftId);
+      }
+
+      // Use a batch to delete all shifts atomically
+      final batch = FirebaseFirestore.instance.batch();
+      for (String shiftId in shiftIds) {
+        final docRef = _shiftsCollection.doc(shiftId);
         batch.delete(docRef);
       }
 
@@ -782,7 +890,7 @@ class ShiftService {
         await Future.wait(schedulingFutures);
       }
       AppLogger.error(
-          'ShiftService: Successfully deleted ${shiftIds.length} shifts');
+          'ShiftService: Successfully deleted ${shiftIds.length} shifts along with all related data');
     } catch (e) {
       AppLogger.error('Error deleting multiple shifts: $e');
       throw Exception('Failed to delete multiple shifts');
@@ -848,9 +956,74 @@ class ShiftService {
 
   /// Update shift directly without re-scheduling lifecycle tasks
   /// Use for quick edits like time changes
+  /// Automatically checks if shift should be completed based on new end time
   static Future<void> updateShiftDirect(TeachingShift shift) async {
     try {
-      await _shiftsCollection.doc(shift.id).update(shift.toFirestore());
+      final now = DateTime.now();
+      final updateData = shift.toFirestore();
+      
+      // If shift end time has passed and shift is still active/scheduled, check if it should be completed
+      if (shift.shiftEnd.isBefore(now) && 
+          (shift.status == ShiftStatus.active || shift.status == ShiftStatus.scheduled)) {
+        
+        // Get timesheet entries to check worked time
+        final timesheetSnapshot = await _firestore
+            .collection('timesheet_entries')
+            .where('shift_id', isEqualTo: shift.id)
+            .get();
+        
+        int totalWorkedMinutes = 0;
+        bool hasClockIn = shift.clockInTime != null;
+        
+        // Calculate worked minutes from timesheet entries
+        for (var doc in timesheetSnapshot.docs) {
+          final data = doc.data();
+          final clockIn = data['clock_in_timestamp'] as Timestamp?;
+          final clockOut = data['clock_out_timestamp'] as Timestamp?;
+          
+          if (clockIn != null) {
+            hasClockIn = true;
+            final endTime = clockOut?.toDate() ?? shift.shiftEnd;
+            final worked = endTime.difference(clockIn.toDate()).inMinutes;
+            if (worked > 0) {
+              totalWorkedMinutes += worked;
+            }
+          }
+        }
+        
+        // Determine new status based on worked time
+        final scheduledMinutes = shift.scheduledDurationMinutes;
+        final toleranceMinutes = 1; // Same tolerance as Cloud Function
+        
+        String newStatus;
+        String completionState;
+        
+        if (!hasClockIn || totalWorkedMinutes == 0) {
+          newStatus = 'missed';
+          completionState = 'none';
+        } else if (totalWorkedMinutes + toleranceMinutes >= scheduledMinutes) {
+          newStatus = 'fullyCompleted';
+          completionState = 'full';
+        } else {
+          newStatus = 'partiallyCompleted';
+          completionState = 'partial';
+        }
+        
+        // Update status and worked minutes
+        updateData['status'] = newStatus;
+        updateData['completion_state'] = completionState;
+        updateData['worked_minutes'] = totalWorkedMinutes;
+        updateData['last_modified'] = Timestamp.fromDate(now);
+        
+        // If shift was active but should be completed, ensure clock_out_time is set
+        if (shift.status == ShiftStatus.active && shift.clockOutTime == null) {
+          updateData['clock_out_time'] = Timestamp.fromDate(shift.shiftEnd);
+        }
+        
+        AppLogger.info('ShiftService: Auto-updating shift ${shift.id} status to $newStatus (worked: $totalWorkedMinutes min, scheduled: $scheduledMinutes min)');
+      }
+      
+      await _shiftsCollection.doc(shift.id).update(updateData);
       AppLogger.debug('Shift updated directly (quick edit)');
     } catch (e) {
       AppLogger.error('Error updating shift directly: $e');
@@ -1562,6 +1735,80 @@ class ShiftService {
       teacherTimezone: teacherTimezone,
       limitDays: 7,
     );
+  }
+
+  /// Clean up orphaned timesheet entries (where the shift no longer exists)
+  /// This fixes stats calculation issues after shifts are deleted
+  static Future<Map<String, dynamic>> cleanupOrphanedTimesheets({
+    String? teacherId,
+    bool deleteOrphans = true,
+  }) async {
+    try {
+      AppLogger.info('ShiftService: Starting orphaned timesheet cleanup...');
+      
+      // Get all timesheet entries
+      QuerySnapshot timesheetSnapshot;
+      if (teacherId != null) {
+        timesheetSnapshot = await _firestore
+            .collection('timesheet_entries')
+            .where('teacher_id', isEqualTo: teacherId)
+            .get();
+      } else {
+        timesheetSnapshot = await _firestore
+            .collection('timesheet_entries')
+            .get();
+      }
+
+      AppLogger.info('ShiftService: Found ${timesheetSnapshot.docs.length} timesheet entries to check');
+
+      final orphanedEntries = <String, String>{}; // timesheetId -> shiftId
+      final batch = _firestore.batch();
+      int checkedCount = 0;
+
+      // Check each timesheet entry to see if its shift still exists
+      for (var doc in timesheetSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final shiftId = data['shift_id'] as String? ?? data['shiftId'] as String?;
+        
+        if (shiftId == null || shiftId.isEmpty) {
+          // Timesheet without shift_id - consider it orphaned
+          orphanedEntries[doc.id] = 'no_shift_id';
+          if (deleteOrphans) {
+            batch.delete(doc.reference);
+          }
+          continue;
+        }
+
+        // Check if shift exists
+        final shiftDoc = await _shiftsCollection.doc(shiftId).get();
+        if (!shiftDoc.exists) {
+          orphanedEntries[doc.id] = shiftId;
+          if (deleteOrphans) {
+            batch.delete(doc.reference);
+          }
+        }
+        
+        checkedCount++;
+        if (checkedCount % 50 == 0) {
+          AppLogger.debug('ShiftService: Checked $checkedCount timesheet entries...');
+        }
+      }
+
+      if (deleteOrphans && orphanedEntries.isNotEmpty) {
+        await batch.commit();
+        AppLogger.info('ShiftService: Deleted ${orphanedEntries.length} orphaned timesheet entries');
+      }
+
+      return {
+        'checked': checkedCount,
+        'orphaned_count': orphanedEntries.length,
+        'deleted': deleteOrphans ? orphanedEntries.length : 0,
+        'orphaned_ids': orphanedEntries.keys.toList(),
+      };
+    } catch (e) {
+      AppLogger.error('Error cleaning up orphaned timesheets: $e');
+      throw Exception('Failed to cleanup orphaned timesheets: $e');
+    }
   }
 
   /// Check if teacher has any active shifts right now

@@ -10,8 +10,13 @@ import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/user_role_service.dart';
+import '../../../core/utils/timezone_utils.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../form_screen.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
+import 'report_schedule_issue_dialog.dart';
+import 'reschedule_shift_dialog.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
   final TeachingShift shift;
@@ -35,8 +40,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   bool _isLoading = true;
   bool _isClockingIn = false;
   bool _isClockingOut = false;
+  bool _useTeacherTimeZone = true; // Time zone toggle for display
   Map<String, dynamic>? _timesheetEntry;
   Map<String, dynamic>? _formResponse;
+  Map<String, dynamic>? _modificationHistory;
+  String _displayTimezone = 'UTC'; // For admin viewing modifications
+  bool _isAdmin = false;
 
   // Timer for live elapsed time display
   Timer? _elapsedTimer;
@@ -84,8 +93,22 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   void initState() {
     super.initState();
     _liveShift = widget.shift;
+    _checkAdminStatus();
     _loadDetails();
     _setupRealtimeListeners();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    try {
+      final isAdmin = await UserRoleService.isAdmin();
+      if (mounted) {
+        setState(() {
+          _isAdmin = isAdmin;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error checking admin status: $e');
+    }
   }
 
   @override
@@ -188,7 +211,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         debugPrint("✅ Found ${_allTimesheetEntries.length} timesheet entries");
 
         // 2. Find Form Response (link to the most recent timesheet or shift)
-        // ... existing form logic ...
+        // Check timesheet first, then check shift directly (for missed shifts)
         final formId = _timesheetEntry!['form_response_id'];
         Map<String, dynamic>? formResponse;
         
@@ -201,7 +224,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             formResponse = formDoc.data();
           }
         } else {
-          // Fallback queries for form response
+          // Fallback queries for form response via timesheet
           var formQuery = await FirebaseFirestore.instance
               .collection('form_responses')
               .where('timesheetId', isEqualTo: _timesheetEntry!['id'])
@@ -229,8 +252,140 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         
         // Start timer if there's an active clock-in (no clock-out)
         _startElapsedTimerIfActive();
-        } else {
+        }
+
+      // 3. Load modification history if shift was modified by teacher
+      final shiftDoc = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(widget.shift.id)
+          .get();
+      
+      if (shiftDoc.exists) {
+        final shiftData = shiftDoc.data();
+        if (shiftData?['teacher_modified'] == true) {
+          // Load modification history
+          final modQuery = await FirebaseFirestore.instance
+              .collection('shift_modifications')
+              .where('shift_id', isEqualTo: widget.shift.id)
+              .orderBy('modified_at', descending: true)
+              .limit(1)
+              .get();
+          
+          if (modQuery.docs.isNotEmpty) {
+            final modData = modQuery.docs.first.data();
+            if (mounted) {
+              setState(() {
+                _modificationHistory = modData;
+                _displayTimezone = modData['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+              });
+            }
+          } else {
+            // Fallback: use data from shift document
+            if (mounted) {
+              setState(() {
+                _modificationHistory = {
+                  'original_start_time': shiftData?['original_start_time'],
+                  'original_end_time': shiftData?['original_end_time'],
+                  'new_start_time': Timestamp.fromDate(widget.shift.shiftStart),
+                  'new_end_time': Timestamp.fromDate(widget.shift.shiftEnd),
+                  'teacher_modification_reason': shiftData?['teacher_modification_reason'],
+                  'teacher_modified_at': shiftData?['teacher_modified_at'],
+                  'timezone_used': shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC',
+                };
+                _displayTimezone = shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+              });
+            }
+          }
+        }
+      } else {
+          // No timesheet entries - check if shift has form linked directly (missed shift case)
+          debugPrint("⚠️ No timesheet entries found - checking for shift-linked form");
+          
+          // Check if shift has form_response_id directly
+          final shiftDoc = await FirebaseFirestore.instance
+              .collection('teaching_shifts')
+              .doc(widget.shift.id)
+              .get();
+          
+          if (shiftDoc.exists) {
+            final shiftData = shiftDoc.data();
+            final shiftFormId = shiftData?['form_response_id'];
+            
+            if (shiftFormId != null) {
+              final formDoc = await FirebaseFirestore.instance
+                  .collection('form_responses')
+                  .doc(shiftFormId)
+                  .get();
+              if (formDoc.exists) {
+                if (mounted) {
+                  setState(() {
+                    _formResponse = formDoc.data();
+                  });
+                }
+              }
+            } else {
+              // Try querying by shiftId
+              final formQuery = await FirebaseFirestore.instance
+                  .collection('form_responses')
+                  .where('shiftId', isEqualTo: widget.shift.id)
+                  .limit(1)
+                  .get();
+              
+              if (formQuery.docs.isNotEmpty) {
+                if (mounted) {
+                  setState(() {
+                    _formResponse = formQuery.docs.first.data();
+                  });
+                }
+              }
+            }
+          }
         debugPrint("❌ No timesheet found for shift: ${widget.shift.id} after all attempts");
+      }
+
+      // 3. Load modification history if shift was modified by teacher
+      final shiftDocForMod = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(widget.shift.id)
+          .get();
+      
+      if (shiftDocForMod.exists) {
+        final shiftData = shiftDocForMod.data();
+        if (shiftData?['teacher_modified'] == true) {
+          // Load modification history
+          final modQuery = await FirebaseFirestore.instance
+              .collection('shift_modifications')
+              .where('shift_id', isEqualTo: widget.shift.id)
+              .orderBy('modified_at', descending: true)
+              .limit(1)
+              .get();
+          
+          if (modQuery.docs.isNotEmpty) {
+            final modData = modQuery.docs.first.data();
+            if (mounted) {
+              setState(() {
+                _modificationHistory = modData;
+                _displayTimezone = modData['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+              });
+            }
+          } else {
+            // Fallback: use data from shift document
+            if (mounted) {
+              setState(() {
+                _modificationHistory = {
+                  'original_start_time': shiftData?['original_start_time'],
+                  'original_end_time': shiftData?['original_end_time'],
+                  'new_start_time': Timestamp.fromDate(widget.shift.shiftStart),
+                  'new_end_time': Timestamp.fromDate(widget.shift.shiftEnd),
+                  'teacher_modification_reason': shiftData?['teacher_modification_reason'],
+                  'teacher_modified_at': shiftData?['teacher_modified_at'],
+                  'timezone_used': shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC',
+                };
+                _displayTimezone = shiftData?['timezone_used'] ?? widget.shift.teacherTimezone ?? 'UTC';
+              });
+            }
+          }
+        }
       }
     } catch (e) {
       debugPrint("Error loading shift details: $e");
@@ -271,10 +426,18 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         return;
       }
 
-      final elapsed = DateTime.now().difference(_clockInTime!);
+      final now = DateTime.now();
+      final elapsed = now.difference(_clockInTime!);
       setState(() {
         _elapsedTime = _formatDuration(elapsed);
       });
+
+      // AUTO CLOCK-OUT CHECK
+      // If current time is past shift end time, automatically clock out
+      // Add 2 seconds buffer to ensure we are definitely past end time
+      if (now.isAfter(widget.shift.shiftEnd.add(const Duration(seconds: 2)))) {
+        _handleAutoClockOut();
+      }
     });
     
     // Update immediately
@@ -283,6 +446,27 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       setState(() {
         _elapsedTime = _formatDuration(elapsed);
       });
+    }
+  }
+
+  Future<void> _handleAutoClockOut() async {
+    // Prevent multiple calls
+    if (_isClockingOut) return;
+    
+    _elapsedTimer?.cancel();
+    debugPrint("🕒 Auto clocking out: Time exceeded shift end");
+    
+    // Call standard clock out
+    await _handleClockOut();
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auto-clocked out: Shift time ended'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -312,9 +496,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Use live shift status for real-time updates
     final status = _liveShift?.status ?? widget.shift.status;
     
-    // Allow clock-in from shift start to shift end
-    // Also allow if status is active (re-entry)
-    return now.isAfter(shiftStart.subtract(const Duration(minutes: 1))) &&
+    // Only allow clock-in when it's actually time (at or after shift start, before shift end)
+    // No early clock-in - must be at or after shift start time
+    return (now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart)) &&
         now.isBefore(shiftEnd) &&
         (status == ShiftStatus.scheduled || status == ShiftStatus.active);
   }
@@ -614,6 +798,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           const SizedBox(height: 20),
                           _buildApprovalStatusSection(),
                           const SizedBox(height: 20),
+                          _buildModificationHistorySection(),
+                          const SizedBox(height: 20),
                           _buildFormSection(),
                   ],
                 ),
@@ -669,6 +855,40 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               ],
             ),
           ),
+          // Reschedule & Report Issue buttons (for teachers)
+          if (FirebaseAuth.instance.currentUser?.uid == widget.shift.teacherId) ...[
+            // Only show reschedule if shift hasn't started yet
+            if (widget.shift.shiftStart.isAfter(DateTime.now()))
+              IconButton(
+                icon: const Icon(Icons.schedule, color: Color(0xFF0386FF), size: 20),
+                tooltip: 'Reschedule shift',
+                onPressed: () async {
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => RescheduleShiftDialog(shift: widget.shift),
+                  );
+                  if (result == true) {
+                    _loadDetails();
+                    widget.onRefresh?.call();
+                  }
+                },
+              ),
+            IconButton(
+              icon: const Icon(Icons.report_problem, color: Color(0xFFF59E0B), size: 20),
+              tooltip: 'Report schedule issue',
+              onPressed: () async {
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => ReportScheduleIssueDialog(shift: widget.shift),
+                );
+                if (result == true) {
+                  // Refresh if timezone was updated
+                  _loadDetails();
+                  widget.onRefresh?.call();
+                }
+              },
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.close, color: Color(0xFF64748B)),
             onPressed: () => Navigator.pop(context),
@@ -824,13 +1044,31 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     if (_allTimesheetEntries.isNotEmpty) {
       
       // Calculate total worked seconds across all entries (for precision)
+      // Use effective_end_timestamp (capped) or cap clock_out_time to shift end for consistency
       int totalSeconds = 0;
       for (final entry in _allTimesheetEntries) {
         final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-        final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+        // Prefer effective_end_timestamp (capped time) for consistency with payment calculation
+        final clockOut = entry['effective_end_timestamp'] ?? entry['clock_out_time'] ?? entry['clock_out_timestamp'];
         
         if (clockIn != null && clockIn is Timestamp && clockOut != null && clockOut is Timestamp) {
-           totalSeconds += clockOut.toDate().difference(clockIn.toDate()).inSeconds;
+          DateTime start = clockIn.toDate();
+          DateTime end = clockOut.toDate();
+          
+          // Cap at shift end time to match payment calculation
+          if (end.isAfter(widget.shift.shiftEnd)) {
+            end = widget.shift.shiftEnd;
+          }
+          
+          // Cap start time at shift start (shouldn't happen, but safety check)
+          if (start.isBefore(widget.shift.shiftStart)) {
+            start = widget.shift.shiftStart;
+          }
+          
+          final duration = end.difference(start);
+          if (!duration.isNegative) {
+            totalSeconds += duration.inSeconds;
+          }
         }
       }
 
@@ -851,7 +1089,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                  DateTime? end;
                  
                  if (clockIn != null && clockIn is Timestamp) start = clockIn.toDate();
-                 if (clockOut != null && clockOut is Timestamp) end = clockOut.toDate();
+                 // Use effective_end_timestamp (capped) for display consistency
+                 final effectiveEnd = entry['effective_end_timestamp'] ?? clockOut;
+                 if (effectiveEnd != null && effectiveEnd is Timestamp) {
+                   end = effectiveEnd.toDate();
+                   // Cap at shift end for display
+                   if (end.isAfter(widget.shift.shiftEnd)) {
+                     end = widget.shift.shiftEnd;
+                   }
+                 }
                  
                  final isEntryCompleted = end != null;
                  final timesheetId = entry['id'] as String?;
@@ -861,8 +1107,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                    children: [
                      _detailRow("Clock In", start != null ? DateFormat('h:mm a').format(start) : "Unknown"),
                      _detailRow("Clock Out", end != null ? DateFormat('h:mm a').format(end) : "Active Now"),
-                     if (end != null && start != null)
-                        _detailRow("Duration", _formatDuration(end.difference(start))),
+                     if (end != null && start != null) ...[
+                       // Cap start time at shift start for display
+                       _detailRow("Duration", _formatDuration(end.difference(start.isBefore(widget.shift.shiftStart) ? widget.shift.shiftStart : start))),
+                     ],
                      
                      if (isEntryCompleted && timesheetId != null) ...[
                        Padding(
@@ -985,28 +1233,76 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final isEdited = _timesheetEntry?['is_edited'] as bool? ?? false;
     final editApproved = _timesheetEntry?['edit_approved'] as bool? ?? false;
     
-    // Calculate total earnings across ALL entries
+    // Get hourly rate for display and calculation
     final hourlyRate = (widget.shift.hourlyRate > 0) 
         ? widget.shift.hourlyRate 
         : (_timesheetEntry?['hourly_rate'] as num?)?.toDouble() ?? 15.0;
     
-    int totalSeconds = 0;
-    double earnings = 0;
+    // Use actual payment from timesheet if available (saved during clock-out)
+    // This ensures consistency between phone and website
+    double earnings = 0.0;
     
-    // Calculate total time worked across ALL entries (using seconds for precision)
+    // Sum up payment_amount from all timesheet entries
     for (final entry in _allTimesheetEntries) {
-      final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
-      final clockOut = entry['clock_out_time'] ?? entry['clock_out_timestamp'];
-      
-      if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
-        final duration = clockOut.toDate().difference(clockIn.toDate());
-        totalSeconds += duration.inSeconds;
-      }
+      final paymentAmount = (entry['payment_amount'] as num?)?.toDouble() ??
+          (entry['total_pay'] as num?)?.toDouble() ??
+          0.0;
+      earnings += paymentAmount;
     }
     
-    // Convert seconds to hours for earnings calculation (precise)
-    final hoursWorked = totalSeconds / 3600.0;
-    earnings = hoursWorked * hourlyRate;
+    // If no payment found in timesheet (legacy data or not clocked out yet),
+    // calculate from hours worked as fallback
+    if (earnings == 0.0 && _allTimesheetEntries.isNotEmpty) {
+      
+      int totalSeconds = 0;
+      
+      // Calculate total time worked across ALL entries (using seconds for precision)
+      // Prefer using the new 'effective_end_timestamp' if available, otherwise use clock_out
+      for (final entry in _allTimesheetEntries) {
+        final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+        // Prefer effective_end_timestamp (capped time) for payment calculation
+        final clockOut = entry['effective_end_timestamp'] ?? entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+        
+        if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
+          DateTime start = clockIn.toDate();
+          DateTime end = clockOut.toDate();
+
+          // FRONTEND SAFEGUARD: Cap at shift end if the backend field didn't exist yet
+          if (end.isAfter(widget.shift.shiftEnd)) {
+            end = widget.shift.shiftEnd;
+          }
+
+          // Calculate duration, ensuring no negative values
+          final duration = end.difference(start);
+          if (!duration.isNegative) {
+            totalSeconds += duration.inSeconds;
+          }
+        }
+      }
+      
+      // Convert seconds to hours for earnings calculation (precise)
+      final hoursWorked = totalSeconds / 3600.0;
+      earnings = hoursWorked * hourlyRate;
+    }
+    
+    // Format total time for display (if we calculated it)
+    int totalSeconds = 0;
+    for (final entry in _allTimesheetEntries) {
+      final clockIn = entry['clock_in_time'] ?? entry['clock_in_timestamp'];
+      final clockOut = entry['effective_end_timestamp'] ?? entry['clock_out_time'] ?? entry['clock_out_timestamp'];
+      
+      if (clockIn != null && clockOut != null && clockIn is Timestamp && clockOut is Timestamp) {
+        DateTime start = clockIn.toDate();
+        DateTime end = clockOut.toDate();
+        if (end.isAfter(widget.shift.shiftEnd)) {
+          end = widget.shift.shiftEnd;
+        }
+        final duration = end.difference(start);
+        if (!duration.isNegative) {
+          totalSeconds += duration.inSeconds;
+        }
+      }
+    }
     
     // Format total time as HH:MM:SS for display
     final hours = totalSeconds ~/ 3600;
@@ -1060,6 +1356,26 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       title: "Approval & Earnings",
       icon: Icons.verified,
       children: [
+        // Time zone toggle (optional - for admin viewing)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              _useTeacherTimeZone ? "Shift Time" : "Local Time",
+              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+            ),
+            Switch(
+              value: !_useTeacherTimeZone,
+              activeColor: const Color(0xFF0386FF),
+              onChanged: (val) {
+                setState(() {
+                  _useTeacherTimeZone = !val;
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         // Status badge
         Container(
           padding: const EdgeInsets.all(16),
@@ -1268,6 +1584,239 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     );
   }
 
+  Widget _buildModificationHistorySection() {
+    // Only show for admins and if shift was modified by teacher
+    if (_modificationHistory == null || !_isAdmin) {
+      return const SizedBox.shrink();
+    }
+
+    final originalStart = _modificationHistory!['original_start_time'] as Timestamp?;
+    final originalEnd = _modificationHistory!['original_end_time'] as Timestamp?;
+    final newStart = _modificationHistory!['new_start_time'] as Timestamp?;
+    final newEnd = _modificationHistory!['new_end_time'] as Timestamp?;
+    final reason = _modificationHistory!['teacher_modification_reason'] as String?;
+    final modifiedAt = _modificationHistory!['teacher_modified_at'] as Timestamp?;
+    final timezoneUsed = _modificationHistory!['timezone_used'] as String? ?? _displayTimezone;
+
+    if (originalStart == null || originalEnd == null || newStart == null || newEnd == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Convert times to display timezone
+    final originalStartLocal = TimezoneUtils.convertToTimezone(originalStart.toDate(), _displayTimezone);
+    final originalEndLocal = TimezoneUtils.convertToTimezone(originalEnd.toDate(), _displayTimezone);
+    final newStartLocal = TimezoneUtils.convertToTimezone(newStart.toDate(), _displayTimezone);
+    final newEndLocal = TimezoneUtils.convertToTimezone(newEnd.toDate(), _displayTimezone);
+
+    return _buildSection(
+      title: "Modification History",
+      icon: Icons.edit_note,
+      children: [
+        // Timezone selector for admins
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Display Timezone:',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _displayTimezone,
+                  isDense: true,
+                  style: GoogleFonts.inter(fontSize: 12),
+                  items: TimezoneUtils.getCommonTimezones().map((tz) {
+                    return DropdownMenuItem<String>(
+                      value: tz,
+                      child: Text(tz, style: GoogleFonts.inter(fontSize: 12)),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _displayTimezone = value);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 12),
+        // Original times
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFECACA)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 16, color: Colors.red.shade700),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Original Schedule',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${DateFormat('MMM d, h:mm a').format(originalStartLocal)} - ${DateFormat('h:mm a').format(originalEndLocal)}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+              Text(
+                '(${TimezoneUtils.getTimezoneAbbreviation(_displayTimezone)})',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Arrow
+        Center(
+          child: Icon(Icons.arrow_downward, size: 20, color: Colors.blue.shade700),
+        ),
+        const SizedBox(height: 12),
+        // New times
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFBBF7D0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 16, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Modified Schedule',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${DateFormat('MMM d, h:mm a').format(newStartLocal)} - ${DateFormat('h:mm a').format(newEndLocal)}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+              Text(
+                '(${TimezoneUtils.getTimezoneAbbreviation(_displayTimezone)})',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (reason != null && reason.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.note, size: 16, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Reason',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  reason,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (modifiedAt != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Modified: ${DateFormat('MMM d, yyyy h:mm a').format(modifiedAt.toDate())}',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: const Color(0xFF64748B),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Icon(Icons.public, size: 14, color: const Color(0xFF64748B)),
+            const SizedBox(width: 4),
+            Text(
+              'Teacher used timezone: ${timezoneUsed}',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: const Color(0xFF64748B),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildFormSection() {
     final isReportSubmitted = _formResponse != null;
     
@@ -1430,6 +1979,181 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         ],
         ),
       );
+    } else {
+      // Missed shift case - no timesheet entry, but can still fill form
+      final shiftStatus = _liveShift?.status ?? widget.shift.status;
+      final isMissed = shiftStatus == ShiftStatus.missed;
+      
+      if (isMissed) {
+        // Check if form already submitted for this missed shift
+        final hasForm = _formResponse != null;
+        
+        if (hasForm) {
+          // Form already submitted for missed shift
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.assignment_turned_in, color: Color(0xFF15803D), size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Class Report Submitted (Missed Shift)",
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF15803D),
+                            ),
+                          ),
+                          if (_formResponse!['reportedHours'] != null)
+                            Text(
+                              "Hours Logged: ${_formResponse!['reportedHours']} hrs",
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: const Color(0xFF166534),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // Show form responses if available
+                if (_formResponse!['responses'] != null) ...[
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ...(_formResponse!['responses'] as Map<String, dynamic>).entries.map((entry) {
+                    if (entry.value == null || entry.value.toString().isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        "${_formatFieldName(entry.key)}: ${entry.value}",
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF4B5563)),
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ],
+            ),
+          );
+        } else {
+          // No form submitted yet - show button to fill form
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFCD34D)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Missed Shift - Class Report Required",
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFD97706),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "This shift was missed. Please fill out the readiness form to explain the reason.",
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF92400E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final shiftId = widget.shift.id;
+                      final formId = ShiftFormService.readinessFormId;
+                      
+                      debugPrint('📋 Fill Form button pressed for missed shift:');
+                      debugPrint('   - shiftId: $shiftId');
+                      debugPrint('   - formId: $formId');
+                      
+                      // Verify the form exists before navigating
+                      final formDoc = await FirebaseFirestore.instance
+                          .collection('form')
+                          .doc(formId)
+                          .get();
+                      
+                      if (!formDoc.exists) {
+                        debugPrint('❌ Form with ID $formId does NOT exist in database!');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Form not found. Please contact admin. (ID: $formId)'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      
+                      debugPrint('✅ Form exists: ${formDoc.data()?['title'] ?? 'Untitled'}');
+                      
+                      // Navigate to the form (no timesheetId for missed shifts)
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => FormScreen(
+                              timesheetId: null, // No timesheet for missed shift
+                              shiftId: shiftId,
+                              autoSelectFormId: formId,
+                            ),
+                          ),
+                        ).then((_) {
+                          // Refresh after returning from form
+                          _loadDetails();
+                          widget.onRefresh?.call();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.assignment),
+                    label: const Text("Fill Class Report Now"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD97706),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      }
     }
 
     return const SizedBox.shrink();

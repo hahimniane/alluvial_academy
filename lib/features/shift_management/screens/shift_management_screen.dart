@@ -11,6 +11,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../widgets/create_shift_dialog.dart';
 import '../widgets/teacher_shift_calendar.dart';
@@ -70,6 +71,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   List<TeachingShift> _filteredTodayShifts = [];
   List<TeachingShift> _filteredUpcomingShifts = [];
   List<TeachingShift> _filteredActiveShifts = [];
+
+  // Payment cache: shiftId -> actual payment amount from timesheet
+  Map<String, double> _shiftPayments = {};
 
   @override
   void initState() {
@@ -140,8 +144,22 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
       shiftsStream.listen((shifts) async {
         if (mounted) {
+          // Load actual payment amounts from timesheets for each shift
+          final paymentMap = <String, double>{};
+          for (var shift in shifts) {
+            try {
+              final actualPayment = await ShiftTimesheetService.getActualPaymentForShift(shift.id);
+              paymentMap[shift.id] = actualPayment;
+            } catch (e) {
+              AppLogger.error('Error loading payment for shift ${shift.id}: $e');
+              // Fallback to scheduled payment if timesheet payment can't be loaded
+              paymentMap[shift.id] = shift.totalPayment;
+            }
+          }
+
           setState(() {
             _allShifts = shifts;
+            _shiftPayments = paymentMap;
             _categorizeShifts();
             _isLoading = false;
           });
@@ -1310,6 +1328,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         key: _dataGridKey,
         source: ShiftDataSource(
           shifts: shifts,
+          shiftPayments: _shiftPayments,
           onViewDetails: _showShiftDetails,
           onEditShift: _editShift,
           onDeleteShift: _deleteShift,
@@ -1559,6 +1578,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
 
         await ShiftService.deleteShift(shift.id);
+        
+        // Clean up any orphaned timesheets after deletion
+        await ShiftService.cleanupOrphanedTimesheets(deleteOrphans: true);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1569,6 +1591,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           );
           // Force refresh statistics
           _loadShiftStatistics();
+          _loadShiftData(); // Reload shifts to update payment cache
         }
       } catch (e) {
         if (mounted) {
@@ -2581,6 +2604,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
 class ShiftDataSource extends DataGridSource {
   final List<TeachingShift> shifts;
+  final Map<String, double> shiftPayments; // shiftId -> actual payment from timesheet
   final Function(TeachingShift) onViewDetails;
   final Function(TeachingShift) onEditShift;
   final Function(TeachingShift) onDeleteShift;
@@ -2591,6 +2615,7 @@ class ShiftDataSource extends DataGridSource {
 
   ShiftDataSource({
     required this.shifts,
+    required this.shiftPayments,
     required this.onViewDetails,
     required this.onEditShift,
     required this.onDeleteShift,
@@ -2623,7 +2648,10 @@ class ShiftDataSource extends DataGridSource {
         DataGridCell<String>(
             columnName: 'schedule', value: _formatSchedule(shift)),
         DataGridCell<String>(columnName: 'status', value: shift.status.name),
-        DataGridCell<double>(columnName: 'payment', value: shift.totalPayment),
+        // Use actual payment from timesheet if available, otherwise use scheduled payment
+        DataGridCell<double>(
+            columnName: 'payment',
+            value: shiftPayments[shift.id] ?? shift.totalPayment),
         DataGridCell<TeachingShift>(columnName: 'actions', value: shift),
       ]);
 

@@ -50,12 +50,15 @@ class ShiftFormService {
   }
 
   /// Check if a teacher has pending (unfilled) forms for today
+  /// Includes both completed shifts with timesheets AND missed shifts without timesheets
   static Future<List<Map<String, dynamic>>> getPendingFormsForTeacher() async {
     try {
       final user = _auth.currentUser;
       if (user == null) return [];
 
-      // Get today's completed timesheet entries without form responses
+      final pendingForms = <Map<String, dynamic>>[];
+
+      // 1. Get completed timesheet entries without form responses
       final today = DateTime.now();
       final startOfDay = DateTime(today.year, today.month, today.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -68,8 +71,6 @@ class ShiftFormService {
           .where('created_at', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
-      final pendingForms = <Map<String, dynamic>>[];
-
       for (final doc in timesheetQuery.docs) {
         final data = doc.data();
         final formCompleted = data['form_completed'] ?? false;
@@ -77,13 +78,73 @@ class ShiftFormService {
         if (!formCompleted) {
           pendingForms.add({
             'timesheetId': doc.id,
-            'shiftId': data['shift_id'],
+            'shiftId': data['shift_id'] ?? data['shiftId'],
             'shiftTitle': data['shift_title'] ?? 'Unknown Shift',
             'clockInTime': data['clock_in_time'],
             'clockOutTime': data['clock_out_time'],
+            'type': 'completed', // Has timesheet entry
           });
         }
       }
+
+      // 2. Get missed shifts (no timesheet entries) that need forms
+      // Look for shifts marked as "missed" in the last 7 days that don't have form responses
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      
+      final missedShiftsQuery = await _firestore
+          .collection('teaching_shifts')
+          .where('teacher_id', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'missed')
+          .where('shift_end', isGreaterThanOrEqualTo: Timestamp.fromDate(sevenDaysAgo))
+          .get();
+
+      for (final shiftDoc in missedShiftsQuery.docs) {
+        final shiftData = shiftDoc.data();
+        final shiftId = shiftDoc.id;
+        
+        // Check if form already exists for this shift
+        final formResponseId = await getFormResponseForShift(shiftId);
+        if (formResponseId != null) {
+          continue; // Form already submitted
+        }
+
+        // Check if timesheet exists (if it does, it's already handled above)
+        final timesheetCheck = await _firestore
+            .collection('timesheet_entries')
+            .where('shift_id', isEqualTo: shiftId)
+            .where('teacher_id', isEqualTo: user.uid)
+            .limit(1)
+            .get();
+        
+        if (timesheetCheck.docs.isNotEmpty) {
+          continue; // Has timesheet, already handled above
+        }
+
+        // This is a missed shift without timesheet - needs form
+        final shiftStart = shiftData['shift_start']?.toDate();
+        final shiftEnd = shiftData['shift_end']?.toDate();
+        
+        pendingForms.add({
+          'shiftId': shiftId,
+          'shiftTitle': shiftData['auto_generated_name'] ?? 
+                       shiftData['custom_name'] ?? 
+                       'Unknown Shift',
+          'shiftStart': shiftStart,
+          'shiftEnd': shiftEnd,
+          'missedReason': shiftData['missed_reason'] ?? 'Teacher did not clock in',
+          'type': 'missed', // No timesheet entry
+        });
+      }
+
+      // Sort by shift end time (most recent first)
+      pendingForms.sort((a, b) {
+        final aTime = a['shiftEnd']?.toDate() ?? a['clockOutTime']?.toDate();
+        final bTime = b['shiftEnd']?.toDate() ?? b['clockOutTime']?.toDate();
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
 
       return pendingForms;
     } catch (e) {
@@ -112,6 +173,31 @@ class ShiftFormService {
       return true;
     } catch (e) {
       AppLogger.error('ShiftFormService: Error linking form to timesheet: $e');
+      return false;
+    }
+  }
+
+  /// Link a form response directly to a shift (for missed shifts without timesheet)
+  static Future<bool> linkFormToShift({
+    required String shiftId,
+    required String formResponseId,
+    double? reportedHours,
+    String? formNotes,
+  }) async {
+    try {
+      // Update the shift document to track form completion
+      await _firestore.collection('teaching_shifts').doc(shiftId).update({
+        'form_response_id': formResponseId,
+        'form_completed': true,
+        'form_completed_at': FieldValue.serverTimestamp(),
+        'reported_hours': reportedHours,
+        'form_notes': formNotes,
+      });
+
+      AppLogger.debug('ShiftFormService: Linked form $formResponseId to shift $shiftId');
+      return true;
+    } catch (e) {
+      AppLogger.error('ShiftFormService: Error linking form to shift: $e');
       return false;
     }
   }

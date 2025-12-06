@@ -176,108 +176,23 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
   }
 
-  /// Check for pending Readiness Forms from completed shifts in the last 2 days
+  /// Check for pending Readiness Forms from completed AND missed shifts
+  /// Uses ShiftFormService which handles both cases
   Future<void> _loadPendingFormsCount(String teacherId) async {
     try {
-      final now = DateTime.now();
-      final twoDaysAgo = now.subtract(const Duration(days: 2));
-
-      // Query completed shifts from the last 2 days
-      final completedShifts = await FirebaseFirestore.instance
-          .collection('teaching_shifts')
-          .where('teacher_id', isEqualTo: teacherId)
-          .where('shift_end', isGreaterThanOrEqualTo: Timestamp.fromDate(twoDaysAgo))
-          .where('shift_end', isLessThanOrEqualTo: Timestamp.fromDate(now))
-          .get();
-
-      int pendingCount = 0;
-      List<Map<String, dynamic>> pendingShifts = [];
-
-      for (final shiftDoc in completedShifts.docs) {
-        final shiftData = shiftDoc.data();
-        final shiftId = shiftDoc.id;
-        final status = shiftData['status'] as String?;
-
-        // Only check completed shifts
-        if (status != 'fullyCompleted' &&
-            status != 'partiallyCompleted' &&
-            status != 'completed') {
-          continue;
-        }
-
-        // Check for timesheet entries
-        final timesheetEntries = await FirebaseFirestore.instance
-            .collection('timesheet_entries')
-            .where('shift_id', isEqualTo: shiftId)
-            .get();
-
-        for (final timesheetDoc in timesheetEntries.docs) {
-          final timesheetId = timesheetDoc.id;
-          final timesheetData = timesheetDoc.data();
-          final formResponseId = timesheetData['form_response_id'];
-
-          // Check if form response exists
-          bool hasFormResponse = false;
-
-          if (formResponseId != null) {
-            final formDoc = await FirebaseFirestore.instance
-                .collection('form_responses')
-                .doc(formResponseId)
-                .get();
-            hasFormResponse = formDoc.exists;
-          }
-
-          // Try alternate fields
-          if (!hasFormResponse) {
-            final formQuery = await FirebaseFirestore.instance
-                .collection('form_responses')
-                .where('timesheet_id', isEqualTo: timesheetId)
-                .limit(1)
-                .get();
-            hasFormResponse = formQuery.docs.isNotEmpty;
-          }
-
-          if (!hasFormResponse) {
-            final formQuery = await FirebaseFirestore.instance
-                .collection('form_responses')
-                .where('timesheetId', isEqualTo: timesheetId)
-                .limit(1)
-                .get();
-            hasFormResponse = formQuery.docs.isNotEmpty;
-          }
-
-          if (!hasFormResponse) {
-            pendingCount++;
-            // Store shift details for display
-            pendingShifts.add({
-              'shiftId': shiftId,
-              'timesheetId': timesheetId,
-              'displayName': shiftData['display_name'] ?? shiftData['class_name'] ?? 'Class',
-              'shiftDate': (shiftData['shift_start'] as Timestamp?)?.toDate(),
-              'shiftEnd': (shiftData['shift_end'] as Timestamp?)?.toDate(),
-              'subject': shiftData['subject'] ?? '',
-              'studentNames': shiftData['student_names'] ?? [],
-            });
-          }
-        }
-      }
-
-      // Sort by date (most recent first)
-      pendingShifts.sort((a, b) {
-        final dateA = a['shiftDate'] as DateTime?;
-        final dateB = b['shiftDate'] as DateTime?;
-        if (dateA == null || dateB == null) return 0;
-        return dateB.compareTo(dateA);
-      });
-
+      // Use the service method that handles both completed and missed shifts
+      final pendingForms = await ShiftFormService.getPendingFormsForTeacher();
+      
       if (mounted) {
         setState(() {
-          _pendingFormsCount = pendingCount;
-          _pendingFormShifts = pendingShifts;
+          _pendingFormsCount = pendingForms.length;
+          _pendingFormShifts = pendingForms;
         });
       }
 
-      debugPrint('📋 Pending forms count: $pendingCount');
+      debugPrint('📋 Pending forms count: ${pendingForms.length}');
+      debugPrint('   - Completed shifts: ${pendingForms.where((f) => f['type'] == 'completed').length}');
+      debugPrint('   - Missed shifts: ${pendingForms.where((f) => f['type'] == 'missed').length}');
     } catch (e) {
       debugPrint('Error loading pending forms count: $e');
     }
@@ -379,6 +294,29 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           hoursWorked = duration.inSeconds / 3600.0; // Use seconds for accurate sub-minute tracking
         }
         
+        // IMPORTANT: Verify shift still exists before counting stats
+        final shiftId = data['shift_id'] as String? ?? data['shiftId'] as String?;
+        bool shiftExists = false;
+        
+        if (shiftId != null && shiftId.isNotEmpty) {
+          try {
+            final shiftDoc = await FirebaseFirestore.instance
+                .collection('teaching_shifts')
+                .doc(shiftId)
+                .get();
+            shiftExists = shiftDoc.exists;
+          } catch (e) {
+            debugPrint('Error checking shift existence: $e');
+            shiftExists = false;
+          }
+        }
+        
+        // Skip this timesheet if shift doesn't exist (orphaned entry)
+        if (!shiftExists) {
+          debugPrint('⚠️ Skipping orphaned timesheet entry ${doc.id} - shift $shiftId does not exist');
+          continue;
+        }
+        
         // Check timesheet status
         if (status == 'pending') {
           pendingCount++;
@@ -396,15 +334,20 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         final isToday = clockInDate.isAfter(startOfToday.subtract(const Duration(seconds: 1))) && 
                         clockInDate.isBefore(endOfToday);
         
-        // Determine correct earnings value
-        double shiftEarnings = hoursWorked * hourlyRate;
+        // Calculate earnings - PREFER payment_amount from timesheet (saved during clock-out)
+        // This ensures consistency with what was actually paid
+        double shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
+                               (data['total_pay'] as num?)?.toDouble() ??
+                               (hoursWorked * hourlyRate); // Fallback to calculation
         
         // If edited and approved, verify against total_hours if available or recalculate
         if (isEdited && editApproved) {
            // The hoursWorked calculated above uses the clock_in/out from the document
            // Since the document is updated upon edit, hoursWorked should already be correct
            // However, if there's a total_hours string override or specific earnings override, check here
-           shiftEarnings = hoursWorked * hourlyRate;
+           shiftEarnings = (data['payment_amount'] as num?)?.toDouble() ??
+                          (data['total_pay'] as num?)?.toDouble() ??
+                          (hoursWorked * hourlyRate);
         }
         
         if (isThisWeek && clockOut != null) {
@@ -427,11 +370,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         }
         
         // Get unique students from shift
-        if (data['shift_id'] != null && isThisWeek) {
+        if (shiftId != null && isThisWeek && shiftExists) {
           try {
             final shiftDoc = await FirebaseFirestore.instance
                 .collection('teaching_shifts')
-                .doc(data['shift_id'])
+                .doc(shiftId)
                 .get();
             
             if (shiftDoc.exists) {
@@ -1029,13 +972,23 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                       separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
                       itemBuilder: (context, index) {
                         final shift = _pendingFormShifts[index];
-                        final shiftDate = shift['shiftDate'] as DateTime?;
-                        final shiftEnd = shift['shiftEnd'] as DateTime?;
+                        final shiftType = shift['type'] as String?;
+                        final isMissed = shiftType == 'missed';
+                        
+                        // Handle different data structures
+                        final shiftTitle = shift['shiftTitle'] ?? 
+                                         shift['displayName'] ?? 
+                                         'Unknown Shift';
+                        final shiftDate = shift['shiftDate'] as DateTime? ?? 
+                                         (shift['shiftStart'] as Timestamp?)?.toDate();
+                        final shiftEnd = shift['shiftEnd'] as DateTime? ?? 
+                                        (shift['shiftEnd'] as Timestamp?)?.toDate();
                         final subject = shift['subject'] as String? ?? '';
                         final studentNames = shift['studentNames'] as List<dynamic>? ?? [];
                         final studentDisplay = studentNames.isNotEmpty 
                             ? studentNames.join(', ') 
                             : 'Student';
+                        final missedReason = shift['missedReason'] as String?;
                         
                         return InkWell(
                           onTap: () {
@@ -1044,6 +997,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: isMissed ? BoxDecoration(
+                              color: Colors.orange.withOpacity(0.05),
+                              border: Border(
+                                left: BorderSide(color: Colors.orange, width: 3),
+                              ),
+                            ) : null,
                             child: Row(
                               children: [
                                 // Left side - shift info
@@ -1051,34 +1010,79 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // Student - Subject
-                                      Text(
-                                        '$studentDisplay - $subject',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF1E293B),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                      // Title with missed badge
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              isMissed ? shiftTitle : '$studentDisplay - $subject',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF1E293B),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isMissed)
+                                            Container(
+                                              margin: const EdgeInsets.only(left: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'Missed',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.orange.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                       const SizedBox(height: 4),
                                       // Time: Start - End
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.access_time, size: 14, color: Color(0xFF64748B)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            shiftDate != null && shiftEnd != null
-                                                ? '${DateFormat('h:mm a').format(shiftDate)} - ${DateFormat('h:mm a').format(shiftEnd)}'
-                                                : 'Time not available',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 13,
-                                              color: const Color(0xFF64748B),
+                                      if (shiftDate != null && shiftEnd != null)
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              isMissed ? Icons.error_outline : Icons.access_time,
+                                              size: 14,
+                                              color: isMissed ? Colors.orange : const Color(0xFF64748B),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${DateFormat('h:mm a').format(shiftDate)} - ${DateFormat('h:mm a').format(shiftEnd)}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                color: const Color(0xFF64748B),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      else if (isMissed && missedReason != null)
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.info_outline, size: 14, color: Colors.orange),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                missedReason,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  color: Colors.orange.shade700,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       const SizedBox(height: 2),
                                       // Date
                                       Row(
@@ -1088,7 +1092,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                           Text(
                                             shiftDate != null
                                                 ? DateFormat('EEEE, MMMM d, yyyy').format(shiftDate)
-                                                : 'Date not available',
+                                                : shiftEnd != null
+                                                    ? DateFormat('EEEE, MMMM d, yyyy').format(shiftEnd)
+                                                    : 'Date not available',
                                             style: GoogleFonts.inter(
                                               fontSize: 12,
                                               color: const Color(0xFF94A3B8),
@@ -1137,28 +1143,33 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   }
 
   /// Navigate to FormScreen for a specific shift
+  /// Handles both completed shifts (with timesheet) and missed shifts (without timesheet)
   void _navigateToFormForShift(Map<String, dynamic> shift) {
     final timesheetId = shift['timesheetId'] as String?;
     final shiftId = shift['shiftId'] as String?;
+    final shiftType = shift['type'] as String?; // 'completed' or 'missed'
     
-    if (timesheetId == null || shiftId == null) {
+    // Shift ID is required, but timesheetId is optional (for missed shifts)
+    if (shiftId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Error: Missing timesheet or shift information'),
+          content: Text('Error: Missing shift information'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    debugPrint('📋 Navigating to form for shift: $shiftId, timesheet: $timesheetId');
+    debugPrint('📋 Navigating to form for shift: $shiftId');
+    debugPrint('   - Type: ${shiftType ?? "unknown"}');
+    debugPrint('   - TimesheetId: $timesheetId');
     
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FormScreen(
-          timesheetId: timesheetId,
-          shiftId: shiftId,
+          timesheetId: timesheetId, // Can be null for missed shifts
+          shiftId: shiftId, // Always required
           autoSelectFormId: ShiftFormService.readinessFormId,
         ),
       ),
@@ -1663,6 +1674,20 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MySubmissionsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              _buildCompactQuickAccessCard(
+                icon: Icons.article_outlined,
+                label: 'Forms',
+                color: const Color(0xFFEC4899),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FormScreen(),
                     ),
                   );
                 },

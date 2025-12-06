@@ -2120,24 +2120,48 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   Widget _buildConversionPreview() {
-    final now = DateTime.now();
+    if (_selectedTimezone == _adminTimezone) {
+      return const SizedBox.shrink();
+    }
+
+    // Check if shift spans next day in selected timezone
+    final startMinutes = _startTime.hour * 60 + _startTime.minute;
+    final endMinutes = _endTime.hour * 60 + _endTime.minute;
+    final spansNextDay = endMinutes <= startMinutes;
+
+    // Create DateTime objects using the selected date (in selected timezone)
     final shiftStart = DateTime(
-      now.year,
-      now.month,
-      now.day,
+      _shiftDate.year,
+      _shiftDate.month,
+      _shiftDate.day,
       _startTime.hour,
       _startTime.minute,
     );
 
-    final conversionText = TimezoneUtils.formatConversion(
-      shiftStart,
-      _selectedTimezone,
-      _adminTimezone,
+    final endDate = spansNextDay 
+        ? _shiftDate.add(const Duration(days: 1))
+        : _shiftDate;
+    
+    final shiftEnd = DateTime(
+      endDate.year,
+      endDate.month,
+      endDate.day,
+      _endTime.hour,
+      _endTime.minute,
     );
 
-    if (conversionText.isEmpty || _selectedTimezone == _adminTimezone) {
-      return const SizedBox.shrink();
-    }
+    // Convert to UTC first (treating the naive DateTime as being in selected timezone)
+    final utcStart = TimezoneUtils.convertToUtc(shiftStart, _selectedTimezone);
+    final utcEnd = TimezoneUtils.convertToUtc(shiftEnd, _selectedTimezone);
+    
+    // Then convert UTC to admin's timezone for display
+    final adminStartConverted = TimezoneUtils.convertToTimezone(utcStart, _adminTimezone);
+    final adminEndConverted = TimezoneUtils.convertToTimezone(utcEnd, _adminTimezone);
+
+    final startText = DateFormat('MMM d, h:mm a').format(adminStartConverted);
+    final endText = DateFormat('MMM d, h:mm a').format(adminEndConverted);
+    final startAbbr = TimezoneUtils.getTimezoneAbbreviation(_adminTimezone);
+    final selectedAbbr = TimezoneUtils.getTimezoneAbbreviation(_selectedTimezone);
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -2147,33 +2171,61 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xffE5E7EB)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.swap_horiz, size: 20, color: Color(0xff6B7280)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Local Time Conversion',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff6B7280),
-                  ),
+          Row(
+            children: [
+              const Icon(Icons.swap_horiz, size: 20, color: Color(0xff6B7280)),
+              const SizedBox(width: 8),
+              Text(
+                'Time Conversion Preview',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff6B7280),
                 ),
-                Text(
-                  conversionText,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff374151),
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Selected (${selectedAbbr}): ${DateFormat('MMM d').format(_shiftDate)}, ${_startTime.format(context)} - ${spansNextDay ? DateFormat('MMM d').format(endDate) + ', ' : ''}${_endTime.format(context)}',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff374151),
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Your time (${startAbbr}): $startText - $endText',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff0386FF),
+            ),
+          ),
+          if (adminStartConverted.day != adminEndConverted.day)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.orange.shade700),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'This shift spans two days in your timezone',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -2228,14 +2280,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     setState(() {
                       _startTime = time;
                       // Auto-set end time to 1 hour later
-                      int endHour = time.hour + 1;
+                      // Allow it to go past midnight - timezone conversion will handle it
+                      int endHour = (time.hour + 1) % 24;
                       int endMinute = time.minute;
-
-                      // Handle day overflow (clamp to 23:59 for same-day shifts)
-                      if (endHour >= 24) {
-                        endHour = 23;
-                        endMinute = 59;
-                      }
 
                       _endTime = TimeOfDay(hour: endHour, minute: endMinute);
                     });
@@ -2295,23 +2342,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     initialTime: _endTime,
                   );
                   if (time != null) {
-                    // Validate end time is after start time
-                    final startMinutes =
-                        _startTime.hour * 60 + _startTime.minute;
-                    final endMinutes = time.hour * 60 + time.minute;
-
-                    if (endMinutes <= startMinutes) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('End time must be after start time'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                      return;
-                    }
-
+                    // Allow end time to be less than start time (means next day)
+                    // Timezone conversion will handle the actual date calculation
                     setState(() {
                       _endTime = time;
                     });
@@ -2629,6 +2661,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       
       // Create a naive DateTime (year, month, day, hour, minute) that represents
       // the time in the selected timezone, then convert it to UTC properly
+      // If end time is earlier than start time, it means the shift spans to next day
+      final startMinutes = _startTime.hour * 60 + _startTime.minute;
+      final endMinutes = _endTime.hour * 60 + _endTime.minute;
+      final spansNextDay = endMinutes <= startMinutes;
+      
       final naiveStart = DateTime(
         effectiveDate.year,
         effectiveDate.month,
@@ -2637,10 +2674,15 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         _startTime.minute,
       );
       
+      // If end time is earlier than start time, add one day
+      final endDate = spansNextDay 
+          ? effectiveDate.add(const Duration(days: 1))
+          : effectiveDate;
+      
       final naiveEnd = DateTime(
-        effectiveDate.year,
-        effectiveDate.month,
-        effectiveDate.day,
+        endDate.year,
+        endDate.month,
+        endDate.day,
         _endTime.hour,
         _endTime.minute,
       );
