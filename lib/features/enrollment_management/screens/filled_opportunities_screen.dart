@@ -3,12 +3,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import '../../../core/models/job_opportunity.dart';
 import '../../../core/services/job_board_service.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
 
-class FilledOpportunitiesScreen extends StatelessWidget {
+class FilledOpportunitiesScreen extends StatefulWidget {
   const FilledOpportunitiesScreen({super.key});
+
+  @override
+  State<FilledOpportunitiesScreen> createState() => _FilledOpportunitiesScreenState();
+}
+
+class _FilledOpportunitiesScreenState extends State<FilledOpportunitiesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    tz.initializeTimeZones(); // Initialize timezone database for conversions
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +88,7 @@ class FilledOpportunitiesScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: Colors.red, size: 32),
+          const Icon(Icons.handshake_rounded, color: Color(0xff10B981), size: 32),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -82,14 +96,14 @@ class FilledOpportunitiesScreen extends StatelessWidget {
               children: [
                 Text(
                   'Filled Opportunities',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xff111827),
                   ),
                 ),
                 Text(
-                  'Create shifts for matched teacher-student pairs',
+                  'Finalize schedules for matched students and teachers',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -115,8 +129,10 @@ class _FilledJobCard extends StatefulWidget {
 
 class _FilledJobCardState extends State<_FilledJobCard> {
   bool _isLoadingTeacher = false;
+  bool _isCreatingStudent = false;
   String? _teacherName;
   String? _teacherEmail;
+  String? _teacherTimezone; // We will load this from Firestore
 
   @override
   void initState() {
@@ -139,16 +155,18 @@ class _FilledJobCardState extends State<_FilledJobCard> {
         setState(() {
           _teacherName = '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
           _teacherEmail = data['e-mail'] ?? '';
+          // CRITICAL: Get the teacher's timezone from their profile (e.g., "GMT", "Africa/Abidjan")
+          _teacherTimezone = data['timezone'] ?? 'UTC'; 
         });
       }
-      } catch (e) {
-        // Error loading teacher info - will show teacher ID instead
-      } finally {
+    } catch (e) {
+      AppLogger.error('Error loading teacher info: $e');
+    } finally {
       if (mounted) setState(() => _isLoadingTeacher = false);
     }
   }
 
-  /// Check if student exists in the system by email
+  /// Check if student exists in the system by email (Helper method)
   Future<bool> _checkStudentExists(String email) async {
     try {
       final studentQuery = await FirebaseFirestore.instance
@@ -163,92 +181,62 @@ class _FilledJobCardState extends State<_FilledJobCard> {
     }
   }
 
-  /// Create student account from enrollment data
-  Future<String?> _createStudentFromEnrollment(
-    Map<String, dynamic> enrollmentData,
-    Map<String, dynamic> contact,
-    Map<String, dynamic> student,
-  ) async {
+
+  Future<void> _createStudentAccount() async {
+    setState(() => _isCreatingStudent = true);
     try {
-      // Parse student name
-      final studentName = student['name'] as String? ?? 
-                         enrollmentData['studentName'] as String? ?? 
-                         'Student';
+      final enrollmentDoc = await FirebaseFirestore.instance
+          .collection('enrollments')
+          .doc(widget.job.enrollmentId)
+          .get();
       
-      // Split name into first and last name
-      final nameParts = studentName.trim().split(' ');
-      final firstName = nameParts.first;
-      final lastName = nameParts.length > 1 
-          ? nameParts.sublist(1).join(' ') 
-          : 'Student'; // Default last name if only one word
-      
-      // Determine if adult student
-      final studentAge = student['age'] as String?;
-      bool isAdultStudent = false;
-      if (studentAge != null && studentAge.isNotEmpty) {
-        try {
-          final age = int.parse(studentAge);
-          isAdultStudent = age >= 18;
-        } catch (e) {
-          // If age parsing fails, check if parent name exists
-          // If parent exists, likely a minor
-          final parentName = contact['parentName'] as String?;
-          isAdultStudent = parentName == null || parentName.isEmpty;
-        }
-      } else {
-        // No age provided - if parent name exists, assume minor
-        final parentName = contact['parentName'] as String?;
-        isAdultStudent = parentName == null || parentName.isEmpty;
+      if (!enrollmentDoc.exists) {
+        throw Exception('Enrollment not found');
       }
+
+      final enrollmentData = enrollmentDoc.data()!;
+      final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
       
-      // Get contact information
-      final email = contact['email'] as String? ?? '';
-      final phone = contact['phone'] as String? ?? '';
-      final parentName = contact['parentName'] as String?;
-      
-      // Prepare student data for creation
+      String firstName = '';
+      String lastName = '';
+      final fullName = widget.job.studentName.trim();
+      if (fullName.isNotEmpty) {
+        final parts = fullName.split(' ');
+        firstName = parts.first;
+        if (parts.length > 1) {
+          lastName = parts.sublist(1).join(' ');
+        }
+      }
+
       final studentData = {
         'firstName': firstName,
         'lastName': lastName,
-        'isAdultStudent': isAdultStudent,
-        'phoneNumber': phone,
-        if (email.isNotEmpty) 'email': email,
+        'isAdultStudent': widget.job.isAdult,
+        'email': contact['email'],
+        'phoneNumber': contact['phone'],
+        'guardianIds': contact['guardianId'] != null ? [contact['guardianId']] : [],
       };
-      
-      // If minor student and parent exists, try to find parent guardian ID
-      if (!isAdultStudent && parentName != null && parentName.isNotEmpty) {
-        try {
-          // Try to find parent by email or name
-          final parentQuery = await FirebaseFirestore.instance
-              .collection('users')
-              .where('e-mail', isEqualTo: email)
-              .where('user_type', isEqualTo: 'parent')
-              .limit(1)
-              .get();
-          
-          if (parentQuery.docs.isNotEmpty) {
-            studentData['guardianIds'] = [parentQuery.docs.first.id];
-          }
-        } catch (e) {
-          // Parent not found, continue without guardian
-        }
-      }
-      
-      // Call Firebase function to create student
-      final functions = FirebaseFunctions.instance;
-      final callable = functions.httpsCallable('createStudentAccount');
-      
+
+      final callable = FirebaseFunctions.instance.httpsCallable('createStudentAccount');
       final result = await callable.call(studentData);
       
-      if (result.data != null && result.data['success'] == true) {
-        // Return the email used (could be alias email or provided email)
-        return result.data['aliasEmail'] as String? ?? email;
-      } else {
-        return null;
+      if (mounted) {
+        final studentCode = result.data['studentCode'];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Student Account Created! ID: $studentCode'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
-      print('Error creating student account: $e');
-      return null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating student: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreatingStudent = false);
     }
   }
 
@@ -260,149 +248,91 @@ class _FilledJobCardState extends State<_FilledJobCard> {
       return;
     }
 
-    // Get enrollment details to find student and preferences
     try {
+      // 1. Get Enrollment Details (Source of Truth)
       final enrollmentDoc = await FirebaseFirestore.instance
           .collection('enrollments')
           .doc(widget.job.enrollmentId)
           .get();
       
-      if (!enrollmentDoc.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enrollment not found'), backgroundColor: Colors.red),
-        );
-        return;
-      }
+      if (!enrollmentDoc.exists) return;
 
       final enrollmentData = enrollmentDoc.data() as Map<String, dynamic>;
       final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
       final preferences = enrollmentData['preferences'] as Map<String, dynamic>? ?? {};
-      final student = enrollmentData['student'] as Map<String, dynamic>? ?? {};
       
-      // Get teacher email
-      String? teacherEmail;
-      try {
-        final teacherDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.job.acceptedByTeacherId!)
-            .get();
-        if (teacherDoc.exists) {
-          final teacherData = teacherDoc.data() as Map<String, dynamic>;
-          teacherEmail = teacherData['e-mail'] as String?;
-        }
-      } catch (e) {
-        // Error loading teacher email - will use teacher ID instead
-      }
+      // 2. Handle Student Account
+      final studentEmail = contact['email'] as String?;
       
-      // Get student email from enrollment
-      String? studentEmail = contact['email'] as String?;
+      // 3. --- TIMEZONE CONVERSION MAGIC ---
+      // Goal: Open the dialog showing the TEACHER'S time, not the student's.
       
-      // Check if student exists, if not create student account
-      String? finalStudentEmail = studentEmail;
-      if (studentEmail != null && studentEmail.isNotEmpty) {
-        final studentExists = await _checkStudentExists(studentEmail);
-        if (!studentExists) {
-          // Student doesn't exist, create account
-          if (!mounted) return;
-          
-          // Show loading dialog
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => const Center(
-              child: Card(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Creating student account...'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-          
-          try {
-            final createdStudentEmail = await _createStudentFromEnrollment(
-              enrollmentData,
-              contact,
-              student,
-            );
-            
-            // Close loading dialog
-            if (mounted) Navigator.pop(context);
-            
-            if (createdStudentEmail != null) {
-              finalStudentEmail = createdStudentEmail;
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Student account created successfully!'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            } else {
-              // Failed to create student, show error and return
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Failed to create student account. Please create the student manually first.'),
-                  backgroundColor: Colors.orange,
-                  duration: Duration(seconds: 5),
-                ),
-              );
-              return;
-            }
-          } catch (e) {
-            // Close loading dialog if still open
-            if (mounted) Navigator.pop(context);
-            
-            // Show error
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error creating student account: $e'),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 5),
-              ),
-            );
-            return;
-          }
-        }
-      }
+      final studentTzName = preferences['timeZone'] ?? widget.job.timeZone ?? 'UTC';
+      // Use the teacher's timezone loaded from Firestore, fallback to UTC
+      final teacherTzName = _teacherTimezone ?? 'UTC'; 
       
-      // Extract subject
-      final subject = enrollmentData['subject'] as String? ?? widget.job.subject;
-      
-      // Extract timezone
-      final timezone = preferences['timeZone'] as String? ?? widget.job.timeZone;
-      
-      // Extract days and time slots
-      final daysList = preferences['days'] as List<dynamic>? ?? widget.job.days;
-      final timeSlotsList = preferences['timeSlots'] as List<dynamic>? ?? widget.job.timeSlots;
+      final rawTimeSlots = preferences['timeSlots'] as List<dynamic>? ?? widget.job.timeSlots;
+      final rawDays = preferences['days'] as List<dynamic>? ?? widget.job.days;
 
-      // Show dialog to create shift with pre-filled information
+      TimeOfDay? initialStartTime;
+      
+      if (rawTimeSlots != null && rawTimeSlots.isNotEmpty) {
+        // Parse "10:00 AM"
+        final firstSlot = rawTimeSlots.first.toString().split('-')[0].trim();
+        
+        try {
+          // Parse using a standard format
+          final format = DateFormat("h:mm a"); 
+          final dt = format.parse(firstSlot); // Note: This creates a naive datetime
+
+          // 1. Create TZ DateTime for Student
+          final studentLocation = tz.getLocation(studentTzName);
+          final now = tz.TZDateTime.now(studentLocation);
+          final studentDateTime = tz.TZDateTime(
+            studentLocation,
+            now.year, now.month, now.day,
+            dt.hour, dt.minute,
+          );
+
+          // 2. Convert to Teacher Timezone
+          final teacherLocation = tz.getLocation(teacherTzName);
+          final teacherDateTime = tz.TZDateTime.from(studentDateTime, teacherLocation);
+
+          // 3. Set the initial time for the dialog
+          initialStartTime = TimeOfDay(hour: teacherDateTime.hour, minute: teacherDateTime.minute);
+          
+          AppLogger.info('Converted $firstSlot ($studentTzName) -> ${initialStartTime.format(context)} ($teacherTzName)');
+
+        } catch (e) {
+          AppLogger.warning('Error converting time: $e');
+          // Fallback: Use the raw time without conversion if parsing fails
+        }
+      }
+
+      // 4. Open Dialog
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => CreateShiftDialog(
-          initialTeacherId: teacherEmail ?? widget.job.acceptedByTeacherId,
-          initialStudentEmail: finalStudentEmail,
-          initialSubjectName: subject,
-          initialDays: daysList?.map((d) => d.toString()).toList(),
-          initialTimeSlots: timeSlotsList?.map((t) => t.toString()).toList(),
-          initialTimezone: timezone,
+          // Pre-fill Teacher
+          initialTeacherId: _teacherEmail ?? widget.job.acceptedByTeacherId,
+          
+          // Pre-fill Student
+          initialStudentEmail: studentEmail,
+          
+          // Pre-fill Subject
+          initialSubjectName: enrollmentData['subject'] as String? ?? widget.job.subject,
+          
+          // Pre-fill Schedule (In Teacher's Timezone!)
+          initialDays: rawDays?.map((d) => d.toString()).toList(),
+          initialTimezone: teacherTzName, // Force dialog to use Teacher's TZ
+          initialTime: initialStartTime, // The converted time
+          
           onShiftCreated: () {
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Shift created successfully!'),
+                content: Text('Shift created & Synced to Teacher Timezone!'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -423,10 +353,10 @@ class _FilledJobCardState extends State<_FilledJobCard> {
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.red, width: 2),
+        side: const BorderSide(color: Color(0xff10B981), width: 1.5),
       ),
       elevation: 2,
-      color: Colors.red[50],
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -438,135 +368,173 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.red,
+                    color: const Color(0xff10B981).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xff10B981)),
                   ),
-                  child: Text(
-                    'FILLED',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      letterSpacing: 1,
-                    ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, size: 14, color: Color(0xff10B981)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'MATCHED',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xff065F46),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (widget.job.acceptedAt != null)
                   Text(
-                    'Accepted: ${DateFormat('MMM d, yyyy').format(widget.job.acceptedAt!)}',
-                    style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 12),
+                    'Accepted: ${DateFormat('MMM d').format(widget.job.acceptedAt!)}',
+                    style: GoogleFonts.inter(color: Colors.grey[500], fontSize: 12),
                   ),
               ],
             ),
             const SizedBox(height: 16),
-            // Student Info
-            Text(
-              'Student: ${widget.job.studentName.isNotEmpty ? widget.job.studentName : "N/A"}',
-              style: GoogleFonts.inter(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xff111827),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow(Icons.person, 'Age: ${widget.job.studentAge.isNotEmpty ? widget.job.studentAge : "N/A"}'),
-            _buildInfoRow(Icons.book, 'Subject: ${widget.job.subject}'),
-            _buildInfoRow(Icons.school, 'Grade: ${widget.job.gradeLevel}'),
-            _buildInfoRow(Icons.public, 'Timezone: ${widget.job.timeZone}'),
-            const SizedBox(height: 8),
-            _buildInfoRow(Icons.calendar_today, 'Days: ${widget.job.days.join(", ")}'),
-            _buildInfoRow(Icons.access_time, 'Times: ${widget.job.timeSlots.join(", ")}'),
             
-            const Divider(height: 32),
-            
-            // Teacher Info
-            _isLoadingTeacher
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: CircularProgressIndicator(),
-                  )
-                : _teacherName != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Accepted by Teacher:',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff6B7280),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _teacherName!,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff111827),
-                            ),
-                          ),
-                          if (_teacherEmail != null && _teacherEmail!.isNotEmpty)
-                            Text(
-                              _teacherEmail!,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                        ],
-                      )
-                    : Text(
-                        'Teacher ID: ${widget.job.acceptedByTeacherId ?? "N/A"}',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: Colors.grey[600],
+            // Student Section
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person, color: Colors.blue, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.job.studentName,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff1E293B),
                         ),
                       ),
-            
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _createShift,
-                icon: const Icon(Icons.schedule),
-                label: Text(
-                  'Create Shift for This Match',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+                      Text(
+                        '${widget.job.subject} • ${widget.job.studentAge} yo',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xff64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Req: ${widget.job.timeSlots.first} (${widget.job.timeZone})',
+                          style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[700]),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff3B82F6),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ],
+            ),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Divider(height: 1),
+            ),
+            
+            // Teacher Section
+            _isLoadingTeacher
+                ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                : Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[50],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.school, color: Colors.orange, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _teacherName ?? 'Unknown Teacher',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xff1E293B),
+                              ),
+                            ),
+                            Text(
+                              _teacherTimezone ?? 'Timezone not set',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: const Color(0xff64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+            
+            const SizedBox(height: 20),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isCreatingStudent ? null : _createStudentAccount,
+                    icon: _isCreatingStudent 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.person_add_outlined),
+                    label: const Text('Create Account'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _createShift,
+                    icon: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
+                    label: Text(
+                      'Finalize Schedule',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff0F172A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.inter(color: const Color(0xff4B5563), fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
-

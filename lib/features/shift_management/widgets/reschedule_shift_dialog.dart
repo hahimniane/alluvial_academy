@@ -132,8 +132,9 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         teacherTimezone: _selectedTimezone, // Update teacher timezone if changed
       );
 
-      // Update shift directly (like admin would)
-      await ShiftService.updateShiftDirect(updatedShift);
+      // Update shift using standard update method which handles lifecycle tasks
+      // This ensures cloud tasks are rescheduled to the new times
+      await ShiftService.updateShift(updatedShift);
 
       // Also update shift document with teacher modification metadata
       await FirebaseFirestore.instance

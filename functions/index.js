@@ -10,6 +10,7 @@ const shiftHandlers = require('./handlers/shifts');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
+const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
 const zoomHandlers = require('./handlers/zoom');
 const testZoomHandlers = require('./handlers/test_zoom_shift');
@@ -27,6 +28,7 @@ exports.createUserWithEmail = functions.https.onCall(userHandlers.createUserWith
 exports.createMultipleUsers = functions.https.onCall(userHandlers.createMultipleUsers);
 exports.createUser = functions.https.onCall(userHandlers.createUser);
 exports.deleteUserAccount = functions.https.onCall(userHandlers.deleteUserAccount);
+exports.findUserByEmailOrCode = functions.https.onCall(userHandlers.findUserByEmailOrCode);
 exports.createStudentAccount = functions.https.onCall(studentHandlers.createStudentAccount);
 exports.sendCustomPasswordResetEmail = functions.https.onCall(
   emailHandlers.sendCustomPasswordResetEmail
@@ -54,6 +56,8 @@ exports.joinZoomMeeting = zoomHandlers.joinZoomMeeting;
 exports.getZoomJoinUrl = zoomHandlers.getZoomJoinUrl;
 exports.testZoomForShift = testZoomHandlers.testZoomForShift;
 exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
+exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
+exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
 
 // Form management functions
 exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessForms;
@@ -64,6 +68,9 @@ exports.getUserTimezone = timezoneHandlers.getUserTimezone;
 
 // Enrollment management functions
 exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
+// Callable version - note: may have IAM issues on some projects
+exports.publishEnrollmentToJobBoard = onCall({ cors: true }, enrollmentHandlers.publishEnrollmentToJobBoard);
+exports.acceptJob = onCall({ cors: true }, jobHandlers.acceptJob);
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

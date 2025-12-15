@@ -14,6 +14,7 @@ class JobOpportunity {
   final DateTime createdAt;
   final String? acceptedByTeacherId;
   final DateTime? acceptedAt;
+  final bool isAdult;
 
   JobOpportunity({
     required this.id,
@@ -29,6 +30,7 @@ class JobOpportunity {
     required this.createdAt,
     this.acceptedByTeacherId,
     this.acceptedAt,
+    this.isAdult = false,
   });
 
   factory JobOpportunity.fromFirestore(DocumentSnapshot doc) {
@@ -47,6 +49,7 @@ class JobOpportunity {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       acceptedByTeacherId: data['acceptedByTeacherId'],
       acceptedAt: (data['acceptedAt'] as Timestamp?)?.toDate(),
+      isAdult: data['isAdult'] ?? false,
     );
   }
 
@@ -62,6 +65,7 @@ class JobOpportunity {
       'timeZone': timeZone,
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
+      'isAdult': isAdult,
       if (acceptedByTeacherId != null) 'acceptedByTeacherId': acceptedByTeacherId,
       if (acceptedAt != null) 'acceptedAt': Timestamp.fromDate(acceptedAt!),
     };

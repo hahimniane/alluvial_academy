@@ -1,5 +1,6 @@
 {
     "window.autoDetectColorScheme": true,
     "workbench.colorTheme": "Visual Studio Light - C++",
-    "cmake.sourceDirectory": "/Users/hashimniane/alluvial_academy/linux"
+    "cmake.sourceDirectory": "/Users/hashimniane/alluvial_academy/linux",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -85,6 +85,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   List<Map<String, dynamic>> _allTimesheetEntries = [];
 
+  // For displaying issue reports
+  List<Map<String, dynamic>> _issueReports = [];
+
   // Stream subscriptions for real-time updates
   StreamSubscription? _timesheetSubscription;
   StreamSubscription? _shiftSubscription;
@@ -248,9 +251,28 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 .limit(1)
                 .get();
           }
+          
+          // Also try by shiftId (camelCase) as fallback
+          if (formQuery.docs.isEmpty) {
+            formQuery = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .where('shiftId', isEqualTo: widget.shift.id)
+                .limit(1)
+                .get();
+          }
+          
+          // Also try by shift_id (snake_case) as fallback
+          if (formQuery.docs.isEmpty) {
+            formQuery = await FirebaseFirestore.instance
+                .collection('form_responses')
+                .where('shift_id', isEqualTo: widget.shift.id)
+                .limit(1)
+                .get();
+          }
 
           if (formQuery.docs.isNotEmpty) {
             formResponse = formQuery.docs.first.data();
+            debugPrint("✅ Found form response via fallback query");
           }
         }
         
@@ -334,12 +356,21 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 }
               }
             } else {
-              // Try querying by shiftId
-              final formQuery = await FirebaseFirestore.instance
+              // Try querying by shiftId (camelCase)
+              var formQuery = await FirebaseFirestore.instance
                   .collection('form_responses')
                   .where('shiftId', isEqualTo: widget.shift.id)
                   .limit(1)
                   .get();
+              
+              // Also try shift_id (snake_case) if camelCase not found
+              if (formQuery.docs.isEmpty) {
+                formQuery = await FirebaseFirestore.instance
+                    .collection('form_responses')
+                    .where('shift_id', isEqualTo: widget.shift.id)
+                    .limit(1)
+                    .get();
+              }
               
               if (formQuery.docs.isNotEmpty) {
                 if (mounted) {
@@ -347,6 +378,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     _formResponse = formQuery.docs.first.data();
                   });
                 }
+                debugPrint("✅ Found form response for shift via direct query");
               }
             }
           }
@@ -2120,6 +2152,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   Widget _buildFormSection() {
     final isReportSubmitted = _formResponse != null;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    // Check if current user is the teacher assigned to this shift
+    final isTeacher = currentUser != null && currentUser.uid == widget.shift.teacherId;
     
     bool hasTimesheet = false;
     if (_timesheetEntry != null) {
@@ -2215,6 +2250,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         ],
       ),
             const SizedBox(height: 12),
+            if (isTeacher)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -2390,6 +2426,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                if (isTeacher)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -2473,6 +2510,78 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
         .join(' ');
     }
+
+  Widget _buildIssueReports() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        _buildSection(
+          title: 'Reported Issues',
+          icon: Icons.report_problem,
+          children: _issueReports.map((report) {
+            final reportedAt = (report['reported_at'] as Timestamp).toDate();
+            final type = report['issue_type'] ?? 'General Issue';
+            final desc = report['description'] ?? 'No description';
+            final status = report['status'] ?? 'open';
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        type,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red[700],
+                          fontSize: 13,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: status == 'resolved' ? Colors.green : Colors.red,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    desc,
+                    style: GoogleFonts.inter(fontSize: 13, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Reported: ${DateFormat('MMM d, h:mm a').format(reportedAt)}',
+                    style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
 
   Widget _buildSection({
     required String title,

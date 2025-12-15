@@ -31,6 +31,8 @@ class EnrollmentRequest {
   final String? classType;
   final String? sessionDuration;
   final String? timeOfDayPreference;
+  final String? guardianId; // Linked parent ID if available
+  final bool isAdult; // Flag to indicate if the student is an adult
 
   EnrollmentRequest({
     this.id,
@@ -62,6 +64,8 @@ class EnrollmentRequest {
     this.classType,
     this.sessionDuration,
     this.timeOfDayPreference,
+    this.guardianId,
+    this.isAdult = false,
   });
 
   factory EnrollmentRequest.fromFirestore(DocumentSnapshot doc) {
@@ -105,6 +109,8 @@ class EnrollmentRequest {
       classType: program['classType'] ?? data['classType'],
       sessionDuration: program['sessionDuration'] ?? data['sessionDuration'],
       timeOfDayPreference: preferences['timeOfDayPreference'] ?? data['timeOfDayPreference'],
+      guardianId: contact['guardianId'] ?? data['guardianId'],
+      isAdult: metadata['isAdult'] ?? false,
     );
   }
 
@@ -120,6 +126,7 @@ class EnrollmentRequest {
         if (parentName != null) 'parentName': parentName,
         if (city != null) 'city': city,
         if (whatsAppNumber != null) 'whatsApp': whatsAppNumber,
+        if (guardianId != null) 'guardianId': guardianId,
       },
       'preferences': {
         'days': preferredDays,
@@ -143,6 +150,7 @@ class EnrollmentRequest {
         'submittedAt': Timestamp.fromDate(submittedAt),
         'status': status,
         'source': 'web_landing_page',
+        'isAdult': isAdult,
         if (reviewedBy != null) 'reviewedBy': reviewedBy,
         if (reviewedAt != null) 'reviewedAt': Timestamp.fromDate(reviewedAt!),
         if (reviewNotes != null) 'reviewNotes': reviewNotes,
@@ -182,6 +190,8 @@ class EnrollmentRequest {
     String? classType,
     String? sessionDuration,
     String? timeOfDayPreference,
+    String? guardianId,
+    bool? isAdult,
   }) {
     return EnrollmentRequest(
       id: id ?? this.id,
@@ -212,6 +222,8 @@ class EnrollmentRequest {
       classType: classType ?? this.classType,
       sessionDuration: sessionDuration ?? this.sessionDuration,
       timeOfDayPreference: timeOfDayPreference ?? this.timeOfDayPreference,
+      guardianId: guardianId ?? this.guardianId,
+      isAdult: isAdult ?? this.isAdult,
     );
   }
 }

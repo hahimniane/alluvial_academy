@@ -55,6 +55,11 @@ class TimesheetEntry {
   final bool formCompleted; // Whether the post-class form was filled
   final double? reportedHours; // Hours reported in the form (for comparison)
   final String? formNotes; // Any notes from the form
+  final String? shiftId; // Link to the shift
+  
+  // Consolidated View Support
+  final bool isConsolidated;
+  final List<TimesheetEntry>? childEntries;
 
   const TimesheetEntry({
     this.documentId,
@@ -99,5 +104,8 @@ class TimesheetEntry {
     this.formCompleted = false,
     this.reportedHours,
     this.formNotes,
+    this.shiftId,
+    this.isConsolidated = false,
+    this.childEntries,
   });
 }

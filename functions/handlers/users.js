@@ -476,10 +476,51 @@ const deleteUserAccount = async (data) => {
   }
 };
 
+const findUserByEmailOrCode = async (data) => {
+  try {
+    const identifier = (data.identifier || '').trim().toLowerCase();
+    if (!identifier) {
+      throw new functions.https.HttpsError('invalid-argument', 'Identifier is required');
+    }
+
+    console.log(`Looking up user by identifier: ${identifier}`);
+    const db = admin.firestore();
+    const usersRef = db.collection('users');
+
+    // Try finding by email
+    let snapshot = await usersRef.where('e-mail', '==', identifier).limit(1).get();
+    
+    if (snapshot.empty) {
+      // Try finding by student_code
+      snapshot = await usersRef.where('student_code', '==', identifier).limit(1).get();
+    }
+
+    if (snapshot.empty) {
+      return { found: false };
+    }
+
+    const doc = snapshot.docs[0];
+    const userData = doc.data();
+
+    return {
+      found: true,
+      userId: doc.id,
+      firstName: userData.first_name || '',
+      lastName: userData.last_name || '',
+      email: userData['e-mail'] || '',
+      phone: userData.phone_number || '',
+    };
+  } catch (error) {
+    console.error('Error in findUserByEmailOrCode:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+};
+
 module.exports = {
   createUserWithEmail,
   createMultipleUsers,
   createUser,
   deleteUserAccount,
+  findUserByEmailOrCode,
 };
 

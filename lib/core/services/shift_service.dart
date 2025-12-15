@@ -957,39 +957,94 @@ class ShiftService {
   /// Update shift directly without re-scheduling lifecycle tasks
   /// Use for quick edits like time changes
   /// Automatically checks if shift should be completed based on new end time
+  /// Also recalculates timesheet payment when shift times change
   static Future<void> updateShiftDirect(TeachingShift shift) async {
     try {
       final now = DateTime.now();
       final updateData = shift.toFirestore();
       
-      // If shift end time has passed and shift is still active/scheduled, check if it should be completed
-      if (shift.shiftEnd.isBefore(now) && 
-          (shift.status == ShiftStatus.active || shift.status == ShiftStatus.scheduled)) {
+      // Get timesheet entries for this shift
+      final timesheetSnapshot = await _firestore
+          .collection('timesheet_entries')
+          .where('shift_id', isEqualTo: shift.id)
+          .get();
+      
+      int totalWorkedMinutes = 0;
+      bool hasClockIn = shift.clockInTime != null;
+      
+      // Calculate worked minutes from timesheet entries AND recalculate payment
+      final batch = _firestore.batch();
+      bool hasTimesheetUpdates = false;
+      
+      for (var doc in timesheetSnapshot.docs) {
+        final data = doc.data();
+        final clockIn = data['clock_in_timestamp'] as Timestamp?;
+        final clockOut = data['clock_out_timestamp'] as Timestamp?;
         
-        // Get timesheet entries to check worked time
-        final timesheetSnapshot = await _firestore
-            .collection('timesheet_entries')
-            .where('shift_id', isEqualTo: shift.id)
-            .get();
-        
-        int totalWorkedMinutes = 0;
-        bool hasClockIn = shift.clockInTime != null;
-        
-        // Calculate worked minutes from timesheet entries
-        for (var doc in timesheetSnapshot.docs) {
-          final data = doc.data();
-          final clockIn = data['clock_in_timestamp'] as Timestamp?;
-          final clockOut = data['clock_out_timestamp'] as Timestamp?;
+        if (clockIn != null) {
+          hasClockIn = true;
           
-          if (clockIn != null) {
-            hasClockIn = true;
-            final endTime = clockOut?.toDate() ?? shift.shiftEnd;
-            final worked = endTime.difference(clockIn.toDate()).inMinutes;
+          // PAYOUT RECALCULATION: When shift times change, recalculate payment
+          // based on actual worked time capped to NEW shift duration
+          final clockInTime = clockIn.toDate();
+          final clockOutTime = clockOut?.toDate();
+          
+          if (clockOutTime != null) {
+            // Cap times to new shift window
+            final effectiveStart = clockInTime.isBefore(shift.shiftStart) 
+                ? shift.shiftStart 
+                : clockInTime;
+            final effectiveEnd = clockOutTime.isAfter(shift.shiftEnd) 
+                ? shift.shiftEnd 
+                : clockOutTime;
+            
+            // Calculate billable duration (capped to scheduled duration)
+            final rawDuration = effectiveEnd.difference(effectiveStart);
+            final scheduledDuration = shift.shiftEnd.difference(shift.shiftStart);
+            final billableDuration = rawDuration > scheduledDuration 
+                ? scheduledDuration 
+                : (rawDuration.isNegative ? Duration.zero : rawDuration);
+            
+            final billableMinutes = billableDuration.inMinutes;
+            totalWorkedMinutes += billableMinutes > 0 ? billableMinutes : 0;
+            
+            // Calculate new payment
+            final hourlyRate = shift.hourlyRate > 0 
+                ? shift.hourlyRate 
+                : (data['hourly_rate'] as num?)?.toDouble() ?? 0.0;
+            final hoursWorked = billableDuration.inSeconds / 3600.0;
+            final newPayment = hoursWorked * hourlyRate;
+            
+            // Update timesheet with recalculated payment
+            final timesheetUpdates = <String, dynamic>{
+              'payment_amount': newPayment,
+              'total_pay': newPayment,
+              'hourly_rate': hourlyRate,
+              'scheduled_start': Timestamp.fromDate(shift.shiftStart),
+              'scheduled_end': Timestamp.fromDate(shift.shiftEnd),
+              'scheduled_duration_minutes': shift.scheduledDurationMinutes,
+              'payment_recalculated_at': Timestamp.fromDate(now),
+              'updated_at': FieldValue.serverTimestamp(),
+            };
+            
+            batch.update(doc.reference, timesheetUpdates);
+            hasTimesheetUpdates = true;
+            
+            AppLogger.info('ShiftService: Recalculated payment for timesheet ${doc.id}: '
+                'worked ${billableMinutes} min @ \$${hourlyRate}/hr = \$${newPayment.toStringAsFixed(2)}');
+          } else {
+            // No clock-out yet, just count worked time from clock-in
+            final worked = (clockOut?.toDate() ?? shift.shiftEnd).difference(clockInTime).inMinutes;
             if (worked > 0) {
               totalWorkedMinutes += worked;
             }
           }
         }
+      }
+      
+      // If shift end time has passed and shift is still active/scheduled, check if it should be completed
+      if (shift.shiftEnd.isBefore(now) && 
+          (shift.status == ShiftStatus.active || shift.status == ShiftStatus.scheduled)) {
         
         // Determine new status based on worked time
         final scheduledMinutes = shift.scheduledDurationMinutes;
@@ -1021,6 +1076,12 @@ class ShiftService {
         }
         
         AppLogger.info('ShiftService: Auto-updating shift ${shift.id} status to $newStatus (worked: $totalWorkedMinutes min, scheduled: $scheduledMinutes min)');
+      }
+      
+      // Commit timesheet payment updates
+      if (hasTimesheetUpdates) {
+        await batch.commit();
+        AppLogger.info('ShiftService: Committed timesheet payment recalculations');
       }
       
       await _shiftsCollection.doc(shift.id).update(updateData);

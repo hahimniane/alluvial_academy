@@ -1,4 +1,5 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 
@@ -169,8 +170,8 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
           
           <div class="content">
             <div class="alert-box">
-              <strong>⚠️ New enrollment request received and automatically posted to the job board.</strong>
-              <p>Teachers can now view and accept this opportunity.</p>
+              <strong>📋 New enrollment request received - Awaiting your approval.</strong>
+              <p>Please review this enrollment and broadcast to teachers when ready.</p>
             </div>
             
             <div class="info-box">
@@ -318,39 +319,166 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
 };
 
 // Create job opportunity from enrollment
+// Enhanced to include all enrollment data for proper teacher matching and admin scheduling
 const createJobOpportunity = async (enrollmentData, enrollmentId) => {
   try {
+    if (!enrollmentData) {
+      throw new Error('enrollmentData is null or undefined');
+    }
+    
     const contact = enrollmentData.contact || {};
     const preferences = enrollmentData.preferences || {};
     const student = enrollmentData.student || {};
+    const program = enrollmentData.program || {};
+    const metadata = enrollmentData.metadata || {};
     
+    // Ensure arrays are valid
+    const days = Array.isArray(preferences.days) ? preferences.days : 
+                 Array.isArray(enrollmentData.preferredDays) ? enrollmentData.preferredDays : [];
+    const timeSlots = Array.isArray(preferences.timeSlots) ? preferences.timeSlots : 
+                      Array.isArray(enrollmentData.preferredTimeSlots) ? enrollmentData.preferredTimeSlots : [];
+    
+    // Improved Data Mapping - Ensure all critical data is passed to Job Board
+    // CRITICAL: All fields must have explicit defaults (null, '', [], false) to prevent undefined values
     const jobData = {
       enrollmentId: enrollmentId,
-      studentName: student.name || 'Not provided',
-      studentAge: student.age || '',
+      
+      // Student Details - Add defaults for ALL fields
+      studentName: student.name || enrollmentData.studentName || 'Student',
+      studentAge: student.age || enrollmentData.studentAge || 'N/A',
+      gender: student.gender || enrollmentData.gender || 'Not specified',
+      
+      // Program Details
       subject: enrollmentData.subject || 'General',
+      specificLanguage: enrollmentData.specificLanguage || null,
       gradeLevel: enrollmentData.gradeLevel || '',
-      days: preferences.days || [],
-      timeSlots: preferences.timeSlots || [],
-      timeZone: preferences.timeZone || '',
+      
+      // Schedule Preferences (The Source of Truth for Admin Scheduling)
+      days: days,
+      timeSlots: timeSlots,
+      timeZone: preferences.timeZone || enrollmentData.timeZone || 'UTC', // IANA Timezone (e.g., 'America/New_York', 'Africa/Casablanca')
+      sessionDuration: program.sessionDuration || enrollmentData.sessionDuration || '60 minutes',
+      timeOfDayPreference: preferences.timeOfDayPreference || enrollmentData.timeOfDayPreference || null,
+      
+      // Location (Useful for teachers to know context)
+      countryName: enrollmentData.countryName || (contact.country && contact.country.name) || '',
+      countryCode: enrollmentData.countryCode || (contact.country && contact.country.code) || '',
+      city: contact.city || enrollmentData.city || '',
+      
+      // Additional Context
+      classType: program.classType || enrollmentData.classType || null,
+      preferredLanguage: preferences.preferredLanguage || enrollmentData.preferredLanguage || null,
+      knowsZoom: (student.knowsZoom !== undefined) ? student.knowsZoom : (enrollmentData.knowsZoom !== undefined ? enrollmentData.knowsZoom : null),
+      isAdult: (metadata.isAdult !== undefined) ? metadata.isAdult : (enrollmentData.isAdult !== undefined ? enrollmentData.isAdult : false),
+      
+      // Metadata
       status: 'open',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    const jobRef = await admin.firestore().collection('job_board').add(jobData);
-    console.log(`✅ Job opportunity created: ${jobRef.id}`);
+    // Remove any remaining undefined keys just in case (safety check)
+    Object.keys(jobData).forEach(key => {
+      if (jobData[key] === undefined) {
+        console.warn(`⚠️ Removing undefined key from jobData: ${key}`);
+        delete jobData[key];
+      }
+    });
+
+    // Log the jobData structure before saving (for debugging)
+    console.log(`📦 Creating job with data:`, JSON.stringify(jobData, null, 2));
+
+    let jobRef;
+    try {
+      // Validate jobData before attempting to save
+      console.log(`🔍 Validating jobData before save...`);
+      const validationErrors = [];
+      
+      // Check for any invalid values
+      Object.keys(jobData).forEach(key => {
+        const value = jobData[key];
+        if (value === undefined) {
+          validationErrors.push(`Field ${key} is undefined`);
+        } else if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof admin.firestore.Timestamp) && !(value instanceof admin.firestore.FieldValue)) {
+          // Check for nested undefined values
+          try {
+            JSON.stringify(value); // This will fail if there are undefined values
+          } catch (e) {
+            validationErrors.push(`Field ${key} contains invalid nested data: ${e.message}`);
+          }
+        }
+      });
+      
+      if (validationErrors.length > 0) {
+        throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+      }
+      
+      console.log(`✅ JobData validation passed. Attempting to save to Firestore...`);
+      jobRef = await admin.firestore().collection('job_board').add(jobData);
+      console.log(`✅ Job opportunity created: ${jobRef.id} with IANA timezone: ${jobData.timeZone}`);
+    } catch (firestoreError) {
+      console.error('❌ Firestore error creating job:', firestoreError);
+      console.error('❌ Firestore error details:', {
+        code: firestoreError.code,
+        message: firestoreError.message,
+        stack: firestoreError.stack,
+        jobDataKeys: Object.keys(jobData),
+        jobDataSample: JSON.stringify(jobData, (key, value) => {
+          if (value === undefined) return 'UNDEFINED_VALUE';
+          if (value instanceof admin.firestore.FieldValue) return 'FieldValue';
+          if (value instanceof admin.firestore.Timestamp) return value.toDate().toISOString();
+          return value;
+        }, 2),
+      });
+      
+      // Extract meaningful error message
+      let errorMsg = 'Unknown Firestore error';
+      if (firestoreError.message) {
+        errorMsg = firestoreError.message;
+      } else if (firestoreError.code) {
+        errorMsg = `Firestore error code: ${firestoreError.code}`;
+      } else if (firestoreError.toString && firestoreError.toString() !== '[object Object]') {
+        errorMsg = firestoreError.toString();
+      }
+      
+      throw new Error(`Firestore error creating job: ${errorMsg}`);
+    }
     
     // Update enrollment status
-    await admin.firestore().collection('enrollments').doc(enrollmentId).update({
-      'metadata.status': 'broadcasted',
-      'metadata.broadcastedAt': admin.firestore.FieldValue.serverTimestamp(),
-      'metadata.jobId': jobRef.id,
-    });
+    try {
+      await admin.firestore().collection('enrollments').doc(enrollmentId).update({
+        'metadata.status': 'broadcasted',
+        'metadata.broadcastedAt': admin.firestore.FieldValue.serverTimestamp(),
+        'metadata.jobId': jobRef.id,
+      });
+      console.log(`✅ Updated enrollment ${enrollmentId} status to broadcasted`);
+    } catch (updateError) {
+      console.error('❌ Error updating enrollment status:', updateError);
+      // Don't fail the whole operation if status update fails - job was already created
+      console.warn(`⚠️ Job created but enrollment status update failed. Job ID: ${jobRef.id}`);
+    }
     
     return jobRef.id;
   } catch (error) {
     console.error('❌ Failed to create job opportunity:', error);
-    throw error;
+    console.error('❌ Error details:', {
+      message: error.message || error.toString(),
+      stack: error.stack,
+      enrollmentId: enrollmentId,
+      enrollmentDataKeys: Object.keys(enrollmentData || {}),
+      enrollmentDataType: typeof enrollmentData,
+      errorName: error.name,
+      errorCode: error.code,
+    });
+    // Wrap error with more context - ensure we always have a meaningful message
+    let errorMessage = 'Unknown error creating job opportunity';
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (error.toString && error.toString() !== '[object Object]') {
+      errorMessage = error.toString();
+    } else if (error.code) {
+      errorMessage = `Error code: ${error.code}`;
+    }
+    throw new Error(`Failed to create job opportunity: ${errorMessage}`);
   }
 };
 
@@ -368,19 +496,19 @@ const onEnrollmentCreated = onDocumentCreated('enrollments/{enrollmentId}', asyn
     // 2. Send notification email to admin
     const adminNotified = await sendAdminEnrollmentNotification(enrollmentData, enrollmentId);
     
-    // 3. Create job opportunity
-    const jobId = await createJobOpportunity(enrollmentData, enrollmentId);
+    // 3. Create job opportunity - DISABLED: Now manual via Admin Dashboard
+    // const jobId = await createJobOpportunity(enrollmentData, enrollmentId);
     
     console.log(`✅ Enrollment processed successfully:
       - Confirmation email: ${confirmationSent ? 'Sent' : 'Failed'}
       - Admin notification: ${adminNotified ? 'Sent' : 'Failed'}
-      - Job opportunity: ${jobId ? 'Created' : 'Failed'}
+      - Job opportunity: Manual Approval Required
     `);
     
     return {
       success: true,
       enrollmentId,
-      jobId,
+      // jobId,
       emailsSent: {
         confirmation: confirmationSent,
         admin: adminNotified,
@@ -396,7 +524,148 @@ const onEnrollmentCreated = onDocumentCreated('enrollments/{enrollmentId}', asyn
   }
 });
 
+// HTTP function for Admin to approve enrollment and create job
+// Using HTTP instead of Callable to bypass Cloud Run IAM issues
+const publishEnrollmentToJobBoardHttp = async (req, res) => {
+  // Enable CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  
+  if (req.method !== 'POST') {
+    res.status(405).json({ success: false, error: 'Method not allowed' });
+    return;
+  }
+
+  console.log('🚀 publishEnrollmentToJobBoardHttp invoked');
+  console.log('📦 Body:', JSON.stringify(req.body));
+  
+  let enrollmentId;
+  
+  try {
+    // Verify Firebase ID token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('⚠️ Missing or invalid Authorization header');
+      res.status(401).json({ success: false, error: 'Unauthorized: Missing Bearer token' });
+      return;
+    }
+    
+    const idToken = authHeader.split('Bearer ')[1];
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      console.log('✅ Token verified for user:', decodedToken.uid);
+    } catch (tokenError) {
+      console.error('❌ Token verification failed:', tokenError.message);
+      res.status(401).json({ success: false, error: 'Unauthorized: Invalid token' });
+      return;
+    }
+
+    enrollmentId = req.body.enrollmentId;
+    
+    if (!enrollmentId) {
+      res.status(400).json({ success: false, error: 'enrollmentId is required' });
+      return;
+    }
+    
+    const enrollmentDoc = await admin.firestore().collection('enrollments').doc(enrollmentId).get();
+    if (!enrollmentDoc.exists) {
+      res.status(404).json({ success: false, error: `Enrollment ${enrollmentId} not found` });
+      return;
+    }
+
+    const enrollmentData = enrollmentDoc.data();
+    
+    if (!enrollmentData) {
+      res.status(400).json({ success: false, error: 'Enrollment data is empty' });
+      return;
+    }
+    
+    console.log(`📋 Processing enrollment ${enrollmentId} with data keys:`, Object.keys(enrollmentData));
+    
+    // Check if already broadcasted or matched to prevent duplicates
+    if (enrollmentData.metadata && 
+       (enrollmentData.metadata.status === 'broadcasted' || enrollmentData.metadata.status === 'matched')) {
+      res.status(200).json({ 
+        success: false, 
+        message: `Already ${enrollmentData.metadata.status}`, 
+        jobId: enrollmentData.metadata.jobId 
+      });
+      return;
+    }
+
+    const jobId = await createJobOpportunity(enrollmentData, enrollmentId);
+    
+    console.log(`✅ Successfully created job ${jobId} for enrollment ${enrollmentId}`);
+    res.status(200).json({ success: true, jobId });
+    
+  } catch (error) {
+    console.error(`❌ Error publishing enrollment ${enrollmentId}:`, error);
+    console.error(`❌ Error details:`, {
+      message: error.message,
+      stack: error.stack,
+      enrollmentId: enrollmentId,
+    });
+    
+    const errorMessage = error.message || 'Unknown error occurred';
+    res.status(500).json({ success: false, error: errorMessage });
+  }
+};
+
+// Callable function wrapper (kept for backwards compatibility, but may not work due to IAM)
+const publishEnrollmentToJobBoard = async (request) => {
+  console.log('🚀 publishEnrollmentToJobBoard (callable) invoked');
+  const { enrollmentId } = request.data;
+  
+  if (!request.auth) {
+    console.warn('⚠️ Callable function called without authentication');
+  }
+  
+  try {
+    if (!enrollmentId) {
+      throw new functions.https.HttpsError('invalid-argument', 'enrollmentId is required');
+    }
+    
+    const enrollmentDoc = await admin.firestore().collection('enrollments').doc(enrollmentId).get();
+    if (!enrollmentDoc.exists) {
+      throw new functions.https.HttpsError('not-found', `Enrollment ${enrollmentId} not found`);
+    }
+
+    const enrollmentData = enrollmentDoc.data();
+    if (!enrollmentData) {
+      throw new functions.https.HttpsError('invalid-argument', 'Enrollment data is empty');
+    }
+    
+    // Check if already broadcasted or matched
+    if (enrollmentData.metadata && 
+       (enrollmentData.metadata.status === 'broadcasted' || enrollmentData.metadata.status === 'matched')) {
+      return { 
+        success: false, 
+        message: `Already ${enrollmentData.metadata.status}`, 
+        jobId: enrollmentData.metadata.jobId 
+      };
+    }
+
+    const jobId = await createJobOpportunity(enrollmentData, enrollmentId);
+    return { success: true, jobId };
+    
+  } catch (error) {
+    console.error(`❌ Error in callable publishEnrollmentToJobBoard:`, error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError('internal', error.message || 'Unknown error');
+  }
+};
+
 module.exports = {
   onEnrollmentCreated,
+  publishEnrollmentToJobBoard,
+  publishEnrollmentToJobBoardHttp,
 };
 

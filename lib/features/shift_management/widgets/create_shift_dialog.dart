@@ -2935,3 +2935,199 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
+
+class EmployeeSelectionDialog extends StatefulWidget {
+  final List<Employee> employees;
+  final Set<String> selectedIds;
+  final bool multiSelect;
+  final String title;
+  final String Function(Employee) idSelector;
+
+  const EmployeeSelectionDialog({
+    super.key,
+    required this.employees,
+    required this.selectedIds,
+    this.multiSelect = false,
+    required this.title,
+    required this.idSelector,
+  });
+
+  @override
+  _EmployeeSelectionDialogState createState() => _EmployeeSelectionDialogState();
+}
+
+class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
+  late Set<String> _currentSelectedIds;
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  bool _showSelectedOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSelectedIds = Set.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Employee> get _filteredEmployees {
+    if (_showSelectedOnly) {
+      return widget.employees
+          .where((e) => _currentSelectedIds.contains(widget.idSelector(e)))
+          .toList();
+    }
+    
+    if (_searchQuery.isEmpty) return widget.employees;
+    final query = _searchQuery.toLowerCase();
+    return widget.employees.where((e) {
+      return e.firstName.toLowerCase().contains(query) ||
+          e.lastName.toLowerCase().contains(query) ||
+          e.email.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  void _toggleSelection(Employee employee) {
+    final id = widget.idSelector(employee);
+    setState(() {
+      if (widget.multiSelect) {
+        if (_currentSelectedIds.contains(id)) {
+          _currentSelectedIds.remove(id);
+        } else {
+          _currentSelectedIds.add(id);
+        }
+      } else {
+        _currentSelectedIds = {id};
+        // Auto-confirm for single select
+        Navigator.pop(context, [employee]);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 500,
+        height: 600,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(widget.title, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold))),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ),
+                if (widget.multiSelect) ...[
+                  const SizedBox(width: 12),
+                  FilterChip(
+                    label: Text('Selected (${_currentSelectedIds.length})'),
+                    selected: _showSelectedOnly,
+                    onSelected: (bool value) {
+                      setState(() {
+                        _showSelectedOnly = value;
+                      });
+                    },
+                    backgroundColor: const Color(0xffF3F4F6),
+                    selectedColor: const Color(0xffEFF6FF),
+                    labelStyle: GoogleFonts.inter(
+                      color: _showSelectedOnly ? const Color(0xff0386FF) : const Color(0xff4B5563),
+                      fontWeight: _showSelectedOnly ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                    checkmarkColor: const Color(0xff0386FF),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _filteredEmployees.isEmpty
+                  ? Center(
+                      child: Text(
+                        _showSelectedOnly ? 'No users selected' : 'No users found',
+                        style: GoogleFonts.inter(color: const Color(0xff9CA3AF)),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filteredEmployees.length,
+                      itemBuilder: (context, index) {
+                        final employee = _filteredEmployees[index];
+                        final id = widget.idSelector(employee);
+                        final isSelected = _currentSelectedIds.contains(id);
+
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: isSelected ? const Color(0xff0386FF) : const Color(0xffF3F4F6),
+                            child: Text(
+                              employee.firstName.isNotEmpty ? employee.firstName[0].toUpperCase() : '?',
+                              style: TextStyle(color: isSelected ? Colors.white : const Color(0xff6B7280)),
+                            ),
+                          ),
+                          title: Text('${employee.firstName} ${employee.lastName}', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                          subtitle: Text(employee.email, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280))),
+                          trailing: isSelected 
+                              ? IconButton(
+                                  icon: const Icon(Icons.check_circle, color: Color(0xff0386FF)),
+                                  onPressed: () => _toggleSelection(employee), // Allow deselecting via icon
+                                )
+                              : (widget.multiSelect ? const Icon(Icons.circle_outlined, color: Color(0xffD1D5DB)) : null),
+                          onTap: () => _toggleSelection(employee),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                if (widget.multiSelect) ...[
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      final selectedEmployees = widget.employees.where((e) => _currentSelectedIds.contains(widget.idSelector(e))).toList();
+                      Navigator.pop(context, selectedEmployees);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff0386FF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text('Confirm (${_currentSelectedIds.length})'),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

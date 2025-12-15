@@ -61,15 +61,18 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     setState(() => _isLoading = true);
 
     // Listen to real-time changes in timesheet_entries collection
+    // Removed orderBy to avoid Firestore internal assertion errors
+    // We'll sort client-side instead
     _timesheetListener = FirebaseFirestore.instance
         .collection('timesheet_entries')
-        .orderBy('created_at', descending: true)
         .snapshots()
         .listen((snapshot) async {
       await _processTimesheetSnapshot(snapshot);
     }, onError: (error) {
       AppLogger.error('Error in timesheet listener: $error');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     });
   }
 
@@ -79,15 +82,118 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       List<TimesheetEntry> timesheets = [];
 
       // Process all timesheet entries
+      final List<TimesheetEntry> rawEntries = [];
       for (QueryDocumentSnapshot doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-
-        // Get user information for hourly rate - use cached data or fetch if needed
-        TimesheetEntry? entry = await _createTimesheetEntry(doc, data);
-        if (entry != null) {
-          timesheets.add(entry);
+        try {
+          final data = doc.data() as Map<String, dynamic>;
+          TimesheetEntry? entry = await _createTimesheetEntry(doc, data);
+          if (entry != null) {
+            rawEntries.add(entry);
+          }
+        } catch (e) {
+          AppLogger.error('Error processing timesheet document ${doc.id}: $e');
         }
       }
+
+      // Group by shift_id
+      final Map<String, List<TimesheetEntry>> grouped = {};
+      final List<TimesheetEntry> consolidatedList = [];
+
+      for (var entry in rawEntries) {
+        if (entry.shiftId != null) {
+          if (!grouped.containsKey(entry.shiftId)) {
+            grouped[entry.shiftId!] = [];
+          }
+          grouped[entry.shiftId!]!.add(entry);
+        } else {
+          // No shift ID, treat as standalone
+          consolidatedList.add(entry);
+        }
+      }
+
+      // Process groups
+      grouped.forEach((shiftId, entries) {
+        if (entries.length == 1) {
+          consolidatedList.add(entries.first);
+        } else {
+          // Consolidate multiple entries
+          // Calculate totals
+          double totalHours = 0;
+          double totalPayment = 0;
+          
+          for (var e in entries) {
+            totalPayment += (e.paymentAmount ?? 0);
+            
+            // Parse duration
+            final parts = e.totalHours.split(':');
+            if (parts.length >= 2) {
+              try {
+                final h = int.parse(parts[0]);
+                final m = int.parse(parts[1]);
+                totalHours += h + (m / 60.0);
+              } catch (_) {}
+            }
+          }
+          
+          // Format total hours back to HH:MM
+          final h = totalHours.floor();
+          final m = ((totalHours - h) * 60).round();
+          final formattedTotalHours = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+          
+          // Determine status (if any pending, group is pending)
+          TimesheetStatus groupStatus = TimesheetStatus.approved;
+          if (entries.any((e) => e.status == TimesheetStatus.rejected)) {
+            groupStatus = TimesheetStatus.rejected;
+          }
+          if (entries.any((e) => e.status == TimesheetStatus.draft)) {
+            groupStatus = TimesheetStatus.draft;
+          }
+          if (entries.any((e) => e.status == TimesheetStatus.pending)) {
+            groupStatus = TimesheetStatus.pending;
+          }
+          
+          // Sort entries by time
+          entries.sort((a, b) => a.start.compareTo(b.start));
+          
+          // Create consolidated entry
+          final first = entries.first;
+          final last = entries.last;
+          
+          consolidatedList.add(TimesheetEntry(
+            documentId: 'consolidated_$shiftId',
+            date: first.date,
+            subject: '${first.subject} (${entries.length} sessions)',
+            start: first.start,
+            end: last.end,
+            totalHours: formattedTotalHours,
+            description: 'Consolidated shift with ${entries.length} clock-ins',
+            status: groupStatus,
+            teacherId: first.teacherId,
+            teacherName: first.teacherName,
+            hourlyRate: first.hourlyRate, // Assuming same rate
+            paymentAmount: totalPayment,
+            shiftTitle: first.shiftTitle,
+            isConsolidated: true,
+            childEntries: entries,
+            shiftId: shiftId,
+          ));
+        }
+      });
+      
+      timesheets = consolidatedList;
+
+      // Sort client-side by created_at (most recent first)
+
+
+      // Sort client-side by created_at (most recent first)
+      timesheets.sort((a, b) {
+        // Try to sort by date, fallback to document ID if date parsing fails
+        try {
+          return b.date.compareTo(a.date);
+        } catch (e) {
+          return 0;
+        }
+      });
 
       if (mounted) {
         setState(() {
@@ -209,6 +315,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         formCompleted: data['form_completed'] == true || data['form_response_id'] != null,
         reportedHours: (data['reported_hours'] as num?)?.toDouble(),
         formNotes: data['form_notes'] as String?,
+        shiftId: shiftId,
       );
     } catch (e) {
       AppLogger.error('Error creating timesheet entry for doc ${doc.id}: $e');
@@ -806,6 +913,32 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   Future<void> _approveTimesheet(TimesheetEntry timesheet) async {
+    // Handle consolidated entries
+    if (timesheet.isConsolidated && timesheet.childEntries != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Approve Consolidated Shift'),
+          content: Text('This will approve all ${timesheet.childEntries!.length} entries for this shift.\n\nTotal Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              child: const Text('Approve All'),
+            ),
+          ],
+        ),
+      );
+      
+      if (confirmed == true) {
+        for (final child in timesheet.childEntries!) {
+          await _approveTimesheet(child);
+        }
+      }
+      return;
+    }
+
     // Check if timesheet was edited but edit not yet approved
     if (timesheet.isEdited && !timesheet.editApproved) {
       // Show dialog with original data comparison
@@ -878,6 +1011,17 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   Future<void> _rejectTimesheet(TimesheetEntry timesheet) async {
+    // Handle consolidated entries
+    if (timesheet.isConsolidated && timesheet.childEntries != null) {
+      final reason = await _showRejectionDialog();
+      if (reason == null) return;
+      
+      for (final child in timesheet.childEntries!) {
+        await _rejectTimesheetWithReason(child, reason);
+      }
+      return;
+    }
+
     // If edited but not approved, we can reject the edit (revert) or reject the timesheet
     if (timesheet.isEdited && !timesheet.editApproved) {
       final action = await _showEditRejectionDialog(timesheet);
@@ -1437,6 +1581,56 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   void _viewTimesheetDetails(TimesheetEntry timesheet) {
+    if (timesheet.isConsolidated && timesheet.childEntries != null) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: Container(
+            width: 600,
+            constraints: const BoxConstraints(maxHeight: 700),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text('Shift Details (Consolidated)', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold))),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('Total Entries: ${timesheet.childEntries!.length}'),
+                Text('Total Hours: ${timesheet.totalHours}'),
+                Text('Total Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+                const SizedBox(height: 16),
+                const Divider(),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: timesheet.childEntries!.length,
+                    separatorBuilder: (c, i) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final child = timesheet.childEntries![index];
+                      return ListTile(
+                        title: Text('${child.start} - ${child.end}'),
+                        subtitle: Text('${child.totalHours} hours • \$${child.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+                        trailing: _buildStatusChip(child.status),
+                        onTap: () {
+                          // Allow drilling down into individual entry
+                          Navigator.pop(context); // Close consolidated view
+                          _viewTimesheetDetails(child); // Open individual view
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
