@@ -17,11 +17,13 @@
     "exceljs": "^4.4.0",
     "firebase-admin": "^13.4.0",
     "firebase-functions": "^6.4.0",
+    "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
     "nodemailer": "^6.10.1",
     "rrule": "^2.8.1"
   },
   "devDependencies": {
+    "dotenv": "^17.2.3",
     "firebase-functions-test": "^3.1.0"
   },
   "private": true

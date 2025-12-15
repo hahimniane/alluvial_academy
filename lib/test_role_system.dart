@@ -155,6 +155,8 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
     final isStudent = await UserRoleService.isStudent();
     final isParent = await UserRoleService.isParent();
 
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

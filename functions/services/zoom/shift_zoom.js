@@ -2,8 +2,8 @@ const admin = require('firebase-admin');
 const {DateTime} = require('luxon');
 const {createTransporter} = require('../email/transporter');
 const {buildFunctionUrl} = require('../tasks/config');
-const {getZoomConfig} = require('./config');
-const {createMeeting} = require('./client');
+const {getZoomConfig, isMeetingSdkConfigured} = require('./config');
+const {createMeeting, getMeetingDetails} = require('./client');
 const {encryptString, signJoinToken} = require('./crypto');
 
 const getTeacherEmailFromUserDoc = (userData) =>
@@ -93,12 +93,34 @@ const ensureZoomMeetingAndEmailTeacher = async ({shiftId, shiftData}) => {
     });
 
     const encryptedJoinUrl = encryptString(meeting.joinUrl, zoomConfig.encryptionKeyB64);
-
-    await shiftRef.update({
+    
+    // Prepare update data
+    const updateData = {
       zoom_meeting_id: meeting.id,
       zoom_encrypted_join_url: encryptedJoinUrl,
       zoom_meeting_created_at: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+    
+    // Store encrypted passcode for Meeting SDK join (if passcode is available)
+    let passcode = meeting.passcode;
+    
+    // If passcode not in create response, fetch from meeting details
+    if (!passcode) {
+      try {
+        const details = await getMeetingDetails(meeting.id);
+        passcode = details.passcode;
+      } catch (fetchErr) {
+        console.warn(`[Zoom] Could not fetch meeting details for passcode: ${fetchErr.message}`);
+      }
+    }
+    
+    if (passcode) {
+      // Encrypt passcode before storing (never store plaintext)
+      updateData.zoom_encrypted_meeting_passcode = encryptString(passcode, zoomConfig.encryptionKeyB64);
+      updateData.zoom_meeting_passcode_created_at = admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    await shiftRef.update(updateData);
   }
 
   const allowedEndMs = shiftEnd.getTime() + 10 * 60 * 1000;
@@ -110,57 +132,113 @@ const ensureZoomMeetingAndEmailTeacher = async ({shiftId, shiftData}) => {
   const startDisplay = formatInZone(shiftStart, teacherTimezone);
   const endDisplay = formatInZone(shiftEnd, teacherTimezone);
 
+  // Determine if Meeting SDK is configured (prefer in-app join)
+  const useMeetingSdk = isMeetingSdkConfigured();
+  
   const transporter = createTransporter();
+  
+  // Email HTML - different based on whether Meeting SDK is enabled
+  const emailHtml = useMeetingSdk ? `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Zoom Meeting Scheduled</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+    .container { max-width: 640px; margin: 0 auto; background-color: white; }
+    .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 28px 20px; text-align: center; }
+    .content { padding: 24px 20px; color: #111827; }
+    .box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .app-join { background-color: #10B981; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    .app-join h3 { margin: 0 0 8px 0; color: white; font-size: 16px; }
+    .app-join p { margin: 0; color: rgba(255,255,255,0.9); font-size: 14px; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .cta-secondary { display: inline-block; background-color: #6b7280; color: white; padding: 10px 16px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
+    .footer { background-color: #f8fafc; padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="margin: 0; font-size: 22px;">Your Zoom meeting is ready</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.95;">Alluwal Education Hub</p>
+    </div>
+    <div class="content">
+      <p>Dear ${teacherName},</p>
+      <div class="box">
+        <p style="margin: 0 0 8px 0;"><strong>Shift:</strong> ${topic}</p>
+        <p style="margin: 0;"><strong>When:</strong> ${startDisplay} → ${endDisplay}</p>
+      </div>
+      <div class="app-join">
+        <h3>📱 Join from the Alluwal App</h3>
+        <p>Open the Alluwal Education Hub app → Zoom tab → Join your shift</p>
+      </div>
+      <p class="muted" style="margin: 0;">
+        For the best experience, join directly from the app. The join button will appear 10 minutes before your shift starts.
+      </p>
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <p class="muted" style="margin: 0 0 10px 0;"><strong>Alternative:</strong> If you can't use the app:</p>
+      <p style="margin: 10px 0;"><a class="cta-secondary" href="${joinLink}">Join via Browser</a></p>
+    </div>
+    <div class="footer">
+      © ${new Date().getFullYear()} Alluwal Education Hub — please do not reply to this email.
+    </div>
+  </div>
+</body>
+</html>
+  ` : `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Zoom Meeting Link</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+    .container { max-width: 640px; margin: 0 auto; background-color: white; }
+    .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 28px 20px; text-align: center; }
+    .content { padding: 24px 20px; color: #111827; }
+    .box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .cta { display: inline-block; background-color: #0386FF; color: white; padding: 12px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .footer { background-color: #f8fafc; padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="margin: 0; font-size: 22px;">Your Zoom meeting is ready</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.95;">Alluwal Education Hub</p>
+    </div>
+    <div class="content">
+      <p>Dear ${teacherName},</p>
+      <div class="box">
+        <p style="margin: 0 0 8px 0;"><strong>Shift:</strong> ${topic}</p>
+        <p style="margin: 0;"><strong>When:</strong> ${startDisplay} → ${endDisplay}</p>
+      </div>
+      <p style="margin: 18px 0 10px 0;"><a class="cta" href="${joinLink}">Join Zoom</a></p>
+      <p class="muted" style="margin: 0;">
+        This link only works from <strong>10 minutes before</strong> your shift until <strong>10 minutes after</strong> it ends.
+      </p>
+      <p class="muted" style="margin: 14px 0 0 0;">
+        If the button doesn't work, copy/paste this link:
+        <br />
+        <span style="word-break: break-all;">${joinLink}</span>
+      </p>
+    </div>
+    <div class="footer">
+      © ${new Date().getFullYear()} Alluwal Education Hub — please do not reply to this email.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+  
   const mailOptions = {
     from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
     to: teacherEmail,
-    subject: `📅 Zoom link for your shift (${subject})`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8" />
-        <title>Zoom Meeting Link</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
-          .container { max-width: 640px; margin: 0 auto; background-color: white; }
-          .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 28px 20px; text-align: center; }
-          .content { padding: 24px 20px; color: #111827; }
-          .box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
-          .cta { display: inline-block; background-color: #0386FF; color: white; padding: 12px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; }
-          .muted { color: #6b7280; font-size: 14px; }
-          .footer { background-color: #f8fafc; padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; font-size: 22px;">Your Zoom meeting is ready</h1>
-            <p style="margin: 8px 0 0 0; opacity: 0.95;">Alluwal Education Hub</p>
-          </div>
-          <div class="content">
-            <p>Dear ${teacherName},</p>
-            <div class="box">
-              <p style="margin: 0 0 8px 0;"><strong>Shift:</strong> ${topic}</p>
-              <p style="margin: 0;"><strong>When:</strong> ${startDisplay} → ${endDisplay}</p>
-            </div>
-            <p style="margin: 18px 0 10px 0;"><a class="cta" href="${joinLink}">Join Zoom</a></p>
-            <p class="muted" style="margin: 0;">
-              This link only works from <strong>10 minutes before</strong> your shift until <strong>10 minutes after</strong> it ends.
-            </p>
-            <p class="muted" style="margin: 14px 0 0 0;">
-              If the button doesn’t work, copy/paste this link:
-              <br />
-              <span style="word-break: break-all;">${joinLink}</span>
-            </p>
-          </div>
-          <div class="footer">
-            © ${new Date().getFullYear()} Alluwal Education Hub — please do not reply to this email.
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+    subject: `📅 Zoom meeting scheduled for your shift (${subject})`,
+    html: emailHtml,
   };
 
   await transporter.sendMail(mailOptions);

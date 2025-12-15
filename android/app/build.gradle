@@ -20,20 +20,20 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 
     defaultConfig {
         applicationId = "org.alluvaleducationhub.academy"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdkVersion = flutter.minSdkVersion  // Required for Firebase Auth
+        minSdkVersion 26  // Required for Zoom SDK
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -56,6 +56,13 @@ android {
             shrinkResources false
         }
     }
+    
+    // Zoom Meeting SDK AAR repository
+    repositories {
+        flatDir {
+            dirs 'libs/zoom'
+        }
+    }
 }
 
 flutter {
@@ -65,7 +72,19 @@ flutter {
 dependencies {
     // Multidex support for apps with many dependencies
     implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
     
     // Core library desugaring for flutter_local_notifications
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    
+    // Zoom Meeting SDK - AAR must be copied by setup script
+    // Run: ./tools/setup_zoom_meeting_sdk.sh
+    implementation(name: 'mobilertc', ext: 'aar')
+    // Zoom SDK Dependencies to fix resource errors
+    implementation "androidx.security:security-crypto:1.1.0-alpha06"
+    implementation "com.google.crypto.tink:tink-android:1.7.0"
+    implementation "com.google.android.exoplayer:exoplayer-core:2.18.5"
+    implementation "com.google.android.exoplayer:exoplayer-ui:2.18.5"
+    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
+    implementation "com.airbnb.android:lottie:3.4.0"
 }

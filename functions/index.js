@@ -52,6 +52,7 @@ exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.joinZoomMeeting = zoomHandlers.joinZoomMeeting;
 exports.getZoomJoinUrl = zoomHandlers.getZoomJoinUrl;
+exports.getZoomMeetingSdkJoinPayload = zoomHandlers.getZoomMeetingSdkJoinPayload;
 exports.testZoomForShift = testZoomHandlers.testZoomForShift;
 exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
 

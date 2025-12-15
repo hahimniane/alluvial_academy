@@ -79,6 +79,12 @@ dependencies:
   webview_flutter: ^4.10.0
   webview_flutter_android: ^4.3.0
   webview_flutter_wkwebview: ^3.17.0
+  
+  # Zoom Meeting SDK for native in-app Zoom join
+  # Using local copy with ZoomMobileRTC dependency configured
+  flutter_zoom_meeting_sdk:
+    path: packages/flutter_zoom_meeting_sdk
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

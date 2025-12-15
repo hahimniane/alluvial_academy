@@ -132,7 +132,7 @@ class _HeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Each shift has its own Join button. It becomes active 10 minutes before start and stays active until 10 minutes after end.',
+                  'Join your Zoom meetings directly in the app. Each shift has its own Join button that becomes active 10 minutes before the shift starts.',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: const Color(0xFF64748B),

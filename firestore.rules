@@ -571,6 +571,11 @@ service cloud.firestore {
     }
 
     
+    // Teacher Profiles - teachers can read/write their own, admins can read/write all
+    match /teacher_profiles/{profileId} {
+      allow read, write: if isSignedIn() && (isOwner(profileId) || isAdmin());
+    }
+
     // All other collections - admin only (fallback rule)
 
     match /{document=**} {

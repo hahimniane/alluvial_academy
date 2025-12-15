@@ -1,0 +1,20 @@
+help me make my cmakelist equal to below
+
+
+VC++ Devirectories > Include Devirectories
+C:\Users\ASUS\Dev\flutter_zoom_meeting_sdk\example\ZoomSDK\windows\h
+
+VC++ Devirectories > Library Devirectories
+C:\Users\ASUS\Dev\flutter_zoom_meeting_sdk\example\ZoomSDK\windows\lib
+
+C/C++ > General > Additional Include Devirectories
+C:\Users\ASUS\Dev\flutter_zoom_meeting_sdk\example\ZoomSDK\windows\h
+
+Linker > General > Additional Library Devirectories
+C:\Users\ASUS\Dev\flutter_zoom_meeting_sdk\example\ZoomSDK\windows\lib
+
+Linker > Input > Additional Dependencies
+C:\Users\ASUS\Dev\flutter_zoom_meeting_sdk\example\ZoomSDK\windows\lib\sdk.lib
+
+Build Events > Post-Build Event > Command Line
+xcopy /Y /S /I "C:\Users\ASUS\Dev\flutter_zoom_meeting_sdk\example\ZoomSDK\windows\bin\*" "$(TargetDir)"
