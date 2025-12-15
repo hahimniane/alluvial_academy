@@ -77,3 +77,9 @@ RUN_IN_FIREBASE_CONSOLE.js
 functions/fix_december_forms.js
 lib/core/services/data_fix_service.dart
 lib/features/dashboard/screens/teacher_mobile_home.dartfunctions/.env
+
+# Zoom Meeting SDK binaries (download from Zoom Marketplace)
+# Run ./tools/setup_zoom_meeting_sdk.sh to set up
+android/app/libs/zoom/
+ios/ZoomSDK/
+# Zoom SDK binaries (download from Zoom Marketplace)

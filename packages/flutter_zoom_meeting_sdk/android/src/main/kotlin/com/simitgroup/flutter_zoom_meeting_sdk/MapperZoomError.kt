@@ -1,0 +1,25 @@
+package com.simitgroup.flutter_zoom_meeting_sdk
+
+import us.zoom.sdk.ZoomError
+
+object MapperZoomError {
+    private val errorNames = mapOf(
+        ZoomError.ZOOM_ERROR_SUCCESS to "SUCCESS",
+        ZoomError.ZOOM_ERROR_INVALID_ARGUMENTS to "INVALID_ARGUMENTS",
+        ZoomError.ZOOM_ERROR_ILLEGAL_APP_KEY_OR_SECRET to "ILLEGAL_APP_KEY_OR_SECRET",
+        ZoomError.ZOOM_ERROR_NETWORK_UNAVAILABLE to "NETWORK_ISSUE",
+        ZoomError.ZOOM_ERROR_AUTHRET_CLIENT_INCOMPATIBLE to "CLIENT_INCOMPATIBLE",
+        ZoomError.ZOOM_ERROR_AUTHRET_TOKENWRONG to "JWT_TOKEN_WRONG",
+        ZoomError.ZOOM_ERROR_AUTHRET_KEY_OR_SECRET_ERROR to "KEY_OR_SECRET_ERROR",
+        ZoomError.ZOOM_ERROR_AUTHRET_ACCOUNT_NOT_SUPPORT to "ACCOUNT_NOT_SUPPORT",
+        ZoomError.ZOOM_ERROR_AUTHRET_ACCOUNT_NOT_ENABLE_SDK to "ACCOUNT_NOT_ENABLE_SDK",
+        ZoomError.ZOOM_ERROR_AUTHRET_LIMIT_EXCEEDED_EXCEPTION to "LIMIT_EXCEEDED_EXCEPTION",
+        ZoomError.ZOOM_ERROR_DEVICE_NOT_SUPPORTED to "DEVICE_NOT_SUPPORTED",
+        ZoomError.ZOOM_ERROR_UNKNOWN to "UNKNOWN",
+        ZoomError.ZOOM_ERROR_DOMAIN_DONT_SUPPORT to "DOMAIN_DONT_SUPPORT",
+    )
+
+    fun getErrorName(code: Int): String {
+        return errorNames[code] ?: "UNDEFINED"
+    }
+}

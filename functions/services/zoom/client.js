@@ -43,6 +43,10 @@ const getAccessToken = async () => {
   return cachedAccessToken;
 };
 
+/**
+ * Create a new Zoom meeting
+ * @returns {Promise<{id: string, joinUrl: string, passcode: string|null}>}
+ */
 const createMeeting = async ({topic, startTimeIso, durationMinutes, agenda, timezone = 'UTC'}) => {
   const {hostUser} = getZoomConfig();
   const token = await getAccessToken();
@@ -79,13 +83,51 @@ const createMeeting = async ({topic, startTimeIso, durationMinutes, agenda, time
   if (!json.id || !json.join_url) {
     throw new Error('Zoom create meeting response missing id or join_url');
   }
+  
+  // Return passcode if available in the create response
   return {
     id: String(json.id),
     joinUrl: String(json.join_url),
+    passcode: json.password || json.passcode || null,
+  };
+};
+
+/**
+ * Get meeting details from Zoom API
+ * Used to retrieve passcode for existing meetings that don't have it stored
+ * @param {string} meetingId - The Zoom meeting ID
+ * @returns {Promise<{id: string, topic: string, passcode: string|null, joinUrl: string}>}
+ */
+const getMeetingDetails = async (meetingId) => {
+  const token = await getAccessToken();
+
+  const resp = await fetch(`https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingId)}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Zoom get meeting failed (${resp.status}): ${text || resp.statusText}`);
+  }
+
+  const json = await resp.json();
+  
+  return {
+    id: String(json.id),
+    topic: json.topic || '',
+    passcode: json.password || json.passcode || null,
+    joinUrl: json.join_url || '',
+    startTime: json.start_time || null,
+    duration: json.duration || null,
   };
 };
 
 module.exports = {
   createMeeting,
+  getMeetingDetails,
 };
 

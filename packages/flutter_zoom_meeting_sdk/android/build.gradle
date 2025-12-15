@@ -1,0 +1,92 @@
+group = "com.simitgroup.flutter_zoom_meeting_sdk"
+version = "1.0-SNAPSHOT"
+
+buildscript {
+    ext.kotlin_version = "1.8.22"
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.7.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        jcenter()
+
+        //Add this below <plugin_name> is whatever your plugin is called eg. url_launcher
+        flatDir {
+           dirs project(':flutter_zoom_meeting_sdk').file('libs')
+            // dirs file('libs')
+        }
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+android {
+    namespace = "com.simitgroup.flutter_zoom_meeting_sdk"
+
+    compileSdk = 35
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+        test.java.srcDirs += "src/test/kotlin"
+    }
+
+    defaultConfig {
+        minSdk = 26
+    }
+
+    dependencies {
+        testImplementation("org.jetbrains.kotlin:kotlin-test")
+        testImplementation("org.mockito:mockito-core:5.0.0")
+    }
+
+    testOptions {
+        unitTests.all {
+            useJUnitPlatform()
+
+            testLogging {
+               events "passed", "skipped", "failed", "standardOut", "standardError"
+               outputs.upToDateWhen {false}
+               showStandardStreams = true
+            }
+        }
+    }
+}
+
+apply from: "libs/build.gradle"
+
+dependencies {
+    implementation(name: 'mobilertc', ext: 'aar')
+
+    sdkDependenciesList.each { dep ->
+        implementation dep
+    }
+
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
+}

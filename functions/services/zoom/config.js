@@ -13,6 +13,9 @@ const requireConfigValue = (envKey) => {
   return value;
 };
 
+/**
+ * Get Zoom API configuration (for creating/managing meetings)
+ */
 const getZoomConfig = () => {
   const accountId = requireConfigValue('ZOOM_ACCOUNT_ID');
   const clientId = requireConfigValue('ZOOM_CLIENT_ID');
@@ -31,7 +34,36 @@ const getZoomConfig = () => {
   };
 };
 
+/**
+ * Get Meeting SDK configuration (for generating Meeting SDK JWT)
+ * These credentials are from the Meeting SDK-enabled General App in Zoom Marketplace
+ */
+const getMeetingSdkConfig = () => {
+  const sdkKey = getConfigValue('ZOOM_MEETING_SDK_KEY');
+  const sdkSecret = getConfigValue('ZOOM_MEETING_SDK_SECRET');
+  
+  // If Meeting SDK credentials are not set, return null (allows graceful fallback)
+  if (!sdkKey || !sdkSecret) {
+    return null;
+  }
+  
+  return {
+    sdkKey,
+    sdkSecret,
+  };
+};
+
+/**
+ * Check if Meeting SDK is configured
+ */
+const isMeetingSdkConfigured = () => {
+  const config = getMeetingSdkConfig();
+  return config !== null;
+};
+
 module.exports = {
   getZoomConfig,
+  getMeetingSdkConfig,
+  isMeetingSdkConfigured,
 };
 
