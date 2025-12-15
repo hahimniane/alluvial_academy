@@ -7,6 +7,15 @@ class ShiftFormService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  static DateTime? _asDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
   /// The ID of the "Readiness Form" that teachers must fill after each class
   /// This should be configured in app settings, but we'll use a constant for now
   static const String readinessFormId = 'Ur1oW7SmFsMyNniTf6jS'; // From screenshot
@@ -121,8 +130,8 @@ class ShiftFormService {
         }
 
         // This is a missed shift without timesheet - needs form
-        final shiftStart = shiftData['shift_start']?.toDate();
-        final shiftEnd = shiftData['shift_end']?.toDate();
+        final shiftStart = _asDateTime(shiftData['shift_start']);
+        final shiftEnd = _asDateTime(shiftData['shift_end']);
         
         pendingForms.add({
           'shiftId': shiftId,
@@ -138,8 +147,8 @@ class ShiftFormService {
 
       // Sort by shift end time (most recent first)
       pendingForms.sort((a, b) {
-        final aTime = a['shiftEnd']?.toDate() ?? a['clockOutTime']?.toDate();
-        final bTime = b['shiftEnd']?.toDate() ?? b['clockOutTime']?.toDate();
+        final aTime = _asDateTime(a['shiftEnd']) ?? _asDateTime(a['clockOutTime']);
+        final bTime = _asDateTime(b['shiftEnd']) ?? _asDateTime(b['clockOutTime']);
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
@@ -335,4 +344,3 @@ class ShiftFormService {
     }
   }
 }
-
