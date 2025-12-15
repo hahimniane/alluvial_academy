@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart'; // for kIsWeb
 import 'package:file_picker/file_picker.dart';
@@ -70,6 +69,9 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           AppLogger.debug('Loaded ${assignments.length} assignments successfully');
         }
       } catch (orderError) {
+        if (orderError is FirebaseException && orderError.code == 'permission-denied') {
+          rethrow;
+        }
         AppLogger.error('OrderBy failed, trying without order: $orderError');
         
         // Fallback: load without ordering
@@ -107,9 +109,12 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
       AppLogger.error('Error loading assignments: $e');
       if (mounted) {
         setState(() => _isLoading = false);
+        final message = e is FirebaseException && e.code == 'permission-denied'
+            ? 'You do not have permission to load assignments.'
+            : 'Failed to load assignments: $e';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load assignments: $e'),
+            content: Text(message),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
@@ -445,18 +450,19 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           const SizedBox(height: 16),
           TextButton.icon(
             onPressed: () async {
-              // Debug: Check all assignments in database
+              // Debug: Check assignments visible to this teacher
               try {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  throw Exception('User not authenticated');
+                }
+
                 final allAssignments = await FirebaseFirestore.instance
                     .collection('assignments')
+                    .where('teacher_id', isEqualTo: user.uid)
                     .limit(10)
                     .get();
-                
-                final user = FirebaseAuth.instance.currentUser;
-                final userAssignments = allAssignments.docs
-                    .where((doc) => doc.data()['teacher_id'] == user?.uid)
-                    .toList();
-                
+
                 if (mounted) {
                   showDialog(
                     context: context,
@@ -467,9 +473,8 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Total assignments in DB: ${allAssignments.docs.length}'),
-                            Text('Your assignments: ${userAssignments.length}'),
-                            Text('Your user ID: ${user?.uid ?? "null"}'),
+                            Text('Assignments loaded (limit 10): ${allAssignments.docs.length}'),
+                            Text('Your user ID: ${user.uid}'),
                             const SizedBox(height: 16),
                             if (allAssignments.docs.isNotEmpty) ...[
                               const Text('Sample assignments:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -483,7 +488,6 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                                       Text('ID: ${doc.id}'),
                                       Text('Title: ${data['title'] ?? 'N/A'}'),
                                       Text('Teacher ID: ${data['teacher_id'] ?? 'N/A'}'),
-                                      Text('Match: ${data['teacher_id'] == user?.uid ? "YES" : "NO"}'),
                                       const Divider(),
                                     ],
                                   ),
@@ -511,7 +515,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               }
             },
             icon: const Icon(Icons.bug_report, size: 16),
-            label: const Text('Debug: Check Database'),
+            label: const Text('Debug: Check My Assignments'),
             style: TextButton.styleFrom(
               foregroundColor: Colors.blue,
             ),
@@ -1337,4 +1341,3 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     );
   }
 }
-

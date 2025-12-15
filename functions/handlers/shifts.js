@@ -15,6 +15,7 @@ const {
   PROJECT_ID,
 } = require('../services/tasks/config');
 const {sendFCMNotificationToTeacher} = require('../services/notifications/fcm');
+const {ensureZoomMeetingAndEmailTeacher} = require('../services/zoom/shift_zoom');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
 
@@ -176,6 +177,25 @@ const scheduleShiftLifecycle = onCall(async (request) => {
     }
 
     console.log(`[SUCCESS] scheduleShiftLifecycle completed for shiftId: ${shiftId}`);
+    // Best-effort: create Zoom meeting + email invite for newly created shifts.
+    // This is intentionally non-blocking and should not fail lifecycle scheduling.
+    try {
+      await ensureZoomMeetingAndEmailTeacher({shiftId, shiftData});
+    } catch (zoomError) {
+      console.error(`[Zoom] Failed to ensure Zoom meeting for shift ${shiftId}:`, zoomError);
+      try {
+        await admin
+          .firestore()
+          .collection('teaching_shifts')
+          .doc(shiftId)
+          .update({
+            zoom_error: String(zoomError?.message || zoomError),
+            zoom_error_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+      } catch (updateError) {
+        console.error('[Zoom] Failed to record zoom_error on shift doc:', updateError);
+      }
+    }
     return {success: true, results};
   } catch (error) {
     console.error(`[FATAL] Unhandled error in scheduleShiftLifecycle for shiftId: ${shiftId}:`, error);
@@ -742,4 +762,3 @@ module.exports = {
   onShiftDeleted,
   sendScheduledShiftReminders,
 };
-

@@ -167,7 +167,19 @@ service cloud.firestore {
     // Allow anyone to submit an enrollment (create only)
     match /enrollments/{enrollmentId} {
       allow create: if true;
-      allow read, update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow delete: if isAdmin();
+      
+      // Allow teachers to update enrollments when accepting a job (setting matched status)
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        // Only allow updating metadata fields related to job matching
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['metadata']) &&
+        // Ensure metadata.status is being set to 'matched'
+        request.resource.data.metadata.status == 'matched' &&
+        // Ensure metadata.matchedTeacherId is set to the current user
+        request.resource.data.metadata.matchedTeacherId == request.auth.uid
+      );
     }
     
     // Allow anyone to submit a contact message (create only)
@@ -354,7 +366,7 @@ service cloud.firestore {
 
     // Timesheet entries - teachers can read/write their own, admins can read/write all
 
-    match /timesheet_entries/{entryId} {
+	    match /timesheet_entries/{entryId} {
 
       // Allow get for specific document
 
@@ -394,15 +406,49 @@ service cloud.firestore {
 
       );
 
-    }
+	    }
 
-    
+	    
 
-    // Tasks - users can read tasks assigned to them, admins can read all
+	    // Assignments - teachers can read/write their own, admins can read/write all
 
-    match /tasks/{taskId} {
+	    match /assignments/{assignmentId} {
 
-      allow read: if isSignedIn() && 
+	      allow read: if isSignedIn() &&
+
+	                     (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+
+	      allow create: if isSignedIn() &&
+
+	                       (isAdmin() || teacherIdFromData(request.resource.data) == request.auth.uid);
+
+	      allow update: if isSignedIn() && (
+
+	        isAdmin() ||
+
+	        (
+
+	          teacherIdFromData(resource.data) == request.auth.uid &&
+
+	          teacherIdFromData(request.resource.data) == request.auth.uid
+
+	        )
+
+	      );
+
+	      allow delete: if isSignedIn() &&
+
+	                      (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+
+	    }
+
+	    
+
+	    // Tasks - users can read tasks assigned to them, admins can read all
+
+	    match /tasks/{taskId} {
+
+	      allow read: if isSignedIn() && 
 
                      (request.auth.uid in resource.data.assignedTo || isAdmin());
 
@@ -468,6 +514,63 @@ service cloud.firestore {
 
     }
 
+    
+    // Admin Notifications - admins can read/write, teachers can create when accepting jobs
+
+    match /admin_notifications/{notificationId} {
+
+      allow read: if isAdmin();
+
+      allow create: if isSignedIn(); // Teachers can create notifications when accepting jobs
+
+      allow update, delete: if isAdmin();
+
+    }
+
+    
+    // Job Board - authenticated users can read jobs, teachers can accept them
+
+    match /job_board/{jobId} {
+
+      // Allow all authenticated users to read jobs (teachers need to see available opportunities)
+
+      allow read: if isSignedIn();
+
+      // Allow admins to create/update/delete
+
+      allow create, delete: if isAdmin();
+
+      // Allow teachers to accept jobs (update status to 'accepted' with their teacherId)
+
+      allow update: if isSignedIn() && (
+
+        isAdmin() ||
+
+        (
+
+          // Job must be currently open
+
+          resource.data.status == 'open' &&
+
+          // Status must be changed to 'accepted'
+
+          request.resource.data.status == 'accepted' &&
+
+          // Teacher ID must be set to the current user
+
+          request.resource.data.acceptedByTeacherId == request.auth.uid &&
+
+          // Enrollment ID must remain unchanged
+
+          request.resource.data.enrollmentId == resource.data.enrollmentId
+
+        )
+
+      );
+
+    }
+
+    
     // All other collections - admin only (fallback rule)
 
     match /{document=**} {

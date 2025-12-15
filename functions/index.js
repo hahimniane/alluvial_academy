@@ -11,6 +11,8 @@ const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
 const formHandlers = require('./handlers/forms');
+const zoomHandlers = require('./handlers/zoom');
+const testZoomHandlers = require('./handlers/test_zoom_shift');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -48,6 +50,10 @@ exports.onShiftUpdated = shiftHandlers.onShiftUpdated;
 exports.onShiftCancelled = shiftHandlers.onShiftCancelled;
 exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
+exports.joinZoomMeeting = zoomHandlers.joinZoomMeeting;
+exports.getZoomJoinUrl = zoomHandlers.getZoomJoinUrl;
+exports.testZoomForShift = testZoomHandlers.testZoomForShift;
+exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
 
 // Form management functions
 exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessForms;
@@ -101,4 +107,3 @@ exports.onShiftUpdateNew = newImplementation.onShiftUpdateNew;
 
 // Timesheet export function
 exports.exportTimesheet = newImplementation.exportTimesheet;
-

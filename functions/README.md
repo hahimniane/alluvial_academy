@@ -121,6 +121,32 @@ Emails are sent via **Hostinger SMTP**:
 
 Email templates are defined in `services/email/senders.js`.
 
+## Zoom Integration (Shift Meetings)
+
+When `scheduleShiftLifecycle` runs for a newly-created teaching shift, Cloud Functions will:
+- Create a Zoom meeting for the shift (server-to-server OAuth).
+- Store `zoom_meeting_id` and an **encrypted** `zoom_encrypted_join_url` on the `teaching_shifts/{shiftId}` document.
+- Email the teacher a **time-gated** join link that only redirects to Zoom from **10 minutes before** shift start until **10 minutes after** shift end.
+
+### Required configuration
+
+Set the following as **environment variables** (preferred) or as **Firebase functions config** (`functions.config().zoom.*`):
+- `ZOOM_ACCOUNT_ID` (or `zoom.account_id`)
+- `ZOOM_CLIENT_ID` (or `zoom.client_id`)
+- `ZOOM_CLIENT_SECRET` (or `zoom.client_secret`)
+- `ZOOM_HOST_USER` (or `zoom.host_user`) — the Zoom user/email to create meetings under
+- `ZOOM_JOIN_TOKEN_SECRET` (or `zoom.join_token_secret`) — used to sign the emailed join link
+- `ZOOM_ENCRYPTION_KEY_B64` (or `zoom.encryption_key_b64`) — base64 for 32 bytes (AES-256-GCM) used to encrypt the stored Zoom join URL
+
+Generate an encryption key:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### Deployed functions
+
+- `joinZoomMeeting` (HTTP): validates the signed token and time window, then redirects to Zoom.
+
 ## Cloud Tasks Configuration
 
 Shift lifecycle automation uses Google Cloud Tasks:
@@ -169,4 +195,3 @@ Common causes:
 
 **Last Updated:** 2025-01-11  
 **Refactored From:** Single `index.js` (3,372 lines) → Modular structure (11 files, ~300 lines each)
-

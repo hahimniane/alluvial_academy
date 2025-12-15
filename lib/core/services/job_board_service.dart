@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/enrollment_request.dart';
 import '../models/job_opportunity.dart';
+import '../utils/app_logger.dart';
 
 class JobBoardService {
   final CollectionReference _jobCollection = 
@@ -92,9 +94,21 @@ class JobBoardService {
 
   /// Get stream of all jobs (open + accepted) for teachers to see filled opportunities
   Stream<List<JobOpportunity>> getAllJobs() {
+    final user = FirebaseAuth.instance.currentUser;
+    AppLogger.info('JobBoardService.getAllJobs: Current user UID: ${user?.uid}, email: ${user?.email}');
+    
+    if (user == null) {
+      AppLogger.error('JobBoardService.getAllJobs: No authenticated user!');
+      return Stream.value([]);
+    }
+    
     return _jobCollection
         .snapshots()
+        .handleError((error) {
+          AppLogger.error('JobBoardService.getAllJobs error: $error');
+        })
         .map((snapshot) {
+          AppLogger.info('JobBoardService.getAllJobs: Received ${snapshot.docs.length} jobs');
           final jobs = snapshot.docs
               .map((doc) => JobOpportunity.fromFirestore(doc))
               .toList();

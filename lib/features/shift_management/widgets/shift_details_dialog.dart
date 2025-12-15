@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
-import '../../../core/services/shift_service.dart';
+// import '../../../core/services/shift_service.dart'; // Unused
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_form_service.dart';
@@ -17,6 +17,9 @@ import '../../../form_screen.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 import 'report_schedule_issue_dialog.dart';
 import 'reschedule_shift_dialog.dart';
+import 'package:flutter/foundation.dart';
+import '../../../core/services/zoom_service.dart';
+import '../../../features/zoom/screens/in_app_zoom_meeting_screen.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
   final TeachingShift shift;
@@ -508,6 +511,297 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     return (now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart)) &&
         now.isBefore(shiftEnd) &&
         (status == ShiftStatus.scheduled || status == ShiftStatus.active);
+  }
+
+  // Build the Zoom button for joining meetings
+  Widget _buildZoomButton() {
+    final shift = _liveShift ?? widget.shift;
+    final canJoin = ZoomService.canJoinMeeting(shift);
+    final timeUntil = ZoomService.getTimeUntilCanJoin(shift);
+    
+    return Expanded(
+      child: ElevatedButton.icon(
+        onPressed: canJoin 
+            ? () => _handleJoinZoom()
+            : null,
+        icon: const Icon(Icons.videocam, size: 20),
+        label: Text(
+          canJoin 
+              ? "Join Zoom" 
+              : timeUntil != null 
+                  ? "Zoom (${_formatTimeUntil(timeUntil)})"
+                  : "Zoom Ended",
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canJoin ? const Color(0xFF0E72ED) : const Color(0xFF94A3B8),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+    );
+  }
+
+  String _formatTimeUntil(Duration duration) {
+    final minutes = duration.inMinutes;
+    if (minutes < 60) {
+      return '${minutes}m';
+    }
+    final hours = minutes ~/ 60;
+    final remainingMins = minutes % 60;
+    if (remainingMins == 0) {
+      return '${hours}h';
+    }
+    return '${hours}h ${remainingMins}m';
+  }
+
+  Future<void> _handleJoinZoom() async {
+    final shift = _liveShift ?? widget.shift;
+    
+    if (!shift.hasZoomMeeting) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No Zoom meeting is configured for this shift'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // On web, open externally (WebView not supported)
+    if (kIsWeb) {
+      // Using url_launcher would be needed here
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Opening Zoom in new tab...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      return;
+    }
+
+    // On mobile, show options
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0E72ED).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.videocam,
+                color: Color(0xFF0E72ED),
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Join Zoom Meeting',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Meeting ID: ${shift.zoomMeetingId}',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // In-App Option (Recommended)
+            GestureDetector(
+              onTap: () => Navigator.pop(context, 'in_app'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0E72ED).withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF0E72ED).withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0E72ED).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.smartphone,
+                        color: Color(0xFF0E72ED),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Join In-App',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1E293B),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0E72ED),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Recommended',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Stay in the app with full meeting experience',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFF0E72ED),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // External Option
+            GestureDetector(
+              onTap: () => Navigator.pop(context, 'external'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF64748B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.open_in_new,
+                        color: Color(0xFF64748B),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Open in Zoom App',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Use the Zoom app if installed',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey[400],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (choice == 'in_app') {
+      // Use the service method which handles getting the join URL
+      await ZoomService.joinMeetingInApp(context, shift);
+    } else if (choice == 'external') {
+      // Open in external Zoom app
+      await ZoomService.joinMeetingInApp(context, shift);
+    }
   }
 
   // Check if this is an upcoming shift (not yet time to clock in)
@@ -1235,7 +1529,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     
     // Use the first entry for status tracking (all entries share the same approval status)
     final status = (_timesheetEntry?['status'] as String?) ?? 'pending';
-    final approvedBy = _timesheetEntry?['approved_by'] as String?;
+    // final approvedBy = _timesheetEntry?['approved_by'] as String?; // Not currently used
     final approvedAt = _timesheetEntry?['approved_at'] as Timestamp?;
     final isEdited = _timesheetEntry?['is_edited'] as bool? ?? false;
     final editApproved = _timesheetEntry?['edit_approved'] as bool? ?? false;
@@ -2279,6 +2573,12 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           ),
             ),
           ),
+
+          // Zoom button (if meeting is configured and within time window)
+          if (_liveShift?.hasZoomMeeting == true || widget.shift.hasZoomMeeting) ...[
+            const SizedBox(width: 8),
+            _buildZoomButton(),
+          ],
 
           // Clock In/Out or Claim button
           if (_canClockInNow && !_isActive) ...[

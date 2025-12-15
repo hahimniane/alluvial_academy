@@ -76,6 +76,9 @@ dependencies:
   firebase_remote_config: ^5.0.0
   logger: ^2.0.2+1
   flutter_timezone: ^5.0.1
+  webview_flutter: ^4.10.0
+  webview_flutter_android: ^4.3.0
+  webview_flutter_wkwebview: ^3.17.0
 
 dev_dependencies:
   flutter_test:
