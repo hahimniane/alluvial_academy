@@ -1,0 +1,88 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Android signing files
+/android/key.properties
+/android/app/upload-keystore.jks
+*.jks
+*.keystore
+
+# Local Netlify folder
+.netlify
+
+# Sensitive files
+serviceAccountKey.json
+*.hprof
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Documentation files (optional - remove if you want to track them)
+FIXES_APPLIED.md
+FIX_STORAGE_PERMISSION.md
+FORM_LINKING_SOLUTION.md
+HOW_TO_RUN_FORM_FIX.md
+MANUAL_FIX_STEPS.md
+QUICK_FIX_INSTRUCTIONS.md
+RUN_MOBILE_APP.md
+SYSTEM_STATUS.md
+TEACHER_HOME_SCREEN_REDESIGN.md
+TEACHER_LOGIN_FLOW_FILES.md
+TEACHER_MOBILE_APP_FILES.md
+RUN_IN_FIREBASE_CONSOLE.js
+functions/fix_december_forms.js
+lib/core/services/data_fix_service.dart
+lib/features/dashboard/screens/teacher_mobile_home.dartfunctions/.env
+.env
+functions/.env
+
+# Zoom Meeting SDK binaries (download from Zoom Marketplace)
+# Run ./tools/setup_zoom_meeting_sdk.sh to set up
+android/app/libs/zoom/
+ios/ZoomSDK/
+!ios/ZoomSDK/ZoomMobileRTC.podspec
+# Zoom SDK binaries (download from Zoom Marketplace)

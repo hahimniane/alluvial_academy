@@ -1,0 +1,41 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to upload profile pictures
+    match /profile_pictures/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to upload and read assignment files
+    match /assignment_files/{assignmentId}/{fileName} {
+      // Allow authenticated users to read assignment files
+      allow read: if request.auth != null;
+      
+      // Allow authenticated users to upload assignment files
+      // Limit file size to 50MB
+      allow write: if request.auth != null && 
+                     request.resource.size < 50 * 1024 * 1024;
+    }
+    
+    // Allow authenticated users to upload and read form images
+    match /form_images/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                     request.resource.size < 10 * 1024 * 1024; // Max 10MB
+    }
+    
+    // Allow authenticated users to upload and read task attachments
+    match /task_attachments/{taskId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                     request.resource.size < 50 * 1024 * 1024; // Max 50MB
+    }
+    
+    // Default rule - deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "554077757249",
+    "project_id": "alluwal-academy",
+    "storage_bucket": "alluwal-academy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:554077757249:android:60fab9887caa6295cc8bc0",
+        "android_client_info": {
+          "package_name": "org.alluvaleducationhub.academy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ-JHKPs_VQTc8cDfb94h-uYvFPB8vjRM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

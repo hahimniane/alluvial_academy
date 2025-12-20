@@ -1,0 +1,6 @@
+{
+    "window.autoDetectColorScheme": true,
+    "workbench.colorTheme": "Visual Studio Light - C++",
+    "cmake.sourceDirectory": "${workspaceFolder}/linux",
+    "dart.flutterSdkPath": "/Users/hashimniane/flutter"
+}

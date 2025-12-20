@@ -1,0 +1,581 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+
+    function isSignedIn() {
+
+      return request.auth != null;
+
+    }
+
+    
+
+    // Helper function to check if user owns the document
+
+    function isOwner(userId) {
+
+      return isSignedIn() && request.auth.uid == userId;
+
+    }
+
+    
+
+    // Helper to determine if a user record grants admin privileges
+
+    function isAdminRole(data) {
+
+      return data != null && (
+
+        data.role == 'admin' ||
+
+        data.user_type == 'admin' ||
+
+        data.userType == 'admin' ||
+
+        data.is_admin == true ||
+
+        data.isAdmin == true ||
+
+        data.is_admin_teacher == true
+
+      );
+
+    }
+
+    
+
+    // Helper function to check if user is admin
+
+    // NOTE: This reads from the users collection, so it cannot be used in the users collection rule
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && isAdminRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data)) ||
+        request.auth.token.role == 'admin' ||
+        request.auth.token.isAdmin == true ||
+        request.auth.token.is_admin == true
+      );
+    }
+
+    
+
+    // Helper to normalize the authenticated user's email (lowercased)
+
+    function authEmail() {
+
+      return request.auth != null && request.auth.token.email != null
+
+        ? request.auth.token.email
+
+        : null;
+
+    }
+
+    
+
+
+    
+
+    // Helper to determine if a user document belongs to the signed-in user (write context)
+
+    function isUserDocOwnerAfterWrite(userId) {
+
+      return isSignedIn() && (
+
+        request.auth.uid == userId ||
+
+        (request.resource.data.uid != null && request.resource.data.uid == request.auth.uid) ||
+
+        (request.resource.data['e-mail'] != null && authEmail() != null && request.resource.data['e-mail'] == authEmail())
+
+      );
+
+    }
+
+    
+
+    // Helper to ensure sensitive fields remain unchanged during updates
+
+    function fieldUnchanged(fieldName) {
+
+      return request.resource.data[fieldName] == resource.data[fieldName];
+
+    }
+
+    
+
+    // Helper to normalize teacherId values stored with different field names
+
+    function teacherIdFromData(data) {
+
+      return data.teacherId != null ? data.teacherId : data.teacher_id;
+
+    }
+
+
+
+    // Helper to detect updates affecting only FCM token metadata
+
+    function isFcmTokenOnlyUpdate() {
+
+      return request.resource.data.diff(resource.data).changedKeys()
+
+        .hasOnly(['fcmTokens', 'lastTokenUpdate']);
+
+    }
+
+    
+
+    // Helper to resolve the owner of a form submission across legacy field names
+
+    function submissionOwnerFromData(data) {
+
+      return data.userId != null ? data.userId :
+
+             data.submittedBy != null ? data.submittedBy :
+
+             data.teacherId != null ? data.teacherId :
+
+             data.teacher_id;
+
+    }
+
+    
+
+    // =========================================================================
+    // Public Forms (Landing Page)
+    // =========================================================================
+    
+    // Allow anyone to submit an enrollment (create only)
+    match /enrollments/{enrollmentId} {
+      allow create: if true;
+      allow read: if isAdmin();
+      allow delete: if isAdmin();
+      
+      // Allow teachers to update enrollments when accepting a job (setting matched status)
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        // Only allow updating metadata fields related to job matching
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['metadata']) &&
+        // Ensure metadata.status is being set to 'matched'
+        request.resource.data.metadata.status == 'matched' &&
+        // Ensure metadata.matchedTeacherId is set to the current user
+        request.resource.data.metadata.matchedTeacherId == request.auth.uid
+      );
+    }
+    
+    // Allow anyone to submit a contact message (create only)
+    match /contact_messages/{messageId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Allow anyone to submit a teacher application (create only)
+    match /teacher_applications/{applicationId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // Authenticated & Admin Collections
+    // =========================================================================
+
+    // Users collection - users can ALWAYS read their own data (no admin check to avoid circular dependency)
+
+    // Admins can read/query all users via explicit role check in the document
+
+    match /users/{userId} {
+
+      // Allow users to read their own document, or any signed-in user to 'get' (for UI display), or admins to read/list
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      
+
+      // Allow updates for admins or for users updating their own profile with restricted fields
+
+      allow update: if isAdmin() || (
+
+        isUserDocOwnerAfterWrite(userId) &&
+
+        fieldUnchanged('uid') &&
+
+        fieldUnchanged('user_type') &&
+
+        fieldUnchanged('role') &&
+
+        fieldUnchanged('is_admin_teacher') &&
+
+        fieldUnchanged('is_active') &&
+
+        fieldUnchanged('created_by_admin') &&
+
+        fieldUnchanged('password_reset_required') &&
+
+        fieldUnchanged('e-mail')
+
+      ) || (
+
+        isUserDocOwnerAfterWrite(userId) && isFcmTokenOnlyUpdate()
+
+      );
+
+      
+
+      // Allow create/delete operations only for admins
+
+      allow create, delete: if isAdmin();
+
+    }
+
+    
+
+    // Form responses - users can only read their own submissions
+
+    // Admins can read all submissions
+
+    match /form_responses/{responseId} {
+
+      allow read: if isSignedIn() && 
+
+                     (isOwner(submissionOwnerFromData(resource.data)) || isAdmin());
+
+      allow create: if isSignedIn() && 
+
+                       submissionOwnerFromData(request.resource.data) == request.auth.uid;
+
+      allow update, delete: if isAdmin();
+
+    }
+
+    
+
+    // Form templates - all authenticated users can read
+
+    // Only admins can create/update/delete
+
+    match /form/{formId} {
+
+      allow read: if isSignedIn();
+
+      allow write: if isAdmin();
+
+    }
+
+    
+
+    // Helper to check if teacher owns the shift
+
+    function isShiftOwner(data) {
+
+      return isSignedIn() && (
+
+        // Check teacher_id field (snake_case - what's actually stored in Firestore)
+
+        (data.teacher_id != null && data.teacher_id == request.auth.uid) ||
+
+        (data.teacherId != null && data.teacherId == request.auth.uid) ||
+
+        // Check original_teacher_id for published shifts
+
+        (data.original_teacher_id != null && data.original_teacher_id == request.auth.uid)
+
+      );
+
+    }
+
+    
+
+    // Helper to check if a teacher can claim a published shift
+
+    function canClaimShift() {
+
+      return isSignedIn() &&
+
+        // Check if shift is published and scheduled
+
+        resource.data.is_published == true &&
+
+        resource.data.status == 'scheduled' &&
+
+        // Check if teacher is claiming it (updating teacher_id to their own UID)
+
+        request.resource.data.teacher_id == request.auth.uid &&
+
+        // Check if is_published is being set to false (unpublishing after claim)
+
+        request.resource.data.is_published == false;
+
+    }
+
+    
+
+    // Teaching shifts - teachers can read their own, admins can read/write all
+
+    match /teaching_shifts/{shiftId} {
+
+      // Allow get for any authenticated user (they can list anyway, so this is not a security risk)
+
+      allow get: if isSignedIn();
+
+      // Allow list/query for teachers and admins
+
+      allow list: if isSignedIn();
+
+      // Allow create only for admins
+
+      allow create: if isSignedIn() && isAdmin();
+
+      // Allow update for admins, teachers updating their own shifts, or teachers claiming published shifts
+
+      allow update: if isSignedIn() && (
+
+        isAdmin() || 
+
+        isShiftOwner(resource.data) ||
+
+        canClaimShift()
+
+      );
+
+      // Allow delete only for admins
+
+      allow delete: if isSignedIn() && isAdmin();
+
+    }
+
+    
+
+    // Timesheet entries - teachers can read/write their own, admins can read/write all
+
+	    match /timesheet_entries/{entryId} {
+
+      // Allow get for specific document
+
+      allow get: if isSignedIn() && 
+
+                    (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+
+      // Allow list/query for teachers to see their own entries
+
+      allow list: if isSignedIn();
+
+      // Allow create if teacher is creating their own entry
+
+      // Check both teacherId and teacher_id fields explicitly
+
+      allow create: if isSignedIn() && (
+
+        (request.resource.data.teacher_id != null && request.resource.data.teacher_id == request.auth.uid) ||
+
+        (request.resource.data.teacherId != null && request.resource.data.teacherId == request.auth.uid) ||
+
+        isAdmin()
+
+      );
+
+      // Allow update/delete for own entries or admin
+
+      // Check both field names explicitly to avoid function call issues
+
+      allow update, delete: if isSignedIn() && (
+
+        (resource.data.teacher_id != null && resource.data.teacher_id == request.auth.uid) ||
+
+        (resource.data.teacherId != null && resource.data.teacherId == request.auth.uid) ||
+
+        isAdmin()
+
+      );
+
+	    }
+
+	    
+
+	    // Assignments - teachers can read/write their own, admins can read/write all
+
+	    match /assignments/{assignmentId} {
+
+	      allow read: if isSignedIn() &&
+
+	                     (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+
+	      allow create: if isSignedIn() &&
+
+	                       (isAdmin() || teacherIdFromData(request.resource.data) == request.auth.uid);
+
+	      allow update: if isSignedIn() && (
+
+	        isAdmin() ||
+
+	        (
+
+	          teacherIdFromData(resource.data) == request.auth.uid &&
+
+	          teacherIdFromData(request.resource.data) == request.auth.uid
+
+	        )
+
+	      );
+
+	      allow delete: if isSignedIn() &&
+
+	                      (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+
+	    }
+
+	    
+
+	    // Tasks - users can read tasks assigned to them, admins can read all
+
+	    match /tasks/{taskId} {
+
+	      allow read: if isSignedIn() && 
+
+                     (request.auth.uid in resource.data.assignedTo || isAdmin());
+
+      allow write: if isAdmin();
+
+    }
+
+    
+
+    // Chat messages - authenticated users can read and write
+
+    match /chat_messages/{messageId} {
+
+      allow read, write: if isSignedIn();
+
+    }
+
+    
+
+    // Chat rooms - authenticated users can read and write
+
+    match /chat_rooms/{roomId} {
+
+      allow read, write: if isSignedIn();
+
+    }
+
+    
+
+    // Landing page content - public read, admin write
+
+    match /landing_page_content/{docId} {
+
+      allow read: if true; // Public
+
+      allow write: if isAdmin();
+
+    }
+
+    
+
+    // Website content - public read, admin write
+
+    match /website_content/{docId} {
+
+      allow read: if true; // Public
+
+      allow write: if isAdmin();
+
+    }
+
+    
+
+    // Notifications - users can read their own notifications
+
+    match /notifications/{notificationId} {
+
+      allow read: if isSignedIn() && 
+
+                     (isOwner(resource.data.userId) || isAdmin());
+
+      allow write: if isAdmin();
+
+    }
+
+    
+    // Admin Notifications - admins can read/write, teachers can create when accepting jobs
+
+    match /admin_notifications/{notificationId} {
+
+      allow read: if isAdmin();
+
+      allow create: if isSignedIn(); // Teachers can create notifications when accepting jobs
+
+      allow update, delete: if isAdmin();
+
+    }
+
+    
+    // Job Board - authenticated users can read jobs, teachers can accept them
+
+    match /job_board/{jobId} {
+
+      // Allow all authenticated users to read jobs (teachers need to see available opportunities)
+
+      allow read: if isSignedIn();
+
+      // Allow admins to create/update/delete
+
+      allow create, delete: if isAdmin();
+
+      // Allow teachers to accept jobs (update status to 'accepted' with their teacherId)
+
+      allow update: if isSignedIn() && (
+
+        isAdmin() ||
+
+        (
+
+          // Job must be currently open
+
+          resource.data.status == 'open' &&
+
+          // Status must be changed to 'accepted'
+
+          request.resource.data.status == 'accepted' &&
+
+          // Teacher ID must be set to the current user
+
+          request.resource.data.acceptedByTeacherId == request.auth.uid &&
+
+          // Enrollment ID must remain unchanged
+
+          request.resource.data.enrollmentId == resource.data.enrollmentId
+
+        )
+
+      );
+
+    }
+
+    
+    // Teacher Profiles - teachers can read/write their own, admins can read/write all
+    match /teacher_profiles/{profileId} {
+      allow read, write: if isSignedIn() && (isOwner(profileId) || isAdmin());
+    }
+
+    // Zoom Hosts - admin only (for multi-host meeting distribution)
+    // Contains Zoom host account emails used for creating meetings
+    match /zoom_hosts/{hostId} {
+      allow read, write: if isAdmin();
+    }
+
+    // All other collections - admin only (fallback rule)
+
+    match /{document=**} {
+
+      allow read, write: if isAdmin();
+
+    }
+
+  }
+
+}

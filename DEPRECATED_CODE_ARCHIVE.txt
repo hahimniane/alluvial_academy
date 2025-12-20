@@ -1,0 +1,2304 @@
+// =============================================================================
+// DEPRECATED CODE ARCHIVE
+// This file contains code from pages that were removed as part of the homepage redesign.
+// Date: 2024-05-21
+// =============================================================================
+
+// =============================================================================
+// FILE: lib/screens/about_page.dart
+// =============================================================================
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../shared/widgets/persistent_app_bar.dart';
+
+class AboutPage extends StatefulWidget {
+  const AboutPage({super.key});
+
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends State<AboutPage> with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: const PersistentAppBar(currentPage: 'About'),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildHeroSection(),
+              _buildMissionSection(),
+              _buildVisionSection(),
+              _buildAspirationSection(),
+              _buildValuesSection(),
+              _buildStorySection(),
+              _buildTeamSection(),
+              _buildAchievementsSection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isTablet = MediaQuery.of(context).size.width > 768;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 24 : 16,
+        vertical: isDesktop
+            ? 80
+            : isTablet
+                ? 60
+                : 40,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xffFAFBFF), Color(0xffF0F7FF)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xff3B82F6).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+              border:
+                  Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
+            ),
+            child: Text(
+              '🕌 Our Story & Mission',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff3B82F6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'The Alluwal Education Hub\nLearn, Lead & Thrive',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: isDesktop
+                  ? 48
+                  : isTablet
+                      ? 36
+                      : 28,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xff111827),
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Text(
+              'At Alluwal Education Hub, we envision a world where education transcends boundaries, cultures, and beliefs, fostering an environment where diverse knowledge thrives.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: isDesktop ? 18 : 16,
+                color: const Color(0xff6B7280),
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMissionSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Our Mission',
+                    style: GoogleFonts.inter(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Our mission seamlessly embraces what the eminent Ali Mazrui termed the \'Africa Triple Heritage\': the fusion of Islamic, African, and Western civilizations. We offer diverse courses in Islamic studies, African indigenous languages and cultures, and Western education studies, aiming to transcend cultural boundaries to prepare our students for a diverse and increasingly globalized world.',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      color: const Color(0xff374151),
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff3B82F6).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.school,
+                          color: Color(0xff3B82F6),
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Quality Education',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff111827),
+                              ),
+                            ),
+                            Text(
+                              'Authentic Islamic knowledge delivered through modern teaching methods',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: const Color(0xff6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 60),
+            Expanded(
+              child: Container(
+                height: 400,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
+                  ),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.menu_book,
+                    color: Colors.white,
+                    size: 120,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVisionSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(color: Color(0xffF9FAFB)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          children: [
+            Text(
+              'Our Vision',
+              style: GoogleFonts.inter(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'At Alluwal Education Hub, we envision a world where education transcends boundaries, cultures, and beliefs, fostering an environment where diverse knowledge thrives.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                color: const Color(0xff374151),
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAspirationSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          children: [
+            Text(
+              'Our Aspiration',
+              style: GoogleFonts.inter(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'We aspire to create a comprehensive educational platform that celebrates and integrates the richness of African heritage, the depth of Islamic scholarship, and the innovation of Western education, empowering students to become leaders in their communities and the world.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                color: const Color(0xff374151),
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildValuesSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(color: Color(0xffF9FAFB)),
+      child: Column(
+        children: [
+          Text(
+            'Our Core Values',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 3 : 1,
+              crossAxisSpacing: 32,
+              mainAxisSpacing: 32,
+              childAspectRatio:
+                  MediaQuery.of(context).size.width > 768 ? 1.1 : 2,
+              children: [
+                _buildValueCard(
+                  '🤲',
+                  'Authenticity',
+                  'We ensure all our teachings are rooted in authentic Islamic sources - the Quran and Sunnah.',
+                  const Color(0xff3B82F6),
+                ),
+                _buildValueCard(
+                  '💝',
+                  'Compassion',
+                  'We approach every student with patience, understanding, and genuine care for their learning journey.',
+                  const Color(0xff10B981),
+                ),
+                _buildValueCard(
+                  '🌟',
+                  'Excellence',
+                  'We strive for the highest standards in Islamic education and teaching methodologies.',
+                  const Color(0xffF59E0B),
+                ),
+                _buildValueCard(
+                  '🤝',
+                  'Community',
+                  'We foster a supportive global community of learners, teachers, and families.',
+                  const Color(0xff8B5CF6),
+                ),
+                _buildValueCard(
+                  '📚',
+                  'Knowledge',
+                  'We believe in the transformative power of authentic Islamic knowledge.',
+                  const Color(0xffEF4444),
+                ),
+                _buildValueCard(
+                  '🌍',
+                  'Accessibility',
+                  'We make quality Islamic education accessible to Muslims worldwide, regardless of location.',
+                  const Color(0xff06B6D4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValueCard(
+      String emoji, String title, String description, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(
+              child: Text(
+                emoji,
+                style: const TextStyle(fontSize: 28),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStorySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          children: [
+            Text(
+              'Our Journey',
+              style: GoogleFonts.inter(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 48),
+            Column(
+              children: [
+                _buildTimelineItem(
+                  '2020',
+                  'The Vision',
+                  'Founded with the vision to make authentic Islamic education accessible to Muslim families worldwide through technology.',
+                  true,
+                ),
+                _buildTimelineItem(
+                  '2021',
+                  'First Teachers',
+                  'Recruited our first certified Islamic scholars and began offering Quran and Arabic lessons to students across the globe.',
+                  false,
+                ),
+                _buildTimelineItem(
+                  '2022',
+                  'Platform Launch',
+                  'Officially launched our comprehensive learning platform with advanced features for students, teachers, and parents.',
+                  true,
+                ),
+                _buildTimelineItem(
+                  '2023',
+                  'Global Expansion',
+                  'Expanded to serve students in over 50 countries with a team of 200+ qualified Islamic teachers.',
+                  false,
+                ),
+                _buildTimelineItem(
+                  '2024',
+                  'Innovation Continues',
+                  'Introduced new courses in Islamic studies, enhanced our platform features, and reached 5,000+ happy students.',
+                  true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(
+      String year, String title, String description, bool isLeft) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 40),
+      child: Row(
+        children: [
+          if (isLeft) ...[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    textAlign: TextAlign.right,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff6B7280),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 24),
+          ],
+          Column(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xff3B82F6),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Center(
+                  child: Text(
+                    year,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              if (year != '2024')
+                Container(
+                  width: 2,
+                  height: 60,
+                  color: const Color(0xffE5E7EB),
+                ),
+            ],
+          ),
+          if (!isLeft) ...[
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff6B7280),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(color: Color(0xffF9FAFB)),
+      child: Column(
+        children: [
+          Text(
+            'Leadership Team',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 3 : 1,
+              crossAxisSpacing: 32,
+              mainAxisSpacing: 32,
+              childAspectRatio:
+                  MediaQuery.of(context).size.width > 768 ? 0.9 : 1.5,
+              children: [
+                _buildTeamCard(
+                  'Dr. Abdullah Rahman',
+                  'Founder & CEO',
+                  'PhD in Islamic Studies from Al-Azhar University. 20+ years in Islamic education.',
+                  const Color(0xff3B82F6),
+                ),
+                _buildTeamCard(
+                  'Sister Maryam Ali',
+                  'Head of Education',
+                  'Masters in Education. Expert in curriculum development for Islamic studies.',
+                  const Color(0xff10B981),
+                ),
+                _buildTeamCard(
+                  'Ustadh Omar Hassan',
+                  'Lead Islamic Scholar',
+                  'Hafiz with Ijazah in multiple Qira\'at. 15+ years teaching experience.',
+                  const Color(0xffF59E0B),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamCard(String name, String position, String bio, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color, color.withOpacity(0.7)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.person,
+              color: Colors.white,
+              size: 40,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            position,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            bio,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: const Color(0xff6B7280),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAchievementsSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Our Achievements',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 4 : 2,
+              crossAxisSpacing: 32,
+              mainAxisSpacing: 32,
+              childAspectRatio: 1.2,
+              children: [
+                _buildAchievementCard('5K+', 'Happy Students'),
+                _buildAchievementCard('200+', 'Qualified Teachers'),
+                _buildAchievementCard('50+', 'Countries Served'),
+                _buildAchievementCard('98%', 'Satisfaction Rate'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Text(
+              '"The best of people are those who learn the Quran and teach it to others." - Prophet Muhammad (PBUH)',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontStyle: FontStyle.italic,
+                color: Colors.white.withOpacity(0.9),
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAchievementCard(String number, String label) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            number,
+            style: GoogleFonts.inter(
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// FILE: lib/screens/contact_page.dart
+// =============================================================================
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../shared/widgets/persistent_app_bar.dart';
+
+class ContactPage extends StatefulWidget {
+  const ContactPage({super.key});
+
+  @override
+  State<ContactPage> createState() => _ContactPageState();
+}
+
+class _ContactPageState extends State<ContactPage>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _subjectController = TextEditingController();
+  final _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _subjectController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: const PersistentAppBar(currentPage: 'Contact'),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildHeroSection(),
+              _buildContactSection(),
+              _buildMapSection(),
+              _buildFAQSection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xffFAFBFF), Color(0xffF0F7FF)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xff3B82F6).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+              border:
+                  Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
+            ),
+            child: Text(
+              '📞 Get in Touch',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff3B82F6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'We\'re Here to Help\nYour Learning Journey',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xff111827),
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Text(
+              'Have questions about our Islamic courses? Need help choosing the right teacher? Want to schedule a free trial? We\'re here to assist you every step of the way.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                color: const Color(0xff6B7280),
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Contact Information
+            Expanded(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Contact Information',
+                    style: GoogleFonts.inter(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xff111827),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  _buildContactItem(
+                    Icons.phone,
+                    'Contact Numbers',
+                    [
+                      'WhatsApp: +1 646-872-8590',
+                    ],
+                    const Color(0xff3B82F6),
+                  ),
+                  const SizedBox(height: 32),
+                  _buildContactItem(
+                    Icons.email,
+                    'Email Address',
+                    [
+                      'alluwhalacademy@gmail.com',
+                    ],
+                    const Color(0xff10B981),
+                  ),
+                  const SizedBox(height: 32),
+                  _buildContactItem(
+                    Icons.access_time,
+                    'Operating Hours',
+                    [
+                      'Monday - Friday: 8:00 AM - 10:00 PM',
+                      'Saturday: 9:00 AM - 8:00 PM',
+                      'Sunday: 10:00 AM - 6:00 PM',
+                      '(All times in your local timezone)',
+                    ],
+                    const Color(0xffF59E0B),
+                  ),
+                  const SizedBox(height: 32),
+                  _buildContactItem(
+                    Icons.language,
+                    'Languages Supported',
+                    [
+                      'English',
+                      'Arabic',
+                      'Urdu',
+                      'Turkish',
+                      'French',
+                    ],
+                    const Color(0xff8B5CF6),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 60),
+            // Contact Form
+            Expanded(
+              flex: 1,
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xffE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Send us a Message',
+                        style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff111827),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildFormField(
+                        controller: _nameController,
+                        label: 'Full Name',
+                        hint: 'Enter your full name',
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter your name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFormField(
+                        controller: _emailController,
+                        label: 'Email Address',
+                        hint: 'Enter your email address',
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter your email';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                              .hasMatch(value!)) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFormField(
+                        controller: _phoneController,
+                        label: 'Phone Number',
+                        hint: 'Enter your phone number',
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFormField(
+                        controller: _subjectController,
+                        label: 'Subject',
+                        hint: 'What is this regarding?',
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter a subject';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFormField(
+                        controller: _messageController,
+                        label: 'Message',
+                        hint: 'Tell us more about how we can help you...',
+                        maxLines: 5,
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter your message';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xff3B82F6),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Send Message',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactItem(
+      IconData icon, String title, List<String> details, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff111827),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: details
+              .map((detail) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      detail,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xff374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xff111827),
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.inter(
+              color: const Color(0xff9CA3AF),
+              fontSize: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xff3B82F6), width: 2),
+            ),
+            filled: true,
+            fillColor: const Color(0xffF9FAFB),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(color: Color(0xffF9FAFB)),
+      child: Column(
+        children: [
+          Text(
+            'Our Global Presence',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: MediaQuery.of(context).size.width > 768 ? 2 : 1,
+              crossAxisSpacing: 32,
+              mainAxisSpacing: 32,
+              childAspectRatio:
+                  MediaQuery.of(context).size.width > 768 ? 1.5 : 2,
+              children: [
+                _buildLocationCard(
+                  'Headquarters',
+                  'United States',
+                  '123 Islamic Center Drive\nNew York, NY 10001\nUnited States',
+                  'primary',
+                ),
+                _buildLocationCard(
+                  'Regional Office',
+                  'United Kingdom',
+                  '456 Muslim Community Street\nLondon, SW1A 1AA\nUnited Kingdom',
+                  'secondary',
+                ),
+                _buildLocationCard(
+                  'Support Center',
+                  'Canada',
+                  '789 Islamic Education Ave\nToronto, ON M5H 2N2\nCanada',
+                  'secondary',
+                ),
+                _buildLocationCard(
+                  'Asia Pacific',
+                  'Australia',
+                  '321 Madrasa Road\nSydney, NSW 2000\nAustralia',
+                  'secondary',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationCard(
+      String type, String country, String address, String priority) {
+    final isPrimary = priority == 'primary';
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPrimary ? const Color(0xff3B82F6) : const Color(0xffE5E7EB),
+          width: isPrimary ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (isPrimary
+                          ? const Color(0xff3B82F6)
+                          : const Color(0xff6B7280))
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.location_on,
+                  color: isPrimary
+                      ? const Color(0xff3B82F6)
+                      : const Color(0xff6B7280),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      type,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isPrimary
+                            ? const Color(0xff3B82F6)
+                            : const Color(0xff6B7280),
+                      ),
+                    ),
+                    Text(
+                      country,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff111827),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            address,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFAQSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      child: Column(
+        children: [
+          Text(
+            'Frequently Asked Questions',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              children: [
+                _buildFAQItem(
+                  'How do I book a free trial lesson?',
+                  'Simply contact us through any of the methods above, and we\'ll schedule a free 30-minute trial lesson with one of our qualified teachers at a time that works for you.',
+                ),
+                _buildFAQItem(
+                  'What age groups do you teach?',
+                  'We teach students of all ages, from children as young as 4 years old to adults. Our teachers specialize in different age groups to provide the most effective learning experience.',
+                ),
+                _buildFAQItem(
+                  'Do you offer family discounts?',
+                  'Yes! We offer special family packages for multiple children from the same family. Contact us to learn more about our family pricing options.',
+                ),
+                _buildFAQItem(
+                  'What technology do I need for online classes?',
+                  'You just need a computer, tablet, or smartphone with a stable internet connection. We use user-friendly video conferencing software that works on all devices.',
+                ),
+                _buildFAQItem(
+                  'Are your teachers certified?',
+                  'Absolutely! All our teachers are certified Islamic scholars with proper Ijazah and years of teaching experience. We thoroughly vet each teacher before they join our team.',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFAQItem(String question, String answer) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+      ),
+      child: ExpansionTile(
+        title: Text(
+          question,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff111827),
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text(
+              answer,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff6B7280),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submitForm() {
+    if (_formKey.currentState?.validate() ?? false) {
+      // Show success message
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Message Sent!',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            'Thank you for contacting us! We\'ll get back to you within 24 hours.',
+            style: GoogleFonts.inter(),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // Clear form
+                _nameController.clear();
+                _emailController.clear();
+                _phoneController.clear();
+                _subjectController.clear();
+                _messageController.clear();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff3B82F6),
+              ),
+              child: const Text('OK', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+}
+
+// =============================================================================
+// FILE: lib/screens/teachers_page.dart
+// =============================================================================
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../shared/widgets/persistent_app_bar.dart';
+import '../shared/widgets/responsive_builder.dart';
+import 'teacher_application_screen.dart';
+
+class TeachersPage extends StatefulWidget {
+  const TeachersPage({super.key});
+
+  @override
+  State<TeachersPage> createState() => _TeachersPageState();
+}
+
+class _TeachersPageState extends State<TeachersPage>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  String selectedFilter = 'All';
+
+  final List<String> filterOptions = [
+    'All',
+    'Quran Teachers',
+    'Arabic Teachers',
+    'Islamic Studies',
+    'Male Teachers',
+    'Female Teachers'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: const PersistentAppBar(currentPage: 'Teachers'),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildHeroSection(),
+              _buildFiltersSection(),
+              _buildTeachersSection(),
+              _buildStatsSection(),
+              _buildJoinTeachersSection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    return ResponsiveBuilder(
+      builder: (context, constraints, deviceType) {
+        final isDesktop = deviceType == DeviceType.desktop;
+        final isTablet = deviceType == DeviceType.tablet;
+
+        return Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 24 : 16,
+              vertical: isDesktop
+                  ? 80
+                  : isTablet
+                      ? 60
+                      : 40,
+            ),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xffFAFBFF), Color(0xffF0F7FF)],
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff3B82F6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(
+                        color: const Color(0xff3B82F6).withOpacity(0.2)),
+                  ),
+                  child: Text(
+                    '👨‍🏫 Qualified Islamic Educators',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff3B82F6),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Learn from Certified\nIslamic Scholars',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop
+                        ? 48
+                        : isTablet
+                            ? 36
+                            : 28,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xff111827),
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Our teachers are certified Islamic scholars with years of experience\nin teaching Quran, Arabic, and Islamic studies to students worldwide.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 18 : 16,
+                    color: const Color(0xff6B7280),
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ));
+      },
+    );
+  }
+
+  Widget _buildFiltersSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xffE5E7EB), width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Filter Teachers',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: filterOptions.map((filter) {
+              final isSelected = selectedFilter == filter;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedFilter = filter;
+                  });
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xff3B82F6) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xff3B82F6)
+                          : const Color(0xffE5E7EB),
+                    ),
+                  ),
+                  child: Text(
+                    filter,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color:
+                          isSelected ? Colors.white : const Color(0xff6B7280),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeachersSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+      child: Column(
+        children: [
+          Text(
+            'Meet Our Dedicated Teachers',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 48),
+          ResponsiveBuilder(
+            builder: (context, constraints, deviceType) {
+              return Container(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: deviceType == DeviceType.desktop
+                      ? 3
+                      : deviceType == DeviceType.tablet
+                          ? 2
+                          : 1,
+                  crossAxisSpacing: deviceType == DeviceType.desktop ? 32 : 16,
+                  mainAxisSpacing: deviceType == DeviceType.desktop ? 32 : 16,
+                  childAspectRatio: deviceType == DeviceType.desktop
+                      ? 0.85
+                      : deviceType == DeviceType.tablet
+                          ? 0.9
+                          : 1.2,
+                  children: [
+                    _buildTeacherCard(
+                      'Ibrahim M. Baldee',
+                      'Teacher / Ustaz',
+                      'Ustaz Ibrahim is a Liberian international student currently based in Saudi Arabia. He completed the memorization of the Holy Qur\'an in 2012 and studied Tajweed in depth, memorizing many Tajweed texts. He has been teaching Qur\'an since 2012 and finds teaching among the most pleasant acts. He looks forward to meeting new students. (University of Madinah. Languages: Pular, English, Arabic)',
+                      ['Pular', 'English', 'Arabic'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/ibrahim_baldee.jpg',
+                      const Color(0xff3B82F6),
+                    ),
+                    _buildTeacherCard(
+                      'Elham Shifa',
+                      'Teacher / Ustaza',
+                      'Elham is pursuing a degree in Islamic Psychology at Ankara University (Turkey). Originally from Ethiopia, she has been teaching for several years. Learning and teaching the Qur\'an to understand Allah\'s message has always been her life goal, inspired by the hadith: “The best of you are those who learn the Qur\'an and teach it.” (Languages: English, Arabic)',
+                      ['English', 'Arabic'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/elham_shifa.jpg',
+                      const Color(0xff10B981),
+                    ),
+                    _buildTeacherCard(
+                      'Mohammed Kosiah',
+                      'Teacher / Ustaz',
+                      'Brother Kosiah graduated from Kahatain Children Village Islamic Mission (2016) with foundations in Islam and secular education. He has delivered sermons and public talks since 5th grade and is active in youth/community development programs. He recently graduated from the intensive Arabic Institute of the Islamic University of Madinah and studies Economics at the same university. (Languages: Mandingo, French, English, Arabic)',
+                      ['Mandingo', 'French', 'English'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/mohammed_kosiah.jpg',
+                      const Color(0xffF59E0B),
+                    ),
+                    _buildTeacherCard(
+                      'Ustaz Abdul Hadee Balde',
+                      'Teacher / Ustaz',
+                      'Abdul Hadee graduated as valedictorian from Fanima Islamic School System and is a Hafiz from a renowned mission in Conakry, Guinea. Born in Ivory Coast and raised in Liberia, he later moved to Guinea for Islamic studies and earned a diploma. (King Khalid University. Languages: English, Arabic, Pular)',
+                      ['English', 'Arabic', 'Pular'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/abdul_hadee_balde.jpg',
+                      const Color(0xff8B5CF6),
+                    ),
+                    _buildTeacherCard(
+                      'Ousman Cham',
+                      'Teacher',
+                      'Ousman is a graduate of Muslim Congress High School (Liberia) and studies at the Islamic University of Madinah (Department of Dawah). His passion for learning and teaching Islam began in childhood while listening to lectures from imams and preachers. He loves teaching Qur\'an for its great reward in this world and the Hereafter. (Languages: Pular, English, Arabic)',
+                      ['Pular', 'English', 'Arabic'],
+                      '—',
+                      '—',
+                      '—',
+                      'assets/teachers/ousman_cham.jpg',
+                      const Color(0xffEF4444),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherCard(
+    String name,
+    String title,
+    String bio,
+    List<String> specialties,
+    String experience,
+    String rating,
+    String students,
+    String imagePath,
+    Color color,
+  ) {
+    return GestureDetector(
+      onTap: () => _showTeacherBioDialog(
+          name, title, bio, specialties, imagePath, color),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xffE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Teacher Avatar
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withOpacity(0.3), width: 2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  imagePath,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [color, color.withOpacity(0.7)],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Teacher Name & Title
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xff111827),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Bio
+            Text(
+              bio,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xff6B7280),
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 16),
+
+            // Specialties
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: specialties
+                  .take(2)
+                  .map((specialty) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          specialty,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: color,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Stats
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatItem('⭐', rating),
+                _buildStatItem('👥', students),
+                _buildStatItem('📅', experience.split('+')[0]),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Click to read more indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withOpacity(0.3)),
+              ),
+              child: Text(
+                'Tap to read full biography',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String icon, String value) {
+    return Column(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 16)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xff374151),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+      decoration: const BoxDecoration(color: Color(0xffF9FAFB)),
+      child: Column(
+        children: [
+          Text(
+            'Why Choose Our Teachers?',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildQualityCard(
+                    '🎓',
+                    'Certified Scholars',
+                    'All our teachers are certified Islamic scholars with proper Ijazah and qualifications.',
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: _buildQualityCard(
+                    '🌍',
+                    'Global Experience',
+                    'Our teachers have taught students from over 50 countries worldwide.',
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: _buildQualityCard(
+                    '💯',
+                    'Proven Results',
+                    '98% of our students show significant improvement within 3 months.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQualityCard(String emoji, String title, String description) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+      ),
+      child: Column(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 40)),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff111827),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff6B7280),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJoinTeachersSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xff3B82F6), Color(0xff1E40AF)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Want to Become a Teacher?',
+            style: GoogleFonts.inter(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Join our team of dedicated Islamic educators and help spread knowledge',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: () => _showApplicationDialog(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xff3B82F6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Apply to Teach',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              OutlinedButton(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Learn More',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTeacherBioDialog(String name, String title, String bio,
+      List<String> specialties, String imagePath, Color color) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          width: MediaQuery.of(context).size.width > 600
+              ? 500
+              : MediaQuery.of(context).size.width * 0.9,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Close button
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.grey[100],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Teacher Photo
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(60),
+                  border: Border.all(color: color.withOpacity(0.3), width: 3),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(57),
+                  child: Image.asset(
+                    imagePath,
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [color, color.withOpacity(0.7)],
+                          ),
+                          borderRadius: BorderRadius.circular(57),
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 60,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Name and Title
+              Text(
+                name,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff111827),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Languages/Specialties
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: specialties
+                    .map((specialty) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: color.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            specialty,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: color,
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 24),
+
+              // Full Biography
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SingleChildScrollView(
+                  child: Text(
+                    bio,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff6B7280),
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Contact button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Navigate to contact page
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Contact Us for More Information',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showApplicationDialog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TeacherApplicationScreen(),
+      ),
+    );
+  }
+}
+
