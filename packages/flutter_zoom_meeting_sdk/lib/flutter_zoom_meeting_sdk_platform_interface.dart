@@ -94,4 +94,10 @@ abstract class FlutterZoomMeetingSdkPlatform extends PlatformInterface {
   Future<FlutterZoomMeetingSdkActionResponse> unInitZoom() {
     throw UnimplementedError('unInitZoom() has not been implemented.');
   }
+
+  Future<FlutterZoomMeetingSdkActionResponse> claimHost({
+    required String hostKey,
+  }) {
+    throw UnimplementedError('claimHost() has not been implemented.');
+  }
 }

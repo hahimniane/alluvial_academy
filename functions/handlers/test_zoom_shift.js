@@ -6,6 +6,7 @@
 const admin = require('firebase-admin');
 const {onCall, onRequest} = require('firebase-functions/v2/https');
 const {ensureZoomMeetingAndEmailTeacher} = require('../services/zoom/shift_zoom');
+const {findAvailableHost} = require('../services/zoom/hosts');
 
 const testZoomForShift = onCall(async (request) => {
   const {shiftId} = request.data || {};
@@ -59,8 +60,17 @@ const testZoomForShift = onCall(async (request) => {
 
     console.log('[TestZoom] Diagnostic:', JSON.stringify(diagnostic, null, 2));
 
+    // Find an available host
+    const shiftStart = shiftData.shift_start?.toDate ? shiftData.shift_start.toDate() : new Date(shiftData.shift_start);
+    const shiftEnd = shiftData.shift_end?.toDate ? shiftData.shift_end.toDate() : new Date(shiftData.shift_end);
+    const {host: selectedHost, error: hostError} = await findAvailableHost(shiftStart, shiftEnd, shiftId);
+
+    console.log('[TestZoom] Selected host:', selectedHost?.email || 'none', hostError ? `Error: ${hostError.message}` : '');
+    diagnostic.selectedHost = selectedHost?.email || null;
+    diagnostic.hostError = hostError?.message || null;
+
     // Try to create Zoom meeting
-    const result = await ensureZoomMeetingAndEmailTeacher({shiftId, shiftData});
+    const result = await ensureZoomMeetingAndEmailTeacher({shiftId, shiftData, selectedHost});
 
     // Re-fetch to see updates
     const updatedDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
@@ -144,8 +154,17 @@ const testZoomForShiftHttp = onRequest(async (req, res) => {
 
     console.log('[TestZoom] Diagnostic:', JSON.stringify(diagnostic, null, 2));
 
+    // Find an available host
+    const shiftStart = shiftData.shift_start?.toDate ? shiftData.shift_start.toDate() : new Date(shiftData.shift_start);
+    const shiftEnd = shiftData.shift_end?.toDate ? shiftData.shift_end.toDate() : new Date(shiftData.shift_end);
+    const {host: selectedHost, error: hostError} = await findAvailableHost(shiftStart, shiftEnd, shiftId);
+
+    console.log('[TestZoom] Selected host:', selectedHost?.email || 'none', hostError ? `Error: ${hostError.message}` : '');
+    diagnostic.selectedHost = selectedHost?.email || null;
+    diagnostic.hostError = hostError?.message || null;
+
     // Try to create Zoom meeting
-    const result = await ensureZoomMeetingAndEmailTeacher({shiftId, shiftData});
+    const result = await ensureZoomMeetingAndEmailTeacher({shiftId, shiftData, selectedHost});
 
     // Re-fetch to see updates
     const updatedDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();

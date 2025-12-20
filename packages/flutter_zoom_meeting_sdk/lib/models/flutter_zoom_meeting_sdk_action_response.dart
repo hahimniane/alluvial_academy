@@ -32,16 +32,44 @@ class FlutterZoomMeetingSdkActionResponse<T> {
     Map<String, dynamic> map,
     T Function(Map<String, dynamic>) paramsParser,
   ) {
-    return FlutterZoomMeetingSdkActionResponse(
-      platform: PlatformType.values.byName(map['platform']),
-      action: ActionType.values.byName(map['action']),
-      isSuccess: map['isSuccess'],
-      message: getActionMessage(map['message'] ?? ''),
-      params:
-          map['params'] != null && map['params'].isNotEmpty
-              ? paramsParser(Map<String, dynamic>.from(map['params']))
-              : null,
-    );
+    try {
+      final platformStr = map['platform']?.toString();
+      final actionStr = map['action']?.toString();
+
+      return FlutterZoomMeetingSdkActionResponse(
+        platform:
+            platformStr != null
+                ? PlatformType.values.firstWhere(
+                  (e) => e.name == platformStr,
+                  orElse: () => PlatformType.android, // Fallback
+                )
+                : PlatformType.android,
+        action:
+            actionStr != null
+                ? ActionType.values.firstWhere(
+                  (e) => e.name == actionStr,
+                  orElse: () => ActionType.initZoom, // Fallback
+                )
+                : ActionType.initZoom,
+        isSuccess: map['isSuccess'] == true,
+        message: getActionMessage(map['message']?.toString() ?? ''),
+        params:
+            map['params'] != null &&
+                    map['params'] is Map &&
+                    (map['params'] as Map).isNotEmpty
+                ? paramsParser(Map<String, dynamic>.from(map['params'] as Map))
+                : null,
+      );
+    } catch (e) {
+      // If parsing fails, return a failed response instead of crashing
+      return FlutterZoomMeetingSdkActionResponse(
+        platform: PlatformType.android,
+        action: ActionType.initZoom,
+        isSuccess: false,
+        message: 'Parse error: $e',
+        params: null,
+      );
+    }
   }
 
   Map<String, dynamic> toMap() {
@@ -98,8 +126,8 @@ class AuthParamsResponse implements MappableParams {
 
   factory AuthParamsResponse.fromMap(Map<String, dynamic> map) {
     return AuthParamsResponse(
-      statusCode: map['statusCode'],
-      statusLabel: map['statusLabel'] as String,
+      statusCode: (map['statusCode'] as num?)?.toInt() ?? -1,
+      statusLabel: map['statusLabel']?.toString() ?? 'unknown',
     );
   }
 
@@ -123,8 +151,8 @@ class JoinParamsResponse implements MappableParams {
 
   factory JoinParamsResponse.fromMap(Map<String, dynamic> map) {
     return JoinParamsResponse(
-      statusCode: map['statusCode'],
-      statusLabel: map['statusLabel'] as String,
+      statusCode: (map['statusCode'] as num?)?.toInt() ?? -1,
+      statusLabel: map['statusLabel']?.toString() ?? 'unknown',
     );
   }
 

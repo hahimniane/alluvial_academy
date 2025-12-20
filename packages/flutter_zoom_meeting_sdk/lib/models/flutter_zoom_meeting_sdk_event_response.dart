@@ -32,15 +32,41 @@ class FlutterZoomMeetingSdkEventResponse<T> {
     Map<String, dynamic> map,
     T Function(Map<String, dynamic>) paramsParser,
   ) {
-    return FlutterZoomMeetingSdkEventResponse(
-      platform: PlatformType.values.byName(map['platform']),
-      event: EventType.values.byName(map['event']),
-      oriEvent: map['oriEvent'],
-      params:
-          map['params'] != null && map['params'].isNotEmpty
-              ? paramsParser(Map<String, dynamic>.from(map['params']))
-              : null,
-    );
+    try {
+      final platformStr = map['platform']?.toString();
+      final eventStr = map['event']?.toString();
+
+      return FlutterZoomMeetingSdkEventResponse(
+        platform:
+            platformStr != null
+                ? PlatformType.values.firstWhere(
+                  (e) => e.name == platformStr,
+                  orElse: () => PlatformType.android,
+                )
+                : PlatformType.android,
+        event:
+            eventStr != null
+                ? EventType.values.firstWhere(
+                  (e) => e.name == eventStr,
+                  orElse: () => EventType.onMeetingStatusChanged, // Fallback
+                )
+                : EventType.onMeetingStatusChanged,
+        oriEvent: map['oriEvent']?.toString() ?? 'unknown',
+        params:
+            map['params'] != null &&
+                    map['params'] is Map &&
+                    (map['params'] as Map).isNotEmpty
+                ? paramsParser(Map<String, dynamic>.from(map['params'] as Map))
+                : null,
+      );
+    } catch (e) {
+      return FlutterZoomMeetingSdkEventResponse(
+        platform: PlatformType.android,
+        event: EventType.onMeetingError,
+        oriEvent: 'parse_error',
+        params: null,
+      );
+    }
   }
 
   Map<String, dynamic> toMap() {
@@ -84,10 +110,12 @@ class EventAuthenticateReturnParams implements MappableParams {
 
   factory EventAuthenticateReturnParams.fromMap(Map<String, dynamic> map) {
     return EventAuthenticateReturnParams(
-      statusCode: map['statusCode'],
-      statusLabel: map['statusLabel'],
-      statusEnum: StatusZoomErrorMapper.fromString(map['statusLabel']),
-      internalErrorCode: map['internalErrorCode'],
+      statusCode: (map['statusCode'] as num?)?.toInt() ?? -1,
+      statusLabel: map['statusLabel']?.toString() ?? 'unknown',
+      statusEnum: StatusZoomErrorMapper.fromString(
+        map['statusLabel']?.toString() ?? '',
+      ),
+      internalErrorCode: (map['internalErrorCode'] as num?)?.toInt(),
     );
   }
 
@@ -156,18 +184,22 @@ class EventMeetingStatusChangedParams implements MappableParams {
 
   factory EventMeetingStatusChangedParams.fromMap(Map<String, dynamic> map) {
     return EventMeetingStatusChangedParams(
-      statusCode: map['statusCode'],
-      statusLabel: map['statusLabel'],
-      statusEnum: StatusMeetingStatusMapper.fromString(map['statusLabel']),
-      errorCode: map['errorCode'],
-      errorLabel: map['errorLabel'],
-      errorEnum: StatusMeetingErrorMapper.fromString(map['errorLabel']),
-      endReasonCode: map['endReasonCode'],
-      endReasonLabel: map['endReasonLabel'],
-      endReasonEnum: StatusMeetingEndReasonMapper.fromString(
-        map['endReasonLabel'],
+      statusCode: (map['statusCode'] as num?)?.toInt() ?? -1,
+      statusLabel: map['statusLabel']?.toString() ?? 'unknown',
+      statusEnum: StatusMeetingStatusMapper.fromString(
+        map['statusLabel']?.toString() ?? '',
       ),
-      internalErrorCode: map['internalErrorCode'],
+      errorCode: (map['errorCode'] as num?)?.toInt() ?? -1,
+      errorLabel: map['errorLabel']?.toString() ?? 'unknown',
+      errorEnum: StatusMeetingErrorMapper.fromString(
+        map['errorLabel']?.toString() ?? '',
+      ),
+      endReasonCode: (map['endReasonCode'] as num?)?.toInt() ?? -1,
+      endReasonLabel: map['endReasonLabel']?.toString() ?? 'unknown',
+      endReasonEnum: StatusMeetingEndReasonMapper.fromString(
+        map['endReasonLabel']?.toString() ?? '',
+      ),
+      internalErrorCode: (map['internalErrorCode'] as num?)?.toInt(),
     );
   }
 

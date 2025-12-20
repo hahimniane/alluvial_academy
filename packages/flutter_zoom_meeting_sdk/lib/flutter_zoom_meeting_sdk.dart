@@ -93,4 +93,11 @@ class FlutterZoomMeetingSdk {
       role: role,
     );
   }
+
+  /// Claim host status using a 6-digit host key
+  Future<FlutterZoomMeetingSdkActionResponse> claimHost({
+    required String hostKey,
+  }) {
+    return FlutterZoomMeetingSdkPlatform.instance.claimHost(hostKey: hostKey);
+  }
 }

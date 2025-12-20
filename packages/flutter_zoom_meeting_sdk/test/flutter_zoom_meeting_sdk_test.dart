@@ -64,6 +64,11 @@ class MockFlutterZoomMeetingSdkPlatform
   @override
   Future<FlutterZoomMeetingSdkActionResponse> unInitZoom() =>
       throw UnimplementedError();
+
+  @override
+  Future<FlutterZoomMeetingSdkActionResponse> claimHost({
+    required String hostKey,
+  }) => throw UnimplementedError();
 }
 
 void main() {

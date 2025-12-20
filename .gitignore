@@ -9,6 +9,7 @@
 .buildlog/
 .history
 .svn/
+.claude/settings.local.json
 .swiftpm/
 migrate_working_dir/
 
@@ -76,7 +77,9 @@ TEACHER_MOBILE_APP_FILES.md
 RUN_IN_FIREBASE_CONSOLE.js
 functions/fix_december_forms.js
 lib/core/services/data_fix_service.dart
-lib/features/dashboard/screens/teacher_mobile_home.dartfunctions/.env
+lib/features/dashboard/screens/teacher_mobile_home.dart
+.env
+functions/.env
 
 # Zoom Meeting SDK binaries (download from Zoom Marketplace)
 # Run ./tools/setup_zoom_meeting_sdk.sh to set up

@@ -14,6 +14,9 @@ const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
 const zoomHandlers = require('./handlers/zoom');
 const testZoomHandlers = require('./handlers/test_zoom_shift');
+const zoomHostHandlers = require('./handlers/zoom_hosts');
+const testHostAllocationHandlers = require('./handlers/test_host_allocation');
+const testOverlappingShiftsHandlers = require('./handlers/test_overlapping_shifts');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -59,6 +62,14 @@ exports.testZoomForShift = testZoomHandlers.testZoomForShift;
 exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
 exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
+
+// Zoom host management functions (multi-host meeting distribution)
+exports.listZoomHosts = zoomHostHandlers.listZoomHosts;
+exports.addZoomHost = zoomHostHandlers.addZoomHost;
+exports.updateZoomHost = zoomHostHandlers.updateZoomHost;
+exports.removeZoomHost = zoomHostHandlers.removeZoomHost;
+exports.revalidateZoomHost = zoomHostHandlers.revalidateZoomHost;
+exports.checkHostAvailability = zoomHostHandlers.checkHostAvailability;
 
 
 // Form management functions
@@ -117,3 +128,50 @@ exports.onShiftUpdateNew = newImplementation.onShiftUpdateNew;
 
 // Timesheet export function
 exports.exportTimesheet = newImplementation.exportTimesheet;
+
+// Test function for host allocation (HTTP callable)
+exports.testHostAllocation = testHostAllocationHandlers.testHostAllocation;
+exports.testCreateOverlappingShifts = testOverlappingShiftsHandlers.testCreateOverlappingShifts;
+exports.debugShifts = testHostAllocationHandlers.debugShifts;
+
+// Host config check (HTTP callable)
+const getHostConfigHandlers = require('./handlers/get_host_config');
+exports.getHostConfig = getHostConfigHandlers.getHostConfig;
+
+// Hub Meeting Scheduler (HTTP callable for testing/cron)
+const { scheduleHubMeetings } = require('./services/shifts/schedule_hubs');
+exports.scheduleHubMeetings = functions.https.onCall(async () => {
+  return await scheduleHubMeetings();
+});
+
+// Hub Meeting Test/Manual Triggers
+const testHubCreationHandlers = require('./handlers/test_hub_creation');
+exports.createHubForShift = testHubCreationHandlers.createHubForShift;
+exports.listShiftHubStatus = testHubCreationHandlers.listShiftHubStatus;
+exports.runHubScheduler = testHubCreationHandlers.runHubScheduler;
+
+// Professional Test Suite for Hub Architecture
+const { testHubArchitecture } = require('./handlers/test_hub_architecture');
+exports.testHubArchitecture = testHubArchitecture;
+
+const testBreakoutHandlers = require('./handlers/test_breakout');
+exports.testBreakoutCreation = testBreakoutHandlers.testBreakoutCreation;
+exports.listUsers = testBreakoutHandlers.listUsers;
+
+// Zoom Check Test
+const testZoomCheckHandlers = require('./handlers/test_zoom_check');
+exports.checkZoomMeeting = testZoomCheckHandlers.checkZoomMeeting;
+
+// Breakout Room Opener (Cloud Task handler + helper functions)
+const breakoutOpenerHandlers = require('./handlers/breakout_opener');
+exports.openBreakoutRooms = breakoutOpenerHandlers.openBreakoutRooms;
+exports.markBreakoutRoomsOpened = breakoutOpenerHandlers.markBreakoutRoomsOpened;
+exports.getZoomHostKey = breakoutOpenerHandlers.getZoomHostKey;
+
+// Hybrid Zoom Test Functions
+const testHybridZoomHandlers = require('./handlers/test_hybrid_zoom');
+exports.testHybridZoomFlow = testHybridZoomHandlers.testHybridZoomFlow;
+exports.verifyHostKeyConfig = testHybridZoomHandlers.verifyHostKeyConfig;
+exports.getShiftForTesting = testHybridZoomHandlers.getShiftForTesting;
+exports.clearAllZoomMeetings = testHybridZoomHandlers.clearAllZoomMeetings;
+exports.createTestClassForTeacher = testHybridZoomHandlers.createTestClassForTeacher;

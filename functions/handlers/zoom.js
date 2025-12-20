@@ -6,33 +6,42 @@ const { getZoomConfig, getMeetingSdkConfig } = require('../services/zoom/config'
 const { getMeetingDetails } = require('../services/zoom/client');
 const { verifyJoinToken, decryptString, signJoinToken, encryptString } = require('../services/zoom/crypto');
 
+const getUserEmailFromUserDoc = (userData) =>
+  userData?.['e-mail'] || userData?.email || userData?.Email || userData?.mail || null;
+
 // ... (keep existing code until generateMeetingSdkJwt) ...
 
 /**
- * Generate a Meeting SDK JWT for native in-app Zoom join
+ * Generate a Meeting SDK JWT for in-app Zoom join (Web and Native)
  * Uses HS256 algorithm as required by Zoom Meeting SDK
  * @param {string} sdkKey - Meeting SDK Client ID / Key
  * @param {string} sdkSecret - Meeting SDK Client Secret
+ * @param {string|number} meetingNumber - The Zoom meeting number
+ * @param {number} role - 0 for participant, 1 for host/co-host
  * @param {number} ttlSeconds - Token TTL (min 1800, max 172800)
  * @returns {string} JWT token
  */
-const generateMeetingSdkJwt = (sdkKey, sdkSecret, ttlSeconds = 3600) => {
+const generateMeetingSdkJwt = (sdkKey, sdkSecret, meetingNumber, role, ttlSeconds = 3600) => {
   // Clamp TTL to Zoom's requirements: min 30 minutes, max 48 hours
   const clampedTtl = Math.max(1800, Math.min(172800, ttlSeconds));
 
   const nowUnix = Math.floor(Date.now() / 1000);
-  // Subtract 60s for clock drift/skew to prevent "token issued in future" errors
-  const iat = nowUnix - 60;
-  const exp = iat + clampedTtl; // Keep duration consistent relative to iat
+  // Subtract 120s for clock drift/skew to prevent "token issued in future" errors
+  const iat = nowUnix - 120;
+  const exp = iat + clampedTtl;
 
-  // Meeting SDK JWT payload (for native iOS/Android SDK auth)
-  // Native SDKs require: appKey (not sdkKey), iat, exp, tokenExp
+  // Meeting SDK JWT payload (required for Web SDK and newer Native SDKs)
   const payload = {
+    sdkKey: sdkKey,
     appKey: sdkKey,
+    mn: String(meetingNumber),
+    role: parseInt(role, 10),
     iat,
     exp,
     tokenExp: exp,
   };
+
+  console.log(`[ZoomSDK] Generating JWT for meeting ${meetingNumber}, role ${role}: iat=${iat}, exp=${exp}`);
 
   // Sign with HS256
   return jwt.sign(payload, sdkSecret, {
@@ -307,6 +316,17 @@ const getUserDisplayName = async (uid) => {
   }
 };
 
+const getUserEmail = async (uid) => {
+  if (!uid) return null;
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists) return null;
+    return getUserEmailFromUserDoc(userDoc.data());
+  } catch (_) {
+    return null;
+  }
+};
+
 /**
  * Callable function to get Meeting SDK join payload for in-app Zoom join
  * Returns meeting number, passcode, and Meeting SDK JWT
@@ -370,8 +390,32 @@ const getZoomMeetingSdkJoinPayload = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'You are not allowed to join this meeting');
   }
 
-  // Check Zoom meeting exists
-  if (!shiftData.zoom_meeting_id) {
+  // Check for Hub Meeting
+  let meetingId = shiftData.zoom_meeting_id;
+  let passcode = null;
+  let isHubMeeting = false;
+
+  if (shiftData.hubMeetingId) {
+    // If assigned to a hub, fetch hub details
+    console.log('[ZoomSDK] Shift is part of Hub:', shiftData.hubMeetingId);
+    try {
+      const hubDoc = await admin.firestore().collection('hub_meetings').doc(shiftData.hubMeetingId).get();
+      if (hubDoc.exists) {
+        const hubData = hubDoc.data();
+        meetingId = hubData.meetingId;
+        passcode = hubData.meetingPasscode; // Passcode usually stored plain in Hub doc or check encryption
+        isHubMeeting = true;
+        console.log('[ZoomSDK] Using Hub Meeting credentials for shift:', shiftId);
+      } else {
+        console.warn('[ZoomSDK] Hub meeting doc found but empty/missing for id:', shiftData.hubMeetingId);
+      }
+    } catch (e) {
+      console.error('[ZoomSDK] Error fetching hub meeting:', e);
+    }
+  }
+
+  // Check Zoom meeting exists (either direct or hub)
+  if (!meetingId) {
     console.log('[ZoomSDK] No Zoom meeting for shift:', shiftId);
     throw new HttpsError('not-found', 'Zoom meeting not configured for this shift');
   }
@@ -403,37 +447,37 @@ const getZoomMeetingSdkJoinPayload = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'The meeting window has ended');
   }
 
-  // Get passcode
-  let passcode = null;
-
-  // Try to get existing encrypted passcode
-  if (shiftData.zoom_encrypted_meeting_passcode) {
-    try {
-      passcode = decryptString(shiftData.zoom_encrypted_meeting_passcode, zoomConfig.encryptionKeyB64);
-    } catch (decryptErr) {
-      console.warn('[ZoomSDK] Failed to decrypt stored passcode for shift:', shiftId);
-    }
-  }
-
-  // If no passcode, fetch from Zoom API and persist
+  // Get passcode (if not from Hub)
   if (!passcode) {
-    try {
-      console.log('[ZoomSDK] Fetching passcode from Zoom API for shift:', shiftId);
-      const meetingDetails = await getMeetingDetails(shiftData.zoom_meeting_id);
-      passcode = meetingDetails.passcode;
-
-      if (passcode) {
-        // Encrypt and persist for future use
-        const encryptedPasscode = encryptString(passcode, zoomConfig.encryptionKeyB64);
-        await admin.firestore().collection('teaching_shifts').doc(shiftId).update({
-          zoom_encrypted_meeting_passcode: encryptedPasscode,
-          zoom_meeting_passcode_created_at: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log('[ZoomSDK] Passcode persisted for shift:', shiftId);
+    // Try to get existing encrypted passcode from shift
+    if (shiftData.zoom_encrypted_meeting_passcode) {
+      try {
+        passcode = decryptString(shiftData.zoom_encrypted_meeting_passcode, zoomConfig.encryptionKeyB64);
+      } catch (decryptErr) {
+        console.warn('[ZoomSDK] Failed to decrypt stored passcode for shift:', shiftId);
       }
-    } catch (fetchErr) {
-      console.error('[ZoomSDK] Failed to fetch meeting details for shift:', shiftId);
-      // Continue without passcode - some meetings may not require it
+    }
+
+    // If no passcode, fetch from Zoom API and persist
+    if (!passcode) {
+      try {
+        console.log('[ZoomSDK] Fetching passcode from Zoom API for shift:', shiftId);
+        const meetingDetails = await getMeetingDetails(meetingId);
+        passcode = meetingDetails.passcode;
+
+        if (passcode && !isHubMeeting) { // Don't persist hub passcode on shift only
+          // Encrypt and persist for future use
+          const encryptedPasscode = encryptString(passcode, zoomConfig.encryptionKeyB64);
+          await admin.firestore().collection('teaching_shifts').doc(shiftId).update({
+            zoom_encrypted_meeting_passcode: encryptedPasscode,
+            zoom_meeting_passcode_created_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log('[ZoomSDK] Passcode persisted for shift:', shiftId);
+        }
+      } catch (fetchErr) {
+        console.error('[ZoomSDK] Failed to fetch meeting details for shift:', shiftId);
+        // Continue without passcode - some meetings may not require it
+      }
     }
   }
 
@@ -443,11 +487,15 @@ const getZoomMeetingSdkJoinPayload = onCall(async (request) => {
   const meetingSdkJwt = generateMeetingSdkJwt(
     meetingSdkConfig.sdkKey,
     meetingSdkConfig.sdkSecret,
+    meetingId,
+    isAdmin || isTeacher ? 1 : 0,
     ttlSeconds
   );
 
   // Get user display name
   const displayName = await getUserDisplayName(uid);
+  const userEmail = await getUserEmail(uid);
+  const authEmail = request.auth?.token?.email || null;
 
   // Log success (no sensitive data)
   console.log('[ZoomSDK] Payload generated. uid:', uid, 'shiftId:', shiftId, 'role:', isAdmin ? 'admin' : (isTeacher ? 'teacher' : 'student'));
@@ -455,10 +503,13 @@ const getZoomMeetingSdkJoinPayload = onCall(async (request) => {
   return {
     success: true,
     shiftId,
-    meetingNumber: String(shiftData.zoom_meeting_id),
+    meetingNumber: String(meetingId),
     meetingPasscode: passcode || '',
     meetingSdkJwt,
+    sdkKey: meetingSdkConfig.sdkKey,
     displayName,
+    userEmail,
+    authEmail,
     joinWindow: {
       allowedStartIso: new Date(allowedStartMs).toISOString(),
       allowedEndIso: new Date(allowedEndMs).toISOString(),
@@ -471,4 +522,3 @@ module.exports = {
   getZoomJoinUrl,
   getZoomMeetingSdkJoinPayload,
 };
-

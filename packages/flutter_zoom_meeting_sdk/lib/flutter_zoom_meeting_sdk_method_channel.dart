@@ -190,4 +190,18 @@ class MethodChannelFlutterZoomMeetingSdk extends FlutterZoomMeetingSdkPlatform {
       Map<String, dynamic>.from,
     );
   }
+
+  @override
+  Future<FlutterZoomMeetingSdkActionResponse> claimHost({
+    required String hostKey,
+  }) async {
+    final result = await methodChannel.invokeMethod('claimHost', {
+      'hostKey': hostKey,
+    });
+    final Map<String, dynamic> resultMap = Map<String, dynamic>.from(result);
+    return FlutterZoomMeetingSdkActionResponse.fromMap(
+      resultMap,
+      Map<String, dynamic>.from,
+    );
+  }
 }

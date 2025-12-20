@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
 export "FLUTTER_ROOT=/Users/hashimniane/flutter"
-export "FLUTTER_APPLICATION_PATH=/Users/hashimniane/Project Dev/alluvial_academy/packages/flutter_zoom_meeting_sdk/example"
+export "FLUTTER_APPLICATION_PATH=/Users/hashimniane/Downloads/alluvial_academy-main/packages/flutter_zoom_meeting_sdk/example"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"

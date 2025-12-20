@@ -59,7 +59,36 @@ class _ZoomScreenState extends State<ZoomScreen> {
                     .where((s) => s.shiftEnd.toUtc().isAfter(fromUtc))
                     .where((s) => s.shiftStart.toUtc().isBefore(toUtc))
                     .toList()
-                  ..sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+                  ..sort((a, b) {
+                    final aCanJoin = ZoomService.canJoinClass(a);
+                    final bCanJoin = ZoomService.canJoinClass(b);
+
+                    // Priority 1: Currently joinable shifts at the top
+                    if (aCanJoin && !bCanJoin) return -1;
+                    if (!aCanJoin && bCanJoin) return 1;
+
+                    final now = DateTime.now().toUtc();
+                    final aHasEnded = a.shiftEnd
+                        .toUtc()
+                        .add(const Duration(minutes: 10))
+                        .isBefore(now);
+                    final bHasEnded = b.shiftEnd
+                        .toUtc()
+                        .add(const Duration(minutes: 10))
+                        .isBefore(now);
+
+                    // Priority 2: Not ended vs Ended (Past shifts at the bottom)
+                    if (aHasEnded && !bHasEnded) return 1;
+                    if (!aHasEnded && bHasEnded) return -1;
+
+                    // Same category sorting:
+                    if (aHasEnded) {
+                      // Both past: most recent first
+                      return b.shiftStart.compareTo(a.shiftStart);
+                    }
+                    // Both upcoming/active: soonest first
+                    return a.shiftStart.compareTo(b.shiftStart);
+                  });
 
                 if (zoomShifts.isEmpty) {
                   return const _NoZoomShiftsState();
@@ -155,12 +184,13 @@ class _ZoomShiftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canJoin = ZoomService.canJoinMeeting(shift);
+    final canJoin = ZoomService.canJoinClass(shift);
     final timeUntil = ZoomService.getTimeUntilCanJoin(shift);
 
     final localizations = MaterialLocalizations.of(context);
     final startDateText = localizations.formatShortDate(shift.shiftStart);
-    final startTimeText = TimeOfDay.fromDateTime(shift.shiftStart).format(context);
+    final startTimeText =
+        TimeOfDay.fromDateTime(shift.shiftStart).format(context);
     final endTimeText = TimeOfDay.fromDateTime(shift.shiftEnd).format(context);
 
     final buttonLabel = canJoin
@@ -190,13 +220,15 @@ class _ZoomShiftCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: (canJoin ? const Color(0xFF10B981) : const Color(0xFF94A3B8))
-                  .withAlpha(31),
+              color:
+                  (canJoin ? const Color(0xFF10B981) : const Color(0xFF94A3B8))
+                      .withAlpha(31),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               canJoin ? Icons.play_arrow_rounded : Icons.schedule,
-              color: canJoin ? const Color(0xFF10B981) : const Color(0xFF64748B),
+              color:
+                  canJoin ? const Color(0xFF10B981) : const Color(0xFF64748B),
               size: 22,
             ),
           ),
@@ -230,9 +262,8 @@ class _ZoomShiftCard extends StatelessWidget {
           SizedBox(
             height: 40,
             child: ElevatedButton.icon(
-              onPressed: canJoin
-                  ? () => ZoomService.joinMeetingInApp(context, shift)
-                  : null,
+              onPressed:
+                  canJoin ? () => ZoomService.joinClass(context, shift) : null,
               icon: const Icon(Icons.videocam, size: 18),
               label: Text(
                 buttonLabel,

@@ -135,7 +135,18 @@ class ZoomMeetingSdkJoinService {
   // Singleton state
   bool _sdkInitialized = false;
   bool _sdkAuthenticated = false;
-  final FlutterZoomMeetingSdk _zoomSdk = FlutterZoomMeetingSdk();
+
+  // Instances that can be overridden for testing
+  @visibleForTesting
+  FlutterZoomMeetingSdk? zoomSdkOverride;
+
+  @visibleForTesting
+  FirebaseFunctions? functionsOverride;
+
+  FlutterZoomMeetingSdk get _zoomSdk =>
+      zoomSdkOverride ?? FlutterZoomMeetingSdk();
+  FirebaseFunctions get _functions =>
+      functionsOverride ?? FirebaseFunctions.instanceFor(region: 'us-central1');
 
   // Join state management
   ZoomJoinState _state = ZoomJoinState.idle;
@@ -149,10 +160,7 @@ class ZoomMeetingSdkJoinService {
   bool _isJoining = false;
   DateTime? _lastJoinAttempt;
   static const Duration _joinDebounce = Duration(seconds: 2);
-
-  // Firebase Functions instance (us-central1)
-  static final FirebaseFunctions _functions =
-      FirebaseFunctions.instanceFor(region: 'us-central1');
+  String? _currentShiftId;
 
   /// Update state and notify listeners
   void _setState(ZoomJoinState newState) {
@@ -215,6 +223,32 @@ class ZoomMeetingSdkJoinService {
     }
   }
 
+  /// Fetch Zoom host key for teachers to claim host status
+  Future<String?> _fetchHostKey(String shiftId) async {
+    try {
+      AppLogger.debug(
+          'ZoomMeetingSdkJoinService: Fetching host key for shift $shiftId');
+      final callable = _functions.httpsCallable('getZoomHostKey');
+
+      // Explicitly log what we are sending
+      final dataParams = {'shiftId': shiftId};
+      AppLogger.debug(
+          'ZoomMeetingSdkJoinService: Calling getZoomHostKey with $dataParams');
+
+      final result = await callable.call(dataParams);
+
+      final data = Map<String, dynamic>.from(result.data as Map);
+      AppLogger.debug('ZoomMeetingSdkJoinService: host key result: $data');
+      return data['hostKey']?.toString();
+    } catch (e) {
+      // Don't fail the whole join flow if host key fetch fails, just log it
+      // For non-teachers, this will fail with permission-denied which is expected
+      AppLogger.warning(
+          'ZoomMeetingSdkJoinService: Could not fetch host key for shift $shiftId: $e');
+      return null;
+    }
+  }
+
   /// Map Firebase Functions errors to ZoomJoinError
   ZoomJoinError _mapFirebaseError(FirebaseFunctionsException e) {
     switch (e.code) {
@@ -227,6 +261,12 @@ class ZoomMeetingSdkJoinService {
         return ZoomJoinError(
           type: ZoomJoinErrorType.permissionDenied,
           message: "You're not allowed to join this meeting.",
+        );
+      case 'invalid-argument':
+        return ZoomJoinError(
+          type: ZoomJoinErrorType.unknown,
+          message: 'Meeting configuration error.',
+          detail: 'Backend missing shiftId: ${e.message}',
         );
       case 'failed-precondition':
         final message = e.message ?? '';
@@ -258,20 +298,29 @@ class ZoomMeetingSdkJoinService {
 
   /// Initialize Zoom SDK (once per app session)
   Future<void> _initializeSdk() async {
-    if (_sdkInitialized) return;
+    if (_sdkInitialized) {
+      AppLogger.debug('ZoomMeetingSdkJoinService: SDK already initialized');
+      return;
+    }
 
     _setState(ZoomJoinState.sdkInitializing);
 
     try {
-      await _zoomSdk.initZoom();
+      AppLogger.debug('ZoomMeetingSdkJoinService: Initializing native SDK');
+      final response = await _zoomSdk.initZoom();
+
+      if (!response.isSuccess) {
+        throw Exception('Native init failed: ${response.message}');
+      }
+
       _sdkInitialized = true;
-      AppLogger.info('ZoomMeetingSdkJoinService: SDK initialized');
+      AppLogger.info('ZoomMeetingSdkJoinService: SDK initialized successfully');
     } catch (e) {
       AppLogger.error('ZoomMeetingSdkJoinService: SDK init failed: $e');
       throw ZoomJoinError(
         type: ZoomJoinErrorType.unknown,
         message: 'Failed to initialize Zoom.',
-        detail: e.toString(),
+        detail: 'Exception during init: ${e.toString()}',
       );
     }
   }
@@ -350,6 +399,7 @@ class ZoomMeetingSdkJoinService {
     required String meetingNumber,
     required String passcode,
     required String displayName,
+    String? hostKey,
   }) async {
     _setState(ZoomJoinState.joining);
 
@@ -363,6 +413,36 @@ class ZoomMeetingSdkJoinService {
       await _zoomSdk.joinMeeting(request);
       _setState(ZoomJoinState.inMeeting);
       AppLogger.info('ZoomMeetingSdkJoinService: Joined meeting');
+
+      // If we have a host key, attempt to claim host status
+      if (hostKey != null && hostKey.isNotEmpty) {
+        AppLogger.info(
+            'ZoomMeetingSdkJoinService: Attempting to claim host with key');
+        try {
+          // Native SDK method: claimHostWithHostKey
+          // We assume the Flutter wrapper exposes this as claimHost
+          await _zoomSdk.claimHost(hostKey: hostKey);
+          AppLogger.info(
+              'ZoomMeetingSdkJoinService: Successfully claimed host status');
+
+          // Notify backend that host has claimed and will open rooms
+          // This cancels the backup bot
+          try {
+            AppLogger.info(
+                'ZoomMeetingSdkJoinService: Marking breakout rooms as opened/handled by teacher');
+            final callable =
+                _functions.httpsCallable('markBreakoutRoomsOpened');
+            await callable.call({'shiftId': _currentShiftId});
+          } catch (e) {
+            AppLogger.warning(
+                'ZoomMeetingSdkJoinService: Failed to mark rooms as opened: $e');
+          }
+        } catch (e) {
+          AppLogger.warning(
+              'ZoomMeetingSdkJoinService: Failed to claim host status: $e');
+          // Don't fail the join process if claiming host fails
+        }
+      }
     } catch (e) {
       AppLogger.error('ZoomMeetingSdkJoinService: Join failed: $e');
 
@@ -419,8 +499,13 @@ class ZoomMeetingSdkJoinService {
       _setState(ZoomJoinState.preflight);
       await _requestPermissions();
 
+      _currentShiftId = shiftId;
+
       // Fetch payload from backend
       final payload = await _fetchJoinPayload(shiftId);
+
+      // Fetch host key if available (usually for teachers)
+      final hostKey = await _fetchHostKey(shiftId);
 
       // Initialize SDK
       await _initializeSdk();
@@ -448,6 +533,7 @@ class ZoomMeetingSdkJoinService {
         meetingNumber: payload.meetingNumber,
         passcode: payload.meetingPasscode,
         displayName: customDisplayName ?? payload.displayName,
+        hostKey: hostKey,
       );
 
       return true;
@@ -494,6 +580,9 @@ class ZoomMeetingSdkJoinService {
   void reset() {
     _setState(ZoomJoinState.idle);
     _isJoining = false;
+    _lastJoinAttempt = null;
+    _sdkInitialized = false;
+    _sdkAuthenticated = false;
   }
 
   /// Clean up SDK resources

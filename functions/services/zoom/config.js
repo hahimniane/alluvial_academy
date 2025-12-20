@@ -20,7 +20,9 @@ const getZoomConfig = () => {
   const accountId = requireConfigValue('ZOOM_ACCOUNT_ID');
   const clientId = requireConfigValue('ZOOM_CLIENT_ID');
   const clientSecret = requireConfigValue('ZOOM_CLIENT_SECRET');
-  const hostUser = requireConfigValue('ZOOM_HOST_USER');
+  // Host user is optional in multi-host mode (host can be selected from Firestore).
+  // It's still used as a backward-compatible fallback when no hosts are configured.
+  const hostUser = getConfigValue('ZOOM_HOST_USER');
   const joinTokenSecret = requireConfigValue('ZOOM_JOIN_TOKEN_SECRET');
   const encryptionKeyB64 = requireConfigValue('ZOOM_ENCRYPTION_KEY_B64');
 
@@ -66,4 +68,3 @@ module.exports = {
   getMeetingSdkConfig,
   isMeetingSdkConfigured,
 };
-

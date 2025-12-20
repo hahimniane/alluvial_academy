@@ -81,6 +81,10 @@ class FlutterZoomMeetingSdkPlugin : FlutterPlugin, MethodCallHandler {
 
                 result.success(response.toMap())
             }
+            (action == "claimHost") -> {
+                val response = claimHost(call)
+                result.success(response.toMap())
+            }
             else -> {
                 result.notImplemented()
             }
@@ -222,6 +226,41 @@ class FlutterZoomMeetingSdkPlugin : FlutterPlugin, MethodCallHandler {
         )
 
         return response;
+    }
+
+    private fun claimHost(call: MethodCall): StandardZoomResponse {
+        val action = "claimHost"
+        val arguments = call.arguments<Map<String, String>>() ?: emptyMap<String, String>()
+        val hostKey = arguments["hostKey"]
+
+        if (hostKey.isNullOrEmpty()) {
+            return StandardZoomResponse(
+                isSuccess = false,
+                message = "MSG_NO_HOST_KEY_PROVIDED",
+                action = action
+            )
+        }
+
+        val meetingService = ZoomSDK.getInstance().meetingService
+            ?: return StandardZoomResponse(
+                isSuccess = false,
+                message = "MSG_MEETING_SERVICE_NOT_AVAILABLE",
+                action = action
+            )
+
+        val result = meetingService.claimHostWithHostKey(hostKey)
+        // Zoom Android SDK returns boolean for this method in some versions, or uses a listener
+        // In recent versions it returns boolean.
+        
+        return StandardZoomResponse(
+            isSuccess = result,
+            message = if (result) "MSG_CLAIM_HOST_SUCCESS" else "MSG_CLAIM_HOST_FAILED",
+            action = action,
+            params = mapOf(
+                "statusCode" to if (result) 0 else 1,
+                "statusLabel" to if (result) "SUCCESS" else "FAILED"
+            )
+        )
     }
 }
 
