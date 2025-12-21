@@ -209,16 +209,19 @@ class TeachingShift {
     }
   }
 
-  // Check if teacher can clock in (strict shift window, minute-level accuracy)
+  // Check if teacher can clock in (1 minute before shift start until shift end)
   bool get canClockIn {
     final nowUtc = DateTime.now().toUtc();
     final shiftStartUtc = shiftStart.toUtc();
     final shiftEndUtc = shiftEnd.toUtc();
+    
+    // Allow clock-in 1 minute before shift start
+    final clockInWindowStartUtc = shiftStartUtc.subtract(const Duration(minutes: 1));
 
-    final isOnOrAfterStart = !nowUtc.isBefore(shiftStartUtc);
+    final isOnOrAfterWindowStart = !nowUtc.isBefore(clockInWindowStartUtc);
     final isOnOrBeforeEnd = !nowUtc.isAfter(shiftEndUtc);
 
-    return isOnOrAfterStart && isOnOrBeforeEnd;
+    return isOnOrAfterWindowStart && isOnOrBeforeEnd;
   }
 
   // Check if shift is currently active

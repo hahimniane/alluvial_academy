@@ -538,9 +538,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     // Use live shift status for real-time updates
     final status = _liveShift?.status ?? widget.shift.status;
     
-    // Only allow clock-in when it's actually time (at or after shift start, before shift end)
-    // No early clock-in - must be at or after shift start time
-    return (now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart)) &&
+    // Allow clock-in 1 minute before shift start until shift end
+    final clockInWindowStart = shiftStart.subtract(const Duration(minutes: 1));
+    return (now.isAfter(clockInWindowStart) || now.isAtSameMomentAs(clockInWindowStart)) &&
         now.isBefore(shiftEnd) &&
         (status == ShiftStatus.scheduled || status == ShiftStatus.active);
   }

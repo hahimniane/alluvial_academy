@@ -88,13 +88,13 @@ class ShiftTimesheetService {
         AppLogger.debug(
             '  - Current UTC time in window: ${nowUtc.isAfter(clockInWindowUtc) && nowUtc.isBefore(clockOutWindowUtc)}');
 
-        // Allow clock-in only during exact shift time (no grace period)
-      // Use inclusive comparison (!isBefore and !isAfter) to include exact start/end times
-      // Add 2 minute buffer to start time to align with UI logic
-      final bufferedStartUtc = clockInWindowUtc.subtract(const Duration(minutes: 2));
-      
-      if (!nowUtc.isBefore(bufferedStartUtc) &&
-          !nowUtc.isAfter(clockOutWindowUtc)) {
+        // Allow clock-in 1 minute before shift start until shift end
+        // Use inclusive comparison (!isBefore and !isAfter) to include exact start/end times
+        // Add 1 minute buffer to start time to allow early clock-in
+        final bufferedStartUtc = clockInWindowUtc.subtract(const Duration(minutes: 1));
+        
+        if (!nowUtc.isBefore(bufferedStartUtc) &&
+            !nowUtc.isAfter(clockOutWindowUtc)) {
           AppLogger.debug(
               'ShiftTimesheetService: ✅ VALID SHIFT FOUND: ${shift.id} - ${shift.displayName}');
           validShifts.add(shift);
@@ -473,13 +473,17 @@ class ShiftTimesheetService {
       AppLogger.debug('  - Shift start (UTC): $shiftStartUtc');
       AppLogger.debug('  - Shift end (UTC): $shiftEndUtc');
       AppLogger.debug('  - Shift Status: ${shift.status.name}');
+      
+      // Allow clock-in 1 minute before shift start
+      final clockInWindowStartUtc = shiftStartUtc.subtract(const Duration(minutes: 1));
+      AppLogger.debug('  - Clock-in window start (UTC): $clockInWindowStartUtc (1 minute before shift start)');
       AppLogger.debug(
-          '  - nowUtc.isBefore(shiftStartUtc): ${nowUtc.isBefore(shiftStartUtc)}');
+          '  - nowUtc.isBefore(clockInWindowStartUtc): ${nowUtc.isBefore(clockInWindowStartUtc)}');
       AppLogger.debug(
           '  - nowUtc.isAfter(shiftEndUtc): ${nowUtc.isAfter(shiftEndUtc)}');
 
       final withinWindow =
-          !nowUtc.isBefore(shiftStartUtc) && !nowUtc.isAfter(shiftEndUtc);
+          !nowUtc.isBefore(clockInWindowStartUtc) && !nowUtc.isAfter(shiftEndUtc);
 
       AppLogger.debug('  - withinWindow result: $withinWindow');
 
@@ -492,7 +496,7 @@ class ShiftTimesheetService {
       AppLogger.debug(
           'ShiftTimesheetService: ❌ Shift not within valid time window');
       AppLogger.error(
-          'ShiftTimesheetService: Current UTC $nowUtc is not between $shiftStartUtc and $shiftEndUtc');
+          'ShiftTimesheetService: Current UTC $nowUtc is not between $clockInWindowStartUtc (1 min before shift start) and $shiftEndUtc');
       return null;
     } catch (e) {
       AppLogger.error(

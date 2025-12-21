@@ -284,9 +284,9 @@ class TimelineShiftCard extends StatelessWidget {
   // --- LOGIC HELPERS ---
 
   bool _checkCanClockIn(DateTime now) {
-    // Only allow clock-in when it's actually time (at or after shift start, before shift end)
-    // No early clock-in - must be at or after shift start time
-    return (now.isAfter(shift.shiftStart) || now.isAtSameMomentAs(shift.shiftStart)) &&
+    // Allow clock-in 1 minute before shift start until shift end
+    final clockInWindowStart = shift.shiftStart.subtract(const Duration(minutes: 1));
+    return (now.isAfter(clockInWindowStart) || now.isAtSameMomentAs(clockInWindowStart)) &&
         now.isBefore(shift.shiftEnd) &&
         (shift.status == ShiftStatus.scheduled || shift.status == ShiftStatus.active);
   }
