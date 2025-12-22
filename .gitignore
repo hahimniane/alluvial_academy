@@ -9,10 +9,7 @@
 .buildlog/
 .history
 .svn/
-<<<<<<< HEAD
 .claude/settings.local.json
-=======
->>>>>>> origin/main
 .swiftpm/
 migrate_working_dir/
 
@@ -80,11 +77,7 @@ TEACHER_MOBILE_APP_FILES.md
 RUN_IN_FIREBASE_CONSOLE.js
 functions/fix_december_forms.js
 lib/core/services/data_fix_service.dart
-<<<<<<< HEAD
 lib/features/dashboard/screens/teacher_mobile_home.dart
-=======
-lib/features/dashboard/screens/teacher_mobile_home.dartfunctions/.env
->>>>>>> origin/main
 .env
 functions/.env
 
@@ -92,8 +85,11 @@ functions/.env
 # Run ./tools/setup_zoom_meeting_sdk.sh to set up
 android/app/libs/zoom/
 ios/ZoomSDK/
-<<<<<<< HEAD
-=======
 !ios/ZoomSDK/ZoomMobileRTC.podspec
->>>>>>> origin/main
-# Zoom SDK binaries (download from Zoom Marketplace)
+
+# Gradle build cache (should not be versioned)
+**/.gradle/
+**/build/
+ios/build/
+
+# Android Studio will place build artifacts here
