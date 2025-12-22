@@ -73,7 +73,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   bool _isSubmitting = false;
   
   // Enhanced form fields
-  String? _role = 'Parent';
+  String? _role; // Must be selected explicitly
   String? _preferredLanguage;
   String _whatsAppNumber = '';
   String? _gender;
@@ -257,7 +257,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   Future<void> _checkParentIdentity() async {
     final identifier = _parentIdentityController.text.trim();
     if (identifier.isEmpty) {
-      _showSnackBar('Please enter an email or ID', isError: true);
+      _showSnackBar('Please enter an email or kiosque code to link account', isError: true);
       return;
     }
 
@@ -279,7 +279,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           });
           _showSnackBar('Account linked successfully!', isSuccess: true);
         } else {
-          _showSnackBar('No account found with that Email or ID',
+          _showSnackBar('No parent account found with that email or kiosque code',
               isError: true);
         }
       }
@@ -350,6 +350,16 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   void _nextStep() {
+    print('🔍 _nextStep called - current step: $_currentStep');
+
+    // Validate current step before proceeding
+    if (!_validateCurrentStep()) {
+      print('❌ Step validation failed');
+      return;
+    }
+
+    print('✅ Step validation passed, proceeding to next step');
+
     if (_currentStep < 3) {
       _cardController.reverse().then((_) {
         _pageController.animateToPage(
@@ -363,6 +373,98 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     } else {
       _submitForm();
     }
+  }
+
+  bool _validateCurrentStep() {
+    switch (_currentStep) {
+      case 0: // Student Info
+        return _validateStudentInfoStep();
+      case 1: // Program
+        return _validateProgramStep();
+      case 2: // Schedule
+        return _validateScheduleStep();
+      case 3: // Contact
+        return _validateContactStep();
+      default:
+        return true;
+    }
+  }
+
+  bool _validateStudentInfoStep() {
+    print('🔍 Validating student info step - _isAdult: $_isAdult, _role: $_role, studentName: "${_studentNameController.text.trim()}"');
+
+    // Role is always required
+    if (_role == null || _role!.isEmpty) {
+      print('❌ Validation failed: Role not selected');
+      _showSnackBar('Please select who you are (Student, Parent, or Guardian)', isError: true);
+      return false;
+    }
+
+    // Student name is always required
+    final studentName = _studentNameController.text.trim();
+    if (studentName.isEmpty) {
+      print('❌ Validation failed: Student name is empty');
+      _showSnackBar('Please enter the student name', isError: true);
+      return false;
+    }
+
+    print('✅ Student info validation passed');
+    return true;
+  }
+
+  bool _validateProgramStep() {
+    if (_selectedSubject == null || _selectedSubject!.isEmpty) {
+      _showSnackBar('Please select a subject', isError: true);
+      return false;
+    }
+
+    if (_selectedSubject == 'African Languages (Other)' &&
+        (_selectedAfricanLanguage == null || _selectedAfricanLanguage!.isEmpty)) {
+      _showSnackBar('Please select a specific African language', isError: true);
+      return false;
+    }
+
+    if (_selectedGrade == null || _selectedGrade!.isEmpty) {
+      _showSnackBar('Please select a grade level', isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _validateScheduleStep() {
+    if (_selectedDays.isEmpty) {
+      _showSnackBar('Please select at least one preferred day', isError: true);
+      return false;
+    }
+
+    if (_selectedTimeSlots.isEmpty) {
+      _showSnackBar('Please select at least one preferred time slot', isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _validateContactStep() {
+    // Validate form fields using FormKey
+    if (!_formKey.currentState!.validate()) {
+      _showSnackBar('Please fill in all required fields', isError: true);
+      return false;
+    }
+
+    // For minor students, either parent identity must be linked OR parent name must be provided
+    if (!_isAdult) {
+      final hasLinkedParent = _linkedParentData != null;
+      final hasParentName = _parentNameController.text.trim().isNotEmpty;
+
+      if (!hasLinkedParent && !hasParentName) {
+        _showSnackBar('Please either link to an existing parent account or enter parent name', isError: true);
+        return false;
+      }
+    }
+
+    return true;
   }
 
   void _previousStep() {
@@ -859,7 +961,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                   child: TextField(
                     controller: _parentIdentityController,
                     decoration: InputDecoration(
-                      hintText: 'Enter your email or parent ID',
+                      hintText: 'Enter your email or kiosque code',
                       hintStyle: GoogleFonts.inter(
                         color: const Color(0xff94A3B8),
                         fontSize: 14,

@@ -19,7 +19,11 @@ echo ""
 
 # Step 2: Build Flutter web app for release
 echo "🔨 Step 2: Building Flutter web app for release..."
+<<<<<<< HEAD
 flutter build web --release
+=======
+flutter build web --release --no-tree-shake-icons
+>>>>>>> origin/main
 
 if [ $? -ne 0 ]; then
     echo "❌ Error: Flutter build failed"

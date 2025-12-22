@@ -13,6 +13,7 @@ class ShiftTimesheetService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Check if teacher has a valid shift for clock-in or active shift for clock-out
+  /// Also returns information about programmed clock-in availability
   static Future<Map<String, dynamic>> getValidShiftForClockIn(
       String teacherId) async {
     try {
@@ -106,12 +107,36 @@ class ShiftTimesheetService {
 
       if (validShifts.isNotEmpty) {
         final shift = validShifts.first;
+
+        // Check if we're in the programming window (1 minute before start) or shift has started
+        final nowUtc = DateTime.now().toUtc();
+        final shiftStartUtc = shift.shiftStart.toUtc();
+        final programmingWindowStart = shiftStartUtc.subtract(const Duration(minutes: 1));
+
+        // Can program clock-in: within 1 minute before shift start
+        final canProgramClockIn = !nowUtc.isBefore(programmingWindowStart) &&
+                                 nowUtc.isBefore(shiftStartUtc);
+        
+        // Can clock in NOW: shift has started (current time is at or after shift start)
+        final canClockInNow = !nowUtc.isBefore(shiftStartUtc);
+
+        AppLogger.debug('ShiftTimesheetService: Clock-in status for shift ${shift.id}:');
+        AppLogger.debug('  - canProgramClockIn: $canProgramClockIn');
+        AppLogger.debug('  - canClockInNow: $canClockInNow');
+        AppLogger.debug('  - nowUtc: $nowUtc');
+        AppLogger.debug('  - shiftStartUtc: $shiftStartUtc');
+
         return {
           'shift': shift,
-          'canClockIn': true,
+          'canClockIn': canClockInNow, // TRUE when shift has started
+          'canProgramClockIn': canProgramClockIn, // Can program clock-in (before shift starts)
           'canClockOut': false,
           'status': 'scheduled',
-          'message': 'Ready to clock in to ${shift.displayName}',
+          'message': canClockInNow
+              ? 'Ready to clock in to ${shift.displayName}'
+              : (canProgramClockIn
+                  ? 'Ready to program clock-in for ${shift.displayName} (starts at ${DateFormat('h:mm a').format(shift.shiftStart)})'
+                  : 'Clock-in window opens at ${DateFormat('h:mm a').format(shiftStartUtc.subtract(const Duration(minutes: 1)).toLocal())}'),
         };
       }
 
@@ -133,6 +158,151 @@ class ShiftTimesheetService {
         'status': 'error',
         'message': 'Error checking shift availability: $e',
       };
+    }
+  }
+
+  /// Program a clock-in to happen exactly at shift start time
+  /// This allows teachers to "program" their clock-in during the 1-minute window
+  /// before shift start, and it will execute automatically at exactly 00 seconds
+  static Future<Map<String, dynamic>> programClockIn(
+      String teacherId, String shiftId,
+      {required LocationData location, String? platform}) async {
+    try {
+      AppLogger.debug(
+          'ShiftTimesheetService: Programming clock-in for shift $shiftId at exact start time');
+
+      // Validate that we're within the programming window (1 minute before start)
+      final shift = await _validateShiftForClockIn(teacherId, shiftId);
+      if (shift == null) {
+        AppLogger.error('ShiftTimesheetService: ❌ Cannot program clock-in - outside programming window');
+        return {
+          'success': false,
+          'message': 'Can only program clock-in within 1 minute before shift start',
+          'shift': null,
+        };
+      }
+
+      // Check if already clocked in or has open timesheet
+      final existingOpenTimesheet = await _findOpenTimesheetEntry(
+        teacherId: teacherId,
+        shiftId: shiftId,
+        useOrderBy: false,
+      );
+
+      if (existingOpenTimesheet.docs.isNotEmpty) {
+        return {
+          'success': false,
+          'message': 'Already clocked in to this shift',
+          'shift': shift,
+        };
+      }
+
+      // Create a programmed clock-in entry
+      final programmedData = {
+        'teacher_id': teacherId,
+        'shift_id': shiftId,
+        'type': 'programmed_clock_in',
+        'scheduled_execution_time': shift.shiftStart,
+        'location_latitude': location.latitude,
+        'location_longitude': location.longitude,
+        'location_address': location.address,
+        'location_neighborhood': location.neighborhood,
+        'platform': platform ?? 'unknown',
+        'created_at': DateTime.now(),
+        'status': 'scheduled', // Will be executed by cloud function
+      };
+
+      // Store in a new collection for programmed clock-ins
+      final docRef = await _firestore.collection('programmed_clock_ins').add(programmedData);
+
+      AppLogger.debug('ShiftTimesheetService: ✅ Clock-in programmed successfully: ${docRef.id}');
+
+      return {
+        'success': true,
+        'message': 'Clock-in programmed for ${shift.displayName} at ${DateFormat('h:mm a').format(shift.shiftStart)}',
+        'shift': shift,
+        'programmedId': docRef.id,
+        'executionTime': shift.shiftStart,
+      };
+    } catch (e) {
+      AppLogger.error('ShiftTimesheetService: ❌ Error programming clock-in: $e');
+      return {
+        'success': false,
+        'message': 'Error programming clock-in: $e',
+        'shift': null,
+      };
+    }
+  }
+
+  /// Execute programmed clock-ins (called by cloud function at scheduled times)
+  static Future<void> executeProgrammedClockIns() async {
+    try {
+      AppLogger.debug('ShiftTimesheetService: Executing programmed clock-ins...');
+
+      final now = DateTime.now().toUtc();
+      final startWindow = now.subtract(const Duration(seconds: 30)); // 30 seconds buffer
+      final endWindow = now.add(const Duration(seconds: 30));
+
+      // Find programmed clock-ins ready for execution
+      final snapshot = await _firestore
+          .collection('programmed_clock_ins')
+          .where('status', isEqualTo: 'scheduled')
+          .where('scheduled_execution_time', isGreaterThanOrEqualTo: startWindow)
+          .where('scheduled_execution_time', isLessThanOrEqualTo: endWindow)
+          .get();
+
+      AppLogger.debug('ShiftTimesheetService: Found ${snapshot.docs.length} programmed clock-ins to execute');
+
+      for (final doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          final shiftId = data['shift_id'];
+          final teacherId = data['teacher_id'];
+
+          // Create location data from stored values
+          final location = LocationData(
+            latitude: data['location_latitude'],
+            longitude: data['location_longitude'],
+            address: data['location_address'],
+            neighborhood: data['location_neighborhood'],
+          );
+
+          // Execute the actual clock-in
+          final result = await clockInToShift(
+            teacherId,
+            shiftId,
+            location: location,
+            platform: data['platform'],
+          );
+
+          if (result['success']) {
+            // Mark as executed
+            await doc.reference.update({
+              'status': 'executed',
+              'executed_at': FieldValue.serverTimestamp(),
+              'actual_execution_time': DateTime.now(),
+            });
+            AppLogger.debug('ShiftTimesheetService: ✅ Executed programmed clock-in ${doc.id}');
+          } else {
+            // Mark as failed
+            await doc.reference.update({
+              'status': 'failed',
+              'failed_at': FieldValue.serverTimestamp(),
+              'failure_reason': result['message'],
+            });
+            AppLogger.error('ShiftTimesheetService: ❌ Failed to execute programmed clock-in ${doc.id}: ${result['message']}');
+          }
+        } catch (e) {
+          AppLogger.error('ShiftTimesheetService: ❌ Error executing programmed clock-in ${doc.id}: $e');
+          await doc.reference.update({
+            'status': 'error',
+            'error_at': FieldValue.serverTimestamp(),
+            'error_message': e.toString(),
+          });
+        }
+      }
+    } catch (e) {
+      AppLogger.error('ShiftTimesheetService: ❌ Error in executeProgrammedClockIns: $e');
     }
   }
 

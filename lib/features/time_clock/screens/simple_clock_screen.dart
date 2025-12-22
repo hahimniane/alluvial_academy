@@ -110,8 +110,9 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
           await ShiftTimesheetService.getValidShiftForClockIn(user.uid);
       final shift = shiftResult['shift'] as TeachingShift?;
       final canClockIn = shiftResult['canClockIn'] as bool;
+      final canProgramClockIn = (shiftResult['canProgramClockIn'] as bool?) ?? false;
 
-      if (!canClockIn || shift == null) {
+      if ((!canClockIn && !canProgramClockIn) || shift == null) {
         _showMessage('No valid shift: ${shiftResult['message']}', isError: true);
         return;
       }
@@ -227,7 +228,19 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_clockInTime != null && mounted) {
-        final elapsed = DateTime.now().difference(_clockInTime!);
+        DateTime effectiveStartTime = _clockInTime!;
+        if (_currentShift != null && _clockInTime!.isBefore(_currentShift!.shiftStart)) {
+           effectiveStartTime = _currentShift!.shiftStart;
+        }
+        
+        final now = DateTime.now();
+        Duration elapsed;
+        if (now.isBefore(effectiveStartTime)) {
+           elapsed = Duration.zero;
+        } else {
+           elapsed = now.difference(effectiveStartTime);
+        }
+
         setState(() {
           _elapsedTime = _formatDuration(elapsed);
         });

@@ -112,12 +112,30 @@ const createStudentAccount = async (data) => {
     const authUserId = userRecord.uid;
     console.log(`Auth user created with UID: ${authUserId}`);
 
+    // Get kiosque code from parent (if any) for student linking
+    let kiosqueCode = null;
+    if (guardianIds && Array.isArray(guardianIds) && guardianIds.length > 0) {
+      try {
+        const parentDoc = await admin.firestore().collection('users').doc(guardianIds[0]).get();
+        if (parentDoc.exists) {
+          const parentData = parentDoc.data();
+          if (parentData && parentData.user_type === 'parent') {
+            kiosqueCode = parentData.kiosk_code || parentData.kiosque_code;
+            console.log(`✅ Assigned kiosque code from parent: ${kiosqueCode}`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error getting parent kiosque code:', error.message);
+      }
+    }
+
     const firestoreUserData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       'e-mail': email || aliasEmail,
       user_type: 'student',
       student_code: studentCode,
+      kiosque_code: kiosqueCode, // Assign parent's kiosque code for future linking
       is_adult_student: isAdultStudent,
       phone_number: phoneNumber || '',
       address: address || '',

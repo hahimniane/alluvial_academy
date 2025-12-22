@@ -10,7 +10,10 @@ class TimelineShiftCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onClockIn;
   final VoidCallback? onClockOut;
+  final VoidCallback? onCancelProgram;
   final bool showClockInButtons;
+  final bool isProgrammed;
+  final String? countdownText;
 
   const TimelineShiftCard({
     super.key,
@@ -19,7 +22,10 @@ class TimelineShiftCard extends StatelessWidget {
     required this.onTap,
     this.onClockIn,
     this.onClockOut,
+    this.onCancelProgram,
     this.showClockInButtons = true,
+    this.isProgrammed = false,
+    this.countdownText,
   });
 
   @override
@@ -193,11 +199,12 @@ class TimelineShiftCard extends StatelessWidget {
 
   Widget _buildActionButtons(DateTime now) {
     final canClockIn = _checkCanClockIn(now);
+    final canProgramClockIn = _checkCanProgramClockIn(now);
     final isActive = shift.isClockedIn;
     final isUpcoming = _checkIsUpcoming(now);
 
-    // 1. Hidden on Home Screen (unless active)
-    if (!showClockInButtons && !isActive) {
+    // 1. Hidden on Home Screen (unless active or programmed)
+    if (!showClockInButtons && !isActive && !isProgrammed) {
       return const SizedBox.shrink();
     }
 
@@ -210,8 +217,72 @@ class TimelineShiftCard extends StatelessWidget {
         onPressed: onClockOut ?? onTap,
       );
     }
+    
+    // 3. PROGRAMMED State - Show countdown and cancel button
+    if (isProgrammed) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Countdown display
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                Text(
+                  countdownText ?? 'Programmed...',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Cancel button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onCancelProgram,
+              icon: const Icon(Icons.close, size: 16),
+              label: Text(
+                "Cancel",
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF64748B),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
-    // 3. Ready State (Clock In)
+    // 4. Ready State (Clock In) - Shift has started
     if (canClockIn) {
       return _buildButton(
         label: "Clock In Now",
@@ -221,7 +292,31 @@ class TimelineShiftCard extends StatelessWidget {
       );
     }
 
-    // 4. Upcoming State (Disabled)
+    // 5. Programming Window (Can program clock-in) - Before shift starts
+    if (canProgramClockIn) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildButton(
+            label: "Program Clock-In",
+            icon: Icons.schedule_send,
+            color: const Color(0xFF3B82F6),
+            onPressed: onClockIn ?? onTap, // Will start programmed clock-in
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Will clock in at ${DateFormat('h:mm a').format(shift.shiftStart)}",
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: const Color(0xFF64748B),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+
+    // 6. Upcoming State (Disabled)
     if (isUpcoming) {
       return _buildButton(
         label: "Clock In (Not Yet)",
@@ -232,7 +327,7 @@ class TimelineShiftCard extends StatelessWidget {
       );
     }
 
-    // 5. Default (View Details)
+    // 7. Default (View Details)
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
@@ -284,10 +379,17 @@ class TimelineShiftCard extends StatelessWidget {
   // --- LOGIC HELPERS ---
 
   bool _checkCanClockIn(DateTime now) {
-    // Allow clock-in 1 minute before shift start until shift end
-    final clockInWindowStart = shift.shiftStart.subtract(const Duration(minutes: 1));
-    return (now.isAfter(clockInWindowStart) || now.isAtSameMomentAs(clockInWindowStart)) &&
+    // No actual early clock-in - only at exact start time or after
+    return (now.isAtSameMomentAs(shift.shiftStart) || now.isAfter(shift.shiftStart)) &&
         now.isBefore(shift.shiftEnd) &&
+        (shift.status == ShiftStatus.scheduled || shift.status == ShiftStatus.active);
+  }
+
+  bool _checkCanProgramClockIn(DateTime now) {
+    // Can program clock-in in the 1-minute window before start
+    final programmingWindowStart = shift.shiftStart.subtract(const Duration(minutes: 1));
+    return (now.isAfter(programmingWindowStart) || now.isAtSameMomentAs(programmingWindowStart)) &&
+        now.isBefore(shift.shiftStart) &&
         (shift.status == ShiftStatus.scheduled || shift.status == ShiftStatus.active);
   }
 
@@ -298,6 +400,16 @@ class TimelineShiftCard extends StatelessWidget {
   // --- VISUAL CONFIGURATION ---
 
   _VisualConfig _getVisualConfig(DateTime now) {
+    // 0. Show PROGRAMMED if this shift is programmed
+    if (isProgrammed) {
+      return const _VisualConfig(
+        primaryColor: Color(0xFF3B82F6),
+        bgColor: Color(0xFFDBEAFE),
+        textColor: Color(0xFF1E40AF),
+        label: "PROGRAMMED",
+      );
+    }
+    
     // 1. Force Green if actually clocked in
     if (shift.isClockedIn) {
       return const _VisualConfig(

@@ -63,6 +63,13 @@ const createUserWithEmail = async (data) => {
     });
     console.log(`Auth user created with UID: ${userRecord.uid}`);
 
+    // Generate kiosque code for parent accounts
+    let kiosqueCode = null;
+    if (userType?.toLowerCase() === 'parent') {
+      kiosqueCode = await generateKiosqueCode();
+      console.log(`Generated kiosque code for parent: ${kiosqueCode}`);
+    }
+
     const firestoreData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
@@ -72,6 +79,7 @@ const createUserWithEmail = async (data) => {
       user_type: userType?.toLowerCase() || 'teacher',
       title: title || 'Teacher',
       kiosk_code: kioskCode || '123',
+      kiosque_code: kiosqueCode, // Family/parent identifier code
       date_added: admin.firestore.FieldValue.serverTimestamp(),
       last_login: null,
       employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
@@ -85,7 +93,7 @@ const createUserWithEmail = async (data) => {
     await admin.firestore().collection('users').doc(userRecord.uid).set(firestoreData);
     console.log(`Firestore document created for UID: ${userRecord.uid}`);
 
-    const emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType);
+    const emailSent = await sendWelcomeEmail(email, firstName, lastName, password, userType, kiosqueCode);
 
     return {
       success: true,
@@ -476,31 +484,127 @@ const deleteUserAccount = async (data) => {
   }
 };
 
-const findUserByEmailOrCode = async (data) => {
+// Generate a unique kiosque code for parent/family identification
+const generateKiosqueCode = async () => {
+  const db = admin.firestore();
+  let code;
+  let isUnique = false;
+  let attempts = 0;
+
+  // Generate codes until we find a unique one
+  while (!isUnique && attempts < 10) {
+    // Generate a 6-character alphanumeric code (uppercase letters and numbers)
+    code = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Check if code already exists
+    const existingCode = await db.collection('users')
+      .where('kiosque_code', '==', code)
+      .limit(1)
+      .get();
+
+    if (existingCode.empty) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+
+  if (!isUnique) {
+    throw new Error('Unable to generate unique kiosque code after multiple attempts');
+  }
+
+  console.log(`Generated unique kiosque code: ${code}`);
+  return code;
+};
+
+const findUserByEmailOrCode = async (data, context) => {
   try {
-    const identifier = (data.identifier || '').trim().toLowerCase();
-    if (!identifier) {
+    // Debug: Log what we're receiving
+    console.log(`🔍 findUserByEmailOrCode called`);
+    console.log(`🔍 data type: ${typeof data}`);
+    console.log(`🔍 data keys: ${data ? Object.keys(data).join(', ') : 'null'}`);
+    
+    // Handle both direct and nested data access (some callable functions wrap data)
+    const requestData = data?.data || data || {};
+    console.log(`🔍 requestData keys: ${Object.keys(requestData).join(', ')}`);
+    console.log(`🔍 requestData.identifier: ${requestData.identifier}`);
+    
+    // Get identifier from requestData
+    const identifier = requestData.identifier || '';
+    const rawIdentifier = String(identifier).trim();
+    const identifierLower = rawIdentifier.toLowerCase();
+    
+    console.log(`🔍 Processed identifier: '${rawIdentifier}' (length: ${rawIdentifier.length})`);
+
+    if (!rawIdentifier || rawIdentifier.length === 0) {
+      console.error('❌ Empty identifier received after processing');
+      console.error(`❌ Original data:`, JSON.stringify(data, null, 2));
       throw new functions.https.HttpsError('invalid-argument', 'Identifier is required');
     }
 
-    console.log(`Looking up user by identifier: ${identifier}`);
+    console.log(`Looking up user by identifier: ${rawIdentifier}`);
     const db = admin.firestore();
     const usersRef = db.collection('users');
 
-    // Try finding by email
-    let snapshot = await usersRef.where('e-mail', '==', identifier).limit(1).get();
+    // 1. Try finding by email (lowercase)
+    let snapshot = await usersRef.where('e-mail', '==', identifierLower).limit(1).get();
     
+    // 2. Try finding by kiosk_code (ACTUAL field name in database - exact match first)
     if (snapshot.empty) {
-      // Try finding by student_code
-      snapshot = await usersRef.where('student_code', '==', identifier).limit(1).get();
+      snapshot = await usersRef.where('kiosk_code', '==', rawIdentifier).limit(1).get();
+    }
+    if (snapshot.empty && rawIdentifier !== identifierLower) {
+      snapshot = await usersRef.where('kiosk_code', '==', identifierLower).limit(1).get();
+    }
+
+    // 3. Try finding by student_code (try exact match first, then lowercase)
+    if (snapshot.empty) {
+      snapshot = await usersRef.where('student_code', '==', rawIdentifier).limit(1).get();
+    }
+    if (snapshot.empty && rawIdentifier !== identifierLower) {
+      snapshot = await usersRef.where('student_code', '==', identifierLower).limit(1).get();
+    }
+
+    // 4. Try finding by kiosque_code (alternate spelling - try exact match first, then lowercase)
+    if (snapshot.empty) {
+      snapshot = await usersRef.where('kiosque_code', '==', rawIdentifier).limit(1).get();
+    }
+    if (snapshot.empty && rawIdentifier !== identifierLower) {
+      snapshot = await usersRef.where('kiosque_code', '==', identifierLower).limit(1).get();
+    }
+
+    // 5. Try finding by family_code (legacy field name)
+    if (snapshot.empty) {
+      snapshot = await usersRef.where('family_code', '==', rawIdentifier).limit(1).get();
     }
 
     if (snapshot.empty) {
+      console.log(`❌ No user found for identifier: ${rawIdentifier}`);
       return { found: false };
     }
 
     const doc = snapshot.docs[0];
     const userData = doc.data();
+    const userType = userData.user_type || '';
+    const childrenIds = userData.children_ids || [];
+
+    console.log(`✅ Found user: ${userData.first_name || ''} ${userData.last_name || ''} (${userType})`);
+
+    // Only allow linking to parents who have enrolled children
+    if (userType !== 'parent') {
+      console.log(`❌ User is not a parent (${userType}), cannot link`);
+      return { found: false };
+    }
+
+    if (!childrenIds || childrenIds.length === 0) {
+      console.log(`❌ Parent has no children (${childrenIds.length}), cannot link`);
+      return { found: false };
+    }
+
+    console.log(`✅ Valid parent with ${childrenIds.length} children - allowing link`);
 
     return {
       found: true,
@@ -509,10 +613,13 @@ const findUserByEmailOrCode = async (data) => {
       lastName: userData.last_name || '',
       email: userData['e-mail'] || '',
       phone: userData.phone_number || '',
+      kiosqueCode: userData.kiosk_code || userData.kiosque_code || userData.family_code,
     };
   } catch (error) {
-    console.error('Error in findUserByEmailOrCode:', error);
-    throw new functions.https.HttpsError('internal', error.message);
+    // Safely extract error message to avoid circular reference issues
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    console.error('Error in findUserByEmailOrCode:', errorMessage);
+    throw new functions.https.HttpsError('internal', errorMessage);
   }
 };
 

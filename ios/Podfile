@@ -49,6 +49,14 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
+<<<<<<< HEAD
+=======
+      
+      # Ensure arm64 is not excluded for simulators on Apple Silicon
+      if config.build_settings['SDKROOT'] && config.build_settings['SDKROOT'].include?('iphonesimulator')
+        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      end
+>>>>>>> origin/main
     end
   end
 end

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../dashboard/widgets/date_strip_calendar.dart';
 import '../../dashboard/widgets/timeline_shift_card.dart';
 import '../../../core/models/teaching_shift.dart';
@@ -29,11 +31,54 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   List<TeachingShift> _dailyShifts = []; // Filtered for selected day
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
+  
+  // Programmed clock-in state
+  String? _programmedShiftId;
+  Timer? _programTimer;
+  String _timeUntilAutoStart = "";
+  Timer? _uiRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _setupShiftStream();
+    
+    // Refresh UI every second to update button states
+    _uiRefreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          // Trigger rebuild to update time-based UI
+        });
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _programTimer?.cancel();
+    _uiRefreshTimer?.cancel();
+    super.dispose();
+  }
+  
+  /// Check for any persisted programmed state on startup
+  Future<void> _checkForPersistedProgrammedState() async {
+    // Skip if already programming a shift
+    if (_programmedShiftId != null) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Check all daily shifts for persisted programmed state
+      for (final shift in _dailyShifts) {
+        final isProgrammed = prefs.getBool('programmed_start_${shift.id}') ?? false;
+        if (isProgrammed && !shift.isClockedIn) {
+          AppLogger.debug('Found persisted programmed state for shift ${shift.id}');
+          _startProgrammedClockIn(shift);
+          break;
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error checking programmed state: $e');
+    }
   }
 
   void _setupShiftStream() {
@@ -56,6 +101,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             _filterShiftsForDate(_selectedDate);
             _isLoading = false;
           });
+          // Check for persisted programmed state after shifts are loaded
+          _checkForPersistedProgrammedState();
         }
       },
       onError: (error) {
@@ -88,6 +135,167 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   }
 
   Future<void> _handleClockIn(TeachingShift shift) async {
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
+    
+    // Check if we're in the programming window (before shift start)
+    final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
+    
+    // Check if shift has started
+    final shiftHasStarted = !now.isBefore(shiftStart);
+    
+    AppLogger.debug('_handleClockIn: isInProgramWindow=$isInProgramWindow, shiftHasStarted=$shiftHasStarted');
+    
+    if (isInProgramWindow && !shiftHasStarted) {
+      // Start programmed clock-in
+      _startProgrammedClockIn(shift);
+    } else if (shiftHasStarted) {
+      // Immediate clock-in
+      await _performClockIn(shift);
+    } else {
+      // Too early - shouldn't happen but handle gracefully
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Too early to clock in. Please wait for the programming window.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+  
+  /// Start a programmed clock-in that will auto-trigger at shift start time
+  void _startProgrammedClockIn(TeachingShift shift) async {
+    AppLogger.debug('Starting programmed clock-in for shift ${shift.id}');
+    
+    final nowUtc = DateTime.now().toUtc();
+    final shiftStartUtc = shift.shiftStart.toUtc();
+    
+    // If shift has already started, clock in immediately
+    if (!nowUtc.isBefore(shiftStartUtc)) {
+      AppLogger.debug('Shift already started - clocking in immediately');
+      await _performClockIn(shift, isAutoStart: true);
+      return;
+    }
+    
+    // Calculate initial countdown
+    final timeLeft = shiftStartUtc.difference(nowUtc);
+    final initialSeconds = timeLeft.inSeconds;
+    final initialMinutes = timeLeft.inMinutes;
+    final remainingSeconds = initialSeconds % 60;
+    
+    // Persist programmed state
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('programmed_start_${shift.id}', true);
+    } catch (e) {
+      AppLogger.error('Failed to save programmed state: $e');
+    }
+    
+    if (!mounted) return;
+    
+    // Format countdown
+    final countdownText = initialMinutes > 0 
+        ? '${initialMinutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
+        : '${initialSeconds}s';
+    
+    setState(() {
+      _programmedShiftId = shift.id;
+      _timeUntilAutoStart = 'Starting in $countdownText';
+    });
+    
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Clock-in programmed for ${DateFormat('HH:mm').format(shift.shiftStart)}'),
+        backgroundColor: const Color(0xFF3B82F6),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    
+    // Cancel any existing timer
+    _programTimer?.cancel();
+    
+    // Start countdown timer
+    _programTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      final nowUtc = DateTime.now().toUtc();
+      final shiftStartUtc = shift.shiftStart.toUtc();
+      
+      if (!nowUtc.isBefore(shiftStartUtc)) {
+        // Time to clock in!
+        AppLogger.debug('Auto-start time reached! Clocking in...');
+        timer.cancel();
+        
+        // Clear persisted state
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.remove('programmed_start_${shift.id}');
+        });
+        
+        if (mounted) {
+          setState(() {
+            _timeUntilAutoStart = "Clocking In...";
+          });
+          _performClockIn(shift, isAutoStart: true);
+        }
+        return;
+      }
+      
+      final timeLeft = shiftStartUtc.difference(nowUtc);
+      final seconds = timeLeft.inSeconds;
+      final minutes = timeLeft.inMinutes;
+      final remainingSeconds = seconds % 60;
+      
+      final countdownText = minutes > 0 
+          ? '${minutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
+          : '${seconds}s';
+      
+      if (mounted) {
+        setState(() {
+          _timeUntilAutoStart = 'Starting in $countdownText';
+        });
+      }
+    });
+  }
+  
+  /// Cancel a programmed clock-in
+  void _cancelProgrammedClockIn() async {
+    AppLogger.debug('Cancelling programmed clock-in');
+    _programTimer?.cancel();
+    _programTimer = null;
+    
+    // Clear persisted state
+    if (_programmedShiftId != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('programmed_start_$_programmedShiftId');
+      } catch (e) {
+        AppLogger.error('Failed to clear programmed state: $e');
+      }
+    }
+    
+    if (mounted) {
+      setState(() {
+        _programmedShiftId = null;
+        _timeUntilAutoStart = "";
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Programming cancelled'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+  
+  /// Perform the actual clock-in
+  Future<void> _performClockIn(TeachingShift shift, {bool isAutoStart = false}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -100,8 +308,24 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         return;
       }
 
-      // Get location
-      final location = await LocationService.getCurrentLocation();
+      // Get location with timeout
+      LocationData? location;
+      try {
+        final timeoutDuration = Duration(seconds: isAutoStart ? 5 : 15);
+        location = await LocationService.getCurrentLocation().timeout(timeoutDuration);
+      } catch (e) {
+        AppLogger.error('Location error: $e');
+        if (isAutoStart) {
+          // For auto-start, use fallback location
+          location = LocationData(
+            latitude: 0.0,
+            longitude: 0.0,
+            address: 'Auto clock-in - location unavailable',
+            neighborhood: 'Programmed start',
+          );
+        }
+      }
+      
       if (location == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -112,7 +336,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         return;
       }
 
-      // Clock in directly
+      // Clock in
       final result = await ShiftTimesheetService.clockInToShift(
         user.uid,
         shift.id,
@@ -121,9 +345,17 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       );
 
       if (result['success'] == true) {
+        // Clear programmed state on success
+        if (mounted) {
+          setState(() {
+            _programmedShiftId = null;
+            _timeUntilAutoStart = "";
+          });
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Clocked in successfully!'),
+          SnackBar(
+            content: Text(isAutoStart ? 'Auto clock-in successful!' : 'Clocked in successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -136,6 +368,14 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             backgroundColor: Colors.red,
           ),
         );
+        
+        // Clear programmed state on failure too
+        if (mounted) {
+          setState(() {
+            _programmedShiftId = null;
+            _timeUntilAutoStart = "";
+          });
+        }
       }
     } catch (e) {
       AppLogger.error('Error clocking in: $e');
@@ -145,6 +385,14 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      
+      // Clear programmed state on error
+      if (mounted) {
+        setState(() {
+          _programmedShiftId = null;
+          _timeUntilAutoStart = "";
+        });
+      }
     }
   }
 
@@ -444,11 +692,15 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                         itemCount: _dailyShifts.length,
                         itemBuilder: (context, index) {
                           final shift = _dailyShifts[index];
+                          final isThisShiftProgrammed = _programmedShiftId == shift.id;
                           return TimelineShiftCard(
                             shift: shift,
                             isLast: index == _dailyShifts.length - 1,
                             onTap: () => _showShiftDetails(shift),
                             onClockIn: () => _handleClockIn(shift),
+                            onCancelProgram: isThisShiftProgrammed ? _cancelProgrammedClockIn : null,
+                            isProgrammed: isThisShiftProgrammed,
+                            countdownText: isThisShiftProgrammed ? _timeUntilAutoStart : null,
                           );
                         },
                       ),

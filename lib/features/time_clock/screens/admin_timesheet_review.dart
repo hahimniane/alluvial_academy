@@ -9,14 +9,77 @@ import '../models/timesheet_entry.dart';
 
 import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
-
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
+// Admin system timezone - all times displayed in this timezone for consistency
+const String ADMIN_SYSTEM_TIMEZONE = 'UTC';
 
 class AdminTimesheetReview extends StatefulWidget {
   const AdminTimesheetReview({super.key});
 
   @override
   State<AdminTimesheetReview> createState() => _AdminTimesheetReviewState();
+}
+
+/// Utility function to format times in admin system timezone (UTC)
+String _formatAdminTime(DateTime? dateTime, {String format = 'h:mm a'}) {
+  if (dateTime == null) return 'N/A';
+
+  // Convert to admin system timezone (UTC)
+  final adminTime = dateTime.toUtc();
+
+  return DateFormat(format).format(adminTime);
+}
+
+/// Utility function to format dates in admin system timezone
+String _formatAdminDateTime(DateTime? dateTime, {String format = 'MMM d, yyyy h:mm a'}) {
+  if (dateTime == null) return 'N/A';
+
+  // Convert to admin system timezone (UTC)
+  final adminTime = dateTime.toUtc();
+
+  return DateFormat(format).format(adminTime);
+}
+
+/// Utility function to format edited timesheet times in admin timezone
+String _formatEditedTime(TimesheetEntry timesheet, String timeType) {
+  DateTime? timeValue;
+
+  if (timeType == 'start') {
+    // Try to get clock_in_timestamp first, then parse start time string
+    if (timesheet.clockInTimestamp != null) {
+      timeValue = timesheet.clockInTimestamp!.toDate();
+    } else if (timesheet.start.isNotEmpty && timesheet.start != 'N/A') {
+      try {
+        // Parse the time string and combine with today's date for UTC conversion
+        final timeOnly = DateFormat('h:mm a').parse(timesheet.start);
+        final today = DateTime.now();
+        timeValue = DateTime(today.year, today.month, today.day, timeOnly.hour, timeOnly.minute);
+      } catch (e) {
+        return timesheet.start; // Fallback to original string
+      }
+    }
+  } else if (timeType == 'end') {
+    // Try to get clock_out_timestamp first, then parse end time string
+    if (timesheet.clockOutTimestamp != null) {
+      timeValue = timesheet.clockOutTimestamp!.toDate();
+    } else if (timesheet.end.isNotEmpty && timesheet.end != 'N/A') {
+      try {
+        // Parse the time string and combine with today's date for UTC conversion
+        final timeOnly = DateFormat('h:mm a').parse(timesheet.end);
+        final today = DateTime.now();
+        timeValue = DateTime(today.year, today.month, today.day, timeOnly.hour, timeOnly.minute);
+      } catch (e) {
+        return timesheet.end; // Fallback to original string
+      }
+    }
+  }
+
+  if (timeValue != null) {
+    return _formatAdminTime(timeValue, format: 'h:mm a') + ' (UTC)';
+  }
+
+  return timeType == 'start' ? timesheet.start : timesheet.end;
 }
 
 class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
@@ -304,6 +367,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         scheduledDurationMinutes: finalScheduledDurationMinutes,
         employeeNotes: data['employee_notes'] as String?,
         managerNotes: data['manager_notes'] as String?,
+        // Timestamp fields
+        clockInTimestamp: clockInTimestamp,
+        clockOutTimestamp: clockOutTimestamp,
         // Edit tracking fields
         isEdited: data['is_edited'] == true || data['edited_at'] != null, // Check both is_edited flag and edited_at timestamp
         editApproved: data['edit_approved'] == true,
@@ -1108,15 +1174,15 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     String originalStart = original['start_time'] ?? 'N/A';
     String originalEnd = original['end_time'] ?? 'N/A';
     String originalHours = original['total_hours'] ?? 'N/A';
-    
-    // Get original timestamps for better formatting
+
+    // Get original timestamps for better formatting (in admin system time)
     if (original['clock_in_timestamp'] != null) {
       final originalClockIn = (original['clock_in_timestamp'] as Timestamp).toDate();
-      originalStart = DateFormat('h:mm a').format(originalClockIn);
+      originalStart = _formatAdminTime(originalClockIn, format: 'h:mm a') + ' (UTC)';
     }
     if (original['clock_out_timestamp'] != null) {
       final originalClockOut = (original['clock_out_timestamp'] as Timestamp).toDate();
-      originalEnd = DateFormat('h:mm a').format(originalClockOut);
+      originalEnd = _formatAdminTime(originalClockOut, format: 'h:mm a') + ' (UTC)';
     }
 
     return await showDialog<bool>(
@@ -1254,9 +1320,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       ),
                     ),
                     // Clock In
-                    _buildComparisonRow('Clock In', originalStart, timesheet.start),
+                    _buildComparisonRow('Clock In (UTC)', originalStart, _formatEditedTime(timesheet, 'start')),
                     // Clock Out
-                    _buildComparisonRow('Clock Out', originalEnd, timesheet.end),
+                    _buildComparisonRow('Clock Out (UTC)', originalEnd, _formatEditedTime(timesheet, 'end')),
                     // Total Hours
                     _buildComparisonRow('Total Hours', originalHours, timesheet.totalHours),
                   ],

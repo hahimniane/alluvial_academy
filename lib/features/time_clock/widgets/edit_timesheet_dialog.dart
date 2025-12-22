@@ -417,6 +417,15 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     final minutes = duration.inMinutes % 60;
     final totalHoursStr = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
 
+    // Calculate payment amount immediately
+    final hourlyRate = widget.timesheetData['hourly_rate'] as num? ?? 0.0;
+    final hoursWorked = duration.inSeconds / 3600.0;
+    final calculatedPayment = hoursWorked * hourlyRate.toDouble();
+
+    // Get original payment for comparison
+    final originalPayment = widget.timesheetData['payment_amount'] as num? ??
+                           widget.timesheetData['total_pay'] as num? ?? 0.0;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
@@ -689,6 +698,88 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                           color: const Color(0xFF15803D),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Payment Calculation (calculated, read-only)
+                Text(
+                  'Payment Calculation',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: calculatedPayment != originalPayment.toDouble()
+                        ? const Color(0xFFFEF3C7) // Yellow if changed
+                        : const Color(0xFFF0FDF4), // Green if same
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: calculatedPayment != originalPayment.toDouble()
+                          ? const Color(0xFFFCD34D)
+                          : const Color(0xFFBBF7D0)
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.attach_money,
+                            size: 20,
+                            color: calculatedPayment != originalPayment.toDouble()
+                                ? const Color(0xFFD97706)
+                                : const Color(0xFF10B981),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '\$${calculatedPayment.toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: calculatedPayment != originalPayment.toDouble()
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFF15803D),
+                                  ),
+                                ),
+                                if (calculatedPayment != originalPayment.toDouble())
+                                  Text(
+                                    'Original: \$${originalPayment.toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: const Color(0xFF92400E),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (calculatedPayment != originalPayment.toDouble())
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            calculatedPayment > originalPayment.toDouble()
+                                ? '⚠️ Payment will increase by \$${(calculatedPayment - originalPayment.toDouble()).toStringAsFixed(2)}'
+                                : '⚠️ Payment will decrease by \$${(-calculatedPayment + originalPayment.toDouble()).toStringAsFixed(2)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

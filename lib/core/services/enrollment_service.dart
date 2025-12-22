@@ -25,18 +25,44 @@ class EnrollmentService {
   }
 
   Future<Map<String, dynamic>?> checkParentIdentity(String identifier) async {
+    // Validate identifier before calling function
+    final trimmedIdentifier = identifier.trim();
+    if (trimmedIdentifier.isEmpty) {
+      print('⚠️ checkParentIdentity: Empty identifier provided');
+      return null;
+    }
+    
+    print('🔍 checkParentIdentity: Looking up identifier: "$trimmedIdentifier" (length: ${trimmedIdentifier.length})');
+    
     try {
       final result = await FirebaseFunctions.instance
           .httpsCallable('findUserByEmailOrCode')
-          .call({'identifier': identifier});
+          .call({'identifier': trimmedIdentifier});
       
       final data = result.data as Map<String, dynamic>;
       if (data['found'] == true) {
+        print('✅ checkParentIdentity: Found user: ${data['firstName']} ${data['lastName']}');
         return data;
+      }
+      print('❌ checkParentIdentity: User not found');
+      return null;
+    } on FirebaseFunctionsException catch (e) {
+      // Handle Firebase Functions errors safely
+      final errorMessage = e.message ?? e.code ?? 'Firebase Functions error';
+      final errorDetails = e.details?.toString() ?? '';
+      print('❌ Error checking parent identity: $errorMessage');
+      if (errorDetails.isNotEmpty) {
+        print('   Details: $errorDetails');
       }
       return null;
     } catch (e) {
-      print('Error checking parent identity: $e');
+      // Handle any other errors safely - extract only the message
+      try {
+        final errorMessage = e.toString().split(':').last.trim();
+        print('❌ Error checking parent identity: $errorMessage');
+      } catch (_) {
+        print('❌ Error checking parent identity: Unknown error occurred');
+      }
       return null;
     }
   }

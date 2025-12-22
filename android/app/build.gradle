@@ -16,10 +16,11 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "org.alluvaleducationhub.academy"
-    compileSdk = 36  // Explicit version for better compatibility
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // NOTE: AGP 8.1.4 requires Java 17 minimum
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
         coreLibraryDesugaringEnabled true
@@ -34,7 +35,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdkVersion 26  // Required for Zoom SDK
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = flutter.targetSdkVersion  // Use Flutter's recommended version
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true  // Required for apps with many dependencies
@@ -75,16 +76,28 @@ dependencies {
     implementation 'androidx.core:core-splashscreen:1.0.1'
     
     // Core library desugaring for flutter_local_notifications
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
     
     // Zoom Meeting SDK - AAR must be copied by setup script
     // Run: ./tools/setup_zoom_meeting_sdk.sh
-    implementation(name: 'mobilertc', ext: 'aar')
+    // TEMPORARILY DISABLED FOR TESTING
+    // implementation(name: 'mobilertc', ext: 'aar')
     // Zoom SDK Dependencies to fix resource errors
-    implementation "androidx.security:security-crypto:1.1.0-alpha06"
-    implementation "com.google.crypto.tink:tink-android:1.7.0"
-    implementation "com.google.android.exoplayer:exoplayer-core:2.18.5"
-    implementation "com.google.android.exoplayer:exoplayer-ui:2.18.5"
-    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
-    implementation "com.airbnb.android:lottie:3.4.0"
+    // implementation "androidx.security:security-crypto:1.1.0-alpha06"
+    // implementation "com.google.crypto.tink:tink-android:1.7.0"
+    // implementation "com.google.android.exoplayer:exoplayer-core:2.18.5"
+    // implementation "com.google.android.exoplayer:exoplayer-ui:2.18.5"
+    // implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
+    // implementation "com.airbnb.android:lottie:3.4.0"
+}
+
+configurations.all {
+    resolutionStrategy {
+        // Force stable versions that don't require AGP 8.9.1
+        force 'androidx.browser:browser:1.8.0'
+        force 'androidx.activity:activity-ktx:1.9.3'
+        force 'androidx.activity:activity:1.9.3'
+        force 'androidx.core:core-ktx:1.13.1'
+        force 'androidx.core:core:1.13.1'
+    }
 }

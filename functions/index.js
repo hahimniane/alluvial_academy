@@ -71,7 +71,6 @@ exports.removeZoomHost = zoomHostHandlers.removeZoomHost;
 exports.revalidateZoomHost = zoomHostHandlers.revalidateZoomHost;
 exports.checkHostAvailability = zoomHostHandlers.checkHostAvailability;
 
-
 // Form management functions
 exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessForms;
 
@@ -84,7 +83,6 @@ exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
 // Callable version - note: may have IAM issues on some projects
 exports.publishEnrollmentToJobBoard = onCall({ cors: true }, enrollmentHandlers.publishEnrollmentToJobBoard);
 exports.acceptJob = onCall({ cors: true }, jobHandlers.acceptJob);
-
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -140,9 +138,117 @@ exports.getHostConfig = getHostConfigHandlers.getHostConfig;
 
 // Hub Meeting Scheduler (HTTP callable for testing/cron)
 const { scheduleHubMeetings } = require('./services/shifts/schedule_hubs');
-exports.scheduleHubMeetings = functions.https.onCall(async () => {
+exports.scheduleHubMeetings = functions.https.onCall(async (data, context) => {
+  // Optional: Add auth check here if needed restricted to admin
   return await scheduleHubMeetings();
 });
+
+// Programmed Clock-in Executor (HTTP callable for cron jobs)
+const clockinSchedulerHandlers = require('./handlers/clockin_scheduler');
+exports.executeProgrammedClockIns = functions.https.onCall(clockinSchedulerHandlers.executeProgrammedClockIns);
+
+// Debug function to check kiosque codes (HTTP version for easy testing)
+const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
+  // Enable CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  const admin = require('firebase-admin');
+  const db = admin.firestore();
+
+  console.log('🔍 Checking kiosque codes in users collection (HTTP)...');
+
+  try {
+    // Get all users with kiosque_code
+    const kiosqueSnapshot = await db.collection('users')
+      .where('kiosque_code', '!=', null)
+      .get();
+
+    const results = {
+      kiosqueCodes: [],
+      parents: [],
+      specificCodeSearch: null,
+      allFieldsSearch: []
+    };
+
+    // Collect kiosque codes
+    kiosqueSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      results.kiosqueCodes.push({
+        id: doc.id,
+        name: `${data.first_name || 'N/A'} ${data.last_name || 'N/A'}`,
+        type: data.user_type || 'N/A',
+        kiosqueCode: data.kiosque_code
+      });
+    });
+
+    // Get all parents
+    const parentsSnapshot = await db.collection('users')
+      .where('user_type', '==', 'parent')
+      .get();
+
+    parentsSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      results.parents.push({
+        id: doc.id,
+        name: `${data.first_name || 'N/A'} ${data.last_name || 'N/A'}`,
+        kiosqueCode: data.kiosque_code || null,
+        hasKiosqueCode: !!data.kiosque_code
+      });
+    });
+
+    // Check for specific code
+    const specificCodeSnapshot = await db.collection('users')
+      .where('kiosque_code', '==', 'YKPR49182773')
+      .get();
+
+    if (!specificCodeSnapshot.empty) {
+      const doc = specificCodeSnapshot.docs[0];
+      const data = doc.data();
+      results.specificCodeSearch = {
+        found: true,
+        user: {
+          id: doc.id,
+          name: `${data.first_name} ${data.last_name}`,
+          email: data['e-mail'],
+          type: data.user_type,
+          kiosqueCode: data.kiosque_code
+        }
+      };
+    } else {
+      results.specificCodeSearch = { found: false };
+
+      // Search in all fields
+      const allUsersSnapshot = await db.collection('users').get();
+      allUsersSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        for (const [key, value] of Object.entries(data)) {
+          if (value === 'YKPR49182773') {
+            results.allFieldsSearch.push({
+              userId: doc.id,
+              userName: `${data.first_name || 'N/A'} ${data.last_name || 'N/A'}`,
+              field: key,
+              value: value
+            });
+          }
+        }
+      });
+    }
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('❌ Error checking kiosque codes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+exports.checkKiosqueCodesHttp = checkKiosqueCodesHttp;
 
 // Hub Meeting Test/Manual Triggers
 const testHubCreationHandlers = require('./handlers/test_hub_creation');
@@ -157,6 +263,10 @@ exports.testHubArchitecture = testHubArchitecture;
 const testBreakoutHandlers = require('./handlers/test_breakout');
 exports.testBreakoutCreation = testBreakoutHandlers.testBreakoutCreation;
 exports.listUsers = testBreakoutHandlers.listUsers;
+
+// Kiosque code migration function
+const migrateKiosqueCodesHandlers = require('./handlers/migrate_kiosque_codes');
+exports.migrateKiosqueCodes = functions.https.onCall(migrateKiosqueCodesHandlers.migrateKiosqueCodes);
 
 // Zoom Check Test
 const testZoomCheckHandlers = require('./handlers/test_zoom_check');

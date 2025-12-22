@@ -48,6 +48,13 @@
 	<string>This app uses Bluetooth for connecting to audio devices during Zoom meetings.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>This app needs to send you notifications about important updates, schedules, and messages.</string>
+<<<<<<< HEAD
+=======
+	<key>NSContactsUsageDescription</key>
+	<string>This app requires contacts access to allow you to invite participants to meetings via the integrated Zoom SDK.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>This app requires calendar access to help you schedule and manage your teaching shifts and Zoom meetings.</string>
+>>>>>>> origin/main
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

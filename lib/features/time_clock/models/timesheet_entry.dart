@@ -43,6 +43,10 @@ class TimesheetEntry {
   final String? employeeNotes; // Notes from teacher
   final String? managerNotes; // Notes from admin
   
+  // Timestamp fields for precise time tracking
+  final Timestamp? clockInTimestamp; // Actual clock-in timestamp
+  final Timestamp? clockOutTimestamp; // Actual clock-out timestamp
+  
   // Edit tracking fields
   final bool isEdited; // Whether this timesheet was edited
   final bool editApproved; // Whether the edit was approved by admin
@@ -95,6 +99,8 @@ class TimesheetEntry {
     this.scheduledDurationMinutes,
     this.employeeNotes,
     this.managerNotes,
+    this.clockInTimestamp,
+    this.clockOutTimestamp,
     this.isEdited = false,
     this.editApproved = false,
     this.originalData,

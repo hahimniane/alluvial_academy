@@ -10,11 +10,20 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
   const preferences = enrollmentData.preferences || {};
   const student = enrollmentData.student || {};
   const program = enrollmentData.program || {};
-  
-  const recipientName = contact.parentName || contact.email?.split('@')[0] || 'Student';
+  const metadata = enrollmentData.metadata || {};
+
+  // Determine if this is an adult student enrollment
+  const isAdultStudent = metadata.isAdult || enrollmentData.isAdult || false;
+
+  // For adult students, address the email to the student directly
+  // For minors, address to parent/guardian
+  const recipientName = isAdultStudent
+    ? (student.name || contact.email?.split('@')[0] || 'Student')
+    : (contact.parentName || contact.email?.split('@')[0] || 'Parent');
+
   const studentName = student.name || 'Student';
   const email = contact.email;
-  
+
   if (!email) {
     console.warn('No email found in enrollment data, skipping confirmation email');
     return false;
@@ -53,8 +62,11 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
           
           <div class="content">
             <h2>Dear ${recipientName},</h2>
-            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentName}</strong>!</p>
-            
+            ${isAdultStudent
+              ? `<p>We're excited to inform you that we've received your enrollment request for Islamic studies at Alluwal Academy!</p>`
+              : `<p>We're excited to inform you that we've received your enrollment request for <strong>${studentName}</strong>!</p>`
+            }
+
             <div class="success-note">
               <h3>✅ What Happens Next?</h3>
               <ul>
@@ -66,14 +78,14 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
             </div>
             
             <div class="info-box">
-              <h3>📋 Enrollment Details</h3>
+              <h3>📋 ${isAdultStudent ? 'Your Information' : 'Student Information'}</h3>
               <div class="info-row">
-                <span class="info-label">Student Name:</span>
+                <span class="info-label">${isAdultStudent ? 'Name:' : 'Student Name:'}</span>
                 <span class="info-value">${studentName || 'Not provided'}</span>
               </div>
               ${student.age ? `
               <div class="info-row">
-                <span class="info-label">Student Age:</span>
+                <span class="info-label">${isAdultStudent ? 'Age:' : 'Student Age:'}</span>
                 <span class="info-value">${student.age}</span>
               </div>
               ` : ''}
@@ -132,7 +144,11 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
   const preferences = enrollmentData.preferences || {};
   const student = enrollmentData.student || {};
   const program = enrollmentData.program || {};
-  
+  const metadata = enrollmentData.metadata || {};
+
+  // Determine if this is an adult student enrollment
+  const isAdultStudent = metadata.isAdult || enrollmentData.isAdult || false;
+
   // Admin email - you can configure this or get from Firestore
   const adminEmail = 'support@alluwaleducationhub.org'; // Change to your admin email
   
@@ -175,7 +191,7 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
             </div>
             
             <div class="info-box">
-              <h3>📋 Contact Information</h3>
+              <h3>📋 ${isAdultStudent ? 'Student Contact Information' : 'Contact Information'}</h3>
               <div class="info-row">
                 <span class="info-label">Email:</span>
                 <span class="info-value">${contact.email || 'Not provided'}</span>
@@ -190,7 +206,7 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
                 <span class="info-value">${contact.whatsApp}</span>
               </div>
               ` : ''}
-              ${contact.parentName ? `
+              ${!isAdultStudent && contact.parentName ? `
               <div class="info-row">
                 <span class="info-label">Parent/Guardian:</span>
                 <span class="info-value">${contact.parentName}</span>
@@ -325,52 +341,52 @@ const createJobOpportunity = async (enrollmentData, enrollmentId) => {
     if (!enrollmentData) {
       throw new Error('enrollmentData is null or undefined');
     }
-    
+
     const contact = enrollmentData.contact || {};
     const preferences = enrollmentData.preferences || {};
     const student = enrollmentData.student || {};
     const program = enrollmentData.program || {};
     const metadata = enrollmentData.metadata || {};
-    
+
     // Ensure arrays are valid
-    const days = Array.isArray(preferences.days) ? preferences.days : 
+    const days = Array.isArray(preferences.days) ? preferences.days :
                  Array.isArray(enrollmentData.preferredDays) ? enrollmentData.preferredDays : [];
-    const timeSlots = Array.isArray(preferences.timeSlots) ? preferences.timeSlots : 
+    const timeSlots = Array.isArray(preferences.timeSlots) ? preferences.timeSlots :
                       Array.isArray(enrollmentData.preferredTimeSlots) ? enrollmentData.preferredTimeSlots : [];
-    
+
     // Improved Data Mapping - Ensure all critical data is passed to Job Board
     // CRITICAL: All fields must have explicit defaults (null, '', [], false) to prevent undefined values
     const jobData = {
       enrollmentId: enrollmentId,
-      
+
       // Student Details - Add defaults for ALL fields
       studentName: student.name || enrollmentData.studentName || 'Student',
       studentAge: student.age || enrollmentData.studentAge || 'N/A',
       gender: student.gender || enrollmentData.gender || 'Not specified',
-      
+
       // Program Details
       subject: enrollmentData.subject || 'General',
       specificLanguage: enrollmentData.specificLanguage || null,
       gradeLevel: enrollmentData.gradeLevel || '',
-      
+
       // Schedule Preferences (The Source of Truth for Admin Scheduling)
       days: days,
       timeSlots: timeSlots,
       timeZone: preferences.timeZone || enrollmentData.timeZone || 'UTC', // IANA Timezone (e.g., 'America/New_York', 'Africa/Casablanca')
       sessionDuration: program.sessionDuration || enrollmentData.sessionDuration || '60 minutes',
       timeOfDayPreference: preferences.timeOfDayPreference || enrollmentData.timeOfDayPreference || null,
-      
+
       // Location (Useful for teachers to know context)
       countryName: enrollmentData.countryName || (contact.country && contact.country.name) || '',
       countryCode: enrollmentData.countryCode || (contact.country && contact.country.code) || '',
       city: contact.city || enrollmentData.city || '',
-      
+
       // Additional Context
       classType: program.classType || enrollmentData.classType || null,
       preferredLanguage: preferences.preferredLanguage || enrollmentData.preferredLanguage || null,
       knowsZoom: (student.knowsZoom !== undefined) ? student.knowsZoom : (enrollmentData.knowsZoom !== undefined ? enrollmentData.knowsZoom : null),
       isAdult: (metadata.isAdult !== undefined) ? metadata.isAdult : (enrollmentData.isAdult !== undefined ? enrollmentData.isAdult : false),
-      
+
       // Metadata
       status: 'open',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -392,7 +408,7 @@ const createJobOpportunity = async (enrollmentData, enrollmentId) => {
       // Validate jobData before attempting to save
       console.log(`🔍 Validating jobData before save...`);
       const validationErrors = [];
-      
+
       // Check for any invalid values
       Object.keys(jobData).forEach(key => {
         const value = jobData[key];
@@ -407,11 +423,11 @@ const createJobOpportunity = async (enrollmentData, enrollmentId) => {
           }
         }
       });
-      
+
       if (validationErrors.length > 0) {
         throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
       }
-      
+
       console.log(`✅ JobData validation passed. Attempting to save to Firestore...`);
       jobRef = await admin.firestore().collection('job_board').add(jobData);
       console.log(`✅ Job opportunity created: ${jobRef.id} with IANA timezone: ${jobData.timeZone}`);
@@ -429,7 +445,7 @@ const createJobOpportunity = async (enrollmentData, enrollmentId) => {
           return value;
         }, 2),
       });
-      
+
       // Extract meaningful error message
       let errorMsg = 'Unknown Firestore error';
       if (firestoreError.message) {
@@ -439,10 +455,10 @@ const createJobOpportunity = async (enrollmentData, enrollmentId) => {
       } else if (firestoreError.toString && firestoreError.toString() !== '[object Object]') {
         errorMsg = firestoreError.toString();
       }
-      
+
       throw new Error(`Firestore error creating job: ${errorMsg}`);
     }
-    
+
     // Update enrollment status
     try {
       await admin.firestore().collection('enrollments').doc(enrollmentId).update({
@@ -498,13 +514,13 @@ const onEnrollmentCreated = onDocumentCreated('enrollments/{enrollmentId}', asyn
     
     // 3. Create job opportunity - DISABLED: Now manual via Admin Dashboard
     // const jobId = await createJobOpportunity(enrollmentData, enrollmentId);
-    
+
     console.log(`✅ Enrollment processed successfully:
       - Confirmation email: ${confirmationSent ? 'Sent' : 'Failed'}
       - Admin notification: ${adminNotified ? 'Sent' : 'Failed'}
       - Job opportunity: Manual Approval Required
     `);
-    
+
     return {
       success: true,
       enrollmentId,

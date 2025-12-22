@@ -53,11 +53,20 @@ service cloud.firestore {
     // NOTE: This reads from the users collection, so it cannot be used in the users collection rule
 
     function isAdmin() {
+<<<<<<< HEAD
 
       return isSignedIn() && 
 
              isAdminRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
 
+=======
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && isAdminRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data)) ||
+        request.auth.token.role == 'admin' ||
+        request.auth.token.isAdmin == true ||
+        request.auth.token.is_admin == true
+      );
+>>>>>>> origin/main
     }
 
     
@@ -76,6 +85,7 @@ service cloud.firestore {
 
     
 
+<<<<<<< HEAD
     // Helper to determine if a user document belongs to the signed-in user (read context)
 
     function isUserDocOwner(userId) {
@@ -91,6 +101,8 @@ service cloud.firestore {
       );
 
     }
+=======
+>>>>>>> origin/main
 
     
 
@@ -204,9 +216,15 @@ service cloud.firestore {
 
     match /users/{userId} {
 
+<<<<<<< HEAD
       // Allow users to read their own document or admins to read any
 
       allow read: if isUserDocOwner(userId) || isAdmin();
+=======
+      // Allow users to read their own document, or any signed-in user to 'get' (for UI display), or admins to read/list
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+>>>>>>> origin/main
 
       
 
@@ -576,6 +594,15 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && (isOwner(profileId) || isAdmin());
     }
 
+<<<<<<< HEAD
+=======
+    // Zoom Hosts - admin only (for multi-host meeting distribution)
+    // Contains Zoom host account emails used for creating meetings
+    match /zoom_hosts/{hostId} {
+      allow read, write: if isAdmin();
+    }
+
+>>>>>>> origin/main
     // All other collections - admin only (fallback rule)
 
     match /{document=**} {

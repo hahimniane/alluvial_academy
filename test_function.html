@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test checkKiosqueCodes Function</title>
+</head>
+<body>
+    <h1>Testing findUserByEmailOrCode Function</h1>
+    <div id="auth">
+        <button onclick="signInAnonymously()">Sign In Anonymously</button>
+        <button onclick="signInWithGoogle()">Sign In with Google</button>
+    </div>
+    <div id="content" style="display: none;">
+        <input type="text" id="identifierInput" placeholder="Enter kiosque code or email" value="TEST_PARENT">
+        <br><small>Test codes: TEST_PARENT (should work), TEST_STUDENT (should fail), YKPR49182773 (real code)</small>
+        <button onclick="callFunction()">Call findUserByEmailOrCode</button>
+        <button onclick="signOut()">Sign Out</button>
+    </div>
+    <div id="result"></div>
+
+    <script type="module">
+        // Import Firebase SDK
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-functions.js';
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: 'AIzaSyAi_iLhoVPezrUJTTu2az67Y1Pv31IsuP4',
+            appId: '1:554077757249:web:07c7609546547fd6cc8bc0',
+            messagingSenderId: '554077757249',
+            projectId: 'alluwal-academy',
+            authDomain: 'alluwal-academy.firebaseapp.com',
+            storageBucket: 'alluwal-academy.firebasestorage.app',
+            measurementId: 'G-F6605YZC8B',
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const functions = getFunctions(app);
+
+        // Auth state listener
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('auth').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                document.getElementById('result').innerHTML = `<p>✅ Signed in as: ${user.email || user.uid}</p>`;
+            } else {
+                document.getElementById('auth').style.display = 'block';
+                document.getElementById('content').style.display = 'none';
+                document.getElementById('result').innerHTML = '<p>Please sign in to test the function.</p>';
+            }
+        });
+
+        window.signInAnonymously = async function() {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p style="color: red;">❌ Sign in failed: ${error.message}</p>`;
+            }
+        };
+
+        window.signInWithGoogle = async function() {
+            try {
+                const provider = new GoogleAuthProvider();
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p style="color: red;">❌ Sign in failed: ${error.message}</p>`;
+            }
+        };
+
+        window.signOut = async function() {
+            try {
+                await firebaseSignOut(auth);
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
+        };
+
+        window.callFunction = async function() {
+            const resultDiv = document.getElementById('result');
+            const identifier = document.getElementById('identifierInput').value.trim();
+
+            if (!identifier) {
+                resultDiv.innerHTML = '<p style="color: red;">Please enter an identifier (kiosque code or email)</p>';
+                return;
+            }
+
+            resultDiv.innerHTML = `Calling function with identifier: "${identifier}"...`;
+
+            try {
+                const findUserByEmailOrCode = httpsCallable(functions, 'findUserByEmailOrCode');
+                const result = await findUserByEmailOrCode({ identifier: identifier });
+
+                console.log('Function result:', result);
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(result.data, null, 2) + '</pre>';
+            } catch (error) {
+                console.error('Error calling function:', error);
+                resultDiv.innerHTML = '<pre style="color: red;">Error: ' + JSON.stringify(error, null, 2) + '</pre>';
+            }
+        };
+    </script>
+</body>
+</html>

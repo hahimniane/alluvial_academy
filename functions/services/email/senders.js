@@ -68,7 +68,7 @@ const sendPasswordResetEmail = async (email, resetLink, displayName = '') => {
   return {success: true, message: `Password reset email sent to ${email}`};
 };
 
-const sendWelcomeEmail = async (email, firstName, lastName, password, userType) => {
+const sendWelcomeEmail = async (email, firstName, lastName, password, userType, kiosqueCode = null) => {
   const transporter = createTransporter();
 
   const mailOptions = {
@@ -103,7 +103,15 @@ const sendWelcomeEmail = async (email, firstName, lastName, password, userType) 
               <p><strong>Email:</strong> ${email}</p>
               <p><strong>Temporary Password:</strong> <span class="password">${password}</span></p>
               <p><strong>Role:</strong> ${userType}</p>
+              ${kiosqueCode ? `<p><strong>Family Code:</strong> <span style="font-family: monospace; font-size: 16px; color: #0386FF; font-weight: bold;">${kiosqueCode}</span></p>` : ''}
             </div>
+
+            ${kiosqueCode ? `
+            <div style="background-color: #ecfdf5; border: 1px solid #10b981; padding: 15px; margin: 15px 0; border-radius: 6px;">
+              <h3 style="color: #065f46; margin-top: 0;">📋 Important: Save Your Family Code</h3>
+              <p style="margin-bottom: 0;"><strong>${kiosqueCode}</strong> is your unique family code. Save this code for future enrollments of your children. You can use this code to link multiple students to your parent account.</p>
+            </div>
+            ` : ''}
             
             <p><strong>Important Security Notes:</strong></p>
             <ul>

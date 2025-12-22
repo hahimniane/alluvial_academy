@@ -7,6 +7,7 @@ class AppUser {
   final String? name;
   final bool isActive;
   final String? timezone;
+  final String? kiosqueCode; // Family/parent identifier code
 
   AppUser({
     required this.id,
@@ -15,6 +16,7 @@ class AppUser {
     this.name,
     this.isActive = true,
     this.timezone,
+    this.kiosqueCode,
   });
 
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
@@ -38,6 +40,7 @@ class AppUser {
       name: displayName,
       isActive: data['is_active'] ?? true,
       timezone: data['timezone'],
+      kiosqueCode: data['kiosque_code'] ?? data['family_code'],
     );
   }
 
@@ -49,6 +52,7 @@ class AppUser {
       name: map['name'] ?? '',
       isActive: map['isActive'] ?? true,
       timezone: map['timezone'],
+      kiosqueCode: map['kiosqueCode'],
     );
   }
 
@@ -60,6 +64,7 @@ class AppUser {
       'name': name,
       'isActive': isActive,
       'timezone': timezone,
+      'kiosqueCode': kiosqueCode,
     };
   }
 }
