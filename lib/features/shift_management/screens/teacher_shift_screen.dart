@@ -37,6 +37,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   Timer? _programTimer;
   String _timeUntilAutoStart = "";
   Timer? _uiRefreshTimer;
+  
+  // Stream subscription for cleanup
+  StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
 
   @override
   void initState() {
@@ -57,6 +60,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   void dispose() {
     _programTimer?.cancel();
     _uiRefreshTimer?.cancel();
+    _shiftsSubscription?.cancel(); // Cancel stream subscription on dispose
     super.dispose();
   }
   
@@ -92,8 +96,11 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     AppLogger.debug(
         'TeacherShiftScreen: Setting up real-time stream for user UID: ${user.uid}');
 
+    // Cancel any existing subscription before creating a new one
+    _shiftsSubscription?.cancel();
+
     // Listen to real-time shifts stream
-    ShiftService.getTeacherShifts(user.uid).listen(
+    _shiftsSubscription = ShiftService.getTeacherShifts(user.uid).listen(
       (shifts) {
         if (mounted) {
           setState(() {

@@ -2,6 +2,7 @@
     <!-- Required for Firebase Authentication and network requests -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     
     <!-- Location permissions for clock-in/clock-out tracking -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -19,6 +20,11 @@
     <!-- Screen Sharing permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+    
+    <!-- Bluetooth permissions for audio devices (LiveKit/Zoom) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
     
     <!-- Feature declarations for camera/mic -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
@@ -66,6 +72,13 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher" />
+        
+        <!-- Foreground service for LiveKit screen sharing -->
+        <service
+            android:name="de.julianassmann.flutter_background.IsolateHolderService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -197,6 +197,8 @@ class ShiftService {
     String? leaderRole,
     // NEW: Hourly rate - if provided, use it; otherwise use subject's defaultWage or teacher's wage
     double? hourlyRate,
+    // Video provider (Zoom or LiveKit beta)
+    VideoProvider videoProvider = VideoProvider.zoom,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -310,6 +312,9 @@ class ShiftService {
         // NEW: Category and leader role
         category: category,
         leaderRole: leaderRole,
+        // Video provider (Zoom or LiveKit beta)
+        videoProvider: videoProvider,
+        livekitRoomName: videoProvider == VideoProvider.livekit ? 'shift_${shiftDoc.id}' : null,
       );
 
       // Validate that end time is after start time
@@ -625,27 +630,149 @@ class ShiftService {
         .where('teacher_id', isEqualTo: teacherId)
         .snapshots()
         .map((snapshot) {
-      final shifts =
-          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+      try {
+        final shifts = <TeachingShift>[];
+        for (var doc in snapshot.docs) {
+          try {
+            shifts.add(TeachingShift.fromFirestore(doc));
+          } catch (e) {
+            AppLogger.error(
+                'Error parsing shift document ${doc.id}: $e');
+            // Skip invalid documents and continue
+          }
+        }
 
-      // Sort by shift_start since we can't use orderBy in query without index
-      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        // Sort by shift_start since we can't use orderBy in query without index
+        shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
-      return shifts;
+        return shifts;
+      } catch (e) {
+        AppLogger.error('Error processing teacher shifts stream: $e');
+        return <TeachingShift>[];
+      }
+    }).handleError((error, stackTrace) {
+      AppLogger.error('Firestore stream error in getTeacherShifts: $error');
+      AppLogger.error('Stack trace: $stackTrace');
     });
   }
 
   /// Get all shifts (admin view)
   static Stream<List<TeachingShift>> getAllShifts() {
     return _shiftsCollection.snapshots().map((snapshot) {
-      final shifts =
-          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+      try {
+        final shifts = <TeachingShift>[];
+        for (var doc in snapshot.docs) {
+          try {
+            shifts.add(TeachingShift.fromFirestore(doc));
+          } catch (e) {
+            AppLogger.error(
+                'Error parsing shift document ${doc.id}: $e');
+            // Skip invalid documents and continue
+          }
+        }
 
-      // Sort by shift_start for consistent ordering
+        // Sort by shift_start for consistent ordering
+        shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+        return shifts;
+      } catch (e) {
+        AppLogger.error('Error processing all shifts stream: $e');
+        return <TeachingShift>[];
+      }
+    }).handleError((error, stackTrace) {
+      AppLogger.error('Firestore stream error in getAllShifts: $error');
+      AppLogger.error('Stack trace: $stackTrace');
+    });
+  }
+
+  /// Get shifts for a specific student (where student is assigned to the class)
+  static Stream<List<TeachingShift>> getStudentShifts(String studentId) {
+    return _shiftsCollection
+        .where('student_ids', arrayContains: studentId)
+        .snapshots()
+        .map((snapshot) {
+      try {
+        final shifts = <TeachingShift>[];
+        for (var doc in snapshot.docs) {
+          try {
+            shifts.add(TeachingShift.fromFirestore(doc));
+          } catch (e) {
+            AppLogger.error(
+                'Error parsing shift document ${doc.id}: $e');
+            // Skip invalid documents and continue
+          }
+        }
+
+        // Sort by shift_start for consistent ordering
+        shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+        return shifts;
+      } catch (e) {
+        AppLogger.error('Error processing student shifts stream: $e');
+        return <TeachingShift>[];
+      }
+    }).handleError((error, stackTrace) {
+      AppLogger.error('Firestore stream error in getStudentShifts: $error');
+      AppLogger.error('Stack trace: $stackTrace');
+    });
+  }
+
+  /// Get upcoming shifts for a student (for the next 7 days)
+  static Future<List<TeachingShift>> getUpcomingShiftsForStudent(
+    String studentId,
+  ) async {
+    try {
+      final now = DateTime.now();
+      final futureLimit = now.add(const Duration(days: 7));
+
+      // Query shifts where student is assigned
+      final snapshot = await _shiftsCollection
+          .where('student_ids', arrayContains: studentId)
+          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+          .where('shift_start', isLessThan: Timestamp.fromDate(futureLimit))
+          .get();
+
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .toList();
+
+      // Sort by shift start time
       shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
       return shifts;
-    });
+    } catch (e) {
+      AppLogger.error('Error getting upcoming shifts for student: $e');
+      return [];
+    }
+  }
+
+  /// Get today's shifts for a student
+  static Future<List<TeachingShift>> getTodayShiftsForStudent(
+    String studentId,
+  ) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final snapshot = await _shiftsCollection
+          .where('student_ids', arrayContains: studentId)
+          .where('shift_start',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('shift_start', isLessThan: Timestamp.fromDate(endOfDay))
+          .get();
+
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .toList();
+
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      return shifts;
+    } catch (e) {
+      AppLogger.error('Error getting today\'s shifts for student: $e');
+      return [];
+    }
   }
 
   /// Get shifts for today

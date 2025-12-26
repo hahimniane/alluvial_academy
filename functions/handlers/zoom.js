@@ -3,7 +3,7 @@ const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https')
 const { DateTime } = require('luxon');
 const jwt = require('jsonwebtoken');
 const { getZoomConfig, getMeetingSdkConfig } = require('../services/zoom/config');
-const { getMeetingDetails } = require('../services/zoom/client');
+const { getMeetingDetails, endMeeting, getLiveMeetings, endAllActiveMeetingsForHost } = require('../services/zoom/client');
 const { verifyJoinToken, decryptString, signJoinToken, encryptString } = require('../services/zoom/crypto');
 
 const getUserEmailFromUserDoc = (userData) =>
@@ -517,8 +517,123 @@ const getZoomMeetingSdkJoinPayload = onCall(async (request) => {
   };
 });
 
+/**
+ * Callable function to end any active Zoom meetings for the host
+ * This should be called before joining a new meeting when only one meeting can run at a time.
+ * 
+ * SECURITY: Requires authentication and teacher/admin authorization for the shift
+ */
+const endActiveZoomMeetings = onCall(async (request) => {
+  const shiftId = request.data?.shiftId;
+  const uid = request.auth?.uid;
+
+  // Require authentication
+  if (!uid) {
+    console.log('[ZoomEndActive] Unauthenticated request');
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  // Validate shiftId (optional - can end meetings without a specific shift)
+  if (shiftId && typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Invalid shiftId');
+  }
+
+  // Check if user is admin or teacher
+  const isAdmin = await isUserAdmin(uid);
+  let isAuthorized = isAdmin;
+
+  if (shiftId && !isAdmin) {
+    // Check if user is the teacher for this shift
+    const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
+    if (shiftDoc.exists) {
+      const shiftData = shiftDoc.data();
+      isAuthorized = uid === shiftData.teacher_id;
+    }
+  }
+
+  if (!isAuthorized) {
+    console.log('[ZoomEndActive] Unauthorized attempt by uid:', uid);
+    throw new HttpsError('permission-denied', 'Not authorized to end meetings');
+  }
+
+  try {
+    console.log(`[ZoomEndActive] Ending active meetings. Requested by: ${uid}, shiftId: ${shiftId || 'none'}`);
+    
+    // Get the host email for this shift (if specified) or use default
+    let hostEmail = null;
+    if (shiftId) {
+      const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
+      if (shiftDoc.exists) {
+        hostEmail = shiftDoc.data().zoom_host_email;
+      }
+    }
+
+    const result = await endAllActiveMeetingsForHost(hostEmail);
+
+    console.log(`[ZoomEndActive] Result: ended ${result.endedMeetings.length} meeting(s), errors: ${result.errors.length}`);
+
+    return {
+      success: result.success,
+      endedMeetings: result.endedMeetings,
+      errors: result.errors,
+      message: result.endedMeetings.length > 0 
+        ? `Ended ${result.endedMeetings.length} active meeting(s). You can now start your class.`
+        : 'No active meetings found. You can proceed to join your class.',
+    };
+  } catch (err) {
+    console.error('[ZoomEndActive] Error:', err);
+    throw new HttpsError('internal', `Failed to end active meetings: ${err.message}`);
+  }
+});
+
+/**
+ * Callable function to check for active Zoom meetings
+ * Returns info about any currently running meetings for the host
+ */
+const checkActiveZoomMeetings = onCall(async (request) => {
+  const shiftId = request.data?.shiftId;
+  const uid = request.auth?.uid;
+
+  // Require authentication
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  try {
+    // Get the host email for this shift (if specified) or use default
+    let hostEmail = null;
+    if (shiftId) {
+      const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
+      if (shiftDoc.exists) {
+        hostEmail = shiftDoc.data().zoom_host_email;
+      }
+    }
+
+    const liveMeetings = await getLiveMeetings(hostEmail);
+
+    return {
+      success: true,
+      hasActiveMeetings: liveMeetings.length > 0,
+      activeMeetingsCount: liveMeetings.length,
+      meetings: liveMeetings.map(m => ({
+        id: String(m.id),
+        topic: m.topic,
+        startTime: m.start_time,
+      })),
+      message: liveMeetings.length > 0
+        ? `There ${liveMeetings.length === 1 ? 'is' : 'are'} ${liveMeetings.length} active meeting(s) running. You may need to end ${liveMeetings.length === 1 ? 'it' : 'them'} before starting a new class.`
+        : 'No active meetings running. You can start your class.',
+    };
+  } catch (err) {
+    console.error('[ZoomCheckActive] Error:', err);
+    throw new HttpsError('internal', `Failed to check active meetings: ${err.message}`);
+  }
+});
+
 module.exports = {
   joinZoomMeeting,
   getZoomJoinUrl,
   getZoomMeetingSdkJoinPayload,
+  endActiveZoomMeetings,
+  checkActiveZoomMeetings,
 };

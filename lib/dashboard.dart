@@ -24,6 +24,7 @@ import 'features/shift_management/screens/shift_management_screen.dart';
 import 'features/shift_management/screens/teacher_shift_screen.dart';
 import 'features/website_management/screens/website_management_screen.dart';
 import 'features/zoom/screens/zoom_screen.dart';
+import 'features/zoom/screens/admin_zoom_screen.dart';
 import 'features/notifications/screens/send_notification_screen.dart';
 import 'features/enrollment_management/screens/enrollment_management_screen.dart';
 import 'features/teacher_applications/screens/teacher_application_management_screen.dart';
@@ -111,7 +112,10 @@ class _DashboardPageState extends State<DashboardPage> {
         FormResponsesScreen(key: ValueKey(_refreshTrigger)),
         const FormBuilder(),
         const QuickTasksScreen(),
-        const ZoomScreen(),
+        // Zoom screen - show admin version for admin users
+        _userRole == 'admin' || _userRole == 'super_admin'
+            ? const AdminZoomScreen()
+            : const ZoomScreen(),
         const TestRoleSystemScreen(),
         const FirestoreDebugScreen(),
         const SendNotificationScreen(),
@@ -1231,5 +1235,4 @@ class _DashboardPageState extends State<DashboardPage> {
       userRole: _userRole,
     );
   }
-
 }

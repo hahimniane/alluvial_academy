@@ -350,10 +350,141 @@ const deleteMeeting = async (meetingId) => {
   return { success: true };
 };
 
+/**
+ * End a live/in-progress Zoom meeting
+ * This forces the meeting to end immediately, disconnecting all participants.
+ * Use this to free up the host for a new meeting.
+ * 
+ * @param {string} meetingId - The Zoom meeting ID to end
+ * @returns {Promise<{success: boolean, alreadyEnded?: boolean}>}
+ */
+const endMeeting = async (meetingId) => {
+  const token = await getAccessToken();
+
+  const resp = await fetch(`https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingId)}/status`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'end',
+    }),
+  });
+
+  // 204 = success (meeting ended)
+  if (resp.status === 204) {
+    console.log(`[Zoom] Successfully ended meeting ${meetingId}`);
+    return { success: true };
+  }
+
+  // 404 = meeting not found or already ended (still success for our purposes)
+  if (resp.status === 404) {
+    console.log(`[Zoom] Meeting ${meetingId} not found or already ended`);
+    return { success: true, alreadyEnded: true };
+  }
+
+  // 400 with code 3001 = meeting is not in progress (already ended)
+  if (resp.status === 400) {
+    const text = await resp.text().catch(() => '');
+    const zoomErr = parseZoomErrorBody(text);
+    if (zoomErr?.code === 3001) {
+      console.log(`[Zoom] Meeting ${meetingId} is not in progress (already ended)`);
+      return { success: true, alreadyEnded: true };
+    }
+    throw new Error(`Zoom end meeting failed (${resp.status}): ${text || resp.statusText}`);
+  }
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Zoom end meeting failed (${resp.status}): ${text || resp.statusText}`);
+  }
+
+  return { success: true };
+};
+
+/**
+ * Get live/in-progress meetings for a user (host)
+ * Returns meetings that are currently active on the host's account.
+ * 
+ * @param {string} hostUser - The Zoom user ID/email of the host
+ * @returns {Promise<Array<{id: string, topic: string, start_time: string, host_id: string}>>}
+ */
+const getLiveMeetings = async (hostUser) => {
+  const { hostUser: defaultHost } = getZoomConfig();
+  const host = hostUser || defaultHost;
+  
+  if (!host) {
+    throw new Error('Missing Zoom host user: set ZOOM_HOST_USER or provide hostUser parameter.');
+  }
+
+  const token = await getAccessToken();
+
+  const resp = await fetch(`https://api.zoom.us/v2/users/${encodeURIComponent(host)}/meetings?type=live`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Zoom get live meetings failed (${resp.status}): ${text || resp.statusText}`);
+  }
+
+  const json = await resp.json();
+  const meetings = json.meetings || [];
+  
+  console.log(`[Zoom] Found ${meetings.length} live meeting(s) for host ${host}`);
+  return meetings;
+};
+
+/**
+ * End all active/live meetings for a host
+ * This is useful when the host can only run one meeting at a time and needs to start a new one.
+ * 
+ * @param {string} [hostUser] - The Zoom user ID/email of the host (optional, uses default)
+ * @returns {Promise<{success: boolean, endedMeetings: string[], errors: string[]}>}
+ */
+const endAllActiveMeetingsForHost = async (hostUser) => {
+  const endedMeetings = [];
+  const errors = [];
+
+  try {
+    const liveMeetings = await getLiveMeetings(hostUser);
+
+    if (liveMeetings.length === 0) {
+      console.log('[Zoom] No live meetings to end');
+      return { success: true, endedMeetings: [], errors: [] };
+    }
+
+    console.log(`[Zoom] Ending ${liveMeetings.length} live meeting(s)...`);
+
+    for (const meeting of liveMeetings) {
+      try {
+        await endMeeting(String(meeting.id));
+        endedMeetings.push(String(meeting.id));
+      } catch (err) {
+        console.error(`[Zoom] Failed to end meeting ${meeting.id}:`, err.message);
+        errors.push(`Meeting ${meeting.id}: ${err.message}`);
+      }
+    }
+
+    return { success: errors.length === 0, endedMeetings, errors };
+  } catch (err) {
+    console.error('[Zoom] Failed to get live meetings:', err.message);
+    return { success: false, endedMeetings, errors: [err.message] };
+  }
+};
+
 module.exports = {
   createMeeting,
   getMeetingDetails,
   updateMeeting,
   updateMeetingBreakoutRooms,
   deleteMeeting,
+  endMeeting,
+  getLiveMeetings,
+  endAllActiveMeetingsForHost,
 };

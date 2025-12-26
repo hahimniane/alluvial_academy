@@ -4,13 +4,17 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   cloud_firestore
+  connectivity_plus
   emoji_picker_flutter
   file_selector_windows
   firebase_auth
   firebase_core
   firebase_storage
   flutter_timezone
+  flutter_webrtc
+  flutter_zoom_meeting_sdk
   geolocator_windows
+  livekit_client
   permission_handler_windows
   url_launcher_windows
 )

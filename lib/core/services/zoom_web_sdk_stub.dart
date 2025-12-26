@@ -51,6 +51,7 @@ class ZoomWebSdkService {
   Future<bool> joinMeeting({
     required String meetingNumber,
     required String signature,
+    required String sdkKey,
     required String displayName,
     String? password,
     String? email,

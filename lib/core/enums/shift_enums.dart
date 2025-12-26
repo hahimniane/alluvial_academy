@@ -61,3 +61,9 @@ enum ShiftCategory {
   meeting,     // Scheduled meetings
   training,    // Staff training sessions
 }
+
+/// Video provider enum - determines which video platform is used for the class
+enum VideoProvider {
+  zoom,     // Default - uses Zoom for video calls
+  livekit,  // Beta - uses LiveKit for video calls
+}

@@ -35,9 +35,9 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs your location to verify your clock-in and clock-out position for accurate timesheet tracking.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>This app uses your camera for Zoom video meetings and capturing profile photos and task attachments.</string>
+	<string>This app uses your camera for video meetings and capturing profile photos and task attachments.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app uses your microphone for Zoom audio during meetings.</string>
+	<string>This app uses your microphone for audio during video meetings.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library so you can attach images to tasks and messages.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
@@ -48,13 +48,6 @@
 	<string>This app uses Bluetooth for connecting to audio devices during Zoom meetings.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>This app needs to send you notifications about important updates, schedules, and messages.</string>
-<<<<<<< HEAD
-=======
-	<key>NSContactsUsageDescription</key>
-	<string>This app requires contacts access to allow you to invite participants to meetings via the integrated Zoom SDK.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>This app requires calendar access to help you schedule and manage your teaching shifts and Zoom meetings.</string>
->>>>>>> origin/main
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

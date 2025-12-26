@@ -18,6 +18,7 @@ import './teacher_home_screen.dart'; // Import the new TeacherHomeScreen
 // import './teacher_mobile_home.dart'; // Remove the old one
 import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
+import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -362,7 +363,16 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       ];
     }
 
-    // Students and Parents get basic features
+    // Students get classes as their main screen
+    if (role == 'student') {
+      return [
+        const StudentClassesScreen(), // Main screen for students
+        const ChatPage(),
+        const QuickTasksScreen(),
+      ];
+    }
+
+    // Parents get basic features
     return [
       const AdminDashboard(refreshTrigger: 0),
       const ChatPage(),
@@ -397,7 +407,16 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       ];
     }
 
-    // Students and Parents get basic features
+    // Students get classes-focused navigation
+    if (role == 'student') {
+      return [
+        _NavItemData(Icons.school_rounded, 'Classes', 0),
+        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 1),
+        _NavItemData(Icons.task_alt_rounded, 'Tasks', 2),
+      ];
+    }
+
+    // Parents get basic features
     return [
       _NavItemData(Icons.home_rounded, 'Home', 0),
       _NavItemData(Icons.chat_bubble_rounded, 'Chat', 1),

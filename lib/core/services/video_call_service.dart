@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+
+import '../models/teaching_shift.dart';
+import '../enums/shift_enums.dart';
+import '../utils/app_logger.dart';
+import 'zoom_service.dart';
+import 'livekit_service.dart';
+
+/// Unified video call service that routes to the appropriate provider
+/// 
+/// This service acts as the single entry point for joining video calls.
+/// It determines which video provider (Zoom or LiveKit) to use based on
+/// the shift's `videoProvider` field and routes accordingly.
+class VideoCallService {
+  
+  /// Check if the user can currently join the class
+  /// 
+  /// This checks the time window regardless of video provider.
+  static bool canJoinClass(TeachingShift shift) {
+    if (shift.usesLiveKit) {
+      return LiveKitService.canJoinClass(shift);
+    } else {
+      return ZoomService.canJoinClass(shift);
+    }
+  }
+
+  /// Get the time until the class can be joined
+  static Duration? getTimeUntilCanJoin(TeachingShift shift) {
+    if (shift.usesLiveKit) {
+      return LiveKitService.getTimeUntilCanJoin(shift);
+    } else {
+      return ZoomService.getTimeUntilCanJoin(shift);
+    }
+  }
+
+  /// Join a class using the appropriate video provider
+  /// 
+  /// Automatically routes to Zoom or LiveKit based on the shift's
+  /// `videoProvider` field.
+  static Future<void> joinClass(
+    BuildContext context,
+    TeachingShift shift, {
+    bool isTeacher = false,
+  }) async {
+    AppLogger.info(
+      'VideoCallService: Joining class ${shift.id} via ${shift.videoProvider.name}',
+    );
+
+    if (shift.usesLiveKit) {
+      await LiveKitService.joinClass(context, shift, isTeacher: isTeacher);
+    } else {
+      // Default to Zoom (existing behavior)
+      await ZoomService.joinClass(context, shift);
+    }
+  }
+
+  /// Get a human-readable name for the video provider
+  static String getProviderDisplayName(VideoProvider provider) {
+    switch (provider) {
+      case VideoProvider.livekit:
+        return 'LiveKit (Beta)';
+      case VideoProvider.zoom:
+        return 'Zoom';
+    }
+  }
+
+  /// Get the icon for the video provider
+  static IconData getProviderIcon(VideoProvider provider) {
+    switch (provider) {
+      case VideoProvider.livekit:
+        return Icons.video_call;
+      case VideoProvider.zoom:
+        return Icons.videocam;
+    }
+  }
+
+  /// Check if a video call is available for the shift
+  static bool hasVideoCall(TeachingShift shift) {
+    if (shift.usesLiveKit) {
+      // LiveKit rooms are created on-demand, so always available
+      return true;
+    } else {
+      // Zoom requires a pre-created meeting
+      return shift.hasZoomMeeting;
+    }
+  }
+}
+

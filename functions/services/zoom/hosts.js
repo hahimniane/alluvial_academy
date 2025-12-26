@@ -20,6 +20,7 @@
  */
 
 const admin = require('firebase-admin');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { getZoomConfig } = require('./config');
 
 const ZOOM_HOSTS_COLLECTION = 'zoom_hosts';
@@ -147,7 +148,7 @@ const countOverlappingMeetings = async (
       db
         .collection('teaching_shifts')
         .where('zoom_host_email', '==', hostEmail)
-        .where('shift_start', '<', admin.firestore.Timestamp.fromDate(requestedEnd))
+        .where('shift_start', '<', Timestamp.fromDate(requestedEnd))
         .where('status', 'in', ['scheduled', 'active'])
         .get()
     );
@@ -157,7 +158,7 @@ const countOverlappingMeetings = async (
         db
           .collection('teaching_shifts')
           .where('zoom_host_email', '==', null)
-          .where('shift_start', '<', admin.firestore.Timestamp.fromDate(requestedEnd))
+          .where('shift_start', '<', Timestamp.fromDate(requestedEnd))
           .where('status', 'in', ['scheduled', 'active'])
           .get()
       );
@@ -302,8 +303,8 @@ const findAlternativeTimes = async (requestedStart, requestedEnd, hosts) => {
         db
           .collection('teaching_shifts')
           .where('zoom_host_email', '==', host.email)
-          .where('shift_start', '<', admin.firestore.Timestamp.fromDate(maxTime))
-          .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(new Date()))
+          .where('shift_start', '<', Timestamp.fromDate(maxTime))
+          .where('shift_start', '>=', Timestamp.fromDate(new Date()))
           .where('status', 'in', ['scheduled', 'active'])
           .get()
       );
@@ -312,8 +313,8 @@ const findAlternativeTimes = async (requestedStart, requestedEnd, hosts) => {
           db
             .collection('teaching_shifts')
             .where('zoom_host_email', '==', null)
-            .where('shift_start', '<', admin.firestore.Timestamp.fromDate(maxTime))
-            .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(new Date()))
+            .where('shift_start', '<', Timestamp.fromDate(maxTime))
+            .where('shift_start', '>=', Timestamp.fromDate(new Date()))
             .where('status', 'in', ['scheduled', 'active'])
             .get()
         );
@@ -511,7 +512,7 @@ const updateHostLastUsed = async (hostEmail) => {
 
     if (!snapshot.empty) {
       await snapshot.docs[0].ref.update({
-        last_used_at: admin.firestore.FieldValue.serverTimestamp(),
+        last_used_at: FieldValue.serverTimestamp(),
       });
     }
   } catch (error) {
@@ -534,7 +535,7 @@ const hasUpcomingMeetings = async (hostEmail) => {
     const snapshot = await db
       .collection('teaching_shifts')
       .where('zoom_host_email', '==', hostEmail)
-      .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(now))
+      .where('shift_start', '>=', Timestamp.fromDate(now))
       .where('status', 'in', ['scheduled', 'active'])
       .orderBy('shift_start', 'asc')
       .limit(10)
@@ -585,8 +586,8 @@ const getHostUtilization = async () => {
       const upcomingSnapshot = await db
         .collection('teaching_shifts')
         .where('zoom_host_email', '==', host.email)
-        .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(now))
-        .where('shift_start', '<', admin.firestore.Timestamp.fromDate(weekFromNow))
+        .where('shift_start', '>=', Timestamp.fromDate(now))
+        .where('shift_start', '<', Timestamp.fromDate(weekFromNow))
         .where('status', '==', 'scheduled')
         .get();
 

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/user_role_service.dart';
 import 'dashboard.dart';
 import 'features/dashboard/screens/teacher_home_screen.dart';
+import 'features/student/screens/student_classes_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -29,6 +31,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
   Future<void> _loadUserRole() async {
     try {
       AppLogger.debug('=== Loading User Role ===');
+      AppLogger.debug('Current user: ${FirebaseAuth.instance.currentUser?.uid}');
+      AppLogger.debug('Current user email: ${FirebaseAuth.instance.currentUser?.email}');
+      
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
 
@@ -40,7 +45,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
         });
       }
 
-      AppLogger.error('Role loaded successfully: $role');
+      AppLogger.debug('Role loaded successfully: $role');
     } catch (e) {
       AppLogger.error('Error loading user role: $e');
       if (mounted) {
@@ -76,16 +81,24 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
     }
 
     // Route to appropriate dashboard based on role
+    AppLogger.debug('=== RoleBasedDashboard routing for role: ${userRole!.toLowerCase()} ===');
     switch (userRole!.toLowerCase()) {
       case 'admin':
+        AppLogger.debug('=== Returning AdminDashboard ===');
         return const DashboardPage(); // Full admin dashboard
       case 'teacher':
+        AppLogger.debug('=== Returning TeacherDashboard ===');
         return const TeacherDashboard();
       case 'student':
-        return const StudentDashboard();
+        // Get the user ID from cached data or Firebase Auth
+        final userId = UserRoleService.getCurrentUserId();
+        AppLogger.debug('=== Returning StudentDashboard with userId: $userId ===');
+        return StudentDashboard(userId: userId);
       case 'parent':
+        AppLogger.debug('=== Returning ParentDashboard ===');
         return const ParentDashboard();
       default:
+        AppLogger.debug('=== Returning UnknownRoleScreen ===');
         return _buildUnknownRoleScreen();
     }
   }
@@ -303,12 +316,32 @@ class TeacherDashboard extends StatelessWidget {
 }
 
 class StudentDashboard extends StatelessWidget {
-  const StudentDashboard({super.key});
+  final String? userId;
+  
+  const StudentDashboard({super.key, this.userId});
 
   @override
   Widget build(BuildContext context) {
-    return const DashboardPage(); // For now, use the same dashboard
-    // TODO: Create role-specific dashboard with limited features
+    AppLogger.debug('=== StudentDashboard.build() with userId: $userId ===');
+    
+    // On web (mobile or desktop), always show DashboardPage for consistency
+    // Only on native mobile apps should we show StudentClassesScreen
+    if (kIsWeb) {
+      return const DashboardPage();
+    }
+    
+    // On native mobile, check screen width to determine which view to show
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 768) {
+          // Tablet/Desktop view - use the main DashboardPage which renders student-specific content
+          return const DashboardPage();
+        } else {
+          // Mobile view - use the dedicated student classes screen for joining classes
+          return StudentClassesScreen(userId: userId);
+        }
+      },
+    );
   }
 }
 

@@ -82,13 +82,15 @@ dependencies:
   
   # Zoom Meeting SDK for native in-app Zoom join
   # Using local copy with ZoomMobileRTC dependency configured
-  # TEMPORARILY DISABLED FOR TESTING
-  # flutter_zoom_meeting_sdk:
-  #   path: packages/flutter_zoom_meeting_sdk
+  flutter_zoom_meeting_sdk:
+    path: packages/flutter_zoom_meeting_sdk
   permission_handler: ^12.0.1
 
   # Web package for JS interop (used by Zoom Web SDK integration)
   web: ^1.1.0
+
+  # LiveKit Flutter SDK for video calls (beta video provider)
+  livekit_client: ^2.3.6
 
 
 dev_dependencies:

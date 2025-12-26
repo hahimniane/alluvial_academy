@@ -24,15 +24,28 @@ class UserRoleService {
       final User? currentUser = _auth.currentUser;
       if (currentUser == null) return [];
 
-      final QuerySnapshot userQuery = await _firestore
+      // First try to get user document by UID (most reliable, especially for students)
+      final userDocByUid = await _firestore
           .collection('users')
-          .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
-          .limit(1)
+          .doc(currentUser.uid)
           .get();
 
-      if (userQuery.docs.isEmpty) return [];
+      Map<String, dynamic>? userData;
+      if (userDocByUid.exists) {
+        userData = userDocByUid.data() as Map<String, dynamic>;
+      } else {
+        // Fallback: Query by email (for backwards compatibility)
+        final QuerySnapshot userQuery = await _firestore
+            .collection('users')
+            .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
+            .limit(1)
+            .get();
 
-      final userData = userQuery.docs.first.data() as Map<String, dynamic>;
+        if (userQuery.docs.isEmpty) return [];
+        userData = userQuery.docs.first.data() as Map<String, dynamic>;
+      }
+
+      if (userData == null) return [];
 
       // Determine available roles
       final primaryRole = userData['user_type'] as String?;
@@ -91,8 +104,20 @@ class UserRoleService {
         return null;
       }
 
+      // First try to get user document by UID (most reliable)
+      final userDocByUid = await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
 
-      // Query Firestore users collection by email
+      if (userDocByUid.exists) {
+        final userData = userDocByUid.data() as Map<String, dynamic>;
+        final userType = userData['user_type'] as String?;
+        AppLogger.debug('Found user by UID: $userType');
+        return userType;
+      }
+
+      // Fallback: Query Firestore users collection by email
       final QuerySnapshot userQuery = await _firestore
           .collection('users')
           .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
@@ -100,14 +125,12 @@ class UserRoleService {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        AppLogger.debug('No user document found for email: ${currentUser.email}');
+        AppLogger.debug('No user document found for email: ${currentUser.email} or UID: ${currentUser.uid}');
         return null;
       }
 
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
       final userType = userData['user_type'] as String?;
-      final title = userData['title'] as String?;
-
 
       return userType;
     } catch (e) {
@@ -153,28 +176,41 @@ class UserRoleService {
       final User? currentUser = _auth.currentUser;
       if (currentUser == null) return null;
 
-      // Check cache validity (5 minutes)
+      // Check cache validity (5 minutes) - use UID for cache key
       final now = DateTime.now();
       if (_cachedUserData != null &&
-          _cachedUserEmail == currentUser.email?.toLowerCase() &&
+          _cachedUserEmail == currentUser.uid &&
           _cacheTimestamp != null &&
           now.difference(_cacheTimestamp!).inMinutes < 5) {
         return _cachedUserData;
       }
 
-      final QuerySnapshot userQuery = await _firestore
+      // First try to get user document by UID (most reliable)
+      final userDocByUid = await _firestore
           .collection('users')
-          .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
-          .limit(1)
+          .doc(currentUser.uid)
           .get();
 
-      if (userQuery.docs.isEmpty) return null;
+      Map<String, dynamic>? userData;
 
-      final userData = userQuery.docs.first.data() as Map<String, dynamic>;
+      if (userDocByUid.exists) {
+        userData = userDocByUid.data() as Map<String, dynamic>;
+      } else {
+        // Fallback: Query by email
+        final QuerySnapshot userQuery = await _firestore
+            .collection('users')
+            .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
+            .limit(1)
+            .get();
 
-      // Cache the result
+        if (userQuery.docs.isEmpty) return null;
+
+        userData = userQuery.docs.first.data() as Map<String, dynamic>;
+      }
+
+      // Cache the result (use UID as cache key)
       _cachedUserData = userData;
-      _cachedUserEmail = currentUser.email?.toLowerCase();
+      _cachedUserEmail = currentUser.uid;
       _cacheTimestamp = now;
 
       return userData;
@@ -207,6 +243,18 @@ class UserRoleService {
     _cachedUserData = null;
     _cachedUserEmail = null;
     _cacheTimestamp = null;
+  }
+
+  /// Get the current user ID - checks cache first, then FirebaseAuth
+  /// This is useful when FirebaseAuth.instance.currentUser might be null temporarily on web
+  static String? getCurrentUserId() {
+    // First try FirebaseAuth
+    final user = _auth.currentUser;
+    if (user != null) {
+      return user.uid;
+    }
+    // Fall back to cached UID if available
+    return _cachedUserEmail;
   }
 
   /// Check if user is a parent
@@ -417,13 +465,33 @@ class UserRoleService {
   /// Check if user is active
   static Future<bool> isUserActive(String userEmail) async {
     try {
+      // First try to get user by UID if we have currentUser
+      final User? currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        final userDocByUid = await _firestore
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (userDocByUid.exists) {
+          final userData = userDocByUid.data() as Map<String, dynamic>;
+          return userData['is_active'] as bool? ?? true;
+        }
+      }
+
+      // Fallback: Query by email
       final QuerySnapshot userQuery = await _firestore
           .collection('users')
           .where('e-mail', isEqualTo: userEmail.toLowerCase())
           .limit(1)
           .get();
 
-      if (userQuery.docs.isEmpty) return false;
+      if (userQuery.docs.isEmpty) {
+        // If not found by email, return true (default to active)
+        // This prevents students with alias emails from being blocked
+        AppLogger.debug('User not found by email in isUserActive, defaulting to active');
+        return true;
+      }
 
       final userData = userQuery.docs.first.data() as Map<String, dynamic>;
       return userData['is_active'] as bool? ??

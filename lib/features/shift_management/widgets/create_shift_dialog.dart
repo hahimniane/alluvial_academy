@@ -65,6 +65,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   // NEW: Category and leader role fields
   ShiftCategory _selectedCategory = ShiftCategory.teaching;
   String? _selectedLeaderRole;
+  
+  // Video provider field (Zoom or LiveKit beta)
+  VideoProvider _selectedVideoProvider = VideoProvider.zoom;
 
   // Search controllers
   final TextEditingController _teacherSearchController =
@@ -725,6 +728,9 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         _hourlyRateController.text = shift.hourlyRate.toStringAsFixed(2);
         _customHourlyRate = shift.hourlyRate;
       }
+      
+      // Load video provider from existing shift
+      _selectedVideoProvider = shift.videoProvider;
     } else {
       // For new shifts, use initialCategory if provided, otherwise default to teaching
       if (widget.initialCategory != null) {
@@ -779,6 +785,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       _buildCustomName(),
                       const SizedBox(height: 20),
                       _buildNotes(),
+                      const SizedBox(height: 20),
+                      _buildVideoProviderSelector(),
                     ],
                   ),
                 ),
@@ -2526,6 +2534,200 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     );
   }
 
+  /// Builds the video provider selector (Zoom or LiveKit beta)
+  Widget _buildVideoProviderSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Video Provider',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xff6366F1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Optional',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff6366F1),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildProviderOption(
+                provider: VideoProvider.zoom,
+                title: 'Zoom',
+                subtitle: 'Default video platform',
+                icon: Icons.videocam,
+                isSelected: _selectedVideoProvider == VideoProvider.zoom,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildProviderOption(
+                provider: VideoProvider.livekit,
+                title: 'LiveKit',
+                subtitle: 'Beta - testing only',
+                icon: Icons.video_call,
+                isSelected: _selectedVideoProvider == VideoProvider.livekit,
+                isBeta: true,
+              ),
+            ),
+          ],
+        ),
+        if (_selectedVideoProvider == VideoProvider.livekit)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFCD34D)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.amber.shade800,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'LiveKit is in beta testing. Only use for test classes.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.amber.shade800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildProviderOption({
+    required VideoProvider provider,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isSelected,
+    bool isBeta = false,
+  }) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedVideoProvider = provider;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? const Color(0xff0386FF) : const Color(0xffD1D5DB),
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? const Color(0xff0386FF).withOpacity(0.05) : Colors.white,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xff0386FF).withOpacity(0.1)
+                    : const Color(0xffF3F4F6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected ? const Color(0xff0386FF) : const Color(0xff6B7280),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected
+                              ? const Color(0xff0386FF)
+                              : const Color(0xff374151),
+                        ),
+                      ),
+                      if (isBeta) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff8B5CF6).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'BETA',
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff7C3AED),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                size: 20,
+                color: Color(0xff0386FF),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActions() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -2776,6 +2978,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           leaderRole: _selectedLeaderRole,
           // NEW: Hourly rate (if custom rate provided)
           hourlyRate: _customHourlyRate,
+          // Video provider (Zoom or LiveKit beta)
+          videoProvider: _selectedVideoProvider,
         );
       } else {
         // Update existing shift - convert emails back to UIDs
@@ -2860,6 +3064,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           // NEW: Category and leader role
           category: _selectedCategory,
           leaderRole: _selectedLeaderRole,
+          // Video provider (Zoom or LiveKit beta)
+          videoProvider: _selectedVideoProvider,
         );
 
         AppLogger.debug('CreateShiftDialog: Updating shift with:');

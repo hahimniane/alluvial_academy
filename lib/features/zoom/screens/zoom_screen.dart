@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
-import '../../../core/services/zoom_service.dart';
+import '../../../core/services/video_call_service.dart';
+import '../../../core/services/user_role_service.dart';
 
 class ZoomScreen extends StatefulWidget {
   const ZoomScreen({super.key});
@@ -17,14 +18,46 @@ class _ZoomScreenState extends State<ZoomScreen> {
   static const Duration _historyLookback = Duration(hours: 24);
   static const Duration _futureLookahead = Duration(days: 30);
 
+  String? _userRole;
+  bool _isLoadingRole = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final role = await UserRoleService.getPrimaryRole();
+    if (mounted) {
+      setState(() {
+        _userRole = role?.toLowerCase();
+        _isLoadingRole = false;
+      });
+    }
+  }
+
+  /// Get the appropriate shifts stream based on user role
+  Stream<List<TeachingShift>> _getShiftsStream(String uid) {
+    if (_userRole == 'student') {
+      return ShiftService.getStudentShifts(uid);
+    } else {
+      // Teachers, admins, and others get teacher shifts
+      return ShiftService.getTeacherShifts(uid);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    
+    final title = _userRole == 'student' ? 'My Classes' : 'Zoom Meetings';
+    
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Zoom Meetings',
+          title,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -37,8 +70,10 @@ class _ZoomScreenState extends State<ZoomScreen> {
       ),
       body: user == null
           ? _UnauthenticatedState()
-          : StreamBuilder<List<TeachingShift>>(
-              stream: ShiftService.getTeacherShifts(user.uid),
+          : _isLoadingRole
+              ? const Center(child: CircularProgressIndicator())
+              : StreamBuilder<List<TeachingShift>>(
+              stream: _getShiftsStream(user.uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
@@ -54,14 +89,15 @@ class _ZoomScreenState extends State<ZoomScreen> {
                 final fromUtc = nowUtc.subtract(_historyLookback);
                 final toUtc = nowUtc.add(_futureLookahead);
 
+                // Filter shifts that have video calls (either Zoom or LiveKit)
                 final zoomShifts = allShifts
-                    .where((s) => s.hasZoomMeeting)
+                    .where((s) => VideoCallService.hasVideoCall(s))
                     .where((s) => s.shiftEnd.toUtc().isAfter(fromUtc))
                     .where((s) => s.shiftStart.toUtc().isBefore(toUtc))
                     .toList()
                   ..sort((a, b) {
-                    final aCanJoin = ZoomService.canJoinClass(a);
-                    final bCanJoin = ZoomService.canJoinClass(b);
+                    final aCanJoin = VideoCallService.canJoinClass(a);
+                    final bCanJoin = VideoCallService.canJoinClass(b);
 
                     // Priority 1: Currently joinable shifts at the top
                     if (aCanJoin && !bCanJoin) return -1;
@@ -94,15 +130,20 @@ class _ZoomScreenState extends State<ZoomScreen> {
                   return const _NoZoomShiftsState();
                 }
 
+                final isStudent = _userRole == 'student';
+                
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    _HeaderCard(),
+                    _HeaderCard(isStudent: isStudent),
                     const SizedBox(height: 12),
                     ...zoomShifts.map(
                       (shift) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _ZoomShiftCard(shift: shift),
+                        child: _ZoomShiftCard(
+                          shift: shift, 
+                          isTeacher: !isStudent,
+                        ),
                       ),
                     ),
                     SizedBox(height: MediaQuery.of(context).padding.bottom),
@@ -115,8 +156,17 @@ class _ZoomScreenState extends State<ZoomScreen> {
 }
 
 class _HeaderCard extends StatelessWidget {
+  final bool isStudent;
+  
+  const _HeaderCard({this.isStudent = false});
+  
   @override
   Widget build(BuildContext context) {
+    final title = isStudent ? 'Your online classes' : 'Your shift meetings';
+    final subtitle = isStudent
+        ? 'Join your online classes directly in the app. The Join button becomes active 10 minutes before the class starts.'
+        : 'Join your Zoom meetings directly in the app. Each shift has its own Join button that becomes active 10 minutes before the shift starts.';
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -152,7 +202,7 @@ class _HeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Your shift meetings',
+                  title,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -161,7 +211,7 @@ class _HeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Join your Zoom meetings directly in the app. Each shift has its own Join button that becomes active 10 minutes before the shift starts.',
+                  subtitle,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: const Color(0xFF64748B),
@@ -179,13 +229,14 @@ class _HeaderCard extends StatelessWidget {
 
 class _ZoomShiftCard extends StatelessWidget {
   final TeachingShift shift;
+  final bool isTeacher;
 
-  const _ZoomShiftCard({required this.shift});
+  const _ZoomShiftCard({required this.shift, this.isTeacher = true});
 
   @override
   Widget build(BuildContext context) {
-    final canJoin = ZoomService.canJoinClass(shift);
-    final timeUntil = ZoomService.getTimeUntilCanJoin(shift);
+    final canJoin = VideoCallService.canJoinClass(shift);
+    final timeUntil = VideoCallService.getTimeUntilCanJoin(shift);
 
     final localizations = MaterialLocalizations.of(context);
     final startDateText = localizations.formatShortDate(shift.shiftStart);
@@ -237,15 +288,43 @@ class _ZoomShiftCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  shift.displayName,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1E293B),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        shift.displayName,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E293B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Show LiveKit badge if using beta provider
+                    if (shift.usesLiveKit) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withAlpha(26),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: const Color(0xFF8B5CF6).withAlpha(51),
+                          ),
+                        ),
+                        child: Text(
+                          'Beta',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -262,9 +341,17 @@ class _ZoomShiftCard extends StatelessWidget {
           SizedBox(
             height: 40,
             child: ElevatedButton.icon(
-              onPressed:
-                  canJoin ? () => ZoomService.joinClass(context, shift) : null,
-              icon: const Icon(Icons.videocam, size: 18),
+              onPressed: canJoin
+                  ? () => VideoCallService.joinClass(
+                        context,
+                        shift,
+                        isTeacher: isTeacher,
+                      )
+                  : null,
+              icon: Icon(
+                VideoCallService.getProviderIcon(shift.videoProvider),
+                size: 18,
+              ),
               label: Text(
                 buttonLabel,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),

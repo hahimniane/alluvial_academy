@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
@@ -81,6 +82,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       onActivateUser: _activateUser,
       onEditUser: _editUser,
       onDeleteUser: _deleteUser,
+      onViewCredentials: _viewStudentCredentials,
     );
     _adminDataSource = AdminEmployeeDataSource(
       employees: [],
@@ -395,6 +397,314 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     // Refresh data if user was updated
     if (result == true) {
       _refreshData();
+    }
+  }
+
+  /// View student login credentials
+  Future<void> _viewStudentCredentials(Employee employee) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(employee.documentId)
+          .get();
+
+      if (!doc.exists) {
+        _showErrorSnackBar('User document not found');
+        return;
+      }
+
+      final data = doc.data()!;
+      final studentCode = data['student_code'] ?? 'Not set';
+      final tempPassword = data['temp_password'] ?? 'Password not stored';
+      final aliasEmail = '$studentCode@alluwaleducationhub.org';
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff06B6D4).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.key, color: Color(0xff06B6D4)),
+              ),
+              const SizedBox(width: 12),
+              const Text('Student Login Credentials'),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${employee.firstName} ${employee.lastName}',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildCredentialField('Student ID', studentCode),
+                const SizedBox(height: 12),
+                _buildCredentialField('Password', tempPassword),
+                const SizedBox(height: 12),
+                _buildCredentialField('Email (for app)', aliasEmail),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Students login using their Student ID and password. '
+                          'Share these credentials with the student or their parent.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: Colors.amber.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _resetStudentPassword(employee, studentCode);
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reset Password'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff3B82F6),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackBar('Error loading credentials: $e');
+    }
+  }
+
+  Widget _buildCredentialField(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF3F4F6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  value,
+                  style: GoogleFonts.sourceCodePro(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Reset student password using Cloud Function
+  Future<void> _resetStudentPassword(Employee employee, String studentCode) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Reset password for ${employee.firstName} ${employee.lastName}?',
+              style: GoogleFonts.inter(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'A new password will be generated and saved. If the student has a parent linked, they will receive an email with the new credentials.',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff3B82F6),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset Password'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Show loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('Resetting password...'),
+              ],
+            ),
+          ),
+        );
+
+        // Call Cloud Function to reset password (updates both Firebase Auth and Firestore)
+        final callable = FirebaseFunctions.instance.httpsCallable('resetStudentPassword');
+        final result = await callable.call({
+          'studentId': employee.documentId,
+          'sendEmailToParent': true,
+        });
+
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+
+        final newPassword = result.data['newPassword'] as String;
+        final emailSent = result.data['emailSent'] as bool;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Password Reset Successfully'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('New password for ${employee.firstName}:'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF3F4F6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(
+                    newPassword,
+                    style: GoogleFonts.sourceCodePro(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (emailSent)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.email, color: Colors.green, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Email sent to parent with new credentials',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Text(
+                    'Please share this password with the student or their parent.',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff10B981),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // Close loading dialog if still open
+          _showErrorSnackBar('Error resetting password: $e');
+        }
+      }
     }
   }
 

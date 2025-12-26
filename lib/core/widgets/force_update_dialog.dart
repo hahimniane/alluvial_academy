@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/version_service.dart';
@@ -11,8 +12,8 @@ class ForceUpdateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // Prevent back button
+    return PopScope(
+      canPop: false, // Prevent back button / predictive back
       child: Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -47,7 +48,7 @@ class ForceUpdateDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Title
               Text(
                 'Update Required',
@@ -59,7 +60,7 @@ class ForceUpdateDialog extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              
+
               // Message
               Text(
                 'A new version of Alluvial Academy is available. Please update to continue using the app with the latest features and improvements.',
@@ -71,7 +72,7 @@ class ForceUpdateDialog extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              
+
               // Update button
               SizedBox(
                 width: double.infinity,
@@ -106,18 +107,19 @@ class ForceUpdateDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              
+
               // Exit button
-              TextButton(
-                onPressed: () => _exitApp(),
-                child: Text(
-                  'Exit App',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
+              if (Platform.isAndroid)
+                TextButton(
+                  onPressed: () => _exitApp(),
+                  child: Text(
+                    'Exit App',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -126,8 +128,12 @@ class ForceUpdateDialog extends StatelessWidget {
   }
 
   Future<void> _launchAppStore() async {
-    final String url = VersionService.getAppStoreUrl();
-    
+    final String url = await VersionService.getAppStoreUrl();
+    if (url.isEmpty) {
+      AppLogger.error('No store URL configured for this platform');
+      return;
+    }
+
     try {
       final Uri uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -144,8 +150,9 @@ class ForceUpdateDialog extends StatelessWidget {
   }
 
   void _exitApp() {
-    // Close the app
-    exit(0);
+    if (Platform.isAndroid) {
+      SystemNavigator.pop();
+    }
   }
 }
 
@@ -196,7 +203,7 @@ class ForceUpdateScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 48),
-                
+
                 // Title
                 Text(
                   'Update Required',
@@ -208,7 +215,7 @@ class ForceUpdateScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Message
                 Text(
                   'A new version of Alluvial Academy is available.',
@@ -230,7 +237,7 @@ class ForceUpdateScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
-                
+
                 // Update button
                 SizedBox(
                   width: double.infinity,
@@ -265,24 +272,25 @@ class ForceUpdateScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Exit button
-                TextButton(
-                  onPressed: () => _exitApp(),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
+                if (Platform.isAndroid)
+                  TextButton(
+                    onPressed: () => _exitApp(),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: Text(
+                      'Exit App',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    'Exit App',
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -292,8 +300,12 @@ class ForceUpdateScreen extends StatelessWidget {
   }
 
   Future<void> _launchAppStore() async {
-    final String url = VersionService.getAppStoreUrl();
-    
+    final String url = await VersionService.getAppStoreUrl();
+    if (url.isEmpty) {
+      AppLogger.error('No store URL configured for this platform');
+      return;
+    }
+
     try {
       final Uri uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -310,8 +322,8 @@ class ForceUpdateScreen extends StatelessWidget {
   }
 
   void _exitApp() {
-    // Close the app
-    exit(0);
+    if (Platform.isAndroid) {
+      SystemNavigator.pop();
+    }
   }
 }
-

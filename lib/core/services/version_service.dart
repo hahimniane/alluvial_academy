@@ -1,56 +1,63 @@
 import 'dart:io';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class VersionService {
-  static final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
-  
+  static final FirebaseRemoteConfig _remoteConfig =
+      FirebaseRemoteConfig.instance;
+
   /// Initialize Remote Config with default values
   static Future<void> initialize() async {
     try {
       await _remoteConfig.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(seconds: 10),
-        minimumFetchInterval: const Duration(hours: 1),
+        minimumFetchInterval:
+            kDebugMode ? Duration.zero : const Duration(minutes: 5),
       ));
-      
+
       // Set default values
       await _remoteConfig.setDefaults(<String, dynamic>{
         'minimum_android_version': '1.0.0',
         'minimum_ios_version': '1.0.0',
         'force_update_enabled': true,
+        // Optional: configure store links via Remote Config.
+        'android_store_url': '',
+        'ios_store_url': '',
+        'ios_app_id': '',
       });
-      
+
       // Fetch and activate
       await _remoteConfig.fetchAndActivate();
     } catch (e) {
       AppLogger.error('Error initializing Remote Config: $e');
     }
   }
-  
+
   /// Check if update is required for the current platform
   static Future<bool> isUpdateRequired() async {
     // Skip for web
     if (kIsWeb) {
       return false;
     }
-    
+
     try {
       // Get current app version
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
       final String currentVersion = packageInfo.version;
-      
+
       // Fetch and activate latest remote config
       await _remoteConfig.fetchAndActivate();
-      
+
       // Check if force update is enabled
-      final bool forceUpdateEnabled = _remoteConfig.getBool('force_update_enabled');
+      final bool forceUpdateEnabled =
+          _remoteConfig.getBool('force_update_enabled');
       if (!forceUpdateEnabled) {
         return false;
       }
-      
+
       // Get required version based on platform
       String requiredVersion;
       if (Platform.isAndroid) {
@@ -60,7 +67,7 @@ class VersionService {
       } else {
         return false; // Not Android or iOS
       }
-      
+
       // Compare versions
       return _compareVersions(currentVersion, requiredVersion) < 0;
     } catch (e) {
@@ -68,7 +75,7 @@ class VersionService {
       return false;
     }
   }
-  
+
   /// Compare two version strings (e.g., "1.2.3")
   /// Returns:
   ///   -1 if currentVersion < requiredVersion
@@ -76,9 +83,11 @@ class VersionService {
   ///    1 if currentVersion > requiredVersion
   static int _compareVersions(String currentVersion, String requiredVersion) {
     try {
-      final List<int> currentParts = currentVersion.split('.').map(int.parse).toList();
-      final List<int> requiredParts = requiredVersion.split('.').map(int.parse).toList();
-      
+      final List<int> currentParts =
+          currentVersion.split('.').map(int.parse).toList();
+      final List<int> requiredParts =
+          requiredVersion.split('.').map(int.parse).toList();
+
       // Pad the shorter version with zeros
       while (currentParts.length < requiredParts.length) {
         currentParts.add(0);
@@ -86,7 +95,7 @@ class VersionService {
       while (requiredParts.length < currentParts.length) {
         requiredParts.add(0);
       }
-      
+
       // Compare each part
       for (int i = 0; i < currentParts.length; i++) {
         if (currentParts[i] < requiredParts[i]) {
@@ -95,26 +104,48 @@ class VersionService {
           return 1;
         }
       }
-      
+
       return 0;
     } catch (e) {
       AppLogger.error('Error comparing versions: $e');
       return 0;
     }
   }
-  
+
   /// Get the app store URL for the current platform
-  static String getAppStoreUrl() {
-    if (Platform.isIOS) {
-      // Replace with your actual App Store ID
-      return 'https://apps.apple.com/app/id<YOUR_APP_STORE_ID>';
-    } else if (Platform.isAndroid) {
-      // Replace with your actual package name
-      return 'https://play.google.com/store/apps/details?id=com.alluvaleducationhub.alluwalacademyadmin';
+  static Future<String> getAppStoreUrl() async {
+    if (kIsWeb) return '';
+
+    try {
+      if (Platform.isAndroid) {
+        final configuredUrl =
+            _remoteConfig.getString('android_store_url').trim();
+        if (configuredUrl.isNotEmpty) return configuredUrl;
+
+        final packageInfo = await PackageInfo.fromPlatform();
+        final packageName = packageInfo.packageName.trim();
+        if (packageName.isEmpty) return '';
+
+        return 'https://play.google.com/store/apps/details?id=$packageName';
+      }
+
+      if (Platform.isIOS) {
+        final configuredUrl = _remoteConfig.getString('ios_store_url').trim();
+        if (configuredUrl.isNotEmpty) return configuredUrl;
+
+        final appId = _remoteConfig.getString('ios_app_id').trim();
+        if (appId.isEmpty) return '';
+
+        return 'https://apps.apple.com/app/id$appId';
+      }
+
+      return '';
+    } catch (e) {
+      AppLogger.error('Error building store URL: $e');
+      return '';
     }
-    return '';
   }
-  
+
   /// Get current app version
   static Future<String> getCurrentVersion() async {
     try {
@@ -125,7 +156,7 @@ class VersionService {
       return '1.0.0';
     }
   }
-  
+
   /// Get build number
   static Future<String> getBuildNumber() async {
     try {
@@ -136,14 +167,14 @@ class VersionService {
       return '1';
     }
   }
-  
+
   /// Get full version info (version + build)
   static Future<String> getFullVersionInfo() async {
     final version = await getCurrentVersion();
     final build = await getBuildNumber();
     return '$version+$build';
   }
-  
+
   /// Get app name
   static Future<String> getAppName() async {
     try {
@@ -154,7 +185,7 @@ class VersionService {
       return 'Alluvial Academy';
     }
   }
-  
+
   /// Get package name
   static Future<String> getPackageName() async {
     try {
@@ -166,4 +197,3 @@ class VersionService {
     }
   }
 }
-

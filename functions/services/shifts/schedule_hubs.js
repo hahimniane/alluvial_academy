@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { DateTime } = require('luxon');
 const { createMeeting } = require('../zoom/client');
 const { findAvailableHost } = require('../zoom/hosts');
@@ -27,7 +28,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const scheduleHubMeetings = async () => {
     const db = admin.firestore();
     const now = DateTime.utc();
-    const next24h = now.plus({ hours: 24 });
+    const nextWindow = now.plus({ days: 7 }); // Look ahead 7 days
 
     // Step 1: Find candidate shifts
     const lookbackStart = now.minus({ hours: 1 });
@@ -35,8 +36,8 @@ const scheduleHubMeetings = async () => {
     // Step 1: Find candidate shifts
     const shiftsSnapshot = await db.collection('teaching_shifts')
         .where('status', 'in', ['scheduled', 'active'])
-        .where('shift_start', '>=', admin.firestore.Timestamp.fromDate(lookbackStart.toJSDate()))
-        .where('shift_start', '<=', admin.firestore.Timestamp.fromDate(next24h.toJSDate()))
+        .where('shift_start', '>=', Timestamp.fromDate(lookbackStart.toJSDate()))
+        .where('shift_start', '<=', Timestamp.fromDate(nextWindow.toJSDate()))
         .orderBy('shift_start', 'asc')
         .get();
 
@@ -163,7 +164,7 @@ const createHubForShifts = async (blockKey, participantsData, suffix = "") => {
         // Note: Suffix handling is tricky if we have multiple parts. 
         // For simplicity, we'll try to add to any non-full hub in this slot.
         const existingHubQuery = await db.collection('hub_meetings')
-            .where('startTime', '==', admin.firestore.Timestamp.fromDate(meetingStart.toJSDate()))
+            .where('startTime', '==', Timestamp.fromDate(meetingStart.toJSDate()))
             .where('status', 'in', ['scheduled', 'started']) // Active hubs
             .get();
 
@@ -201,8 +202,8 @@ const createHubForShifts = async (blockKey, participantsData, suffix = "") => {
 
             // Update Hub Doc (increment count, add shifts)
             await db.collection('hub_meetings').doc(existingHub.id).update({
-                totalExpectedParticipants: admin.firestore.FieldValue.increment(participantsData.reduce((acc, p) => acc + 1 + p.studentEmails.length, 0)),
-                shifts: admin.firestore.FieldValue.arrayUnion(...shiftIds)
+                totalExpectedParticipants: FieldValue.increment(participantsData.reduce((acc, p) => acc + 1 + p.studentEmails.length, 0)),
+                shifts: FieldValue.arrayUnion(...shiftIds)
             });
 
             // Update Shifts
@@ -276,8 +277,8 @@ const createHubForShifts = async (blockKey, participantsData, suffix = "") => {
         const hubRef = db.collection('hub_meetings').doc();
         const hubData = {
             id: hubRef.id,
-            startTime: admin.firestore.Timestamp.fromDate(meetingStart.toJSDate()),
-            endTime: admin.firestore.Timestamp.fromDate(meetingStart.plus({ minutes: duration }).toJSDate()),
+            startTime: Timestamp.fromDate(meetingStart.toJSDate()),
+            endTime: Timestamp.fromDate(meetingStart.plus({ minutes: duration }).toJSDate()),
             status: 'scheduled',
             hostZoomUserId: host.email,
             meetingId: meeting.id,
@@ -285,7 +286,7 @@ const createHubForShifts = async (blockKey, participantsData, suffix = "") => {
             joinUrl: meeting.joinUrl,
             totalExpectedParticipants: participantsData.reduce((acc, p) => acc + 1 + p.studentEmails.length, 0),
             shifts: shiftIds,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            createdAt: FieldValue.serverTimestamp()
         };
 
         await hubRef.set(hubData);

@@ -19,6 +19,67 @@ class ZoomService {
       FirebaseFunctions.instanceFor(region: 'us-central1');
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  /// Check if there are any active Zoom meetings running on the host
+  /// This is useful when the account can only host one meeting at a time
+  static Future<ActiveMeetingsResult> checkActiveMeetings({String? shiftId}) async {
+    try {
+      final callable = _functions.httpsCallable('checkActiveZoomMeetings');
+      final result = await callable.call({
+        if (shiftId != null) 'shiftId': shiftId,
+      });
+
+      final data = Map<String, dynamic>.from(result.data as Map);
+      return ActiveMeetingsResult(
+        hasActiveMeetings: data['hasActiveMeetings'] == true,
+        count: data['activeMeetingsCount'] ?? 0,
+        meetings: (data['meetings'] as List?)
+                ?.map((m) => ActiveMeeting.fromMap(m as Map<String, dynamic>))
+                .toList() ??
+            [],
+        message: data['message']?.toString() ?? '',
+      );
+    } catch (e) {
+      AppLogger.error('ZoomService: Error checking active meetings: $e');
+      return ActiveMeetingsResult(
+        hasActiveMeetings: false,
+        count: 0,
+        meetings: [],
+        message: 'Unable to check for active meetings',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// End all active Zoom meetings for the host
+  /// This should be called before joining a new meeting when the account can only host one at a time
+  static Future<EndMeetingsResult> endActiveMeetings({String? shiftId}) async {
+    try {
+      final callable = _functions.httpsCallable('endActiveZoomMeetings');
+      final result = await callable.call({
+        if (shiftId != null) 'shiftId': shiftId,
+      });
+
+      final data = Map<String, dynamic>.from(result.data as Map);
+      return EndMeetingsResult(
+        success: data['success'] == true,
+        endedMeetings: (data['endedMeetings'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
+        errors: (data['errors'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        message: data['message']?.toString() ?? '',
+      );
+    } catch (e) {
+      AppLogger.error('ZoomService: Error ending active meetings: $e');
+      return EndMeetingsResult(
+        success: false,
+        endedMeetings: [],
+        errors: [e.toString()],
+        message: 'Failed to end active meetings',
+      );
+    }
+  }
+
   /// Check if the user can currently join the class
   /// Class is accessible from 10 minutes before shift start to 10 minutes after shift end
   static bool canJoinClass(TeachingShift shift) {
@@ -83,44 +144,129 @@ class ZoomService {
       return;
     }
 
+    final currentUser = _auth.currentUser;
+    final isTeacherForShift =
+        currentUser != null && currentUser.uid == shift.teacherId;
+
+    // For teachers: Check for active meetings that might block joining
+    // Our Zoom account can only host one meeting at a time
+    if (isTeacherForShift && context.mounted) {
+      final activeMeetings = await checkActiveMeetings(shiftId: shift.id);
+      
+      if (activeMeetings.hasActiveMeetings && context.mounted) {
+        // Show dialog asking if they want to end the active meeting
+        final shouldEndMeetings = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                SizedBox(width: 12),
+                Expanded(child: Text('Another meeting is active')),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'There ${activeMeetings.count == 1 ? 'is' : 'are'} '
+                  '${activeMeetings.count} active meeting${activeMeetings.count == 1 ? '' : 's'} '
+                  'running on the Zoom host account.\n\n'
+                  'To start your class, the previous meeting${activeMeetings.count == 1 ? '' : 's'} '
+                  'must be ended first.',
+                ),
+                const SizedBox(height: 16),
+                if (activeMeetings.meetings.isNotEmpty) ...[
+                  const Text(
+                    'Active meeting:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  ...activeMeetings.meetings.take(3).map((m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '• ${m.topic}',
+                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    ),
+                  )),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                label: const Text('End & Start My Class'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (!shouldEndMeetings) return;
+
+        // End the active meetings
+        if (context.mounted) {
+          _showInfo(context, 'Ending previous meeting...');
+        }
+        
+        final endResult = await endActiveMeetings(shiftId: shift.id);
+        
+        if (!endResult.success && context.mounted) {
+          _showError(context, 'Could not end active meeting. Please try again or contact support.');
+          return;
+        }
+        
+        // Brief pause to allow Zoom to release the host
+        await Future.delayed(const Duration(seconds: 2));
+        
+        if (context.mounted) {
+          _showSuccess(context, 'Previous meeting ended. Starting your class...');
+        }
+      }
+    }
+
     // Teachers need to open breakout rooms after joining (Zoom does not reliably support auto-open via API).
     // Show a quick instruction prompt before launching the meeting UI.
-    if (!kIsWeb) {
-      final currentUser = _auth.currentUser;
-      final isTeacherForShift =
-          currentUser != null && currentUser.uid == shift.teacherId;
-
-      if (isTeacherForShift && context.mounted) {
-        final roomName = shift.breakoutRoomName;
-        final shouldContinue = await showDialog<bool>(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('Open breakout rooms'),
-                content: Text(
-                  'After you join, you will be able to claim host and open breakout rooms.\n\n'
-                  'Steps:\n'
-                  '1) Join the class.\n'
-                  '2) Claim host when prompted.\n'
-                  '3) Tap “Breakout Rooms” → “Open All Rooms”.\n\n'
-                  '${roomName != null && roomName.isNotEmpty ? 'Your room: $roomName\n\n' : ''}'
-                  'Students will stay in the main room until rooms are opened.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: const Text('Continue'),
-                  ),
-                ],
+    if (!kIsWeb && isTeacherForShift && context.mounted) {
+      final roomName = shift.breakoutRoomName;
+      final shouldContinue = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Open breakout rooms'),
+              content: Text(
+                'After you join, you will be able to claim host and open breakout rooms.\n\n'
+                'Steps:\n'
+                '1) Join the class.\n'
+                '2) Claim host when prompted.\n'
+                '3) Tap "Breakout Rooms" → "Open All Rooms".\n\n'
+                '${roomName != null && roomName.isNotEmpty ? 'Your room: $roomName\n\n' : ''}'
+                'Students will stay in the main room until rooms are opened.',
               ),
-            ) ??
-            false;
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
 
-        if (!shouldContinue) return;
-      }
+      if (!shouldContinue) return;
     }
 
     // Use appropriate SDK based on platform
@@ -146,6 +292,28 @@ class ZoomService {
   /// Legacy method name for backward compatibility
   @Deprecated('Use canJoinClass instead')
   static bool canJoinMeeting(TeachingShift shift) => canJoinClass(shift);
+
+  /// Join the class as admin - bypasses time restrictions
+  /// Admins can join any meeting at any time for monitoring purposes
+  static Future<void> joinClassAdmin(
+    BuildContext context,
+    TeachingShift shift,
+  ) async {
+    if (!shift.hasZoomMeeting) {
+      _showError(context, 'This class does not have a meeting configured yet');
+      return;
+    }
+
+    // Admin can join anytime - no time window check
+    // Skip teacher-specific breakout room prompts
+    AppLogger.info('ZoomService: Admin joining class for shift ${shift.id}');
+
+    if (kIsWeb) {
+      await _joinMeetingWeb(context, shift);
+    } else {
+      await _joinMeeting(context, shift);
+    }
+  }
 
   /// Join the meeting using native Meeting SDK
   static Future<void> _joinMeeting(
@@ -296,11 +464,14 @@ class ZoomService {
       // If Firebase Auth email and profile email disagree, warn before joining.
       final currentAuthEmail = _auth.currentUser?.email;
       final normalizedAuthEmail = (currentAuthEmail ?? '').trim().toLowerCase();
-      final normalizedPayloadAuthEmail = (payloadAuthEmail ?? '').trim().toLowerCase();
-      final normalizedPayloadUserEmail = (payloadUserEmail ?? '').trim().toLowerCase();
+      final normalizedPayloadAuthEmail =
+          (payloadAuthEmail ?? '').trim().toLowerCase();
+      final normalizedPayloadUserEmail =
+          (payloadUserEmail ?? '').trim().toLowerCase();
 
-      final expectedEmailForRouting =
-          normalizedPayloadUserEmail.isNotEmpty ? payloadUserEmail!.trim() : (currentAuthEmail?.trim());
+      final expectedEmailForRouting = normalizedPayloadUserEmail.isNotEmpty
+          ? payloadUserEmail!.trim()
+          : (currentAuthEmail?.trim());
 
       final emailsDisagree = normalizedPayloadUserEmail.isNotEmpty &&
           normalizedAuthEmail.isNotEmpty &&
@@ -436,6 +607,83 @@ class ZoomService {
       );
     }
   }
+
+  static void _showInfo(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  static void _showSuccess(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+}
+
+/// Result of checking for active Zoom meetings
+class ActiveMeetingsResult {
+  final bool hasActiveMeetings;
+  final int count;
+  final List<ActiveMeeting> meetings;
+  final String message;
+  final String? error;
+
+  ActiveMeetingsResult({
+    required this.hasActiveMeetings,
+    required this.count,
+    required this.meetings,
+    required this.message,
+    this.error,
+  });
+}
+
+/// Represents an active Zoom meeting
+class ActiveMeeting {
+  final String id;
+  final String topic;
+  final String? startTime;
+
+  ActiveMeeting({
+    required this.id,
+    required this.topic,
+    this.startTime,
+  });
+
+  factory ActiveMeeting.fromMap(Map<String, dynamic> map) {
+    return ActiveMeeting(
+      id: map['id']?.toString() ?? '',
+      topic: map['topic']?.toString() ?? 'Unknown Meeting',
+      startTime: map['startTime']?.toString(),
+    );
+  }
+}
+
+/// Result of ending active Zoom meetings
+class EndMeetingsResult {
+  final bool success;
+  final List<String> endedMeetings;
+  final List<String> errors;
+  final String message;
+
+  EndMeetingsResult({
+    required this.success,
+    required this.endedMeetings,
+    required this.errors,
+    required this.message,
+  });
 }
 
 /// Dialog showing join progress

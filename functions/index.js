@@ -13,10 +13,14 @@ const enrollmentHandlers = require('./handlers/enrollments');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
 const zoomHandlers = require('./handlers/zoom');
+const livekitHandlers = require('./handlers/livekit');
+const testLivekitHandlers = require('./handlers/test_livekit');
+const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const testZoomHandlers = require('./handlers/test_zoom_shift');
 const zoomHostHandlers = require('./handlers/zoom_hosts');
 const testHostAllocationHandlers = require('./handlers/test_host_allocation');
 const testOverlappingShiftsHandlers = require('./handlers/test_overlapping_shifts');
+const passwordHandlers = require('./handlers/password');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -58,6 +62,8 @@ exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.joinZoomMeeting = zoomHandlers.joinZoomMeeting;
 exports.getZoomJoinUrl = zoomHandlers.getZoomJoinUrl;
 exports.getZoomMeetingSdkJoinPayload = zoomHandlers.getZoomMeetingSdkJoinPayload;
+exports.endActiveZoomMeetings = zoomHandlers.endActiveZoomMeetings;
+exports.checkActiveZoomMeetings = zoomHandlers.checkActiveZoomMeetings;
 exports.testZoomForShift = testZoomHandlers.testZoomForShift;
 exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
@@ -285,3 +291,18 @@ exports.verifyHostKeyConfig = testHybridZoomHandlers.verifyHostKeyConfig;
 exports.getShiftForTesting = testHybridZoomHandlers.getShiftForTesting;
 exports.clearAllZoomMeetings = testHybridZoomHandlers.clearAllZoomMeetings;
 exports.createTestClassForTeacher = testHybridZoomHandlers.createTestClassForTeacher;
+
+// LiveKit Video Functions
+exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;
+exports.checkLiveKitAvailability = livekitHandlers.checkLiveKitAvailability;
+
+// LiveKit Test Function (for development/testing)
+exports.testLiveKit = testLivekitHandlers.testLiveKit;
+
+// LiveKit Migration Functions (one-time use)
+exports.migrateShiftsToLiveKit = migrationLivekitHandlers.migrateShiftsToLiveKit;
+exports.revertLiveKitMigration = migrationLivekitHandlers.revertLiveKitMigration;
+
+// Password Management Functions
+exports.resetStudentPassword = passwordHandlers.resetStudentPassword;
+exports.syncAllStudentPasswords = passwordHandlers.syncAllStudentPasswords;

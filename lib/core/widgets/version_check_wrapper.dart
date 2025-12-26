@@ -18,17 +18,32 @@ class VersionCheckWrapper extends StatefulWidget {
   State<VersionCheckWrapper> createState() => _VersionCheckWrapperState();
 }
 
-class _VersionCheckWrapperState extends State<VersionCheckWrapper> {
+class _VersionCheckWrapperState extends State<VersionCheckWrapper>
+    with WidgetsBindingObserver {
   bool _updateRequired = false;
   bool _checking = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkForUpdate();
   }
 
-  Future<void> _checkForUpdate() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkForUpdate(showLoading: false);
+    }
+  }
+
+  Future<void> _checkForUpdate({bool showLoading = true}) async {
     // Only check for mobile platforms (skip web)
     if (kIsWeb) {
       setState(() {
@@ -38,6 +53,12 @@ class _VersionCheckWrapperState extends State<VersionCheckWrapper> {
     }
 
     try {
+      if (showLoading && mounted) {
+        setState(() {
+          _checking = true;
+        });
+      }
+
       final updateRequired = await VersionService.isUpdateRequired();
       if (mounted) {
         setState(() {
@@ -86,4 +107,3 @@ class _VersionCheckWrapperState extends State<VersionCheckWrapper> {
     return widget.child;
   }
 }
-

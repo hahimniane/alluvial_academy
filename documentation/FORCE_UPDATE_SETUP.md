@@ -24,7 +24,7 @@ The force update system checks the app version on startup and requires users to 
 
 ### Step 2: Add Required Parameters
 
-Add these three parameters in Firebase Remote Config:
+Add these parameters in Firebase Remote Config:
 
 #### 1. `minimum_android_version`
 - **Parameter key**: `minimum_android_version`
@@ -44,6 +44,24 @@ Add these three parameters in Firebase Remote Config:
 - **Data type**: Boolean
 - **Description**: Enable or disable force update feature globally
 
+#### 4. `android_store_url` (recommended)
+- **Parameter key**: `android_store_url`
+- **Default value**: *(empty)*
+- **Data type**: String
+- **Description**: Full Google Play listing URL to open when update is required
+
+#### 5. `ios_store_url` (recommended)
+- **Parameter key**: `ios_store_url`
+- **Default value**: *(empty)*
+- **Data type**: String
+- **Description**: Full App Store listing URL to open when update is required
+
+#### 6. `ios_app_id` (fallback)
+- **Parameter key**: `ios_app_id`
+- **Default value**: *(empty)*
+- **Data type**: String
+- **Description**: Numeric App Store app id (used only if `ios_store_url` is empty)
+
 ### Step 3: Publish Changes
 
 After adding the parameters, click **Publish changes** in Firebase Remote Config.
@@ -52,23 +70,17 @@ After adding the parameters, click **Publish changes** in Firebase Remote Config
 
 ### Android (Google Play Store)
 
-1. Open `/Users/hashimniane/Project Dev/alluvial_academy/lib/core/services/version_service.dart`
-2. Find the `getAppStoreUrl()` method
-3. The Android URL is already configured:
-   ```dart
-   return 'https://play.google.com/store/apps/details?id=com.alluvaleducationhub.alluwalacademyadmin';
-   ```
-4. Verify this matches your actual Google Play Store package name
+Set one of the following:
+
+- **Recommended**: Set Remote Config `android_store_url` to your listing URL, e.g. `https://play.google.com/store/apps/details?id=com.example.app`
+- **Fallback**: Leave `android_store_url` empty and the app will open Google Play using the installed app’s package name
 
 ### iOS (Apple App Store)
 
-1. Open `/Users/hashimniane/Project Dev/alluvial_academy/lib/core/services/version_service.dart`
-2. Find the `getAppStoreUrl()` method
-3. Replace `<YOUR_APP_STORE_ID>` with your actual App Store ID:
-   ```dart
-   return 'https://apps.apple.com/app/id<YOUR_APP_STORE_ID>';
-   ```
-4. You can find your App Store ID in App Store Connect
+Set one of the following:
+
+- **Recommended**: Set Remote Config `ios_store_url` to your listing URL, e.g. `https://apps.apple.com/app/id1234567890`
+- **Fallback**: Set Remote Config `ios_app_id` (numeric id from App Store Connect) and leave `ios_store_url` empty
 
 ## Version Format
 
@@ -160,7 +172,7 @@ Before releasing a new version:
 
 ### Remote Config not updating
 
-- Remote Config caches for 1 hour by default
+- Remote Config is configured to cache for ~5 minutes in release builds (and `0` in debug)
 - Use Firebase Console to verify the values
 - Check app logs for any errors during fetch
 
@@ -175,4 +187,3 @@ If you have issues:
 2. Review app logs for errors
 3. Verify app store URLs are correct
 4. Test with a clean install of the app
-

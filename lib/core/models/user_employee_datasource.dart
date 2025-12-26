@@ -11,6 +11,7 @@ class UserEmployeeDataSource extends DataGridSource {
     required this.onActivateUser,
     required this.onEditUser,
     required this.onDeleteUser,
+    this.onViewCredentials,
   }) {
     _employees = employees.map<DataGridRow>((e) {
       return DataGridRow(cells: [
@@ -36,6 +37,7 @@ class UserEmployeeDataSource extends DataGridSource {
   final Function(Employee) onActivateUser;
   final Function(Employee) onEditUser;
   final Function(Employee) onDeleteUser;
+  final Function(Employee)? onViewCredentials;
 
   List<DataGridRow> _employees = [];
 
@@ -77,6 +79,14 @@ class UserEmployeeDataSource extends DataGridSource {
               spacing: 4.0,
               runSpacing: 4.0,
               children: [
+                // View Credentials button - only for students
+                if (employee.userType.toLowerCase() == 'student' && onViewCredentials != null)
+                  _buildActionButton(
+                    icon: Icons.key,
+                    color: const Color(0xff06B6D4),
+                    onTap: () => onViewCredentials!(employee),
+                    tooltip: 'View Login Credentials',
+                  ),
                 // Edit button - always available for active users
                 if (employee.isActive)
                   _buildActionButton(

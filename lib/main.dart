@@ -465,8 +465,10 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     }
   }
 
-  // Helper to check if running on mobile
-  bool get _isMobile {
+  // Helper to check if running on native mobile (not web)
+  // Web browsers (mobile or desktop) should use the web dashboard flow
+  bool _isMobile(BuildContext context) {
+    // Only return true for native mobile platforms, not web browsers
     if (kIsWeb) return false;
     final platform = defaultTargetPlatform;
     return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
@@ -530,7 +532,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
         // Handle errors gracefully during auth state changes
         if (snapshot.hasError) {
           AppLogger.error('Auth state error: ${snapshot.error}');
-          return _isMobile ? const MobileLoginScreen() : const EmployeeHubApp();
+          return _isMobile(context) ? const MobileLoginScreen() : const EmployeeHubApp();
         }
         // Handle connection states properly
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -621,15 +623,15 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
-          // On mobile, use mobile dashboard; on web, use role-based dashboard
-          return _isMobile
+          // On mobile (native or mobile web), use mobile dashboard; on desktop web, use role-based dashboard
+          return _isMobile(context)
               ? const MobileDashboardScreen()
               : const RoleBasedDashboard();
         }
 
         // Otherwise, they're not signed in
-        // On mobile, show mobile login; on web, show web login
-        return _isMobile ? const MobileLoginScreen() : const EmployeeHubApp();
+        // On mobile (native or mobile web), show mobile login; on desktop web, show web login
+        return _isMobile(context) ? const MobileLoginScreen() : const EmployeeHubApp();
       },
     );
   }

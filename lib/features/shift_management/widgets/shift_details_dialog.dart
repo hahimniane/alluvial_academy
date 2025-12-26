@@ -9,6 +9,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   final VoidCallback? onPublishShift;
   final VoidCallback? onUnpublishShift;
   final VoidCallback? onClaimShift;
+  final VoidCallback? onRefresh;
   final Function(ShiftStatus)? onCorrectStatus;
 
   const ShiftDetailsDialog({
@@ -17,6 +18,7 @@ class ShiftDetailsDialog extends StatelessWidget {
     this.onPublishShift,
     this.onUnpublishShift,
     this.onClaimShift,
+    this.onRefresh,
     this.onCorrectStatus,
   });
 
@@ -318,6 +320,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                   onPressed: () {
                     Navigator.pop(context);
                     onCorrectStatus!(ShiftStatus.scheduled);
+                    onRefresh?.call();
                   },
                   icon: const Icon(Icons.refresh, size: 18),
                   label: Text(
@@ -344,6 +347,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                   onPressed: () {
                     Navigator.pop(context);
                     onPublishShift!();
+                    onRefresh?.call();
                   },
                   icon: const Icon(Icons.publish, size: 18),
                   label: Text(
@@ -367,6 +371,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                   onPressed: () {
                     Navigator.pop(context);
                     onUnpublishShift!();
+                    onRefresh?.call();
                   },
                   icon: const Icon(Icons.unpublished, size: 18),
                   label: Text(
@@ -392,6 +397,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                   onPressed: () {
                     Navigator.pop(context);
                     onClaimShift!();
+                    onRefresh?.call();
                   },
                   icon: const Icon(Icons.add_task, size: 18),
                   label: Text(
@@ -415,7 +421,10 @@ class ShiftDetailsDialog extends StatelessWidget {
 
           // Close button on the right
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              onRefresh?.call();
+            },
             child: Text(
               'Close',
               style: GoogleFonts.inter(
