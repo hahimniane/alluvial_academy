@@ -163,22 +163,45 @@ class AuthService {
   // Update last login time in Firestore
   Future<void> _updateLastLoginTime(User user) async {
     try {
-      // Query user document by email since we store users by email, not UID
-      final QuerySnapshot userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('e-mail', isEqualTo: user.email?.toLowerCase())
-          .limit(1)
-          .get();
+      final users = FirebaseFirestore.instance.collection('users');
+
+      // Prefer updating the UID document if it exists (most reliable + avoids email-case issues).
+      try {
+        final uidDoc = await users.doc(user.uid).get();
+        if (uidDoc.exists) {
+          await uidDoc.reference.update({
+            'last_login': FieldValue.serverTimestamp(),
+          });
+          AppLogger.debug('AuthService: Last login time updated for ${user.email}');
+          return;
+        }
+      } catch (_) {
+        // Ignore and fallback to legacy email lookup below.
+      }
+
+      // Legacy: lookup by email (some projects store user docs by email key).
+      final email = user.email?.toLowerCase();
+      if (email == null) return;
+
+      final QuerySnapshot userQuery =
+          await users.where('e-mail', isEqualTo: email).limit(1).get();
 
       if (userQuery.docs.isNotEmpty) {
         final userDoc = userQuery.docs.first;
         await userDoc.reference.update({
           'last_login': FieldValue.serverTimestamp(),
         });
-        AppLogger.error('AuthService: Last login time updated for ${user.email}');
+        AppLogger.debug('AuthService: Last login time updated for ${user.email}');
       } else {
-        AppLogger.error('AuthService: User document not found for ${user.email}');
+        AppLogger.debug('AuthService: User document not found for ${user.email}');
       }
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        // Not critical for normal app usage; avoid spamming error logs for roles that can't update metadata.
+        AppLogger.debug('AuthService: Skipping last login update (permission denied)');
+        return;
+      }
+      AppLogger.error('AuthService: Error updating last login time: $e');
     } catch (e) {
       AppLogger.error('AuthService: Error updating last login time: $e');
     }

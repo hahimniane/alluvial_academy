@@ -18,6 +18,7 @@ class Employee {
     required this.dateAdded,
     required this.lastLogin,
     required this.documentId, // Add document ID field
+    this.studentCode = '',
     this.isAdminTeacher = false,
     this.isActive = true,
   });
@@ -31,6 +32,9 @@ class Employee {
   final String title;
   final String employmentStartDate;
   final String kioskCode;
+
+  /// Student login/ID code (e.g. `first.last`) when available.
+  final String studentCode;
   final String dateAdded;
   final String lastLogin;
   final String documentId; // Store Firestore document ID
@@ -122,6 +126,16 @@ class EmployeeDataSource extends DataGridSource {
         return kioskCode;
       }
 
+      String getStudentCode() {
+        if (userType != 'student') return '';
+        final raw =
+            data['student_code'] ?? data['studentCode'] ?? data['student_id'];
+        final code = raw == null ? '' : raw.toString().trim();
+        if (code.isNotEmpty) return code;
+        // Fallback so the UI can still disambiguate students with similar names.
+        return getKioskCode();
+      }
+
       return Employee(
         firstName: data['first_name'] ?? '',
         lastName: data['last_name'] ?? '',
@@ -132,6 +146,7 @@ class EmployeeDataSource extends DataGridSource {
         title: data['title'] ?? '',
         employmentStartDate: formatTimestamp(data['employment_start_date']),
         kioskCode: getKioskCode(),
+        studentCode: getStudentCode(),
         dateAdded: formatTimestamp(data['date_added']),
         lastLogin: formatTimestamp(data['last_login']),
         documentId: doc.id, // Store the document ID

@@ -27,7 +27,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
   bool _isLoading = true;
   bool _hasDualRoles = false;
   bool _isSwitching = false;
-  StreamSubscription<QuerySnapshot>? _userSubscription;
+  StreamSubscription? _userSubscription;
 
   @override
   void initState() {
@@ -38,7 +38,18 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
 
   @override
   void dispose() {
-    _userSubscription?.cancel();
+    final subscription = _userSubscription;
+    _userSubscription = null;
+
+    if (subscription != null) {
+      try {
+        subscription.cancel().catchError((e, st) {
+          AppLogger.error('RoleSwitcher: error cancelling user listener: $e');
+        });
+      } catch (e) {
+        AppLogger.error('RoleSwitcher: error cancelling user listener: $e');
+      }
+    }
     super.dispose();
   }
 
@@ -66,65 +77,104 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
     }
   }
 
-  void _setupUserListener() {
+  Future<void> _setupUserListener() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user?.email == null) return;
+    if (user == null) return;
+
+    final email = user.email?.toLowerCase();
+    final uid = user.uid;
+
+    // Prefer UID doc listener (most reliable) and fallback to email query for legacy users.
+    bool shouldUseUidDoc = false;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      shouldUseUidDoc = doc.exists;
+    } catch (e) {
+      // If UID lookup fails, we'll attempt the email query below.
+      AppLogger.error('RoleSwitcher: error checking user doc by uid: $e');
+    }
+
+    if (!mounted) return;
 
     // Listen to changes in the user's document
+    void handleUserData(Map<String, dynamic>? userData) {
+      if (userData == null) return;
+
+      final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
+      final userType = userData['user_type'] as String?;
+
+      // Check if dual role status changed
+      // Any admin has dual modes (admin + teacher). Teachers with is_admin_teacher also have dual roles.
+      final newHasDualRoles =
+          (userType == 'admin') || (isAdminTeacher && userType == 'teacher');
+
+      if (newHasDualRoles != _hasDualRoles) {
+        AppLogger.debug(
+            'Role change detected: hasDualRoles changed from $_hasDualRoles to $newHasDualRoles');
+
+        // Reload role data when dual role status changes
+        _loadRoleData();
+
+        // If user lost admin privileges, notify parent
+        if (!newHasDualRoles && _hasDualRoles) {
+          // User lost dual-role privileges - switch back to primary role
+          UserRoleService.switchActiveRole(userType ?? 'teacher')
+              .then((success) {
+            if (success && mounted) {
+              widget.onRoleChanged?.call(userType ?? 'teacher');
+
+              // Show notification
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('Admin privileges have been revoked'),
+                    ],
+                  ),
+                  backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          });
+        }
+      }
+    }
+
+    if (shouldUseUidDoc) {
+      _userSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .listen(
+        (docSnapshot) {
+          handleUserData(docSnapshot.data());
+        },
+        onError: (error) {
+          AppLogger.error('Error listening to user changes (uid doc): $error');
+        },
+      );
+      return;
+    }
+
+    if (email == null) return;
+
     _userSubscription = FirebaseFirestore.instance
         .collection('users')
-        .where('e-mail', isEqualTo: user!.email!.toLowerCase())
+        .where('e-mail', isEqualTo: email)
         .limit(1)
         .snapshots()
         .listen(
       (querySnapshot) {
         if (querySnapshot.docs.isNotEmpty) {
-          final userData = querySnapshot.docs.first.data();
-          final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
-          final userType = userData['user_type'] as String?;
-
-          // Check if dual role status changed
-          // Any admin has dual modes (admin + teacher). Teachers with is_admin_teacher also have dual roles.
-          final newHasDualRoles = (userType == 'admin') || (isAdminTeacher && userType == 'teacher');
-
-          if (newHasDualRoles != _hasDualRoles) {
-            AppLogger.debug(
-                'Role change detected: hasDualRoles changed from $_hasDualRoles to $newHasDualRoles');
-
-            // Reload role data when dual role status changes
-            _loadRoleData();
-
-            // If user lost admin privileges, notify parent
-            if (!newHasDualRoles && _hasDualRoles) {
-              // User lost dual-role privileges - switch back to primary role
-              UserRoleService.switchActiveRole(userType ?? 'teacher')
-                  .then((success) {
-                if (success && mounted) {
-                  widget.onRoleChanged?.call(userType ?? 'teacher');
-
-                  // Show notification
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Row(
-                        children: [
-                          Icon(Icons.info, color: Colors.white, size: 20),
-                          SizedBox(width: 8),
-                          Text('Admin privileges have been revoked'),
-                        ],
-                      ),
-                      backgroundColor: Colors.orange,
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 3),
-                    ),
-                  );
-                }
-              });
-            }
-          }
+          handleUserData(querySnapshot.docs.first.data());
         }
       },
       onError: (error) {
-        AppLogger.error('Error listening to user changes: $error');
+        AppLogger.error('Error listening to user changes (email query): $error');
       },
     );
   }

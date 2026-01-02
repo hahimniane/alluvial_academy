@@ -74,11 +74,15 @@ const generateAccessToken = async (roomName, options) => {
 
   const ttlSeconds = options.ttlSeconds || 600; // Default 10 minutes
 
+  const metadata =
+    options.metadata == null ? undefined : JSON.stringify(options.metadata);
+
   // Create access token with the official SDK
   const at = new AccessToken(apiKey, apiSecret, {
     identity: options.identity,
     name: options.name || options.identity,
     ttl: `${ttlSeconds}s`, // TTL as string like "600s"
+    metadata,
   });
 
   // Build video grant as plain object

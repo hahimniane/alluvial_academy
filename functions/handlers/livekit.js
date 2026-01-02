@@ -6,6 +6,7 @@
 
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { RoomServiceClient, TrackType } = require('livekit-server-sdk');
 const { getLiveKitConfig, isLiveKitConfigured } = require('../services/livekit/config');
 const { generateTokenForRole } = require('../services/livekit/token');
 
@@ -28,21 +29,6 @@ const getUserDisplayName = async (uid) => {
 };
 
 /**
- * Helper: Get user email from Firestore
- */
-const getUserEmail = async (uid) => {
-  if (!uid) return null;
-  try {
-    const userDoc = await admin.firestore().collection('users').doc(uid).get();
-    if (!userDoc.exists) return null;
-    const data = userDoc.data();
-    return data['e-mail'] || data.email || data.Email || data.mail || null;
-  } catch (_) {
-    return null;
-  }
-};
-
-/**
  * Helper: Check if user is admin
  */
 const isUserAdmin = async (uid) => {
@@ -53,15 +39,103 @@ const isUserAdmin = async (uid) => {
     const data = userDoc.data();
     return (
       data.role === 'admin' ||
+      data.role === 'super_admin' ||
       data.user_type === 'admin' ||
+      data.user_type === 'super_admin' ||
       data.userType === 'admin' ||
+      data.userType === 'super_admin' ||
       data.is_admin === true ||
       data.isAdmin === true ||
+      data.is_super_admin === true ||
+      data.isSuperAdmin === true ||
       data.is_admin_teacher === true
     );
   } catch (_) {
     return false;
   }
+};
+
+/**
+ * Helper: Convert ws/wss LiveKit URL to http/https for server APIs.
+ *
+ * LiveKit clients connect via ws/wss, but RoomServiceClient expects http(s).
+ */
+const normalizeLiveKitHostForServerApi = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('wss://')) return `https://${url.slice('wss://'.length)}`;
+  if (url.startsWith('ws://')) return `http://${url.slice('ws://'.length)}`;
+  return url;
+};
+
+/**
+ * Helper: Load a shift and validate LiveKit provider.
+ */
+const getLiveKitShiftOrThrow = async (shiftId) => {
+  const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
+  if (!shiftDoc.exists) {
+    throw new HttpsError('not-found', 'Shift not found');
+  }
+
+  const shiftData = shiftDoc.data() || {};
+
+  const normalizeProvider = (raw) => {
+    if (typeof raw !== 'string') return null;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === 'livekit' || normalized === 'zoom') return normalized;
+    return null;
+  };
+
+  const hasZoomData = () => {
+    const zoomMeetingId = shiftData.zoom_meeting_id;
+    const hubMeetingId = shiftData.hubMeetingId || shiftData.hub_meeting_id;
+    const encryptedJoinUrl = shiftData.zoom_encrypted_join_url || shiftData.zoomEncryptedJoinUrl;
+    return (
+      (typeof zoomMeetingId === 'string' && zoomMeetingId.trim().length > 0) ||
+      (typeof hubMeetingId === 'string' && hubMeetingId.trim().length > 0) ||
+      (typeof encryptedJoinUrl === 'string' && encryptedJoinUrl.trim().length > 0)
+    );
+  };
+
+  const inferredProvider = () => {
+    const explicit =
+      normalizeProvider(shiftData.video_provider) || normalizeProvider(shiftData.videoProvider);
+    if (explicit) return explicit;
+
+    if (hasZoomData()) return 'zoom';
+
+    const category = typeof shiftData.shift_category === 'string' ? shiftData.shift_category : 'teaching';
+    if (category === 'teaching') return 'livekit';
+
+    return 'zoom';
+  };
+
+  const videoProvider = inferredProvider();
+  if (videoProvider !== 'livekit') {
+    throw new HttpsError('failed-precondition', 'This shift does not use LiveKit video');
+  }
+
+  const teacherId = shiftData.teacher_id;
+  const rawStudentIds = shiftData.student_ids;
+  const studentIds = Array.isArray(rawStudentIds) ? rawStudentIds : [];
+  const roomName = shiftData.livekit_room_name || `shift_${shiftId}`;
+
+  return { shiftData, teacherId, studentIds, roomName, shiftRef: shiftDoc.ref };
+};
+
+/**
+ * Helper: Enforce that caller is a moderator (teacher or admin).
+ */
+const assertLiveKitModeratorOrThrow = async ({
+  uid,
+  teacherId,
+  isAdmin,
+}) => {
+  const isTeacher = uid === teacherId;
+  if (!isTeacher && !isAdmin) {
+    throw new HttpsError('permission-denied', 'Only teachers/admins can manage this class');
+  }
+  return { isTeacher };
 };
 
 /**
@@ -97,24 +171,9 @@ const getLiveKitJoinToken = onCall({
   }
 
   // Get shift document
-  const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
-  if (!shiftDoc.exists) {
-    console.log('[LiveKit] Shift not found:', shiftId, 'uid:', uid);
-    throw new HttpsError('not-found', 'Shift not found');
-  }
-
-  const shiftData = shiftDoc.data() || {};
-
-  // Check video provider
-  const videoProvider = shiftData.video_provider || 'zoom';
-  if (videoProvider !== 'livekit') {
-    console.log('[LiveKit] Shift uses different video provider:', videoProvider, 'shiftId:', shiftId);
-    throw new HttpsError('failed-precondition', 'This shift does not use LiveKit video');
-  }
+  const { shiftData, teacherId, studentIds, roomName } = await getLiveKitShiftOrThrow(shiftId);
 
   // Authorization check
-  const teacherId = shiftData.teacher_id;
-  const studentIds = shiftData.student_ids || [];
   const isTeacher = uid === teacherId;
   const isStudent = studentIds.includes(uid);
   const isAdmin = await isUserAdmin(uid);
@@ -132,6 +191,11 @@ const getLiveKitJoinToken = onCall({
     userRole = 'teacher';
   } else {
     userRole = 'student';
+  }
+
+  const roomLocked = shiftData.livekit_locked === true;
+  if (roomLocked && userRole === 'student') {
+    throw new HttpsError('failed-precondition', 'This class is locked by the teacher.');
   }
 
   // Parse shift times for time window check
@@ -161,12 +225,8 @@ const getLiveKitJoinToken = onCall({
     throw new HttpsError('failed-precondition', 'The class window has ended');
   }
 
-  // Generate room name
-  const roomName = shiftData.livekit_room_name || `shift_${shiftId}`;
-
   // Get user details
   const displayName = await getUserDisplayName(uid);
-  const userEmail = await getUserEmail(uid);
 
   // Token TTL: from now until 15 minutes after shift end
   const ttlSeconds = Math.max(600, Math.floor((allowedEndMs + 5 * 60 * 1000 - now.getTime()) / 1000));
@@ -184,10 +244,7 @@ const getLiveKitJoinToken = onCall({
     userRole,
     uid,
     displayName,
-    {
-      email: userEmail,
-      shiftId: shiftId,
-    },
+    {},
     ttlSeconds
   );
   
@@ -228,6 +285,7 @@ const getLiveKitJoinToken = onCall({
     userRole: userRole,
     displayName: displayName,
     expiresInSeconds: ttlSeconds,
+    roomLocked,
     joinWindow: {
       allowedStartIso: new Date(allowedStartMs).toISOString(),
       allowedEndIso: new Date(allowedEndMs).toISOString(),
@@ -280,7 +338,39 @@ const checkLiveKitAvailability = onCall({
   }
 
   const shiftData = shiftDoc.data() || {};
-  const videoProvider = shiftData.video_provider || 'zoom';
+  const normalizeProvider = (raw) => {
+    if (typeof raw !== 'string') return null;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === 'livekit' || normalized === 'zoom') return normalized;
+    return null;
+  };
+
+  const hasZoomData = () => {
+    const zoomMeetingId = shiftData.zoom_meeting_id;
+    const hubMeetingId = shiftData.hubMeetingId || shiftData.hub_meeting_id;
+    const encryptedJoinUrl = shiftData.zoom_encrypted_join_url || shiftData.zoomEncryptedJoinUrl;
+    return (
+      (typeof zoomMeetingId === 'string' && zoomMeetingId.trim().length > 0) ||
+      (typeof hubMeetingId === 'string' && hubMeetingId.trim().length > 0) ||
+      (typeof encryptedJoinUrl === 'string' && encryptedJoinUrl.trim().length > 0)
+    );
+  };
+
+  const inferredProvider = () => {
+    const explicit =
+      normalizeProvider(shiftData.video_provider) || normalizeProvider(shiftData.videoProvider);
+    if (explicit) return explicit;
+
+    if (hasZoomData()) return 'zoom';
+
+    const category = typeof shiftData.shift_category === 'string' ? shiftData.shift_category : 'teaching';
+    if (category === 'teaching') return 'livekit';
+
+    return 'zoom';
+  };
+
+  const videoProvider = inferredProvider();
 
   return {
     available: videoProvider === 'livekit',
@@ -292,8 +382,409 @@ const checkLiveKitAvailability = onCall({
   };
 });
 
+/**
+ * Callable function: Get current room participants for a shift (presence preview)
+ *
+ * Useful for admins/teachers to see who is currently in the class before joining.
+ *
+ * @param {Object} request - Firebase callable request
+ * @param {Object} request.data - Request data
+ * @param {string} request.data.shiftId - The shift ID to inspect
+ * @returns {Object} Room presence info
+ */
+const getLiveKitRoomPresence = onCall({
+  secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
+}, async (request) => {
+  const shiftId = request.data?.shiftId;
+  const uid = request.auth?.uid;
+
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+
+  if (!isLiveKitConfigured()) {
+    throw new HttpsError('unavailable', 'LiveKit video is not configured');
+  }
+
+  const { shiftData, teacherId, studentIds, roomName } = await getLiveKitShiftOrThrow(shiftId);
+
+  const isTeacher = uid === teacherId;
+  const isStudent = studentIds.includes(uid);
+  const isAdmin = await isUserAdmin(uid);
+
+  if (!isTeacher && !isStudent && !isAdmin) {
+    throw new HttpsError('permission-denied', 'You are not allowed to view this class');
+  }
+
+  // Time window check (match join window to avoid leaking presence outside class time)
+  const shiftStart = shiftData.shift_start?.toDate
+    ? shiftData.shift_start.toDate()
+    : new Date(shiftData.shift_start);
+  const shiftEnd = shiftData.shift_end?.toDate
+    ? shiftData.shift_end.toDate()
+    : new Date(shiftData.shift_end);
+
+  if (Number.isNaN(shiftStart.getTime()) || Number.isNaN(shiftEnd.getTime())) {
+    throw new HttpsError('failed-precondition', 'Shift timing is invalid');
+  }
+
+  const now = new Date();
+  const allowedStartMs = shiftStart.getTime() - 10 * 60 * 1000;
+  const allowedEndMs = shiftEnd.getTime() + 10 * 60 * 1000;
+
+  if (now.getTime() < allowedStartMs || now.getTime() > allowedEndMs) {
+    return {
+      success: true,
+      roomName,
+      participantCount: 0,
+      participants: [],
+      inJoinWindow: false,
+      generatedAtIso: now.toISOString(),
+    };
+  }
+
+  const livekitConfig = getLiveKitConfig();
+  const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+
+  const roomService = new RoomServiceClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+
+  let participantInfos = [];
+  try {
+    participantInfos = await roomService.listParticipants(roomName);
+  } catch (err) {
+    const rawMessage = `${err?.message || ''} ${String(err || '')}`.trim();
+    const message = rawMessage.toLowerCase();
+    const code = err?.code;
+    const status = err?.status;
+
+    // Treat room-not-found as empty room (room is created on-demand).
+    if (
+      code === 5 ||
+      code === 'not_found' ||
+      status === 404 ||
+      message.includes('not found') ||
+      message.includes('notfound') ||
+      message.includes('does not exist') ||
+      message.includes('room does not exist')
+    ) {
+      participantInfos = [];
+    } else {
+      console.error('[LiveKit] Failed to list participants:', err);
+      throw new HttpsError('internal', 'Failed to fetch room participants');
+    }
+  }
+
+  // Sort by joined time when available.
+  participantInfos.sort((a, b) => {
+    const aMs = a.joinedAtMs || 0n;
+    const bMs = b.joinedAtMs || 0n;
+    if (aMs === bMs) return 0;
+    return aMs < bMs ? -1 : 1;
+  });
+
+  const participants = participantInfos
+    .filter((p) => p && p.identity)
+    .map((p) => {
+      const identity = p.identity;
+      const role = identity === teacherId
+        ? 'teacher'
+        : (studentIds.includes(identity) ? 'student' : 'other');
+
+      const joinedAtMs = p.joinedAtMs || 0n;
+      const joinedAtIso = joinedAtMs > 0n
+        ? new Date(Number(joinedAtMs)).toISOString()
+        : null;
+
+      return {
+        identity,
+        name: p.name || identity,
+        role,
+        joinedAtIso,
+        isPublisher: p.isPublisher === true,
+      };
+    });
+
+  return {
+    success: true,
+    roomName,
+    participantCount: participants.length,
+    participants,
+    inJoinWindow: true,
+    generatedAtIso: now.toISOString(),
+  };
+});
+
+/**
+ * Callable function: Mute a single participant's microphone tracks.
+ *
+ * @param {Object} request.data.shiftId
+ * @param {Object} request.data.identity - Participant identity to mute
+ * @param {Object} request.data.muted - Optional boolean (default true)
+ */
+const muteLiveKitParticipant = onCall({
+  secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
+}, async (request) => {
+  const shiftId = request.data?.shiftId;
+  const targetIdentity = request.data?.identity;
+  const mutedRaw = request.data?.muted;
+  const uid = request.auth?.uid;
+
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+  if (!targetIdentity || typeof targetIdentity !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid participant identity');
+  }
+  if (mutedRaw !== undefined && typeof mutedRaw !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'muted must be a boolean');
+  }
+  if (!isLiveKitConfigured()) {
+    throw new HttpsError('unavailable', 'LiveKit video is not configured');
+  }
+  if (targetIdentity === uid) {
+    throw new HttpsError('failed-precondition', 'You cannot mute yourself');
+  }
+
+  const muted = mutedRaw === undefined ? true : mutedRaw;
+
+  const { teacherId, roomName } = await getLiveKitShiftOrThrow(shiftId);
+  const isAdmin = await isUserAdmin(uid);
+  const { isTeacher } = await assertLiveKitModeratorOrThrow({ uid, teacherId, isAdmin });
+  if (isTeacher && targetIdentity === teacherId) {
+    throw new HttpsError('permission-denied', 'Teachers cannot mute other moderators');
+  }
+
+  const livekitConfig = getLiveKitConfig();
+  const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+  const roomService = new RoomServiceClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+
+  let participant;
+  try {
+    participant = await roomService.getParticipant(roomName, targetIdentity);
+  } catch (err) {
+    const rawMessage = `${err?.message || ''} ${String(err || '')}`.trim().toLowerCase();
+    const code = err?.code;
+    const status = err?.status;
+    if (
+      code === 5 ||
+      code === 'not_found' ||
+      status === 404 ||
+      rawMessage.includes('not found') ||
+      rawMessage.includes('does not exist')
+    ) {
+      throw new HttpsError('not-found', 'Participant not found');
+    }
+    console.error('[LiveKit] Failed to fetch participant:', err);
+    throw new HttpsError('internal', 'Failed to fetch participant');
+  }
+
+  const audioTracks = (participant.tracks || []).filter(
+    (t) => t && t.type === TrackType.AUDIO && t.sid && (muted ? t.muted !== true : t.muted === true)
+  );
+
+  for (const track of audioTracks) {
+    await roomService.mutePublishedTrack(roomName, targetIdentity, track.sid, muted);
+  }
+
+  return {
+    success: true,
+    roomName,
+    identity: targetIdentity,
+    muted,
+    mutedTracks: audioTracks.length,
+    updatedTracks: audioTracks.length,
+  };
+});
+
+/**
+ * Callable function: Mute all participants (except caller).
+ *
+ * @param {Object} request.data.shiftId
+ */
+const muteAllLiveKitParticipants = onCall({
+  secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
+}, async (request) => {
+  const shiftId = request.data?.shiftId;
+  const uid = request.auth?.uid;
+
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+  if (!isLiveKitConfigured()) {
+    throw new HttpsError('unavailable', 'LiveKit video is not configured');
+  }
+
+  const { teacherId, roomName } = await getLiveKitShiftOrThrow(shiftId);
+  const isAdmin = await isUserAdmin(uid);
+  const { isTeacher } = await assertLiveKitModeratorOrThrow({ uid, teacherId, isAdmin });
+
+  const livekitConfig = getLiveKitConfig();
+  const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+  const roomService = new RoomServiceClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+
+  let participants = [];
+  try {
+    participants = await roomService.listParticipants(roomName);
+  } catch (err) {
+    const rawMessage = `${err?.message || ''} ${String(err || '')}`.trim().toLowerCase();
+    const code = err?.code;
+    const status = err?.status;
+    if (
+      code === 5 ||
+      code === 'not_found' ||
+      status === 404 ||
+      rawMessage.includes('not found') ||
+      rawMessage.includes('does not exist')
+    ) {
+      participants = [];
+    } else {
+      console.error('[LiveKit] Failed to list participants:', err);
+      throw new HttpsError('internal', 'Failed to fetch room participants');
+    }
+  }
+
+  let mutedTracks = 0;
+  let mutedParticipants = 0;
+
+  for (const participant of participants) {
+    const identity = participant?.identity;
+    if (!identity) continue;
+    if (identity === uid) continue; // never mute caller
+    if (isTeacher && identity === teacherId) continue; // teacher can't mute other moderators
+
+    const audioTracks = (participant.tracks || []).filter(
+      (t) => t && t.type === TrackType.AUDIO && t.sid && t.muted !== true
+    );
+    if (audioTracks.length === 0) continue;
+
+    for (const track of audioTracks) {
+      await roomService.mutePublishedTrack(roomName, identity, track.sid, true);
+      mutedTracks += 1;
+    }
+    mutedParticipants += 1;
+  }
+
+  return {
+    success: true,
+    roomName,
+    mutedParticipants,
+    mutedTracks,
+  };
+});
+
+/**
+ * Callable function: Kick a participant from a room.
+ *
+ * @param {Object} request.data.shiftId
+ * @param {Object} request.data.identity
+ */
+const kickLiveKitParticipant = onCall({
+  secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
+}, async (request) => {
+  const shiftId = request.data?.shiftId;
+  const targetIdentity = request.data?.identity;
+  const uid = request.auth?.uid;
+
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+  if (!targetIdentity || typeof targetIdentity !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid participant identity');
+  }
+  if (!isLiveKitConfigured()) {
+    throw new HttpsError('unavailable', 'LiveKit video is not configured');
+  }
+  if (targetIdentity === uid) {
+    throw new HttpsError('failed-precondition', 'You cannot remove yourself');
+  }
+
+  const { teacherId, roomName } = await getLiveKitShiftOrThrow(shiftId);
+  const isAdmin = await isUserAdmin(uid);
+  const { isTeacher } = await assertLiveKitModeratorOrThrow({ uid, teacherId, isAdmin });
+  if (isTeacher && targetIdentity === teacherId) {
+    throw new HttpsError('permission-denied', 'Teachers cannot remove other moderators');
+  }
+
+  const livekitConfig = getLiveKitConfig();
+  const host = normalizeLiveKitHostForServerApi(livekitConfig.url);
+  const roomService = new RoomServiceClient(host, livekitConfig.apiKey, livekitConfig.apiSecret);
+
+  try {
+    await roomService.removeParticipant(roomName, targetIdentity);
+  } catch (err) {
+    const rawMessage = `${err?.message || ''} ${String(err || '')}`.trim().toLowerCase();
+    const code = err?.code;
+    const status = err?.status;
+    if (
+      code === 5 ||
+      code === 'not_found' ||
+      status === 404 ||
+      rawMessage.includes('not found') ||
+      rawMessage.includes('does not exist')
+    ) {
+      throw new HttpsError('not-found', 'Participant not found');
+    }
+    console.error('[LiveKit] Failed to remove participant:', err);
+    throw new HttpsError('internal', 'Failed to remove participant');
+  }
+
+  return {
+    success: true,
+    roomName,
+    identity: targetIdentity,
+  };
+});
+
+/**
+ * Callable function: Lock/unlock a class room (prevents students from joining).
+ *
+ * @param {Object} request.data.shiftId
+ * @param {Object} request.data.locked
+ */
+const setLiveKitRoomLock = onCall({
+  secrets: ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'],
+}, async (request) => {
+  const shiftId = request.data?.shiftId;
+  const locked = request.data?.locked;
+  const uid = request.auth?.uid;
+
+  if (!uid) throw new HttpsError('unauthenticated', 'Authentication required');
+  if (!shiftId || typeof shiftId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid shiftId');
+  }
+  if (typeof locked !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'Missing or invalid locked flag');
+  }
+
+  const { teacherId, shiftRef } = await getLiveKitShiftOrThrow(shiftId);
+  const isAdmin = await isUserAdmin(uid);
+  await assertLiveKitModeratorOrThrow({ uid, teacherId, isAdmin });
+
+  await shiftRef.update({
+    livekit_locked: locked,
+    livekit_locked_by: uid,
+    livekit_locked_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return {
+    success: true,
+    locked,
+  };
+});
+
 module.exports = {
   getLiveKitJoinToken,
   checkLiveKitAvailability,
+  getLiveKitRoomPresence,
+  muteLiveKitParticipant,
+  muteAllLiveKitParticipants,
+  kickLiveKitParticipant,
+  setLiveKitRoomLock,
 };
-

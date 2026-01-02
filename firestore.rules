@@ -436,7 +436,9 @@ service cloud.firestore {
 	    
 
 	    // Tasks - users can read tasks assigned to them, admins can read all
-
+	    // Note: Current rule requires user's UID to be in assignedTo array
+	    // Parents reading their children's tasks may need Cloud Function or rule adjustment
+	    // (since parent UID is not in assignedTo, but child's UID is)
 	    match /tasks/{taskId} {
 
 	      allow read: if isSignedIn() && 
@@ -580,6 +582,38 @@ service cloud.firestore {
       match /{subcollection=**} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
+    }
+
+    // Invoices - parents can read their own, admins can read/write all
+    match /invoices/{invoiceId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.parent_id == request.auth.uid || isAdmin());
+      
+      allow create: if isAdmin();
+      
+      allow update: if isAdmin() || 
+                       (isSignedIn() && 
+                        resource.data.parent_id == request.auth.uid &&
+                        // Parents can only update payment_method_id field
+                        request.resource.data.diff(resource.data).changedKeys().hasOnly(['payment_method_id']));
+      
+      allow delete: if isAdmin();
+    }
+
+    // Payments - parents can read their own, only Cloud Functions create/update
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.parent_id == request.auth.uid || isAdmin());
+      
+      // Only Cloud Functions can create/update payments (client-side blocked)
+      allow create, update: if false;
+      
+      allow delete: if isAdmin();
+    }
+
+    // Payment methods - parents manage their own subcollection
+    match /users/{userId}/payment_methods/{methodId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // All other collections - admin only (fallback rule)

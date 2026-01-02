@@ -21,6 +21,7 @@ const zoomHostHandlers = require('./handlers/zoom_hosts');
 const testHostAllocationHandlers = require('./handlers/test_host_allocation');
 const testOverlappingShiftsHandlers = require('./handlers/test_overlapping_shifts');
 const passwordHandlers = require('./handlers/password');
+const paymentHandlers = require('./handlers/payments');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -68,6 +69,14 @@ exports.testZoomForShift = testZoomHandlers.testZoomForShift;
 exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
 exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
+
+// Parent billing (invoices & payments)
+exports.createInvoice = onCall(paymentHandlers.createInvoice);
+exports.getParentInvoices = onCall(paymentHandlers.getParentInvoices);
+exports.createPaymentSession = onCall(paymentHandlers.createPaymentSession);
+exports.getPaymentHistory = onCall(paymentHandlers.getPaymentHistory);
+exports.handlePayoneerWebhook = functions.https.onRequest(paymentHandlers.handlePayoneerWebhook);
+exports.generateInvoicesForPeriod = paymentHandlers.generateInvoicesForPeriod;
 
 // Zoom host management functions (multi-host meeting distribution)
 exports.listZoomHosts = zoomHostHandlers.listZoomHosts;
@@ -295,6 +304,11 @@ exports.createTestClassForTeacher = testHybridZoomHandlers.createTestClassForTea
 // LiveKit Video Functions
 exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;
 exports.checkLiveKitAvailability = livekitHandlers.checkLiveKitAvailability;
+exports.getLiveKitRoomPresence = livekitHandlers.getLiveKitRoomPresence;
+exports.muteLiveKitParticipant = livekitHandlers.muteLiveKitParticipant;
+exports.muteAllLiveKitParticipants = livekitHandlers.muteAllLiveKitParticipants;
+exports.kickLiveKitParticipant = livekitHandlers.kickLiveKitParticipant;
+exports.setLiveKitRoomLock = livekitHandlers.setLiveKitRoomLock;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

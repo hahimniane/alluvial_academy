@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/teaching_shift.dart';
 import '../enums/shift_enums.dart';
+import '../utils/performance_logger.dart';
 import 'location_service.dart';
 import 'shift_service.dart';
 
@@ -92,8 +93,9 @@ class ShiftTimesheetService {
         // Allow clock-in 1 minute before shift start until shift end
         // Use inclusive comparison (!isBefore and !isAfter) to include exact start/end times
         // Add 1 minute buffer to start time to allow early clock-in
-        final bufferedStartUtc = clockInWindowUtc.subtract(const Duration(minutes: 1));
-        
+        final bufferedStartUtc =
+            clockInWindowUtc.subtract(const Duration(minutes: 1));
+
         if (!nowUtc.isBefore(bufferedStartUtc) &&
             !nowUtc.isAfter(clockOutWindowUtc)) {
           AppLogger.debug(
@@ -111,16 +113,18 @@ class ShiftTimesheetService {
         // Check if we're in the programming window (1 minute before start) or shift has started
         final nowUtc = DateTime.now().toUtc();
         final shiftStartUtc = shift.shiftStart.toUtc();
-        final programmingWindowStart = shiftStartUtc.subtract(const Duration(minutes: 1));
+        final programmingWindowStart =
+            shiftStartUtc.subtract(const Duration(minutes: 1));
 
         // Can program clock-in: within 1 minute before shift start
         final canProgramClockIn = !nowUtc.isBefore(programmingWindowStart) &&
-                                 nowUtc.isBefore(shiftStartUtc);
-        
+            nowUtc.isBefore(shiftStartUtc);
+
         // Can clock in NOW: shift has started (current time is at or after shift start)
         final canClockInNow = !nowUtc.isBefore(shiftStartUtc);
 
-        AppLogger.debug('ShiftTimesheetService: Clock-in status for shift ${shift.id}:');
+        AppLogger.debug(
+            'ShiftTimesheetService: Clock-in status for shift ${shift.id}:');
         AppLogger.debug('  - canProgramClockIn: $canProgramClockIn');
         AppLogger.debug('  - canClockInNow: $canClockInNow');
         AppLogger.debug('  - nowUtc: $nowUtc');
@@ -129,7 +133,8 @@ class ShiftTimesheetService {
         return {
           'shift': shift,
           'canClockIn': canClockInNow, // TRUE when shift has started
-          'canProgramClockIn': canProgramClockIn, // Can program clock-in (before shift starts)
+          'canProgramClockIn':
+              canProgramClockIn, // Can program clock-in (before shift starts)
           'canClockOut': false,
           'status': 'scheduled',
           'message': canClockInNow
@@ -174,10 +179,12 @@ class ShiftTimesheetService {
       // Validate that we're within the programming window (1 minute before start)
       final shift = await _validateShiftForClockIn(teacherId, shiftId);
       if (shift == null) {
-        AppLogger.error('ShiftTimesheetService: ❌ Cannot program clock-in - outside programming window');
+        AppLogger.error(
+            'ShiftTimesheetService: ❌ Cannot program clock-in - outside programming window');
         return {
           'success': false,
-          'message': 'Can only program clock-in within 1 minute before shift start',
+          'message':
+              'Can only program clock-in within 1 minute before shift start',
           'shift': null,
         };
       }
@@ -213,19 +220,24 @@ class ShiftTimesheetService {
       };
 
       // Store in a new collection for programmed clock-ins
-      final docRef = await _firestore.collection('programmed_clock_ins').add(programmedData);
+      final docRef = await _firestore
+          .collection('programmed_clock_ins')
+          .add(programmedData);
 
-      AppLogger.debug('ShiftTimesheetService: ✅ Clock-in programmed successfully: ${docRef.id}');
+      AppLogger.debug(
+          'ShiftTimesheetService: ✅ Clock-in programmed successfully: ${docRef.id}');
 
       return {
         'success': true,
-        'message': 'Clock-in programmed for ${shift.displayName} at ${DateFormat('h:mm a').format(shift.shiftStart)}',
+        'message':
+            'Clock-in programmed for ${shift.displayName} at ${DateFormat('h:mm a').format(shift.shiftStart)}',
         'shift': shift,
         'programmedId': docRef.id,
         'executionTime': shift.shiftStart,
       };
     } catch (e) {
-      AppLogger.error('ShiftTimesheetService: ❌ Error programming clock-in: $e');
+      AppLogger.error(
+          'ShiftTimesheetService: ❌ Error programming clock-in: $e');
       return {
         'success': false,
         'message': 'Error programming clock-in: $e',
@@ -237,21 +249,25 @@ class ShiftTimesheetService {
   /// Execute programmed clock-ins (called by cloud function at scheduled times)
   static Future<void> executeProgrammedClockIns() async {
     try {
-      AppLogger.debug('ShiftTimesheetService: Executing programmed clock-ins...');
+      AppLogger.debug(
+          'ShiftTimesheetService: Executing programmed clock-ins...');
 
       final now = DateTime.now().toUtc();
-      final startWindow = now.subtract(const Duration(seconds: 30)); // 30 seconds buffer
+      final startWindow =
+          now.subtract(const Duration(seconds: 30)); // 30 seconds buffer
       final endWindow = now.add(const Duration(seconds: 30));
 
       // Find programmed clock-ins ready for execution
       final snapshot = await _firestore
           .collection('programmed_clock_ins')
           .where('status', isEqualTo: 'scheduled')
-          .where('scheduled_execution_time', isGreaterThanOrEqualTo: startWindow)
+          .where('scheduled_execution_time',
+              isGreaterThanOrEqualTo: startWindow)
           .where('scheduled_execution_time', isLessThanOrEqualTo: endWindow)
           .get();
 
-      AppLogger.debug('ShiftTimesheetService: Found ${snapshot.docs.length} programmed clock-ins to execute');
+      AppLogger.debug(
+          'ShiftTimesheetService: Found ${snapshot.docs.length} programmed clock-ins to execute');
 
       for (final doc in snapshot.docs) {
         try {
@@ -282,7 +298,8 @@ class ShiftTimesheetService {
               'executed_at': FieldValue.serverTimestamp(),
               'actual_execution_time': DateTime.now(),
             });
-            AppLogger.debug('ShiftTimesheetService: ✅ Executed programmed clock-in ${doc.id}');
+            AppLogger.debug(
+                'ShiftTimesheetService: ✅ Executed programmed clock-in ${doc.id}');
           } else {
             // Mark as failed
             await doc.reference.update({
@@ -290,10 +307,12 @@ class ShiftTimesheetService {
               'failed_at': FieldValue.serverTimestamp(),
               'failure_reason': result['message'],
             });
-            AppLogger.error('ShiftTimesheetService: ❌ Failed to execute programmed clock-in ${doc.id}: ${result['message']}');
+            AppLogger.error(
+                'ShiftTimesheetService: ❌ Failed to execute programmed clock-in ${doc.id}: ${result['message']}');
           }
         } catch (e) {
-          AppLogger.error('ShiftTimesheetService: ❌ Error executing programmed clock-in ${doc.id}: $e');
+          AppLogger.error(
+              'ShiftTimesheetService: ❌ Error executing programmed clock-in ${doc.id}: $e');
           await doc.reference.update({
             'status': 'error',
             'error_at': FieldValue.serverTimestamp(),
@@ -302,7 +321,8 @@ class ShiftTimesheetService {
         }
       }
     } catch (e) {
-      AppLogger.error('ShiftTimesheetService: ❌ Error in executeProgrammedClockIns: $e');
+      AppLogger.error(
+          'ShiftTimesheetService: ❌ Error in executeProgrammedClockIns: $e');
     }
   }
 
@@ -487,16 +507,18 @@ class ShiftTimesheetService {
       }
 
       // Update timesheet entry with clock-out data FIRST
-      final timesheetEntry =
-          await _updateTimesheetEntryWithClockOut(shift, location, platform: platform);
+      final timesheetEntry = await _updateTimesheetEntryWithClockOut(
+          shift, location,
+          platform: platform);
 
       // Then update shift status (if this fails, we still have the timesheet)
       try {
         var clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
-        
+
         // Retry if failed
         if (!clockOutSuccess) {
-          AppLogger.debug('ShiftTimesheetService: First clock-out attempt failed, retrying...');
+          AppLogger.debug(
+              'ShiftTimesheetService: First clock-out attempt failed, retrying...');
           await Future.delayed(const Duration(milliseconds: 500));
           clockOutSuccess = await ShiftService.clockOut(teacherId, shiftId);
         }
@@ -643,17 +665,19 @@ class ShiftTimesheetService {
       AppLogger.debug('  - Shift start (UTC): $shiftStartUtc');
       AppLogger.debug('  - Shift end (UTC): $shiftEndUtc');
       AppLogger.debug('  - Shift Status: ${shift.status.name}');
-      
+
       // Allow clock-in 1 minute before shift start
-      final clockInWindowStartUtc = shiftStartUtc.subtract(const Duration(minutes: 1));
-      AppLogger.debug('  - Clock-in window start (UTC): $clockInWindowStartUtc (1 minute before shift start)');
+      final clockInWindowStartUtc =
+          shiftStartUtc.subtract(const Duration(minutes: 1));
+      AppLogger.debug(
+          '  - Clock-in window start (UTC): $clockInWindowStartUtc (1 minute before shift start)');
       AppLogger.debug(
           '  - nowUtc.isBefore(clockInWindowStartUtc): ${nowUtc.isBefore(clockInWindowStartUtc)}');
       AppLogger.debug(
           '  - nowUtc.isAfter(shiftEndUtc): ${nowUtc.isAfter(shiftEndUtc)}');
 
-      final withinWindow =
-          !nowUtc.isBefore(clockInWindowStartUtc) && !nowUtc.isAfter(shiftEndUtc);
+      final withinWindow = !nowUtc.isBefore(clockInWindowStartUtc) &&
+          !nowUtc.isAfter(shiftEndUtc);
 
       AppLogger.debug('  - withinWindow result: $withinWindow');
 
@@ -728,7 +752,8 @@ class ShiftTimesheetService {
         'hourly_rate': shift.hourlyRate, // Add hourly rate from shift
         'description':
             'Teaching session: ${shift.subjectDisplayName} - ${shift.displayName}',
-        'status': 'pending', // Changed: Immediately set to pending on clock-in (not draft)
+        'status':
+            'pending', // Changed: Immediately set to pending on clock-in (not draft)
         'source': 'shift_clock_in',
         'completion_method': 'pending',
         // Store the actual clock-in timestamp for persistence
@@ -775,7 +800,8 @@ class ShiftTimesheetService {
 
   /// Update timesheet entry with clock-out data
   static Future<Map<String, dynamic>> _updateTimesheetEntryWithClockOut(
-      TeachingShift shift, LocationData location, {String? platform}) async {
+      TeachingShift shift, LocationData location,
+      {String? platform}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
@@ -795,7 +821,7 @@ class ShiftTimesheetService {
       final docData = querySnapshot.docs.first.data() as Map<String, dynamic>?;
 
       final now = DateTime.now(); // Actual clock out time
-      
+
       // --- FIX 1: CAP PAYMENT TIME TO SCHEDULED DURATION ---
       // For calculation purposes, cap both start and end times to scheduled shift window
       // This prevents overpayment for early clock-ins or late clock-outs
@@ -834,19 +860,19 @@ class ShiftTimesheetService {
 
       // Calculate duration using the EFFECTIVE (capped) times
       Duration rawDuration = effectiveEndTime.difference(effectiveStartTime);
-      
+
       // Cap total duration to scheduled shift duration (prevent overpayment)
       final scheduledDuration = shift.shiftEnd.difference(shift.shiftStart);
-      final validDuration = rawDuration > scheduledDuration 
-          ? scheduledDuration 
+      final validDuration = rawDuration > scheduledDuration
+          ? scheduledDuration
           : (rawDuration.isNegative ? Duration.zero : rawDuration);
-      
+
       AppLogger.debug(
           'ShiftTimesheetService: Payment calculation - Actual: ${rawDuration.inMinutes} min, Scheduled: ${scheduledDuration.inMinutes} min, Billable: ${validDuration.inMinutes} min');
-      
+
       // Format the display string based on the CAPPED end time
       final endTimeString = DateFormat('h:mm a').format(effectiveEndTime);
-      
+
       final totalHours =
           '${validDuration.inHours.toString().padLeft(2, '0')}:${(validDuration.inMinutes % 60).toString().padLeft(2, '0')}:${(validDuration.inSeconds % 60).toString().padLeft(2, '0')}';
 
@@ -862,7 +888,8 @@ class ShiftTimesheetService {
 
       AppLogger.debug(
           'ShiftTimesheetService: Updating timesheet ${docRef.id} with clock-out data...');
-      AppLogger.debug('ShiftTimesheetService: Setting end_time to: "$endTimeString"');
+      AppLogger.debug(
+          'ShiftTimesheetService: Setting end_time to: "$endTimeString"');
       AppLogger.debug(
           'ShiftTimesheetService: Setting total_hours to: $totalHours');
       AppLogger.debug(
@@ -875,18 +902,21 @@ class ShiftTimesheetService {
       await docRef.update({
         'end_time': endTimeString,
         'total_hours': totalHours,
-        'clock_out_timestamp': Timestamp.fromDate(now), // Save ACTUAL time for audit
-        'effective_end_timestamp': Timestamp.fromDate(effectiveEndTime), // Save PAID time
-        
+        'clock_out_timestamp':
+            Timestamp.fromDate(now), // Save ACTUAL time for audit
+        'effective_end_timestamp':
+            Timestamp.fromDate(effectiveEndTime), // Save PAID time
+
         // SAVE PAYMENT DATA SO ADMIN PANEL SEES IT
         'total_pay': calculatedPay,
-        'payment_amount': calculatedPay, // Saving as both keys to be safe with legacy admin code
+        'payment_amount':
+            calculatedPay, // Saving as both keys to be safe with legacy admin code
         'hourly_rate': hourlyRate, // Ensure rate is locked in
-        
+
         // UPDATE STATUS
         'status': 'pending', // Changed from 'draft' to 'pending'
         'completion_method': 'manual',
-        
+
         // Location data
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
@@ -904,18 +934,21 @@ class ShiftTimesheetService {
       // Verify the update persisted correctly (CRITICAL)
       try {
         // Force get from server to ensure we're not reading cache
-        final verifyDoc = await docRef.get(const GetOptions(source: Source.server));
+        final verifyDoc =
+            await docRef.get(const GetOptions(source: Source.server));
         final verifyData = verifyDoc.data() as Map<String, dynamic>?;
         final verifiedEndTime = verifyData?['end_time'];
         AppLogger.debug(
             'ShiftTimesheetService: Verification - end_time in database: "$verifiedEndTime"');
 
         if (verifiedEndTime == null || verifiedEndTime == '') {
-          throw Exception('Clock-out verification failed: end_time not persisted in database');
+          throw Exception(
+              'Clock-out verification failed: end_time not persisted in database');
         }
       } catch (verifyError) {
-        AppLogger.error('ShiftTimesheetService: Verification failed: $verifyError');
-        
+        AppLogger.error(
+            'ShiftTimesheetService: Verification failed: $verifyError');
+
         // If it's a "not found" or "value missing" error, rethrow to prevent false success
         if (verifyError.toString().contains('end_time not persisted')) {
           rethrow;
@@ -967,9 +1000,10 @@ class ShiftTimesheetService {
       // Use shift end time (NOT +15 minutes) for auto clock-out - no overtime allowed
       final autoClockOutTimeUtc = shift.shiftEnd.toUtc();
       final autoClockOutTimeLocal = autoClockOutTimeUtc.toLocal();
-      final effectiveEndTime = autoClockOutTimeLocal; // Already capped at shift end
+      final effectiveEndTime =
+          autoClockOutTimeLocal; // Already capped at shift end
       final endTime = DateFormat('h:mm a').format(effectiveEndTime);
-      
+
       AppLogger.debug(
           'ShiftTimesheetService: Auto clock-out capped at shift end time: ${effectiveEndTime.toIso8601String()}');
 
@@ -983,8 +1017,12 @@ class ShiftTimesheetService {
         if (startTime.isNotEmpty) {
           startDateTime = DateFormat('h:mm a').parse(startTime);
           // Adjust to today's date
-          startDateTime = DateTime(effectiveEndTime.year, effectiveEndTime.month, effectiveEndTime.day,
-              startDateTime.hour, startDateTime.minute);
+          startDateTime = DateTime(
+              effectiveEndTime.year,
+              effectiveEndTime.month,
+              effectiveEndTime.day,
+              startDateTime.hour,
+              startDateTime.minute);
         } else {
           // If no start time, use shift start as fallback
           startDateTime = shift.shiftStart;
@@ -1001,13 +1039,13 @@ class ShiftTimesheetService {
 
       // Calculate duration using effective (capped) times
       Duration rawDuration = effectiveEndTime.difference(effectiveStartTime);
-      
+
       // Cap total duration to scheduled shift duration (prevent overpayment)
       final scheduledDuration = shift.shiftEnd.difference(shift.shiftStart);
-      final validDuration = rawDuration > scheduledDuration 
-          ? scheduledDuration 
+      final validDuration = rawDuration > scheduledDuration
+          ? scheduledDuration
           : (rawDuration.isNegative ? Duration.zero : rawDuration);
-      
+
       AppLogger.debug(
           'ShiftTimesheetService: Auto clock-out payment calculation - Actual: ${rawDuration.inMinutes} min, Scheduled: ${scheduledDuration.inMinutes} min, Billable: ${validDuration.inMinutes} min');
       final totalHours =
@@ -1025,14 +1063,16 @@ class ShiftTimesheetService {
       await docRef.update({
         'end_time': endTime,
         'total_hours': totalHours,
-        'clock_out_timestamp': Timestamp.fromDate(autoClockOutTimeUtc), // Actual time
-        'effective_end_timestamp': Timestamp.fromDate(effectiveEndTime), // Effective (capped) time
-        
+        'clock_out_timestamp':
+            Timestamp.fromDate(autoClockOutTimeUtc), // Actual time
+        'effective_end_timestamp':
+            Timestamp.fromDate(effectiveEndTime), // Effective (capped) time
+
         // SAVE PAYMENT DATA SO ADMIN PANEL SEES IT
         'total_pay': calculatedPay,
         'payment_amount': calculatedPay,
         'hourly_rate': hourlyRate,
-        
+
         'clock_out_latitude': location.latitude,
         'clock_out_longitude': location.longitude,
         'clock_out_address': location.address,
@@ -1303,43 +1343,99 @@ class ShiftTimesheetService {
 
   /// OPTIMIZATION: Batch get payments for multiple shifts in a single query
   /// This is much faster than calling getActualPaymentForShift multiple times
-  static Future<Map<String, double>> getActualPaymentsForShifts(List<String> shiftIds) async {
+  static Future<Map<String, double>> getActualPaymentsForShifts(
+      List<String> shiftIds) async {
     if (shiftIds.isEmpty) return {};
-    
+
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftTimesheetService.getActualPaymentsForShifts');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'shift_count': shiftIds.length,
+    });
+
     try {
       // Use 'in' query to get all timesheet entries for all shifts at once
       // Note: Firestore 'in' queries are limited to 10 items, so we need to batch
       final paymentMap = <String, double>{};
-      
+
       // Initialize all shift IDs with 0.0
+      final initStopwatch = Stopwatch()..start();
       for (final shiftId in shiftIds) {
         paymentMap[shiftId] = 0.0;
       }
-      
+      initStopwatch.stop();
+      PerformanceLogger.checkpoint(opId, 'init_complete', metadata: {
+        'init_time_ms': initStopwatch.elapsedMilliseconds,
+      });
+
+      final totalBatches = (shiftIds.length / 10).ceil();
+      int totalEntriesFound = 0;
+      int totalDocsProcessed = 0;
+      int totalQueryMs = 0;
+      int totalCalcMs = 0;
+
       // Process in batches of 10 (Firestore 'in' query limit)
       for (int i = 0; i < shiftIds.length; i += 10) {
         final batch = shiftIds.skip(i).take(10).toList();
+
+        final batchIndex = (i ~/ 10) + 1;
+
+        final queryStopwatch = Stopwatch()..start();
         final snapshot = await _firestore
             .collection('timesheet_entries')
             .where('shift_id', whereIn: batch)
             .get();
+        queryStopwatch.stop();
+        totalQueryMs += queryStopwatch.elapsedMilliseconds;
+        totalEntriesFound += snapshot.docs.length;
+
+        final calcStopwatch = Stopwatch()..start();
 
         for (var doc in snapshot.docs) {
           final data = doc.data();
           final shiftId = data['shift_id'] as String?;
           if (shiftId == null || !paymentMap.containsKey(shiftId)) continue;
-          
+
           // Prefer payment_amount, fallback to total_pay
           final payment = (data['payment_amount'] as num?)?.toDouble() ??
               (data['total_pay'] as num?)?.toDouble() ??
               0.0;
           paymentMap[shiftId] = (paymentMap[shiftId] ?? 0.0) + payment;
+          totalDocsProcessed++;
         }
+
+        calcStopwatch.stop();
+        totalCalcMs += calcStopwatch.elapsedMilliseconds;
+
+        PerformanceLogger.checkpoint(opId, 'batch_$batchIndex', metadata: {
+          'batch_index': batchIndex,
+          'total_batches': totalBatches,
+          'batch_size': batch.length,
+          'query_time_ms': queryStopwatch.elapsedMilliseconds,
+          'entries_found': snapshot.docs.length,
+          'calc_time_ms': calcStopwatch.elapsedMilliseconds,
+        });
       }
-      
+
+      final nonZeroPayments = paymentMap.values.where((v) => v != 0.0).length;
+      PerformanceLogger.endTimer(opId, metadata: {
+        'shift_count': shiftIds.length,
+        'payment_map_size': paymentMap.length,
+        'non_zero_payments': nonZeroPayments,
+        'batches': totalBatches,
+        'total_entries_found': totalEntriesFound,
+        'total_docs_processed': totalDocsProcessed,
+        'total_query_time_ms': totalQueryMs,
+        'total_calc_time_ms': totalCalcMs,
+      });
+
       return paymentMap;
     } catch (e) {
       AppLogger.error('Error batch getting payments for shifts: $e');
+      PerformanceLogger.endTimer(opId, metadata: {
+        'error': e.toString(),
+        'shift_count': shiftIds.length,
+      });
       // Fallback: return map with zeros
       return {for (var id in shiftIds) id: 0.0};
     }
@@ -1351,7 +1447,8 @@ class ShiftTimesheetService {
     final parts = <String>[];
 
     // Student info (if teaching category)
-    if (shift.category == ShiftCategory.teaching && shift.studentNames.isNotEmpty) {
+    if (shift.category == ShiftCategory.teaching &&
+        shift.studentNames.isNotEmpty) {
       parts.add('Stu - ${shift.studentNames.first}');
     } else if (shift.category != ShiftCategory.teaching) {
       // For leader shifts, use role
@@ -1368,7 +1465,8 @@ class ShiftTimesheetService {
       final days = shift.enhancedRecurrence.selectedWeekdays.length;
       scheduleInfo = '${duration.toStringAsFixed(0)}hr ${days}days weekly';
     } else if (shift.recurrence != RecurrencePattern.none) {
-      scheduleInfo = '${duration.toStringAsFixed(0)}hr ${shift.recurrence.name}';
+      scheduleInfo =
+          '${duration.toStringAsFixed(0)}hr ${shift.recurrence.name}';
     } else {
       scheduleInfo = '${duration.toStringAsFixed(0)}hr one-time';
     }

@@ -65,8 +65,16 @@ const getTasksServiceAccount = async () => {
 
 const queuePath = () => tasksClient.queuePath(PROJECT_ID, TASKS_LOCATION, SHIFT_TASK_QUEUE);
 
-const taskName = (shiftId, phase) =>
-  tasksClient.taskPath(PROJECT_ID, TASKS_LOCATION, SHIFT_TASK_QUEUE, `shift-${shiftId}-${phase}`);
+const taskName = (shiftId, phase, suffix) => {
+  const base = `shift-${shiftId}-${phase}`;
+  const safeSuffix = suffix
+    ? String(suffix)
+        .trim()
+        .replace(/[^a-zA-Z0-9-_]/g, '_')
+    : null;
+  const taskId = safeSuffix ? `${base}-${safeSuffix}` : base;
+  return tasksClient.taskPath(PROJECT_ID, TASKS_LOCATION, SHIFT_TASK_QUEUE, taskId);
+};
 
 const buildFunctionUrl = (functionName) => {
   const url = `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/${functionName}`;
@@ -151,4 +159,3 @@ module.exports = {
   FUNCTION_REGION,
   PROJECT_ID,
 };
-

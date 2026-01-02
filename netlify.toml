@@ -1,5 +1,5 @@
 [build]
-command = "flutter build web"
+command = "flutter build web --release --pwa-strategy=none"
 publish = "build/web"
 
 [build.environment]

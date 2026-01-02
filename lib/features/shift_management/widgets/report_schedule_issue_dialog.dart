@@ -5,8 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/utils/timezone_utils.dart';
-import '../../../core/services/timezone_service.dart';
+import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Compact dialog for teachers to report schedule issues and fix timezone
@@ -19,7 +18,8 @@ class ReportScheduleIssueDialog extends StatefulWidget {
   });
 
   @override
-  State<ReportScheduleIssueDialog> createState() => _ReportScheduleIssueDialogState();
+  State<ReportScheduleIssueDialog> createState() =>
+      _ReportScheduleIssueDialogState();
 }
 
 class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
@@ -52,7 +52,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       if (userDoc.exists) {
         final timezone = userDoc.data()?['timezone'] as String?;
         setState(() {
@@ -92,7 +92,9 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
       };
 
       // Add timezone update if changed
-      if (_issueType == 'timezone' && _selectedTimezone != null && _selectedTimezone != _currentUserTimezone) {
+      if (_issueType == 'timezone' &&
+          _selectedTimezone != null &&
+          _selectedTimezone != _currentUserTimezone) {
         // Update user timezone
         await FirebaseFirestore.instance
             .collection('users')
@@ -104,11 +106,14 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
 
         // Also update via Cloud Function for consistency
         try {
-          await FirebaseFunctions.instance.httpsCallable('updateUserTimezone').call({
+          await FirebaseFunctions.instance
+              .httpsCallable('updateUserTimezone')
+              .call({
             'timezone': _selectedTimezone,
           });
         } catch (e) {
-          AppLogger.debug('Cloud function call failed, using direct update: $e');
+          AppLogger.debug(
+              'Cloud function call failed, using direct update: $e');
         }
 
         reportData['old_timezone'] = _currentUserTimezone;
@@ -118,13 +123,17 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
       // Add corrected times if provided
       if (_issueType == 'incorrect_time') {
         if (_correctedStartTime != null) {
-          reportData['corrected_start_time'] = Timestamp.fromDate(_correctedStartTime!);
+          reportData['corrected_start_time'] =
+              Timestamp.fromDate(_correctedStartTime!);
         }
         if (_correctedEndTime != null) {
-          reportData['corrected_end_time'] = Timestamp.fromDate(_correctedEndTime!);
+          reportData['corrected_end_time'] =
+              Timestamp.fromDate(_correctedEndTime!);
         }
-        reportData['current_start_time'] = Timestamp.fromDate(widget.shift.shiftStart);
-        reportData['current_end_time'] = Timestamp.fromDate(widget.shift.shiftEnd);
+        reportData['current_start_time'] =
+            Timestamp.fromDate(widget.shift.shiftStart);
+        reportData['current_end_time'] =
+            Timestamp.fromDate(widget.shift.shiftEnd);
       }
 
       // Save report to Firestore
@@ -136,7 +145,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _issueType == 'timezone' 
+              _issueType == 'timezone'
                   ? 'Timezone updated! Schedule will refresh.'
                   : 'Issue reported! Admin will review and fix it.',
             ),
@@ -182,7 +191,8 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                     color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.report_problem, color: Colors.orange, size: 24),
+                  child: const Icon(Icons.report_problem,
+                      color: Colors.orange, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -215,12 +225,14 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            _buildIssueTypeOption('timezone', 'My timezone is wrong', Icons.access_time),
+            _buildIssueTypeOption(
+                'timezone', 'My timezone is wrong', Icons.access_time),
             const SizedBox(height: 8),
-            _buildIssueTypeOption('incorrect_time', 'Shift time is incorrect', Icons.schedule),
+            _buildIssueTypeOption(
+                'incorrect_time', 'Shift time is incorrect', Icons.schedule),
             const SizedBox(height: 8),
             _buildIssueTypeOption('other', 'Other issue', Icons.info_outline),
-            
+
             const SizedBox(height: 20),
 
             // Timezone Selection (if timezone issue)
@@ -234,30 +246,15 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedTimezone ?? 'UTC',
-                    isExpanded: true,
-                    items: TimezoneUtils.getCommonTimezones().map((tz) {
-                      return DropdownMenuItem<String>(
-                        value: tz,
-                        child: Text(
-                          tz,
-                          style: GoogleFonts.inter(fontSize: 14),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedTimezone = value);
-                    },
-                  ),
-                ),
+              TimezoneSelectorField(
+                selectedTimezone: _selectedTimezone ?? 'UTC',
+                borderRadius: BorderRadius.circular(8),
+                borderColor: const Color(0xFFE2E8F0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                textStyle: GoogleFonts.inter(fontSize: 14),
+                onTimezoneSelected: (value) =>
+                    setState(() => _selectedTimezone = value),
               ),
               const SizedBox(height: 12),
             ],
@@ -337,7 +334,8 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
                         'Submit',
@@ -360,13 +358,12 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? const Color(0xFF0386FF).withOpacity(0.1)
               : const Color(0xFFF8FAFC),
           border: Border.all(
-            color: isSelected 
-                ? const Color(0xFF0386FF)
-                : const Color(0xFFE2E8F0),
+            color:
+                isSelected ? const Color(0xFF0386FF) : const Color(0xFFE2E8F0),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -376,7 +373,9 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
             Icon(
               icon,
               size: 20,
-              color: isSelected ? const Color(0xFF0386FF) : const Color(0xFF6B7280),
+              color: isSelected
+                  ? const Color(0xFF0386FF)
+                  : const Color(0xFF6B7280),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -385,19 +384,23 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? const Color(0xFF0386FF) : const Color(0xFF374151),
+                  color: isSelected
+                      ? const Color(0xFF0386FF)
+                      : const Color(0xFF374151),
                 ),
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFF0386FF), size: 20),
+              const Icon(Icons.check_circle,
+                  color: Color(0xFF0386FF), size: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTimePicker(String label, DateTime initialTime, Function(DateTime) onTimeSelected) {
+  Widget _buildTimePicker(
+      String label, DateTime initialTime, Function(DateTime) onTimeSelected) {
     return InkWell(
       onTap: () async {
         final date = await showDatePicker(
@@ -454,4 +457,3 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
     );
   }
 }
-

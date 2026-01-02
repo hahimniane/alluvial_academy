@@ -8,14 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../dashboard/widgets/date_strip_calendar.dart';
 import '../../dashboard/widgets/timeline_shift_card.dart';
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
-import '../../../core/utils/timezone_utils.dart';
+import '../../../core/widgets/timezone_selector_field.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/report_schedule_issue_dialog.dart';
-import 'available_shifts_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -31,13 +29,13 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   List<TeachingShift> _dailyShifts = []; // Filtered for selected day
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
-  
+
   // Programmed clock-in state
   String? _programmedShiftId;
   Timer? _programTimer;
   String _timeUntilAutoStart = "";
   Timer? _uiRefreshTimer;
-  
+
   // Stream subscription for cleanup
   StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
 
@@ -45,7 +43,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   void initState() {
     super.initState();
     _setupShiftStream();
-    
+
     // Refresh UI every second to update button states
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -55,7 +53,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       }
     });
   }
-  
+
   @override
   void dispose() {
     _programTimer?.cancel();
@@ -63,19 +61,21 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     _shiftsSubscription?.cancel(); // Cancel stream subscription on dispose
     super.dispose();
   }
-  
+
   /// Check for any persisted programmed state on startup
   Future<void> _checkForPersistedProgrammedState() async {
     // Skip if already programming a shift
     if (_programmedShiftId != null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       // Check all daily shifts for persisted programmed state
       for (final shift in _dailyShifts) {
-        final isProgrammed = prefs.getBool('programmed_start_${shift.id}') ?? false;
+        final isProgrammed =
+            prefs.getBool('programmed_start_${shift.id}') ?? false;
         if (isProgrammed && !shift.isClockedIn) {
-          AppLogger.debug('Found persisted programmed state for shift ${shift.id}');
+          AppLogger.debug(
+              'Found persisted programmed state for shift ${shift.id}');
           _startProgrammedClockIn(shift);
           break;
         }
@@ -144,16 +144,19 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   Future<void> _handleClockIn(TeachingShift shift) async {
     final now = DateTime.now();
     final shiftStart = shift.shiftStart;
-    final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
-    
+    final programmingWindowStart =
+        shiftStart.subtract(const Duration(minutes: 1));
+
     // Check if we're in the programming window (before shift start)
-    final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
-    
+    final isInProgramWindow =
+        now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
+
     // Check if shift has started
     final shiftHasStarted = !now.isBefore(shiftStart);
-    
-    AppLogger.debug('_handleClockIn: isInProgramWindow=$isInProgramWindow, shiftHasStarted=$shiftHasStarted');
-    
+
+    AppLogger.debug(
+        '_handleClockIn: isInProgramWindow=$isInProgramWindow, shiftHasStarted=$shiftHasStarted');
+
     if (isInProgramWindow && !shiftHasStarted) {
       // Start programmed clock-in
       _startProgrammedClockIn(shift);
@@ -164,33 +167,34 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       // Too early - shouldn't happen but handle gracefully
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Too early to clock in. Please wait for the programming window.'),
+          content: Text(
+              'Too early to clock in. Please wait for the programming window.'),
           backgroundColor: Colors.orange,
         ),
       );
     }
   }
-  
+
   /// Start a programmed clock-in that will auto-trigger at shift start time
   void _startProgrammedClockIn(TeachingShift shift) async {
     AppLogger.debug('Starting programmed clock-in for shift ${shift.id}');
-    
+
     final nowUtc = DateTime.now().toUtc();
     final shiftStartUtc = shift.shiftStart.toUtc();
-    
+
     // If shift has already started, clock in immediately
     if (!nowUtc.isBefore(shiftStartUtc)) {
       AppLogger.debug('Shift already started - clocking in immediately');
       await _performClockIn(shift, isAutoStart: true);
       return;
     }
-    
+
     // Calculate initial countdown
     final timeLeft = shiftStartUtc.difference(nowUtc);
     final initialSeconds = timeLeft.inSeconds;
     final initialMinutes = timeLeft.inMinutes;
     final remainingSeconds = initialSeconds % 60;
-    
+
     // Persist programmed state
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -198,51 +202,52 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     } catch (e) {
       AppLogger.error('Failed to save programmed state: $e');
     }
-    
+
     if (!mounted) return;
-    
+
     // Format countdown
-    final countdownText = initialMinutes > 0 
+    final countdownText = initialMinutes > 0
         ? '${initialMinutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
         : '${initialSeconds}s';
-    
+
     setState(() {
       _programmedShiftId = shift.id;
       _timeUntilAutoStart = 'Starting in $countdownText';
     });
-    
+
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Clock-in programmed for ${DateFormat('HH:mm').format(shift.shiftStart)}'),
+        content: Text(
+            'Clock-in programmed for ${DateFormat('HH:mm').format(shift.shiftStart)}'),
         backgroundColor: const Color(0xFF3B82F6),
         duration: const Duration(seconds: 2),
       ),
     );
-    
+
     // Cancel any existing timer
     _programTimer?.cancel();
-    
+
     // Start countdown timer
     _programTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      
+
       final nowUtc = DateTime.now().toUtc();
       final shiftStartUtc = shift.shiftStart.toUtc();
-      
+
       if (!nowUtc.isBefore(shiftStartUtc)) {
         // Time to clock in!
         AppLogger.debug('Auto-start time reached! Clocking in...');
         timer.cancel();
-        
+
         // Clear persisted state
         SharedPreferences.getInstance().then((prefs) {
           prefs.remove('programmed_start_${shift.id}');
         });
-        
+
         if (mounted) {
           setState(() {
             _timeUntilAutoStart = "Clocking In...";
@@ -251,16 +256,16 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         }
         return;
       }
-      
+
       final timeLeft = shiftStartUtc.difference(nowUtc);
       final seconds = timeLeft.inSeconds;
       final minutes = timeLeft.inMinutes;
       final remainingSeconds = seconds % 60;
-      
-      final countdownText = minutes > 0 
+
+      final countdownText = minutes > 0
           ? '${minutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
           : '${seconds}s';
-      
+
       if (mounted) {
         setState(() {
           _timeUntilAutoStart = 'Starting in $countdownText';
@@ -268,13 +273,13 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       }
     });
   }
-  
+
   /// Cancel a programmed clock-in
   void _cancelProgrammedClockIn() async {
     AppLogger.debug('Cancelling programmed clock-in');
     _programTimer?.cancel();
     _programTimer = null;
-    
+
     // Clear persisted state
     if (_programmedShiftId != null) {
       try {
@@ -284,13 +289,13 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         AppLogger.error('Failed to clear programmed state: $e');
       }
     }
-    
+
     if (mounted) {
       setState(() {
         _programmedShiftId = null;
         _timeUntilAutoStart = "";
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Programming cancelled'),
@@ -300,9 +305,10 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       );
     }
   }
-  
+
   /// Perform the actual clock-in
-  Future<void> _performClockIn(TeachingShift shift, {bool isAutoStart = false}) async {
+  Future<void> _performClockIn(TeachingShift shift,
+      {bool isAutoStart = false}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -319,7 +325,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       LocationData? location;
       try {
         final timeoutDuration = Duration(seconds: isAutoStart ? 5 : 15);
-        location = await LocationService.getCurrentLocation().timeout(timeoutDuration);
+        location =
+            await LocationService.getCurrentLocation().timeout(timeoutDuration);
       } catch (e) {
         AppLogger.error('Location error: $e');
         if (isAutoStart) {
@@ -332,11 +339,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           );
         }
       }
-      
+
       if (location == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to get location. Please enable location services.'),
+            content: Text(
+                'Unable to get location. Please enable location services.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -359,10 +367,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             _timeUntilAutoStart = "";
           });
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isAutoStart ? 'Auto clock-in successful!' : 'Clocked in successfully!'),
+            content: Text(isAutoStart
+                ? 'Auto clock-in successful!'
+                : 'Clocked in successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -375,7 +385,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             backgroundColor: Colors.red,
           ),
         );
-        
+
         // Clear programmed state on failure too
         if (mounted) {
           setState(() {
@@ -392,7 +402,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           backgroundColor: Colors.red,
         ),
       );
-      
+
       // Clear programmed state on error
       if (mounted) {
         setState(() {
@@ -436,33 +446,36 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
               ),
               const SizedBox(height: 16),
               ..._dailyShifts.map((shift) => ListTile(
-                leading: const Icon(Icons.event, color: Color(0xFF0386FF)),
-                title: Text(
-                  shift.displayName,
-                  style: GoogleFonts.inter(fontSize: 14),
-                ),
-                subtitle: Text(
-                  '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
-                  style: GoogleFonts.inter(fontSize: 12),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    builder: (context) => ReportScheduleIssueDialog(shift: shift),
-                  ).then((refresh) {
-                    if (refresh == true) {
-                      _setupShiftStream();
-                    }
-                  });
-                },
-              )),
+                    leading: const Icon(Icons.event, color: Color(0xFF0386FF)),
+                    title: Text(
+                      shift.displayName,
+                      style: GoogleFonts.inter(fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
+                      style: GoogleFonts.inter(fontSize: 12),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      showDialog(
+                        context: context,
+                        builder: (context) =>
+                            ReportScheduleIssueDialog(shift: shift),
+                      ).then((refresh) {
+                        if (refresh == true) {
+                          _setupShiftStream();
+                        }
+                      });
+                    },
+                  )),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.access_time, color: Color(0xFFF59E0B)),
+                leading:
+                    const Icon(Icons.access_time, color: Color(0xFFF59E0B)),
                 title: Text(
                   'Fix My Timezone Only',
-                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
                   'Update timezone without reporting a shift issue',
@@ -531,27 +544,15 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 style: GoogleFonts.inter(fontSize: 14),
               ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedTimezone ?? 'UTC',
-                    isExpanded: true,
-                    items: TimezoneUtils.getCommonTimezones().map((tz) {
-                      return DropdownMenuItem<String>(
-                        value: tz,
-                        child: Text(tz, style: GoogleFonts.inter(fontSize: 14)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() => selectedTimezone = value);
-                    },
-                  ),
-                ),
+              TimezoneSelectorField(
+                selectedTimezone: selectedTimezone ?? 'UTC',
+                borderRadius: BorderRadius.circular(8),
+                borderColor: const Color(0xFFE2E8F0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                textStyle: GoogleFonts.inter(fontSize: 14),
+                onTimezoneSelected: (value) =>
+                    setDialogState(() => selectedTimezone = value),
               ),
             ],
           ),
@@ -562,7 +563,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (selectedTimezone != null && selectedTimezone != currentTimezone) {
+                if (selectedTimezone != null &&
+                    selectedTimezone != currentTimezone) {
                   try {
                     await FirebaseFirestore.instance
                         .collection('users')
@@ -575,7 +577,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Timezone updated to $selectedTimezone'),
+                          content:
+                              Text('Timezone updated to $selectedTimezone'),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -599,7 +602,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 backgroundColor: const Color(0xFF0386FF),
                 foregroundColor: Colors.white,
               ),
-              child: Text('Update', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              child: Text('Update',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -630,7 +634,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         actions: [
           // Compact button to report schedule issues or fix timezone
           IconButton(
-            icon: const Icon(Icons.settings, color: Color(0xFF6B7280), size: 20),
+            icon:
+                const Icon(Icons.settings, color: Color(0xFF6B7280), size: 20),
             tooltip: 'Fix timezone or report schedule issue',
             onPressed: () {
               // Show dialog to select a shift or fix timezone globally
@@ -670,7 +675,8 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 const Spacer(),
                 if (_dailyShifts.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0386FF).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -699,15 +705,20 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                         itemCount: _dailyShifts.length,
                         itemBuilder: (context, index) {
                           final shift = _dailyShifts[index];
-                          final isThisShiftProgrammed = _programmedShiftId == shift.id;
+                          final isThisShiftProgrammed =
+                              _programmedShiftId == shift.id;
                           return TimelineShiftCard(
                             shift: shift,
                             isLast: index == _dailyShifts.length - 1,
                             onTap: () => _showShiftDetails(shift),
                             onClockIn: () => _handleClockIn(shift),
-                            onCancelProgram: isThisShiftProgrammed ? _cancelProgrammedClockIn : null,
+                            onCancelProgram: isThisShiftProgrammed
+                                ? _cancelProgrammedClockIn
+                                : null,
                             isProgrammed: isThisShiftProgrammed,
-                            countdownText: isThisShiftProgrammed ? _timeUntilAutoStart : null,
+                            countdownText: isThisShiftProgrammed
+                                ? _timeUntilAutoStart
+                                : null,
                           );
                         },
                       ),

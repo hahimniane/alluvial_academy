@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../utility_functions/export_helpers.dart';
+import '../../../core/utils/performance_logger.dart';
 
 class FormSubmissionsDialog extends StatefulWidget {
   final String formId;
@@ -57,15 +58,27 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
 
   Future<void> _load() async {
     if (!mounted) return;
+
+    final opId = PerformanceLogger.newOperationId('FormSubmissionsDialog._load');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'form_id': widget.formId,
+    });
+
     setState(() => _isLoading = true);
     try {
+      final templateStopwatch = Stopwatch()..start();
       final templateDoc = await FirebaseFirestore.instance
           .collection('form')
           .doc(widget.formId)
           .get();
+      templateStopwatch.stop();
       final fieldsMap =
           (templateDoc.data()?['fields'] as Map?)?.cast<String, dynamic>() ??
               {};
+      PerformanceLogger.checkpoint(opId, 'template_loaded', metadata: {
+        'query_time_ms': templateStopwatch.elapsedMilliseconds,
+        'field_count': fieldsMap.length,
+      });
 
       Query q = FirebaseFirestore.instance
           .collection('form_responses')
@@ -81,7 +94,13 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                 isLessThanOrEqualTo: Timestamp.fromDate(_dateRange!.end));
       }
 
+      final responsesStopwatch = Stopwatch()..start();
       final snap = await q.get();
+      responsesStopwatch.stop();
+      PerformanceLogger.checkpoint(opId, 'responses_loaded', metadata: {
+        'query_time_ms': responsesStopwatch.elapsedMilliseconds,
+        'submission_count': snap.docs.length,
+      });
 
       if (!mounted) return;
       setState(() {
@@ -97,6 +116,9 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      PerformanceLogger.endTimer(opId, metadata: {
+        'submission_count': _submissions.length,
+      });
     }
   }
 

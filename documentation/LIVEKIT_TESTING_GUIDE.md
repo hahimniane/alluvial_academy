@@ -79,7 +79,7 @@ firebase deploy --only functions
 # From project root
 
 # For web
-./increment_version.sh && flutter build web --release
+./increment_version.sh && flutter build web --release --pwa-strategy=none
 
 # For iOS
 flutter build ios
@@ -241,7 +241,7 @@ flutter pub get
 
 ### Web
 
-1. Build: `./increment_version.sh && flutter build web --release`
+1. Build: `./increment_version.sh && flutter build web --release --pwa-strategy=none`
 2. Serve locally: `cd build/web && python3 -m http.server 8080`
 3. Open: `http://localhost:8080`
 4. Browser permissions: Chrome/Firefox will prompt for camera/mic
@@ -297,4 +297,3 @@ If tests fail:
 2. ✅ **Verify configuration** (credentials, permissions)
 3. ✅ **Test on different platforms** (web, iOS, Android)
 4. ✅ **Compare with Zoom flow** (to isolate issues)
-

@@ -5,7 +5,7 @@ const { sendStudentNotificationEmail } = require('../services/email/senders');
 
 /**
  * Reset a student's password
- * - Generates new random password
+ * - Uses provided custom password (optional) or generates a new random password
  * - Updates Firebase Auth
  * - Updates Firestore temp_password
  * - Optionally emails parent
@@ -19,7 +19,12 @@ exports.resetStudentPassword = onCall(async (request) => {
     );
   }
 
-  const { studentId, sendEmailToParent = true } = request.data;
+  const {
+    studentId,
+    sendEmailToParent = true,
+    customPassword,
+    newPassword: newPasswordOverride,
+  } = request.data || {};
 
   if (!studentId) {
     throw new HttpsError(
@@ -74,8 +79,35 @@ exports.resetStudentPassword = onCall(async (request) => {
       );
     }
 
-    // Generate new password
-    const newPassword = generateRandomPassword();
+    const providedPassword = typeof customPassword === 'string'
+      ? customPassword
+      : (typeof newPasswordOverride === 'string' ? newPasswordOverride : '');
+
+    let newPassword;
+    if (providedPassword.trim().length > 0) {
+      if (providedPassword !== providedPassword.trim()) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Password cannot start or end with spaces'
+        );
+      }
+      if (providedPassword.length < 6) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Password must be at least 6 characters'
+        );
+      }
+      if (providedPassword.length > 128) {
+        throw new HttpsError(
+          'invalid-argument',
+          'Password must be 128 characters or less'
+        );
+      }
+      newPassword = providedPassword;
+    } else {
+      // Generate new password
+      newPassword = generateRandomPassword();
+    }
 
     // Get the alias email for this student (must match login format - lowercase)
     const studentCode = studentData.student_code;
@@ -317,4 +349,3 @@ exports.syncAllStudentPasswords = onCall(async (request) => {
     );
   }
 });
-

@@ -3,14 +3,36 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../models/teaching_shift.dart';
 import '../models/employee_model.dart';
 import '../models/enhanced_recurrence.dart';
 import 'wage_management_service.dart';
 import '../enums/shift_enums.dart';
 import '../utils/timezone_utils.dart';
+import '../utils/performance_logger.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
+class BulkShiftConflict {
+  final String shiftId;
+  final DateTime proposedStart;
+  final DateTime proposedEnd;
+  final String conflictingShiftId;
+  final String conflictingShiftName;
+  final DateTime conflictingStart;
+  final DateTime conflictingEnd;
+
+  const BulkShiftConflict({
+    required this.shiftId,
+    required this.proposedStart,
+    required this.proposedEnd,
+    required this.conflictingShiftId,
+    required this.conflictingShiftName,
+    required this.conflictingStart,
+    required this.conflictingEnd,
+  });
+}
 
 class ShiftService {
   /// Service responsible for managing teaching shifts, including creation,
@@ -164,6 +186,782 @@ class ShiftService {
     }
   }
 
+  static const Uuid _uuid = Uuid();
+
+  static bool _sameStudentIds(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    final aSorted = List<String>.from(a)..sort();
+    final bSorted = List<String>.from(b)..sort();
+    for (int i = 0; i < aSorted.length; i++) {
+      if (aSorted[i] != bSorted[i]) return false;
+    }
+    return true;
+  }
+
+  static IslamicSubject _mapSubjectNameToEnum(String subjectName) {
+    switch (subjectName) {
+      case 'quran_studies':
+        return IslamicSubject.quranStudies;
+      case 'hadith_studies':
+        return IslamicSubject.hadithStudies;
+      case 'fiqh':
+        return IslamicSubject.fiqh;
+      case 'arabic_language':
+        return IslamicSubject.arabicLanguage;
+      case 'islamic_history':
+        return IslamicSubject.islamicHistory;
+      case 'aqeedah':
+        return IslamicSubject.aqeedah;
+      case 'tafseer':
+        return IslamicSubject.tafseer;
+      case 'seerah':
+        return IslamicSubject.seerah;
+      default:
+        return IslamicSubject.quranStudies;
+    }
+  }
+
+  static DateTime? _asDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  static ShiftStatus? _asShiftStatus(dynamic value) {
+    if (value == null) return null;
+    if (value is ShiftStatus) return value;
+    if (value is String) {
+      return ShiftStatus.values.firstWhere(
+        (s) => s.name == value,
+        orElse: () => ShiftStatus.scheduled,
+      );
+    }
+    return null;
+  }
+
+  static TimeOfDay? _asTimeOfDay(dynamic value) {
+    if (value == null) return null;
+    if (value is TimeOfDay) return value;
+    if (value is Map) {
+      final hour = value['hour'];
+      final minute = value['minute'];
+      if (hour is int && minute is int) {
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    }
+    return null;
+  }
+
+  static Future<List<TeachingShift>> _fetchShiftsByIds(
+    List<String> shiftIds,
+  ) async {
+    final ids = shiftIds.toSet().toList();
+    if (ids.isEmpty) return [];
+
+    const chunkSize = 10;
+    final results = <TeachingShift>[];
+    for (int i = 0; i < ids.length; i += chunkSize) {
+      final chunk = ids.sublist(i, (i + chunkSize).clamp(0, ids.length));
+      final snapshot = await _shiftsCollection
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snapshot.docs) {
+        try {
+          results.add(TeachingShift.fromFirestore(doc));
+        } catch (e) {
+          AppLogger.error('ShiftService: Error parsing shift ${doc.id}: $e');
+        }
+      }
+    }
+
+    final byId = {for (final s in results) s.id: s};
+    return ids.map((id) => byId[id]).whereType<TeachingShift>().toList();
+  }
+
+  /// Finds or creates a recurrence series ID for shifts that belong to the same
+  /// recurring series.
+  ///
+  /// Matching rules (best-effort):
+  /// - Same teacher
+  /// - Same exact student list
+  /// - Same subject (subjectId when available; otherwise legacy subject enum)
+  /// - Same start time pattern (hour:minute) in the shift's admin timezone
+  /// - createdAt within +/- 1 hour
+  static Future<String?> findRecurringSeriesId(TeachingShift shift) async {
+    final existing = shift.recurrenceSeriesId;
+    if (existing != null && existing.trim().isNotEmpty) return existing;
+
+    final isRecurring = shift.recurrence != RecurrencePattern.none ||
+        shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
+    if (!isRecurring) return null;
+
+    final windowStart = shift.createdAt.subtract(const Duration(hours: 1));
+    final windowEnd = shift.createdAt.add(const Duration(hours: 1));
+
+    final localStart =
+        TimezoneUtils.convertToTimezone(shift.shiftStart, shift.adminTimezone);
+    final expectedStartMinutes = localStart.hour * 60 + localStart.minute;
+
+    List<TeachingShift> candidates = [];
+    try {
+      Query query = _shiftsCollection
+          .where('teacher_id', isEqualTo: shift.teacherId)
+          .where('created_at',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(windowStart))
+          .where('created_at',
+              isLessThanOrEqualTo: Timestamp.fromDate(windowEnd));
+
+      if (shift.subjectId != null) {
+        query = query.where('subject_id', isEqualTo: shift.subjectId);
+      } else {
+        query = query.where('subject', isEqualTo: shift.subject.name);
+      }
+
+      final snapshot = await query.get();
+      candidates =
+          snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+    } on FirebaseException catch (firestoreError) {
+      final missingIndex = firestoreError.code == 'failed-precondition' &&
+          (firestoreError.message?.contains('index') ?? false);
+      AppLogger.error(
+          'ShiftService: Series lookup query failed (${firestoreError.code}): ${firestoreError.message}');
+
+      if (missingIndex) {
+        // Fall back to scanning all shifts for the teacher.
+        final snapshot = await _shiftsCollection
+            .where('teacher_id', isEqualTo: shift.teacherId)
+            .get();
+        candidates =
+            snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+      } else {
+        rethrow;
+      }
+    }
+
+    final matches = candidates.where((candidate) {
+      if (candidate.id == shift.id) return true;
+      if (!_sameStudentIds(candidate.studentIds, shift.studentIds))
+        return false;
+
+      if (shift.subjectId != null) {
+        if (candidate.subjectId != shift.subjectId) return false;
+      } else {
+        if (candidate.subject != shift.subject) return false;
+      }
+
+      if (candidate.createdAt.isBefore(windowStart) ||
+          candidate.createdAt.isAfter(windowEnd)) {
+        return false;
+      }
+
+      final candidateLocalStart = TimezoneUtils.convertToTimezone(
+        candidate.shiftStart,
+        shift.adminTimezone,
+      );
+      final candidateStartMinutes =
+          candidateLocalStart.hour * 60 + candidateLocalStart.minute;
+      return candidateStartMinutes == expectedStartMinutes;
+    }).toList();
+
+    if (matches.isEmpty) {
+      final seriesId = _uuid.v4();
+      await _shiftsCollection.doc(shift.id).update({
+        'recurrence_series_id': seriesId,
+        'series_created_at': Timestamp.fromDate(shift.createdAt),
+        'last_modified': FieldValue.serverTimestamp(),
+      });
+      return seriesId;
+    }
+
+    final existingSeriesId = matches
+        .map((s) => s.recurrenceSeriesId)
+        .whereType<String>()
+        .map((s) => s.trim())
+        .firstWhere((s) => s.isNotEmpty, orElse: () => '');
+
+    final seriesId =
+        existingSeriesId.isNotEmpty ? existingSeriesId : _uuid.v4();
+    final seriesCreatedAt = matches
+        .map((s) => s.seriesCreatedAt ?? s.createdAt)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+
+    final batch = _firestore.batch();
+    for (final s in matches) {
+      batch.update(_shiftsCollection.doc(s.id), {
+        'recurrence_series_id': seriesId,
+        'series_created_at': Timestamp.fromDate(seriesCreatedAt),
+        'last_modified': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+
+    return seriesId;
+  }
+
+  static Future<List<TeachingShift>> getRecurringSeriesShifts(
+    String seriesId,
+  ) async {
+    final snapshot = await _shiftsCollection
+        .where('recurrence_series_id', isEqualTo: seriesId)
+        .get();
+    final shifts =
+        snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+    shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+    return shifts;
+  }
+
+  static Future<({String seriesId, List<TeachingShift> shifts})?>
+      getRecurringSeriesByShift(String shiftId) async {
+    final snapshot = await _shiftsCollection.doc(shiftId).get();
+    if (!snapshot.exists) return null;
+
+    final shift = TeachingShift.fromFirestore(snapshot);
+    final seriesId = await findRecurringSeriesId(shift);
+    if (seriesId == null || seriesId.trim().isEmpty) return null;
+
+    final seriesShifts = await getRecurringSeriesShifts(seriesId);
+    return (seriesId: seriesId, shifts: seriesShifts);
+  }
+
+  /// Best-effort backfill for recurrence series IDs on existing recurring shifts.
+  ///
+  /// This is intentionally conservative: it scans a limited number of shifts and
+  /// groups them using [findRecurringSeriesId].
+  static Future<int> migrateExistingRecurringShifts(
+      {int maxShifts = 500}) async {
+    int updated = 0;
+    try {
+      final snapshot = await _shiftsCollection.limit(maxShifts).get();
+      for (final doc in snapshot.docs) {
+        final shift = TeachingShift.fromFirestore(doc);
+        if (shift.recurrenceSeriesId != null &&
+            shift.recurrenceSeriesId!.trim().isNotEmpty) {
+          continue;
+        }
+        final isRecurring = shift.recurrence != RecurrencePattern.none ||
+            shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
+        if (!isRecurring) continue;
+        final seriesId = await findRecurringSeriesId(shift);
+        if (seriesId != null && seriesId.trim().isNotEmpty) {
+          updated++;
+        }
+      }
+    } catch (e) {
+      AppLogger.error('ShiftService: Error migrating recurring shifts: $e');
+    }
+    return updated;
+  }
+
+  static Future<List<TeachingShift>> getStudentShiftsByTimeRange(
+    String studentId,
+    TimeOfDay startTime,
+    TimeOfDay endTime, {
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    final startMinutes = startTime.hour * 60 + startTime.minute;
+    final endMinutes = endTime.hour * 60 + endTime.minute;
+    final wrapsMidnight = endMinutes <= startMinutes;
+
+    List<TeachingShift> shifts = [];
+    try {
+      Query query =
+          _shiftsCollection.where('student_ids', arrayContains: studentId);
+      if (fromDate != null) {
+        query = query.where('shift_start',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate));
+      }
+      if (toDate != null) {
+        query = query.where('shift_start',
+            isLessThanOrEqualTo: Timestamp.fromDate(toDate));
+      }
+      final snapshot = await query.get();
+      shifts =
+          snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+    } on FirebaseException catch (firestoreError) {
+      final missingIndex = firestoreError.code == 'failed-precondition' &&
+          (firestoreError.message?.contains('index') ?? false);
+      if (!missingIndex) rethrow;
+      final snapshot = await _shiftsCollection
+          .where('student_ids', arrayContains: studentId)
+          .get();
+      shifts =
+          snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+    }
+
+    final filtered = shifts.where((shift) {
+      if (fromDate != null && shift.shiftStart.isBefore(fromDate)) return false;
+      if (toDate != null && shift.shiftStart.isAfter(toDate)) return false;
+
+      final localStart = TimezoneUtils.convertToTimezone(
+          shift.shiftStart, shift.adminTimezone);
+      final minutes = localStart.hour * 60 + localStart.minute;
+      if (!wrapsMidnight) {
+        return minutes >= startMinutes && minutes <= endMinutes;
+      }
+      return minutes >= startMinutes || minutes <= endMinutes;
+    }).toList();
+
+    filtered.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+    return filtered;
+  }
+
+  static Future<List<TeachingShift>> findShiftsForBulkEdit({
+    String? studentId,
+    String? teacherId,
+    String? subjectId,
+    DateTime? startDate,
+    DateTime? endDate,
+    TimeOfDay? startTime,
+    TimeOfDay? endTime,
+    String? recurrenceSeriesId,
+  }) async {
+    List<TeachingShift> shifts = [];
+    try {
+      Query query = _shiftsCollection;
+      if (teacherId != null) {
+        query = query.where('teacher_id', isEqualTo: teacherId);
+      }
+      if (studentId != null) {
+        query = query.where('student_ids', arrayContains: studentId);
+      }
+      if (subjectId != null) {
+        query = query.where('subject_id', isEqualTo: subjectId);
+      }
+      if (recurrenceSeriesId != null) {
+        query =
+            query.where('recurrence_series_id', isEqualTo: recurrenceSeriesId);
+      }
+      if (startDate != null) {
+        query = query.where('shift_start',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        query = query.where('shift_start',
+            isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+      }
+      final snapshot = await query.get();
+      shifts =
+          snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+    } on FirebaseException catch (firestoreError) {
+      final missingIndex = firestoreError.code == 'failed-precondition' &&
+          (firestoreError.message?.contains('index') ?? false);
+      if (!missingIndex) rethrow;
+
+      // Fallback: scan all shifts and filter locally.
+      final snapshot = await _shiftsCollection.get();
+      shifts =
+          snapshot.docs.map((d) => TeachingShift.fromFirestore(d)).toList();
+    }
+
+    final startMinutes =
+        startTime != null ? startTime.hour * 60 + startTime.minute : null;
+    final endMinutes =
+        endTime != null ? endTime.hour * 60 + endTime.minute : null;
+    final wrapsMidnight = startMinutes != null &&
+        endMinutes != null &&
+        endMinutes <= startMinutes;
+
+    final filtered = shifts.where((shift) {
+      if (teacherId != null && shift.teacherId != teacherId) return false;
+      if (studentId != null && !shift.studentIds.contains(studentId))
+        return false;
+      if (subjectId != null && shift.subjectId != subjectId) return false;
+      if (recurrenceSeriesId != null &&
+          shift.recurrenceSeriesId != recurrenceSeriesId) {
+        return false;
+      }
+      if (startDate != null && shift.shiftStart.isBefore(startDate))
+        return false;
+      if (endDate != null && shift.shiftStart.isAfter(endDate)) return false;
+
+      if (startMinutes != null && endMinutes != null) {
+        final localStart = TimezoneUtils.convertToTimezone(
+            shift.shiftStart, shift.adminTimezone);
+        final minutes = localStart.hour * 60 + localStart.minute;
+        if (!wrapsMidnight) {
+          if (minutes < startMinutes || minutes > endMinutes) return false;
+        } else {
+          if (minutes < startMinutes && minutes > endMinutes) return false;
+        }
+      }
+
+      return true;
+    }).toList();
+
+    filtered.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+    return filtered;
+  }
+
+  static Future<List<BulkShiftConflict>> checkBulkUpdateConflicts(
+    List<String> shiftIds,
+    Map<String, dynamic> updates,
+  ) async {
+    final shifts = await _fetchShiftsByIds(shiftIds);
+    if (shifts.isEmpty) return [];
+
+    final conflicts = <BulkShiftConflict>[];
+    final teacherIdOverride = updates['teacher_id'] ?? updates['teacherId'];
+    final absoluteStart = _asDateTime(updates['shift_start']);
+    final absoluteEnd = _asDateTime(updates['shift_end']);
+    final newStartTime = _asTimeOfDay(updates['shift_start_time']);
+    final newEndTime = _asTimeOfDay(updates['shift_end_time']);
+    final timezoneId = updates['timezone']?.toString().trim();
+
+    for (final shift in shifts) {
+      final proposedTeacherId =
+          (teacherIdOverride is String && teacherIdOverride.isNotEmpty)
+              ? teacherIdOverride
+              : shift.teacherId;
+
+      DateTime proposedStart = shift.shiftStart;
+      DateTime proposedEnd = shift.shiftEnd;
+
+      if (absoluteStart != null) proposedStart = absoluteStart;
+      if (absoluteEnd != null) proposedEnd = absoluteEnd;
+
+      if (newStartTime != null && newEndTime != null) {
+        final tz = (timezoneId != null && timezoneId.isNotEmpty)
+            ? timezoneId
+            : shift.adminTimezone;
+        final localStart =
+            TimezoneUtils.convertToTimezone(shift.shiftStart, tz);
+        final naiveStart = DateTime(
+          localStart.year,
+          localStart.month,
+          localStart.day,
+          newStartTime.hour,
+          newStartTime.minute,
+        );
+        var naiveEnd = DateTime(
+          localStart.year,
+          localStart.month,
+          localStart.day,
+          newEndTime.hour,
+          newEndTime.minute,
+        );
+        if (naiveEnd.isBefore(naiveStart)) {
+          naiveEnd = naiveEnd.add(const Duration(days: 1));
+        }
+        proposedStart = TimezoneUtils.convertToUtc(naiveStart, tz);
+        proposedEnd = TimezoneUtils.convertToUtc(naiveEnd, tz);
+      }
+
+      final conflict = await _findFirstConflictingShift(
+        teacherId: proposedTeacherId,
+        shiftStart: proposedStart,
+        shiftEnd: proposedEnd,
+        excludeShiftId: shift.id,
+      );
+      if (conflict != null) {
+        conflicts.add(
+          BulkShiftConflict(
+            shiftId: shift.id,
+            proposedStart: proposedStart,
+            proposedEnd: proposedEnd,
+            conflictingShiftId: conflict.id,
+            conflictingShiftName: conflict.displayName,
+            conflictingStart: conflict.shiftStart,
+            conflictingEnd: conflict.shiftEnd,
+          ),
+        );
+      }
+    }
+
+    return conflicts;
+  }
+
+  static Future<void> bulkUpdateShifts(
+    List<String> shiftIds,
+    Map<String, dynamic> updates, {
+    bool checkConflicts = true,
+  }) async {
+    if (shiftIds.isEmpty) return;
+    if (shiftIds.length > 100) {
+      throw Exception('Bulk updates are limited to 100 shifts at a time.');
+    }
+
+    final shifts = await _fetchShiftsByIds(shiftIds);
+    if (shifts.isEmpty) return;
+
+    if (checkConflicts) {
+      final conflicts = await checkBulkUpdateConflicts(shiftIds, updates);
+      if (conflicts.isNotEmpty) {
+        throw Exception(
+            'Bulk update would cause ${conflicts.length} scheduling conflict(s).');
+      }
+    }
+
+    final teacherIdOverride = updates['teacher_id'] ?? updates['teacherId'];
+    final studentIdsOverride = updates['student_ids'] ?? updates['studentIds'];
+    final subjectIdOverride = updates['subject_id'] ?? updates['subjectId'];
+    final absoluteStart = _asDateTime(updates['shift_start']);
+    final absoluteEnd = _asDateTime(updates['shift_end']);
+    final statusOverride = _asShiftStatus(updates['status']);
+    final startTimeOverride = _asTimeOfDay(updates['shift_start_time']);
+    final endTimeOverride = _asTimeOfDay(updates['shift_end_time']);
+    final timezoneId = updates['timezone']?.toString().trim();
+
+    final shouldUpdateNotes = updates.containsKey('notes');
+    final rawNotes = shouldUpdateNotes ? updates['notes'] : null;
+    final notesOverride = rawNotes == null ? null : rawNotes.toString();
+
+    final shouldUpdateCustomName =
+        updates.containsKey('custom_name') || updates.containsKey('customName');
+    final rawCustomName = updates.containsKey('custom_name')
+        ? updates['custom_name']
+        : (updates.containsKey('customName') ? updates['customName'] : null);
+    final customNameOverride =
+        rawCustomName == null ? null : rawCustomName.toString();
+
+    String? teacherNameOverrideValue;
+    String? teacherTimezoneOverrideValue;
+    if (teacherIdOverride is String && teacherIdOverride.isNotEmpty) {
+      final teacherDoc =
+          await _firestore.collection('users').doc(teacherIdOverride).get();
+      if (teacherDoc.exists) {
+        final data = teacherDoc.data() as Map<String, dynamic>;
+        teacherNameOverrideValue =
+            '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+        teacherTimezoneOverrideValue = (data['timezone'] ?? 'UTC').toString();
+      }
+    }
+
+    List<String>? studentNamesOverrideValue;
+    if (studentIdsOverride is List) {
+      final ids = studentIdsOverride.map((e) => e.toString()).toList();
+      final names = <String>[];
+      for (final studentId in ids) {
+        final doc = await _firestore.collection('users').doc(studentId).get();
+        if (!doc.exists) continue;
+        final data = doc.data() as Map<String, dynamic>;
+        names.add(
+            '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim());
+      }
+      studentNamesOverrideValue = names;
+    }
+
+    IslamicSubject? subjectEnumOverride;
+    String? subjectDisplayNameOverride;
+    if (subjectIdOverride is String && subjectIdOverride.isNotEmpty) {
+      final doc =
+          await _firestore.collection('subjects').doc(subjectIdOverride).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final name = (data['name'] ?? '').toString();
+        subjectEnumOverride = _mapSubjectNameToEnum(name);
+        subjectDisplayNameOverride = (data['displayName'] ?? '').toString();
+      }
+    }
+
+    final failures = <String>[];
+    for (final shift in shifts) {
+      try {
+        final updated = await _buildUpdatedShiftForBulkUpdate(
+          shift,
+          teacherIdOverride:
+              teacherIdOverride is String ? teacherIdOverride : null,
+          teacherNameOverride: teacherNameOverrideValue,
+          teacherTimezoneOverride: teacherTimezoneOverrideValue,
+          studentIdsOverride: studentIdsOverride is List
+              ? studentIdsOverride.map((e) => e.toString()).toList()
+              : null,
+          studentNamesOverride: studentNamesOverrideValue,
+          subjectIdOverride:
+              subjectIdOverride is String ? subjectIdOverride : null,
+          subjectEnumOverride: subjectEnumOverride,
+          subjectDisplayNameOverride: subjectDisplayNameOverride,
+          absoluteStart: absoluteStart,
+          absoluteEnd: absoluteEnd,
+          updateNotes: shouldUpdateNotes,
+          notesOverride: notesOverride,
+          updateCustomName: shouldUpdateCustomName,
+          customNameOverride: customNameOverride,
+          statusOverride: statusOverride,
+          startTimeOverride: startTimeOverride,
+          endTimeOverride: endTimeOverride,
+          timezoneId: timezoneId,
+        );
+
+        await updateShift(updated);
+      } catch (e) {
+        failures.add('${shift.displayName} (${shift.id}): $e');
+      }
+    }
+
+    if (failures.isNotEmpty) {
+      throw Exception('Bulk update failed for ${failures.length} shift(s).');
+    }
+  }
+
+  static Future<void> bulkDeleteShifts(List<String> shiftIds) async {
+    await deleteMultipleShifts(shiftIds);
+  }
+
+  static Future<TeachingShift> _buildUpdatedShiftForBulkUpdate(
+    TeachingShift shift, {
+    String? teacherIdOverride,
+    String? teacherNameOverride,
+    String? teacherTimezoneOverride,
+    List<String>? studentIdsOverride,
+    List<String>? studentNamesOverride,
+    String? subjectIdOverride,
+    IslamicSubject? subjectEnumOverride,
+    String? subjectDisplayNameOverride,
+    DateTime? absoluteStart,
+    DateTime? absoluteEnd,
+    bool updateNotes = false,
+    String? notesOverride,
+    bool updateCustomName = false,
+    String? customNameOverride,
+    ShiftStatus? statusOverride,
+    TimeOfDay? startTimeOverride,
+    TimeOfDay? endTimeOverride,
+    String? timezoneId,
+  }) async {
+    var next = shift;
+
+    if (teacherIdOverride != null && teacherIdOverride.isNotEmpty) {
+      next = next.copyWith(
+        teacherId: teacherIdOverride,
+        teacherName: teacherNameOverride ?? next.teacherName,
+        teacherTimezone: teacherTimezoneOverride ?? next.teacherTimezone,
+      );
+    }
+
+    if (studentIdsOverride != null) {
+      next = next.copyWith(
+        studentIds: studentIdsOverride,
+        studentNames: studentNamesOverride ?? next.studentNames,
+      );
+    }
+
+    if (subjectIdOverride != null && subjectIdOverride.isNotEmpty) {
+      next = next.copyWith(
+        subjectId: subjectIdOverride,
+        subject: subjectEnumOverride ?? next.subject,
+        subjectDisplayName:
+            subjectDisplayNameOverride ?? next.subjectDisplayName,
+      );
+    }
+
+    if (updateNotes) {
+      next = next.copyWith(notes: notesOverride);
+    }
+
+    if (updateCustomName) {
+      next = next.copyWith(customName: customNameOverride);
+    }
+
+    if (statusOverride != null) {
+      next = next.copyWith(status: statusOverride);
+    }
+
+    if (absoluteStart != null) {
+      next = next.copyWith(shiftStart: absoluteStart);
+    }
+    if (absoluteEnd != null) {
+      next = next.copyWith(shiftEnd: absoluteEnd);
+    }
+
+    if (startTimeOverride != null && endTimeOverride != null) {
+      if (timezoneId != null && timezoneId.isNotEmpty) {
+        next = next.copyWith(adminTimezone: timezoneId);
+      }
+      final tz = (timezoneId != null && timezoneId.isNotEmpty)
+          ? timezoneId
+          : next.adminTimezone;
+      final localStart = TimezoneUtils.convertToTimezone(next.shiftStart, tz);
+      final naiveStart = DateTime(
+        localStart.year,
+        localStart.month,
+        localStart.day,
+        startTimeOverride.hour,
+        startTimeOverride.minute,
+      );
+      var naiveEnd = DateTime(
+        localStart.year,
+        localStart.month,
+        localStart.day,
+        endTimeOverride.hour,
+        endTimeOverride.minute,
+      );
+      if (naiveEnd.isBefore(naiveStart)) {
+        naiveEnd = naiveEnd.add(const Duration(days: 1));
+      }
+      final shiftStartUtc = TimezoneUtils.convertToUtc(naiveStart, tz);
+      final shiftEndUtc = TimezoneUtils.convertToUtc(naiveEnd, tz);
+      next = next.copyWith(shiftStart: shiftStartUtc, shiftEnd: shiftEndUtc);
+    }
+
+    // Regenerate auto name when participants/subject change and custom name is empty.
+    if ((next.customName == null || next.customName!.trim().isEmpty) &&
+        (teacherIdOverride != null ||
+            studentIdsOverride != null ||
+            subjectIdOverride != null)) {
+      final autoName = TeachingShift.generateAutoName(
+        teacherName: next.teacherName,
+        subject: next.subject,
+        studentNames: next.studentNames,
+      );
+      next = next.copyWith(autoGeneratedName: autoName);
+    }
+
+    return next;
+  }
+
+  static Future<TeachingShift?> _findFirstConflictingShift({
+    required String teacherId,
+    required DateTime shiftStart,
+    required DateTime shiftEnd,
+    String? excludeShiftId,
+  }) async {
+    // Reuse the same windowing logic as hasConflictingShift, but return the
+    // first conflicting shift for diagnostics.
+    final isUtc = shiftStart.isUtc;
+    final startOfDay = isUtc
+        ? DateTime.utc(shiftStart.year, shiftStart.month, shiftStart.day)
+        : DateTime(shiftStart.year, shiftStart.month, shiftStart.day);
+    final endOfDay = isUtc
+        ? DateTime.utc(shiftStart.year, shiftStart.month, shiftStart.day)
+            .add(const Duration(days: 1))
+        : startOfDay.add(const Duration(days: 1));
+
+    final rangeStart = startOfDay.subtract(const Duration(days: 1));
+    final rangeEnd = endOfDay.add(const Duration(days: 1));
+
+    List<QueryDocumentSnapshot> docs;
+    try {
+      final snapshot = await _shiftsCollection
+          .where('teacher_id', isEqualTo: teacherId)
+          .where('shift_start',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(rangeStart))
+          .where('shift_start', isLessThan: Timestamp.fromDate(rangeEnd))
+          .get();
+      docs = snapshot.docs;
+    } on FirebaseException catch (firestoreError) {
+      final missingIndex = firestoreError.code == 'failed-precondition' &&
+          (firestoreError.message?.contains('index') ?? false);
+      if (!missingIndex) rethrow;
+      final snapshot = await _shiftsCollection
+          .where('teacher_id', isEqualTo: teacherId)
+          .get();
+      docs = snapshot.docs;
+    }
+
+    for (final doc in docs) {
+      if (excludeShiftId != null && doc.id == excludeShiftId) continue;
+      final existingShift = TeachingShift.fromFirestore(doc);
+      final overlaps = shiftStart.isBefore(existingShift.shiftEnd) &&
+          shiftEnd.isAfter(existingShift.shiftStart);
+      if (overlaps) return existingShift;
+    }
+
+    return null;
+  }
+
   /// Create a new teaching shift.
   ///
   /// Steps:
@@ -204,11 +1002,42 @@ class ShiftService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) throw Exception('User not authenticated');
 
+      // Safety net: always derive the stored UTC times from the original local
+      // inputs (when available). This prevents timezone regressions where UI
+      // accidentally passes local times through without conversion.
+      var effectiveShiftStart = shiftStart;
+      var effectiveShiftEnd = shiftEnd;
+      if (originalLocalStart != null && originalLocalEnd != null) {
+        final schedulingTimezone =
+            TimezoneUtils.normalizeTimezone(adminTimezone, fallback: 'UTC');
+        final recalculatedStart =
+            TimezoneUtils.convertToUtc(originalLocalStart, schedulingTimezone);
+        final correctedOriginalEnd =
+            originalLocalEnd.isBefore(originalLocalStart)
+                ? originalLocalEnd.add(const Duration(days: 1))
+                : originalLocalEnd;
+        final recalculatedEnd = TimezoneUtils.convertToUtc(
+            correctedOriginalEnd, schedulingTimezone);
+
+        effectiveShiftStart = recalculatedStart;
+        effectiveShiftEnd = recalculatedEnd;
+
+        final startDeltaMinutes =
+            effectiveShiftStart.difference(shiftStart).inMinutes;
+        final endDeltaMinutes =
+            effectiveShiftEnd.difference(shiftEnd).inMinutes;
+        if (startDeltaMinutes != 0 || endDeltaMinutes != 0) {
+          AppLogger.warning(
+            'ShiftService.createShift: Overriding provided times using timezone conversion (tz=$schedulingTimezone, start_delta_min=$startDeltaMinutes, end_delta_min=$endDeltaMinutes)',
+          );
+        }
+      }
+
       // Check for conflicting shifts at the exact same time
       final hasConflict = await hasConflictingShift(
         teacherId: teacherId,
-        shiftStart: shiftStart,
-        shiftEnd: shiftEnd,
+        shiftStart: effectiveShiftStart,
+        shiftEnd: effectiveShiftEnd,
       );
 
       if (hasConflict) {
@@ -226,7 +1055,7 @@ class ShiftService {
       final teacherName =
           '${teacherData['first_name']} ${teacherData['last_name']}';
       final teacherTimezone = teacherData['timezone'] ?? 'UTC';
-      
+
       // Determine hourly rate: use provided rate, or subject's defaultWage, or teacher's wage
       double effectiveHourlyRate;
       if (hourlyRate != null) {
@@ -234,28 +1063,35 @@ class ShiftService {
       } else if (subjectId != null) {
         // Try to get subject's defaultWage
         try {
-          final subjectDoc = await _firestore.collection('subjects').doc(subjectId).get();
+          final subjectDoc =
+              await _firestore.collection('subjects').doc(subjectId).get();
           if (subjectDoc.exists) {
-            final subjectData = subjectDoc.data() as Map<String, dynamic>?;
-            final subjectWage = (subjectData?['defaultWage'] as num?)?.toDouble();
+            final subjectData = subjectDoc.data();
+            final subjectWage =
+                (subjectData?['defaultWage'] as num?)?.toDouble();
             if (subjectWage != null && subjectWage > 0) {
               effectiveHourlyRate = subjectWage;
             } else {
               // Fall back to teacher's wage
-              effectiveHourlyRate = await WageManagementService.getEffectiveWageForUser(teacherId);
+              effectiveHourlyRate =
+                  await WageManagementService.getEffectiveWageForUser(
+                      teacherId);
             }
           } else {
             // Subject not found, use teacher's wage
-            effectiveHourlyRate = await WageManagementService.getEffectiveWageForUser(teacherId);
+            effectiveHourlyRate =
+                await WageManagementService.getEffectiveWageForUser(teacherId);
           }
         } catch (e) {
           AppLogger.error('Error fetching subject wage: $e');
           // Fall back to teacher's wage
-          effectiveHourlyRate = await WageManagementService.getEffectiveWageForUser(teacherId);
+          effectiveHourlyRate =
+              await WageManagementService.getEffectiveWageForUser(teacherId);
         }
       } else {
         // No subject ID, use teacher's wage
-        effectiveHourlyRate = await WageManagementService.getEffectiveWageForUser(teacherId);
+        effectiveHourlyRate =
+            await WageManagementService.getEffectiveWageForUser(teacherId);
       }
 
       // Get student information
@@ -283,6 +1119,13 @@ class ShiftService {
         studentNames: finalStudentNames,
       );
 
+      final createdAt = DateTime.now();
+      final effectiveRecurrence =
+          enhancedRecurrence ?? const EnhancedRecurrence();
+      final isRecurringSeries = recurrence != RecurrencePattern.none ||
+          effectiveRecurrence.type != EnhancedRecurrenceType.none;
+      final recurrenceSeriesId = isRecurringSeries ? _uuid.v4() : null;
+
       // Create shift document
       final shiftDoc = _shiftsCollection.doc();
       final shift = TeachingShift(
@@ -291,8 +1134,8 @@ class ShiftService {
         teacherName: teacherName,
         studentIds: studentIds,
         studentNames: finalStudentNames,
-        shiftStart: shiftStart,
-        shiftEnd: shiftEnd,
+        shiftStart: effectiveShiftStart,
+        shiftEnd: effectiveShiftEnd,
         adminTimezone: adminTimezone,
         teacherTimezone: teacherTimezone,
         subject: subject,
@@ -303,9 +1146,11 @@ class ShiftService {
         hourlyRate: effectiveHourlyRate,
         status: ShiftStatus.scheduled,
         createdByAdminId: currentUser.uid,
-        createdAt: DateTime.now(),
+        createdAt: createdAt,
         recurrence: recurrence,
-        enhancedRecurrence: enhancedRecurrence ?? const EnhancedRecurrence(),
+        recurrenceSeriesId: recurrenceSeriesId,
+        seriesCreatedAt: isRecurringSeries ? createdAt : null,
+        enhancedRecurrence: effectiveRecurrence,
         recurrenceEndDate: recurrenceEndDate,
         recurrenceSettings: recurrenceSettings,
         notes: notes,
@@ -314,13 +1159,15 @@ class ShiftService {
         leaderRole: leaderRole,
         // Video provider (Zoom or LiveKit beta)
         videoProvider: videoProvider,
-        livekitRoomName: videoProvider == VideoProvider.livekit ? 'shift_${shiftDoc.id}' : null,
+        livekitRoomName: videoProvider == VideoProvider.livekit
+            ? 'shift_${shiftDoc.id}'
+            : null,
       );
 
       // Validate that end time is after start time
-      if (shiftEnd.isBefore(shiftStart)) {
+      if (effectiveShiftEnd.isBefore(effectiveShiftStart)) {
         AppLogger.error(
-            'Attempted to create shift with negative duration: Start $shiftStart, End $shiftEnd');
+            'Attempted to create shift with negative duration: Start $effectiveShiftStart, End $effectiveShiftEnd');
         throw Exception('Shift end time must be after start time');
       }
 
@@ -340,8 +1187,6 @@ class ShiftService {
       }
 
       // Create recurring shifts if specified
-      final effectiveRecurrence =
-          enhancedRecurrence ?? const EnhancedRecurrence();
       if (recurrence != RecurrencePattern.none ||
           effectiveRecurrence.type != EnhancedRecurrenceType.none) {
         // Use provided end date or default to 1 year from now if not specified
@@ -389,9 +1234,11 @@ class ShiftService {
         final localBaseStart = TimezoneUtils.convertToTimezone(
             baseShift.shiftStart, baseShift.adminTimezone);
         final occurrences = enhancedRecurrence.generateOccurrences(
-          localBaseStart.add(const Duration(days: 1)), // Start from next day in local timezone
+          localBaseStart.add(
+              const Duration(days: 1)), // Start from next day in local timezone
           100, // Max occurrences
-          timezoneId: baseShift.adminTimezone, // Pass timezone for correct weekday calculation
+          timezoneId: baseShift
+              .adminTimezone, // Pass timezone for correct weekday calculation
         );
 
         AppLogger.debug('Generated ${occurrences.length} occurrence dates');
@@ -455,8 +1302,10 @@ class ShiftService {
           final naiveShiftEnd = naiveShiftStart.add(shiftDuration);
 
           // Convert from admin timezone to UTC for storage
-          final shiftStart = TimezoneUtils.convertToUtc(naiveShiftStart, adminTimezone);
-          final shiftEnd = TimezoneUtils.convertToUtc(naiveShiftEnd, adminTimezone);
+          final shiftStart =
+              TimezoneUtils.convertToUtc(naiveShiftStart, adminTimezone);
+          final shiftEnd =
+              TimezoneUtils.convertToUtc(naiveShiftEnd, adminTimezone);
 
           // Check if a shift already exists at this exact time
           final hasConflict = await hasConflictingShift(
@@ -472,8 +1321,10 @@ class ShiftService {
           }
 
           // Debug logging to track time preservation
-          final localShiftStart = TimezoneUtils.convertToTimezone(shiftStart, adminTimezone);
-          final localShiftEnd = TimezoneUtils.convertToTimezone(shiftEnd, adminTimezone);
+          final localShiftStart =
+              TimezoneUtils.convertToTimezone(shiftStart, adminTimezone);
+          final localShiftEnd =
+              TimezoneUtils.convertToTimezone(shiftEnd, adminTimezone);
           AppLogger.debug(
               'Creating recurring shift: ${occurrence.toString().substring(0, 10)} ${localShiftStart.hour}:${localShiftStart.minute.toString().padLeft(2, '0')} - ${localShiftEnd.hour}:${localShiftEnd.minute.toString().padLeft(2, '0')} ($adminTimezone)');
 
@@ -491,7 +1342,7 @@ class ShiftService {
         // Fall back to old recurrence pattern logic
         // Get the admin timezone used for scheduling
         final adminTimezone = baseShift.adminTimezone;
-        
+
         // Extract local time components from original local times
         DateTime localStartTime;
         DateTime localEndTime;
@@ -511,7 +1362,7 @@ class ShiftService {
           AppLogger.debug(
               'Recurring shift (legacy): Converted UTC to local - Start: ${localStartTime.hour}:${localStartTime.minute.toString().padLeft(2, '0')}, End: ${localEndTime.hour}:${localEndTime.minute.toString().padLeft(2, '0')} ($adminTimezone)');
         }
-        
+
         // Convert baseShift.shiftStart to local timezone for date calculations
         final localBaseStart = TimezoneUtils.convertToTimezone(
             baseShift.shiftStart, adminTimezone);
@@ -573,8 +1424,10 @@ class ShiftService {
           final naiveNextShiftEnd = naiveNextShiftStart.add(shiftDuration);
 
           // Convert from admin timezone to UTC for storage
-          final nextShiftStart = TimezoneUtils.convertToUtc(naiveNextShiftStart, adminTimezone);
-          final nextShiftEnd = TimezoneUtils.convertToUtc(naiveNextShiftEnd, adminTimezone);
+          final nextShiftStart =
+              TimezoneUtils.convertToUtc(naiveNextShiftStart, adminTimezone);
+          final nextShiftEnd =
+              TimezoneUtils.convertToUtc(naiveNextShiftEnd, adminTimezone);
 
           // Check for conflicts before creating
           final hasConflict = await hasConflictingShift(
@@ -630,24 +1483,57 @@ class ShiftService {
         .where('teacher_id', isEqualTo: teacherId)
         .snapshots()
         .map((snapshot) {
+      final opId =
+          PerformanceLogger.newOperationId('ShiftService.getTeacherShifts');
+      PerformanceLogger.startTimer(opId, metadata: {
+        'teacher_id': teacherId,
+        'doc_count': snapshot.docs.length,
+      });
       try {
+        PerformanceLogger.checkpoint(opId, 'parsing_start');
         final shifts = <TeachingShift>[];
+        int parseErrors = 0;
+        final parseStopwatch = Stopwatch()..start();
         for (var doc in snapshot.docs) {
           try {
             shifts.add(TeachingShift.fromFirestore(doc));
           } catch (e) {
-            AppLogger.error(
-                'Error parsing shift document ${doc.id}: $e');
+            AppLogger.error('Error parsing shift document ${doc.id}: $e');
+            parseErrors++;
             // Skip invalid documents and continue
           }
         }
+        parseStopwatch.stop();
+        final parseMs = parseStopwatch.elapsedMilliseconds;
+        final avgParseMs =
+            snapshot.docs.isEmpty ? 0.0 : parseMs / snapshot.docs.length;
+        PerformanceLogger.checkpoint(opId, 'parsing_complete', metadata: {
+          'shift_count': shifts.length,
+          'parse_errors': parseErrors,
+          'parse_time_ms': parseMs,
+          'avg_parse_ms_per_doc': avgParseMs.toStringAsFixed(3),
+        });
 
         // Sort by shift_start since we can't use orderBy in query without index
+        final sortStopwatch = Stopwatch()..start();
         shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        sortStopwatch.stop();
+        PerformanceLogger.checkpoint(opId, 'sorting_complete', metadata: {
+          'sort_time_ms': sortStopwatch.elapsedMilliseconds,
+        });
 
+        PerformanceLogger.endTimer(opId, metadata: {
+          'total_shifts': shifts.length,
+          'doc_count': snapshot.docs.length,
+          'parse_errors': parseErrors,
+        });
         return shifts;
       } catch (e) {
         AppLogger.error('Error processing teacher shifts stream: $e');
+        PerformanceLogger.endTimer(opId, metadata: {
+          'error': e.toString(),
+          'teacher_id': teacherId,
+        });
         return <TeachingShift>[];
       }
     }).handleError((error, stackTrace) {
@@ -659,24 +1545,56 @@ class ShiftService {
   /// Get all shifts (admin view)
   static Stream<List<TeachingShift>> getAllShifts() {
     return _shiftsCollection.snapshots().map((snapshot) {
+      final opId =
+          PerformanceLogger.newOperationId('ShiftService.getAllShifts');
+      PerformanceLogger.startTimer(opId, metadata: {
+        'doc_count': snapshot.docs.length,
+      });
       try {
+        PerformanceLogger.checkpoint(opId, 'parsing_start');
         final shifts = <TeachingShift>[];
+        int parseErrors = 0;
+        final parseStopwatch = Stopwatch()..start();
         for (var doc in snapshot.docs) {
           try {
             shifts.add(TeachingShift.fromFirestore(doc));
           } catch (e) {
-            AppLogger.error(
-                'Error parsing shift document ${doc.id}: $e');
+            AppLogger.error('Error parsing shift document ${doc.id}: $e');
+            parseErrors++;
             // Skip invalid documents and continue
           }
         }
+        parseStopwatch.stop();
+        final parseMs = parseStopwatch.elapsedMilliseconds;
+        final avgParseMs =
+            snapshot.docs.isEmpty ? 0.0 : parseMs / snapshot.docs.length;
+        PerformanceLogger.checkpoint(opId, 'parsing_complete', metadata: {
+          'shift_count': shifts.length,
+          'parse_errors': parseErrors,
+          'parse_time_ms': parseMs,
+          'avg_parse_ms_per_doc': avgParseMs.toStringAsFixed(3),
+        });
 
         // Sort by shift_start for consistent ordering
+        final sortStopwatch = Stopwatch()..start();
         shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        sortStopwatch.stop();
+        PerformanceLogger.checkpoint(opId, 'sorting_complete', metadata: {
+          'sort_time_ms': sortStopwatch.elapsedMilliseconds,
+        });
 
+        PerformanceLogger.endTimer(opId, metadata: {
+          'total_shifts': shifts.length,
+          'doc_count': snapshot.docs.length,
+          'parse_errors': parseErrors,
+        });
         return shifts;
       } catch (e) {
         AppLogger.error('Error processing all shifts stream: $e');
+        PerformanceLogger.endTimer(opId, metadata: {
+          'error': e.toString(),
+          'doc_count': snapshot.docs.length,
+        });
         return <TeachingShift>[];
       }
     }).handleError((error, stackTrace) {
@@ -697,8 +1615,7 @@ class ShiftService {
           try {
             shifts.add(TeachingShift.fromFirestore(doc));
           } catch (e) {
-            AppLogger.error(
-                'Error parsing shift document ${doc.id}: $e');
+            AppLogger.error('Error parsing shift document ${doc.id}: $e');
             // Skip invalid documents and continue
           }
         }
@@ -732,9 +1649,8 @@ class ShiftService {
           .where('shift_start', isLessThan: Timestamp.fromDate(futureLimit))
           .get();
 
-      final shifts = snapshot.docs
-          .map((doc) => TeachingShift.fromFirestore(doc))
-          .toList();
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
 
       // Sort by shift start time
       shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
@@ -762,9 +1678,8 @@ class ShiftService {
           .where('shift_start', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
-      final shifts = snapshot.docs
-          .map((doc) => TeachingShift.fromFirestore(doc))
-          .toList();
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
 
       shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
@@ -898,7 +1813,7 @@ class ShiftService {
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: shiftId)
           .get();
-      
+
       for (var doc in timesheetSnapshot.docs) {
         batch.delete(doc.reference);
         deletedCount++;
@@ -909,7 +1824,7 @@ class ShiftService {
           .collection('timesheet_entries')
           .where('shiftId', isEqualTo: shiftId)
           .get();
-      
+
       for (var doc in timesheetSnapshotCamel.docs) {
         batch.delete(doc.reference);
         deletedCount++;
@@ -920,7 +1835,7 @@ class ShiftService {
           .collection('form_responses')
           .where('shiftId', isEqualTo: shiftId)
           .get();
-      
+
       for (var doc in formResponseSnapshot.docs) {
         batch.delete(doc.reference);
         deletedCount++;
@@ -931,7 +1846,7 @@ class ShiftService {
           .collection('form_responses')
           .where('shift_id', isEqualTo: shiftId)
           .get();
-      
+
       for (var doc in formResponseSnapshotSnake.docs) {
         batch.delete(doc.reference);
         deletedCount++;
@@ -952,7 +1867,7 @@ class ShiftService {
             .collection('form_responses')
             .where('timesheetId', isEqualTo: timesheetId)
             .get();
-        
+
         for (var doc in formByTimesheet.docs) {
           batch.delete(doc.reference);
           deletedCount++;
@@ -963,7 +1878,7 @@ class ShiftService {
             .collection('form_responses')
             .where('timesheet_id', isEqualTo: timesheetId)
             .get();
-        
+
         for (var doc in formByTimesheetSnake.docs) {
           batch.delete(doc.reference);
           deletedCount++;
@@ -973,9 +1888,11 @@ class ShiftService {
       // Commit all deletions
       if (deletedCount > 0) {
         await batch.commit();
-        AppLogger.info('ShiftService: Deleted $deletedCount related documents for shift $shiftId');
+        AppLogger.info(
+            'ShiftService: Deleted $deletedCount related documents for shift $shiftId');
       } else {
-        AppLogger.debug('ShiftService: No related data found to delete for shift $shiftId');
+        AppLogger.debug(
+            'ShiftService: No related data found to delete for shift $shiftId');
       }
     } catch (e) {
       AppLogger.error('Error deleting shift related data: $e');
@@ -1072,12 +1989,23 @@ class ShiftService {
   static Future<void> updateShift(TeachingShift shift) async {
     try {
       await _shiftsCollection.doc(shift.id).update(shift.toFirestore());
+      AppLogger.info('Shift updated successfully in Firestore');
+    } catch (e) {
+      AppLogger.error('Error updating shift in Firestore: $e');
+      throw Exception('Failed to update shift');
+    }
+
+    // Best-effort: reschedule lifecycle tasks. This should not block shift edits,
+    // since task scheduling can fail transiently (e.g., Cloud Tasks de-dup).
+    try {
       final shouldCancel = shift.status == ShiftStatus.cancelled;
       await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
-      AppLogger.error('Shift updated successfully');
+      AppLogger.info(
+          'ShiftService: Lifecycle tasks rescheduled successfully for shift ${shift.id}');
     } catch (e) {
-      AppLogger.error('Error updating shift: $e');
-      throw Exception('Failed to update shift');
+      AppLogger.warning(
+          'ShiftService: Warning - unable to reschedule lifecycle tasks for shift ${shift.id}: $e. '
+          'Shift update was successful.');
     }
   }
 
@@ -1089,59 +2017,60 @@ class ShiftService {
     try {
       final now = DateTime.now();
       final updateData = shift.toFirestore();
-      
+
       // Get timesheet entries for this shift
       final timesheetSnapshot = await _firestore
           .collection('timesheet_entries')
           .where('shift_id', isEqualTo: shift.id)
           .get();
-      
+
       int totalWorkedMinutes = 0;
       bool hasClockIn = shift.clockInTime != null;
-      
+
       // Calculate worked minutes from timesheet entries AND recalculate payment
       final batch = _firestore.batch();
       bool hasTimesheetUpdates = false;
-      
+
       for (var doc in timesheetSnapshot.docs) {
         final data = doc.data();
         final clockIn = data['clock_in_timestamp'] as Timestamp?;
         final clockOut = data['clock_out_timestamp'] as Timestamp?;
-        
+
         if (clockIn != null) {
           hasClockIn = true;
-          
+
           // PAYOUT RECALCULATION: When shift times change, recalculate payment
           // based on actual worked time capped to NEW shift duration
           final clockInTime = clockIn.toDate();
           final clockOutTime = clockOut?.toDate();
-          
+
           if (clockOutTime != null) {
             // Cap times to new shift window
-            final effectiveStart = clockInTime.isBefore(shift.shiftStart) 
-                ? shift.shiftStart 
+            final effectiveStart = clockInTime.isBefore(shift.shiftStart)
+                ? shift.shiftStart
                 : clockInTime;
-            final effectiveEnd = clockOutTime.isAfter(shift.shiftEnd) 
-                ? shift.shiftEnd 
+            final effectiveEnd = clockOutTime.isAfter(shift.shiftEnd)
+                ? shift.shiftEnd
                 : clockOutTime;
-            
+
             // Calculate billable duration (capped to scheduled duration)
             final rawDuration = effectiveEnd.difference(effectiveStart);
-            final scheduledDuration = shift.shiftEnd.difference(shift.shiftStart);
-            final billableDuration = rawDuration > scheduledDuration 
-                ? scheduledDuration 
+            final scheduledDuration =
+                shift.shiftEnd.difference(shift.shiftStart);
+            final billableDuration = rawDuration > scheduledDuration
+                ? scheduledDuration
                 : (rawDuration.isNegative ? Duration.zero : rawDuration);
-            
+
             final billableMinutes = billableDuration.inMinutes;
             totalWorkedMinutes += billableMinutes > 0 ? billableMinutes : 0;
-            
+
             // Calculate new payment
-            final hourlyRate = shift.hourlyRate > 0 
-                ? shift.hourlyRate 
+            final hourlyRate = shift.hourlyRate > 0
+                ? shift.hourlyRate
                 : (data['hourly_rate'] as num?)?.toDouble() ?? 0.0;
             final hoursWorked = billableDuration.inSeconds / 3600.0;
             final newPayment = hoursWorked * hourlyRate;
-            
+
             // Update timesheet with recalculated payment
             final timesheetUpdates = <String, dynamic>{
               'payment_amount': newPayment,
@@ -1153,33 +2082,36 @@ class ShiftService {
               'payment_recalculated_at': Timestamp.fromDate(now),
               'updated_at': FieldValue.serverTimestamp(),
             };
-            
+
             batch.update(doc.reference, timesheetUpdates);
             hasTimesheetUpdates = true;
-            
-            AppLogger.info('ShiftService: Recalculated payment for timesheet ${doc.id}: '
+
+            AppLogger.info(
+                'ShiftService: Recalculated payment for timesheet ${doc.id}: '
                 'worked ${billableMinutes} min @ \$${hourlyRate}/hr = \$${newPayment.toStringAsFixed(2)}');
           } else {
             // No clock-out yet, just count worked time from clock-in
-            final worked = (clockOut?.toDate() ?? shift.shiftEnd).difference(clockInTime).inMinutes;
+            final worked = (clockOut?.toDate() ?? shift.shiftEnd)
+                .difference(clockInTime)
+                .inMinutes;
             if (worked > 0) {
               totalWorkedMinutes += worked;
             }
           }
         }
       }
-      
+
       // If shift end time has passed and shift is still active/scheduled, check if it should be completed
-      if (shift.shiftEnd.isBefore(now) && 
-          (shift.status == ShiftStatus.active || shift.status == ShiftStatus.scheduled)) {
-        
+      if (shift.shiftEnd.isBefore(now) &&
+          (shift.status == ShiftStatus.active ||
+              shift.status == ShiftStatus.scheduled)) {
         // Determine new status based on worked time
         final scheduledMinutes = shift.scheduledDurationMinutes;
         final toleranceMinutes = 1; // Same tolerance as Cloud Function
-        
+
         String newStatus;
         String completionState;
-        
+
         if (!hasClockIn || totalWorkedMinutes == 0) {
           newStatus = 'missed';
           completionState = 'none';
@@ -1190,27 +2122,29 @@ class ShiftService {
           newStatus = 'partiallyCompleted';
           completionState = 'partial';
         }
-        
+
         // Update status and worked minutes
         updateData['status'] = newStatus;
         updateData['completion_state'] = completionState;
         updateData['worked_minutes'] = totalWorkedMinutes;
         updateData['last_modified'] = Timestamp.fromDate(now);
-        
+
         // If shift was active but should be completed, ensure clock_out_time is set
         if (shift.status == ShiftStatus.active && shift.clockOutTime == null) {
           updateData['clock_out_time'] = Timestamp.fromDate(shift.shiftEnd);
         }
-        
-        AppLogger.info('ShiftService: Auto-updating shift ${shift.id} status to $newStatus (worked: $totalWorkedMinutes min, scheduled: $scheduledMinutes min)');
+
+        AppLogger.info(
+            'ShiftService: Auto-updating shift ${shift.id} status to $newStatus (worked: $totalWorkedMinutes min, scheduled: $scheduledMinutes min)');
       }
-      
+
       // Commit timesheet payment updates
       if (hasTimesheetUpdates) {
         await batch.commit();
-        AppLogger.info('ShiftService: Committed timesheet payment recalculations');
+        AppLogger.info(
+            'ShiftService: Committed timesheet payment recalculations');
       }
-      
+
       await _shiftsCollection.doc(shift.id).update(updateData);
       AppLogger.debug('Shift updated directly (quick edit)');
     } catch (e) {
@@ -1228,10 +2162,13 @@ class ShiftService {
   }) async {
     try {
       // Calculate new times
-      final baseDate = newDate ?? originalShift.shiftStart.add(const Duration(days: 1));
-      final startTime = newStartTime ?? TimeOfDay.fromDateTime(originalShift.shiftStart);
-      final endTime = newEndTime ?? TimeOfDay.fromDateTime(originalShift.shiftEnd);
-      
+      final baseDate =
+          newDate ?? originalShift.shiftStart.add(const Duration(days: 1));
+      final startTime =
+          newStartTime ?? TimeOfDay.fromDateTime(originalShift.shiftStart);
+      final endTime =
+          newEndTime ?? TimeOfDay.fromDateTime(originalShift.shiftEnd);
+
       final newStart = DateTime(
         baseDate.year,
         baseDate.month,
@@ -1275,35 +2212,36 @@ class ShiftService {
 
   /// Duplicate all shifts from one week to another
   static Future<int> duplicateWeek(
-    DateTime sourceWeekStart,
-    DateTime targetWeekStart,
-    {String? teacherId}
-  ) async {
+      DateTime sourceWeekStart, DateTime targetWeekStart,
+      {String? teacherId}) async {
     try {
       // Get all shifts from source week
       final sourceWeekEnd = sourceWeekStart.add(const Duration(days: 7));
-      
+
       Query query = _shiftsCollection
-          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(sourceWeekStart))
+          .where('shift_start',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(sourceWeekStart))
           .where('shift_start', isLessThan: Timestamp.fromDate(sourceWeekEnd));
-      
+
       if (teacherId != null) {
         query = query.where('teacher_id', isEqualTo: teacherId);
       }
-      
+
       final snapshot = await query.get();
-      final shifts = snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
-      
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+
       int duplicatedCount = 0;
       final dayDifference = targetWeekStart.difference(sourceWeekStart).inDays;
-      
+
       for (final shift in shifts) {
         final newDate = shift.shiftStart.add(Duration(days: dayDifference));
         await duplicateShift(shift, newDate: newDate);
         duplicatedCount++;
       }
-      
-      AppLogger.debug('Duplicated $duplicatedCount shifts from week ${sourceWeekStart.toIso8601String()} to ${targetWeekStart.toIso8601String()}');
+
+      AppLogger.debug(
+          'Duplicated $duplicatedCount shifts from week ${sourceWeekStart.toIso8601String()} to ${targetWeekStart.toIso8601String()}');
       return duplicatedCount;
     } catch (e) {
       AppLogger.error('Error duplicating week: $e');
@@ -1557,14 +2495,14 @@ class ShiftService {
   static Future<List<Employee>> getAvailableLeaders() async {
     try {
       AppLogger.debug('ShiftService: Querying for leaders...');
-      
+
       // Query for admins
       final adminSnapshot = await _firestore
           .collection('users')
           .where('user_type', isEqualTo: 'admin')
           .where('is_active', isEqualTo: true)
           .get();
-      
+
       // Query for admin-teachers
       final adminTeacherSnapshot = await _firestore
           .collection('users')
@@ -1572,15 +2510,15 @@ class ShiftService {
           .where('is_admin_teacher', isEqualTo: true)
           .where('is_active', isEqualTo: true)
           .get();
-      
+
       // Combine admin and admin-teacher snapshots
       final allDocs = [...adminSnapshot.docs, ...adminTeacherSnapshot.docs];
-      
+
       // Use the same mapping method as getAvailableTeachers
       final leaders = allDocs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final userType = data['user_type'] ?? '';
-        
+
         String dateAdded = '';
         if (data['date_added'] != null) {
           if (data['date_added'] is Timestamp) {
@@ -1589,7 +2527,7 @@ class ShiftService {
             dateAdded = data['date_added'] as String;
           }
         }
-        
+
         String lastLogin = '';
         if (data['last_login'] != null) {
           if (data['last_login'] is Timestamp) {
@@ -1598,23 +2536,25 @@ class ShiftService {
             lastLogin = data['last_login'] as String;
           }
         }
-        
+
         // Format employment start date
         String employmentStartDate = '';
         if (data['employment_start_date'] != null) {
           if (data['employment_start_date'] is Timestamp) {
-            employmentStartDate = (data['employment_start_date'] as Timestamp).toDate().toString();
+            employmentStartDate = (data['employment_start_date'] as Timestamp)
+                .toDate()
+                .toString();
           } else if (data['employment_start_date'] is String) {
             employmentStartDate = data['employment_start_date'] as String;
           }
         }
-        
+
         // Get kiosk code
         String kioskCode = data['kiosk_code'] ?? '';
         if (userType == 'student' && kioskCode.isEmpty) {
           kioskCode = doc.id; // Use document ID as student ID
         }
-        
+
         return Employee(
           firstName: data['first_name'] ?? '',
           lastName: data['last_name'] ?? '',
@@ -1632,7 +2572,7 @@ class ShiftService {
           isActive: data['is_active'] ?? true,
         );
       }).toList();
-      
+
       AppLogger.debug('ShiftService: Found ${leaders.length} leaders');
       return Future.value(leaders);
     } catch (e) {
@@ -1933,7 +2873,7 @@ class ShiftService {
   }) async {
     try {
       AppLogger.info('ShiftService: Starting orphaned timesheet cleanup...');
-      
+
       // Get all timesheet entries
       QuerySnapshot timesheetSnapshot;
       if (teacherId != null) {
@@ -1942,12 +2882,12 @@ class ShiftService {
             .where('teacher_id', isEqualTo: teacherId)
             .get();
       } else {
-        timesheetSnapshot = await _firestore
-            .collection('timesheet_entries')
-            .get();
+        timesheetSnapshot =
+            await _firestore.collection('timesheet_entries').get();
       }
 
-      AppLogger.info('ShiftService: Found ${timesheetSnapshot.docs.length} timesheet entries to check');
+      AppLogger.info(
+          'ShiftService: Found ${timesheetSnapshot.docs.length} timesheet entries to check');
 
       final orphanedEntries = <String, String>{}; // timesheetId -> shiftId
       final batch = _firestore.batch();
@@ -1956,8 +2896,9 @@ class ShiftService {
       // Check each timesheet entry to see if its shift still exists
       for (var doc in timesheetSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        final shiftId = data['shift_id'] as String? ?? data['shiftId'] as String?;
-        
+        final shiftId =
+            data['shift_id'] as String? ?? data['shiftId'] as String?;
+
         if (shiftId == null || shiftId.isEmpty) {
           // Timesheet without shift_id - consider it orphaned
           orphanedEntries[doc.id] = 'no_shift_id';
@@ -1975,16 +2916,18 @@ class ShiftService {
             batch.delete(doc.reference);
           }
         }
-        
+
         checkedCount++;
         if (checkedCount % 50 == 0) {
-          AppLogger.debug('ShiftService: Checked $checkedCount timesheet entries...');
+          AppLogger.debug(
+              'ShiftService: Checked $checkedCount timesheet entries...');
         }
       }
 
       if (deleteOrphans && orphanedEntries.isNotEmpty) {
         await batch.commit();
-        AppLogger.info('ShiftService: Deleted ${orphanedEntries.length} orphaned timesheet entries');
+        AppLogger.info(
+            'ShiftService: Deleted ${orphanedEntries.length} orphaned timesheet entries');
       }
 
       return {

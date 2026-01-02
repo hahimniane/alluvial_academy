@@ -92,6 +92,10 @@ dependencies:
   # LiveKit Flutter SDK for video calls (beta video provider)
   livekit_client: ^2.3.6
 
+  # PDF generation for invoices
+  pdf: ^3.11.1
+  printing: ^5.14.0
+
 
 dev_dependencies:
   flutter_test:

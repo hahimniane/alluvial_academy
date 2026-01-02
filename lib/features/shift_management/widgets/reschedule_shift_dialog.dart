@@ -5,8 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
-import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
+import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Dialog for teachers to directly reschedule shifts
@@ -51,7 +51,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       if (userDoc.exists) {
         final timezone = userDoc.data()?['timezone'] as String?;
         setState(() {
@@ -112,7 +112,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         _newStartTime!.hour,
         _newStartTime!.minute,
       );
-      
+
       final naiveEnd = DateTime(
         _newEndTime!.year,
         _newEndTime!.month,
@@ -122,14 +122,16 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       );
 
       // Convert to UTC using the selected timezone
-      final utcStart = TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
+      final utcStart =
+          TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
       final utcEnd = TimezoneUtils.convertToUtc(naiveEnd, _selectedTimezone);
 
       // Create updated shift with new times (in UTC)
       final updatedShift = widget.shift.copyWith(
         shiftStart: utcStart,
         shiftEnd: utcEnd,
-        teacherTimezone: _selectedTimezone, // Update teacher timezone if changed
+        teacherTimezone:
+            _selectedTimezone, // Update teacher timezone if changed
       );
 
       // Update shift using standard update method which handles lifecycle tasks
@@ -145,8 +147,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         'teacher_modified': true,
         'teacher_modified_at': FieldValue.serverTimestamp(),
         'teacher_modified_by': user.uid,
-        'teacher_modification_reason': modificationReason.isNotEmpty 
-            ? modificationReason 
+        'teacher_modification_reason': modificationReason.isNotEmpty
+            ? modificationReason
             : 'Schedule adjustment requested by teacher',
         'original_start_time': Timestamp.fromDate(originalStartTime),
         'original_end_time': Timestamp.fromDate(originalEndTime),
@@ -154,9 +156,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       });
 
       // Log modification for audit trail
-      await FirebaseFirestore.instance
-          .collection('shift_modifications')
-          .add({
+      await FirebaseFirestore.instance.collection('shift_modifications').add({
         'shift_id': widget.shift.id,
         'teacher_id': user.uid,
         'teacher_name': widget.shift.teacherName,
@@ -165,8 +165,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         'new_start_time': Timestamp.fromDate(utcStart),
         'new_end_time': Timestamp.fromDate(utcEnd),
         'timezone_used': _selectedTimezone,
-        'reason': modificationReason.isNotEmpty 
-            ? modificationReason 
+        'reason': modificationReason.isNotEmpty
+            ? modificationReason
             : 'Schedule adjustment',
         'modified_at': FieldValue.serverTimestamp(),
         'modified_by_type': 'teacher',
@@ -226,7 +226,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                       color: const Color(0xFF0386FF).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.schedule, color: Color(0xFF0386FF), size: 24),
+                    child: const Icon(Icons.schedule,
+                        color: Color(0xFF0386FF), size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -241,7 +242,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.orange.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -271,109 +273,115 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-            // Current Schedule
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Current Schedule:',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: const Color(0xFF6B7280),
+                    // Current Schedule
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Current Schedule:',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${DateFormat('MMM d, h:mm a').format(widget.shift.shiftStart)} - ${DateFormat('h:mm a').format(widget.shift.shiftEnd)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${DateFormat('MMM d, h:mm a').format(widget.shift.shiftStart)} - ${DateFormat('h:mm a').format(widget.shift.shiftEnd)}',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1E293B),
+                    const SizedBox(height: 20),
+
+                    // Timezone Selection
+                    _buildTimezoneSelection(),
+                    const SizedBox(height: 20),
+
+                    // New Start Time
+                    Text(
+                      'New Start Time:',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+                    const SizedBox(height: 8),
+                    _buildTimePicker(
+                      'Start Time',
+                      _newStartTime ??
+                          TimezoneUtils.convertToTimezone(
+                              widget.shift.shiftStart, _selectedTimezone),
+                      (time) => setState(() => _newStartTime = time),
+                    ),
+                    const SizedBox(height: 16),
 
-            // Timezone Selection
-            _buildTimezoneSelection(),
-            const SizedBox(height: 20),
+                    // New End Time
+                    Text(
+                      'New End Time:',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTimePicker(
+                      'End Time',
+                      _newEndTime ??
+                          TimezoneUtils.convertToTimezone(
+                              widget.shift.shiftEnd, _selectedTimezone),
+                      (time) => setState(() => _newEndTime = time),
+                    ),
+                    const SizedBox(height: 16),
 
-            // New Start Time
-            Text(
-              'New Start Time:',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF374151),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildTimePicker(
-              'Start Time',
-              _newStartTime ?? TimezoneUtils.convertToTimezone(widget.shift.shiftStart, _selectedTimezone),
-              (time) => setState(() => _newStartTime = time),
-            ),
-            const SizedBox(height: 16),
+                    // Conversion Preview
+                    if (_newStartTime != null && _newEndTime != null)
+                      _buildConversionPreview(),
+                    const SizedBox(height: 16),
 
-            // New End Time
-            Text(
-              'New End Time:',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF374151),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildTimePicker(
-              'End Time',
-              _newEndTime ?? TimezoneUtils.convertToTimezone(widget.shift.shiftEnd, _selectedTimezone),
-              (time) => setState(() => _newEndTime = time),
-            ),
-            const SizedBox(height: 16),
-
-            // Conversion Preview
-            if (_newStartTime != null && _newEndTime != null)
-              _buildConversionPreview(),
-            const SizedBox(height: 16),
-
-            // Reason
-            Text(
-              'Reason for rescheduling (required):',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF374151),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 100, // Fixed height to prevent overflow
-              child: TextField(
-                controller: _reasonController,
-                maxLines: null, // Allow unlimited lines within the fixed height
-                expands: true, // Fill the available height
-                textAlignVertical: TextAlignVertical.top,
-                decoration: InputDecoration(
-                  hintText: 'e.g., Student requested to move class 1 hour later',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-              ),
-            ),
+                    // Reason
+                    Text(
+                      'Reason for rescheduling (required):',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 100, // Fixed height to prevent overflow
+                      child: TextField(
+                        controller: _reasonController,
+                        maxLines:
+                            null, // Allow unlimited lines within the fixed height
+                        expands: true, // Fill the available height
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: InputDecoration(
+                          hintText:
+                              'e.g., Student requested to move class 1 hour later',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                      ),
+                    ),
 
                     const SizedBox(height: 20),
                   ],
@@ -406,7 +414,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
                               'Apply Changes',
@@ -426,7 +435,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                        Icon(Icons.info_outline,
+                            size: 16, color: Colors.blue.shade700),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -449,7 +459,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
     );
   }
 
-  Widget _buildTimePicker(String label, DateTime initialTime, Function(DateTime) onTimeSelected) {
+  Widget _buildTimePicker(
+      String label, DateTime initialTime, Function(DateTime) onTimeSelected) {
     return InkWell(
       onTap: () async {
         final date = await showDatePicker(
@@ -486,7 +497,8 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
           children: [
             Row(
               children: [
-                const Icon(Icons.access_time, size: 20, color: Color(0xFF6B7280)),
+                const Icon(Icons.access_time,
+                    size: 20, color: Color(0xFF6B7280)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -541,39 +553,17 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            borderRadius: BorderRadius.circular(8),
+        TimezoneSelectorField(
+          selectedTimezone: _selectedTimezone,
+          borderRadius: BorderRadius.circular(8),
+          borderColor: const Color(0xFFE2E8F0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          textStyle: GoogleFonts.inter(
+            color: const Color(0xFF111827),
+            fontSize: 14,
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: TimezoneUtils.getCommonTimezones()
-                      .contains(_selectedTimezone)
-                  ? _selectedTimezone
-                  : 'UTC',
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
-              style: GoogleFonts.inter(
-                color: const Color(0xFF111827),
-                fontSize: 14,
-              ),
-              items: TimezoneUtils.getCommonTimezones().map((String tz) {
-                return DropdownMenuItem<String>(
-                  value: tz,
-                  child: Text(tz),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  setState(() {
-                    _selectedTimezone = newValue;
-                  });
-                }
-              },
-            ),
-          ),
+          onTimezoneSelected: (value) =>
+              setState(() => _selectedTimezone = value),
         ),
       ],
     );
@@ -598,7 +588,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       _newStartTime!.hour,
       _newStartTime!.minute,
     );
-    
+
     final naiveEnd = DateTime(
       _newEndTime!.year,
       _newEndTime!.month,
@@ -659,4 +649,3 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
     );
   }
 }
-

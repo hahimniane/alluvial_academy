@@ -19,7 +19,6 @@ import 'core/constants/app_constants.dart';
 import 'screens/landing_page.dart';
 import 'core/utils/timezone_utils.dart';
 import 'features/auth/screens/mobile_login_screen.dart';
-import 'features/dashboard/screens/mobile_dashboard_screen.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';
@@ -83,6 +82,15 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Firestore web SDK stability:
+  // Disable IndexedDB persistence on web to avoid rare internal assertion crashes
+  // that can occur due to corrupted browser cache/state or multi-tab contention.
+  if (kIsWeb) {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+    );
+  }
 
   // Initialize Firebase Cloud Messaging background handler
   if (!kIsWeb) {
@@ -298,16 +306,10 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       if (kIsWeb) {
         await Future.delayed(const Duration(milliseconds: 500));
 
-        // Initialize Firestore with error handling
-        try {
-          final firestore = FirebaseFirestore.instance;
-          // Test connection
-          await firestore.disableNetwork();
-          await firestore.enableNetwork();
-        } catch (firestoreError) {
-          AppLogger.error('Firestore initialization error: $firestoreError');
-          // Continue anyway - might be a temporary issue
-        }
+        // Touch Firestore to ensure it's initialized on web.
+        // Avoid toggling network state here; it can destabilize active listeners in the web SDK.
+        // (Firestore connectivity errors will be surfaced naturally by queries/listeners.)
+        FirebaseFirestore.instance;
       }
 
       setState(() {
@@ -623,10 +625,9 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
-          // On mobile (native or mobile web), use mobile dashboard; on desktop web, use role-based dashboard
-          return _isMobile(context)
-              ? const MobileDashboardScreen()
-              : const RoleBasedDashboard();
+          // Use the unified role-based dashboard across platforms.
+          // DashboardPage adapts layout responsively (drawer on small screens).
+          return const RoleBasedDashboard();
         }
 
         // Otherwise, they're not signed in
@@ -648,6 +649,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
   TextEditingController emailAddressController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   bool _useStudentIdLogin = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -1057,7 +1059,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       onFieldSubmitted: (_) => _handleSignIn(),
                       style: GoogleFonts.inter(
                         fontSize: 16,
@@ -1068,6 +1070,20 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xff9CA3AF),
                           fontSize: 16,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: const Color(0xff6B7280),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),

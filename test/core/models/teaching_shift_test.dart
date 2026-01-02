@@ -348,19 +348,16 @@ void main() {
       );
     });
 
-    test('clockInGraceDeadline adds 15 minutes to shift end by default', () {
-      final expectedDeadline =
-          baseShift.shiftEnd.toUtc().add(const Duration(minutes: 15));
-
-      expect(baseShift.clockInGraceDeadline(), expectedDeadline);
+    test('clockInGraceDeadline returns shift end (UTC)', () {
+      expect(baseShift.clockInGraceDeadline(), baseShift.shiftEnd.toUtc());
     });
 
-    test('clockInGraceDeadline is capped by next shift start time', () {
+    test('clockInGraceDeadline ignores next shift start time', () {
       final nextShiftStartUtc = DateTime.utc(2025, 11, 10, 16, 5);
       final deadline =
           baseShift.clockInGraceDeadline(nextShiftStartUtc: nextShiftStartUtc);
 
-      expect(deadline, DateTime.utc(2025, 11, 10, 16, 5));
+      expect(deadline, baseShift.shiftEnd.toUtc());
     });
 
     test('clockInGraceDeadline returns shift end when next shift is immediate',
@@ -395,17 +392,17 @@ void main() {
       );
     });
 
-    test('shouldBeMarkedAsMissed is true after grace window passes', () {
+    test('shouldBeMarkedAsMissed is false (handled by backend)', () {
       expect(
         baseShift.shouldBeMarkedAsMissed(
           nowUtcOverride: DateTime.utc(2025, 11, 10, 16, 16),
         ),
-        isTrue,
+        isFalse,
       );
     });
 
     test(
-        'shouldBeMarkedAsMissed uses truncated grace window when next shift exists',
+        'shouldBeMarkedAsMissed is false even when next shift exists (handled by backend)',
         () {
       final nextShiftStartUtc = DateTime.utc(2025, 11, 10, 16, 5);
 
@@ -422,7 +419,7 @@ void main() {
           nowUtcOverride: DateTime.utc(2025, 11, 10, 16, 6),
           nextShiftStartUtc: nextShiftStartUtc,
         ),
-        isTrue,
+        isFalse,
       );
     });
 
@@ -433,7 +430,7 @@ void main() {
           nowUtcOverride: DateTime.utc(2025, 11, 10, 16, 0, 30),
           nextShiftStartUtc: DateTime.utc(2025, 11, 10, 16, 0),
         ),
-        isTrue,
+        isFalse,
       );
     });
 

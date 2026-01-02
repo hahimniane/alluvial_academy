@@ -10,6 +10,7 @@ import '../models/timesheet_entry.dart';
 import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
 
 // Admin system timezone - all times displayed in this timezone for consistency
 const String ADMIN_SYSTEM_TIMEZONE = 'UTC';
@@ -32,7 +33,8 @@ String _formatAdminTime(DateTime? dateTime, {String format = 'h:mm a'}) {
 }
 
 /// Utility function to format dates in admin system timezone
-String _formatAdminDateTime(DateTime? dateTime, {String format = 'MMM d, yyyy h:mm a'}) {
+String _formatAdminDateTime(DateTime? dateTime,
+    {String format = 'MMM d, yyyy h:mm a'}) {
   if (dateTime == null) return 'N/A';
 
   // Convert to admin system timezone (UTC)
@@ -54,7 +56,8 @@ String _formatEditedTime(TimesheetEntry timesheet, String timeType) {
         // Parse the time string and combine with today's date for UTC conversion
         final timeOnly = DateFormat('h:mm a').parse(timesheet.start);
         final today = DateTime.now();
-        timeValue = DateTime(today.year, today.month, today.day, timeOnly.hour, timeOnly.minute);
+        timeValue = DateTime(
+            today.year, today.month, today.day, timeOnly.hour, timeOnly.minute);
       } catch (e) {
         return timesheet.start; // Fallback to original string
       }
@@ -68,7 +71,8 @@ String _formatEditedTime(TimesheetEntry timesheet, String timeType) {
         // Parse the time string and combine with today's date for UTC conversion
         final timeOnly = DateFormat('h:mm a').parse(timesheet.end);
         final today = DateTime.now();
-        timeValue = DateTime(today.year, today.month, today.day, timeOnly.hour, timeOnly.minute);
+        timeValue = DateTime(
+            today.year, today.month, today.day, timeOnly.hour, timeOnly.minute);
       } catch (e) {
         return timesheet.end; // Fallback to original string
       }
@@ -91,13 +95,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   DateTimeRange? _selectedDateRange;
   final Set<String> _selectedTimesheetIds = {};
   bool _showBulkActions = false;
-  
+
   // Advanced filtering
   String? _selectedTeacherFilter;
   List<String> _availableTeachers = [];
 
   // Real-time listener
   StreamSubscription<QuerySnapshot>? _timesheetListener;
+
+  String? _initialLoadOpId;
+  bool _initialLoadCompleted = false;
 
   final List<String> _filterOptions = [
     'All',
@@ -123,6 +130,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   void _setupRealtimeListener() {
     setState(() => _isLoading = true);
 
+    final initialOpId =
+        PerformanceLogger.newOperationId('AdminTimesheetReview._initialLoad');
+    _initialLoadOpId = initialOpId;
+    _initialLoadCompleted = false;
+    PerformanceLogger.startTimer(initialOpId);
+
     // Listen to real-time changes in timesheet_entries collection
     // Removed orderBy to avoid Firestore internal assertion errors
     // We'll sort client-side instead
@@ -130,9 +143,22 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         .collection('timesheet_entries')
         .snapshots()
         .listen((snapshot) async {
-      await _processTimesheetSnapshot(snapshot);
+      final summary = await _processTimesheetSnapshot(snapshot);
+
+      if (!_initialLoadCompleted && _initialLoadOpId == initialOpId) {
+        _initialLoadCompleted = true;
+        PerformanceLogger.endTimer(initialOpId, metadata: summary);
+      }
     }, onError: (error) {
       AppLogger.error('Error in timesheet listener: $error');
+      if (!_initialLoadCompleted &&
+          _initialLoadOpId != null &&
+          _initialLoadOpId == initialOpId) {
+        _initialLoadCompleted = true;
+        PerformanceLogger.endTimer(initialOpId, metadata: {
+          'error': error.toString(),
+        });
+      }
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -140,28 +166,81 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   /// Process timesheet snapshot and update UI in real-time
-  Future<void> _processTimesheetSnapshot(QuerySnapshot snapshot) async {
+  Future<Map<String, dynamic>> _processTimesheetSnapshot(
+      QuerySnapshot snapshot) async {
+    final opId = PerformanceLogger.newOperationId(
+        'AdminTimesheetReview._processTimesheetSnapshot');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'doc_count': snapshot.docs.length,
+    });
+
+    final summary = <String, dynamic>{
+      'doc_count': snapshot.docs.length,
+    };
+
     try {
       List<TimesheetEntry> timesheets = [];
 
       // Process all timesheet entries
       final List<TimesheetEntry> rawEntries = [];
+      int parseErrors = 0;
+
+      final userCache = <String, Map<String, dynamic>?>{};
+      final shiftCache = <String, Map<String, dynamic>?>{};
+      int userFetches = 0;
+      int userCacheHits = 0;
+      int userFetchMs = 0;
+      int shiftFetches = 0;
+      int shiftCacheHits = 0;
+      int shiftFetchMs = 0;
+
+      final parseStopwatch = Stopwatch()..start();
       for (QueryDocumentSnapshot doc in snapshot.docs) {
         try {
           final data = doc.data() as Map<String, dynamic>;
-          TimesheetEntry? entry = await _createTimesheetEntry(doc, data);
+          TimesheetEntry? entry = await _createTimesheetEntry(
+            doc,
+            data,
+            userCache: userCache,
+            shiftCache: shiftCache,
+            onUserFetch: (ms) {
+              userFetches++;
+              userFetchMs += ms;
+            },
+            onUserCacheHit: () => userCacheHits++,
+            onShiftFetch: (ms) {
+              shiftFetches++;
+              shiftFetchMs += ms;
+            },
+            onShiftCacheHit: () => shiftCacheHits++,
+          );
           if (entry != null) {
             rawEntries.add(entry);
           }
         } catch (e) {
           AppLogger.error('Error processing timesheet document ${doc.id}: $e');
+          parseErrors++;
         }
       }
+      parseStopwatch.stop();
+
+      PerformanceLogger.checkpoint(opId, 'entries_built', metadata: {
+        'raw_entries': rawEntries.length,
+        'parse_errors': parseErrors,
+        'parse_time_ms': parseStopwatch.elapsedMilliseconds,
+        'user_fetches': userFetches,
+        'user_cache_hits': userCacheHits,
+        'user_fetch_time_ms': userFetchMs,
+        'shift_fetches': shiftFetches,
+        'shift_cache_hits': shiftCacheHits,
+        'shift_fetch_time_ms': shiftFetchMs,
+      });
 
       // Group by shift_id
       final Map<String, List<TimesheetEntry>> grouped = {};
       final List<TimesheetEntry> consolidatedList = [];
 
+      final consolidateStopwatch = Stopwatch()..start();
       for (var entry in rawEntries) {
         if (entry.shiftId != null) {
           if (!grouped.containsKey(entry.shiftId)) {
@@ -183,10 +262,10 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           // Calculate totals
           double totalHours = 0;
           double totalPayment = 0;
-          
+
           for (var e in entries) {
             totalPayment += (e.paymentAmount ?? 0);
-            
+
             // Parse duration
             final parts = e.totalHours.split(':');
             if (parts.length >= 2) {
@@ -197,12 +276,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               } catch (_) {}
             }
           }
-          
+
           // Format total hours back to HH:MM
           final h = totalHours.floor();
           final m = ((totalHours - h) * 60).round();
-          final formattedTotalHours = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-          
+          final formattedTotalHours =
+              '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+
           // Determine status (if any pending, group is pending)
           TimesheetStatus groupStatus = TimesheetStatus.approved;
           if (entries.any((e) => e.status == TimesheetStatus.rejected)) {
@@ -214,14 +294,14 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           if (entries.any((e) => e.status == TimesheetStatus.pending)) {
             groupStatus = TimesheetStatus.pending;
           }
-          
+
           // Sort entries by time
           entries.sort((a, b) => a.start.compareTo(b.start));
-          
+
           // Create consolidated entry
           final first = entries.first;
           final last = entries.last;
-          
+
           consolidatedList.add(TimesheetEntry(
             documentId: 'consolidated_$shiftId',
             date: first.date,
@@ -242,13 +322,14 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           ));
         }
       });
-      
+      consolidateStopwatch.stop();
+
       timesheets = consolidatedList;
 
       // Sort client-side by created_at (most recent first)
 
-
       // Sort client-side by created_at (most recent first)
+      final sortStopwatch = Stopwatch()..start();
       timesheets.sort((a, b) {
         // Try to sort by date, fallback to document ID if date parsing fails
         try {
@@ -257,40 +338,109 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           return 0;
         }
       });
+      sortStopwatch.stop();
+
+      PerformanceLogger.checkpoint(opId, 'consolidated_and_sorted', metadata: {
+        'group_count': grouped.length,
+        'consolidated_count': timesheets.length,
+        'consolidate_time_ms': consolidateStopwatch.elapsedMilliseconds,
+        'sort_time_ms': sortStopwatch.elapsedMilliseconds,
+      });
+
+      final teachers = timesheets.map((e) => e.teacherName).toSet().toList()
+        ..sort();
+      final filtered = _computeFilteredTimesheets(
+        all: timesheets,
+        filter: _selectedFilter,
+        teacherFilter: _selectedTeacherFilter,
+        dateRange: _selectedDateRange,
+      );
 
       if (mounted) {
+        final stateStopwatch = Stopwatch()..start();
+        final dataSource = TimesheetReviewDataSource(
+          timesheets: filtered,
+          onApprove: _approveTimesheet,
+          onReject: _rejectTimesheet,
+          onViewDetails: _viewTimesheetDetails,
+          onSelectionChanged: _onTimesheetSelectionChanged,
+          selectedIds: _selectedTimesheetIds,
+        );
         setState(() {
           _allTimesheets = timesheets;
-          _loadAvailableTeachers(); // Load teachers for filter dropdown
-          _applyFilter(_selectedFilter);
+          _availableTeachers = teachers;
+          _selectedTimesheetIds.clear();
+          _showBulkActions = false;
+          _filteredTimesheets = filtered;
+          _dataSource = dataSource;
           _isLoading = false;
+        });
+        stateStopwatch.stop();
+        PerformanceLogger.checkpoint(opId, 'state_updated', metadata: {
+          'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
         });
 
         // Show notification for new pending timesheets if admin was viewing other filters
         _checkForNewPendingTimesheets(timesheets);
       }
+
+      summary.addAll({
+        'entries_built': rawEntries.length,
+        'timesheets_final': timesheets.length,
+        'parse_errors': parseErrors,
+        'user_fetch_time_ms': userFetchMs,
+        'shift_fetch_time_ms': shiftFetchMs,
+      });
+      PerformanceLogger.endTimer(opId, metadata: summary);
+      return summary;
     } catch (e) {
       AppLogger.error('Error processing timesheet snapshot: $e');
+      summary['error'] = e.toString();
+      PerformanceLogger.endTimer(opId, metadata: summary);
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      return summary;
     }
   }
 
   /// Create timesheet entry with user data
   Future<TimesheetEntry?> _createTimesheetEntry(
-      QueryDocumentSnapshot doc, Map<String, dynamic> data) async {
+    QueryDocumentSnapshot doc,
+    Map<String, dynamic> data, {
+    required Map<String, Map<String, dynamic>?> userCache,
+    required Map<String, Map<String, dynamic>?> shiftCache,
+    required ValueChanged<int> onUserFetch,
+    required VoidCallback onUserCacheHit,
+    required ValueChanged<int> onShiftFetch,
+    required VoidCallback onShiftCacheHit,
+  }) async {
     try {
       // Get user information for hourly rate - with caching to avoid repeated queries
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(data['teacher_id'])
-          .get();
+      final teacherId = data['teacher_id']?.toString();
+      Map<String, dynamic>? userData;
 
-      final userData = userDoc.data();
+      if (teacherId != null && teacherId.isNotEmpty) {
+        if (userCache.containsKey(teacherId)) {
+          userData = userCache[teacherId];
+          onUserCacheHit();
+        } else {
+          final sw = Stopwatch()..start();
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(teacherId)
+              .get();
+          sw.stop();
+          onUserFetch(sw.elapsedMilliseconds);
+
+          userData = userDoc.data();
+          userCache[teacherId] = userData;
+        }
+      }
+
       // Get the hourly rate from the timesheet entry first, then fallback to user data
-      final timesheetHourlyRate = data['hourly_rate'] as double?;
-      final userHourlyRate = userData?['hourly_rate'] as double?;
+      final timesheetHourlyRate = (data['hourly_rate'] as num?)?.toDouble();
+      final userHourlyRate = (userData?['hourly_rate'] as num?)?.toDouble();
       final hourlyRate = timesheetHourlyRate ?? userHourlyRate ?? 4.0;
       final userName =
           '${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}'
@@ -301,39 +451,57 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       final clockOutTimestamp = data['clock_out_timestamp'] as Timestamp?;
       final scheduledStart = data['scheduled_start'] as Timestamp?;
       final scheduledEnd = data['scheduled_end'] as Timestamp?;
-      final scheduledDurationMinutes = data['scheduled_duration_minutes'] as int?;
-      
+      final scheduledDurationMinutes =
+          data['scheduled_duration_minutes'] as int?;
+
       // If scheduled times are missing, try to fetch from shift if shift_id exists
       DateTime? finalScheduledStart = scheduledStart?.toDate();
       DateTime? finalScheduledEnd = scheduledEnd?.toDate();
       int? finalScheduledDurationMinutes = scheduledDurationMinutes;
-      
+
       final shiftId = data['shift_id'] as String?;
-      if ((finalScheduledStart == null || finalScheduledEnd == null || finalScheduledDurationMinutes == null) && shiftId != null) {
+      if ((finalScheduledStart == null ||
+              finalScheduledEnd == null ||
+              finalScheduledDurationMinutes == null) &&
+          shiftId != null) {
         try {
-          final shiftDoc = await FirebaseFirestore.instance
-              .collection('teaching_shifts')
-              .doc(shiftId)
-              .get();
-          if (shiftDoc.exists) {
-            final shiftData = shiftDoc.data() as Map<String, dynamic>?;
-            if (shiftData != null) {
-              if (finalScheduledStart == null && shiftData['shift_start'] != null) {
-                finalScheduledStart = (shiftData['shift_start'] as Timestamp).toDate();
-              }
-              if (finalScheduledEnd == null && shiftData['shift_end'] != null) {
-                finalScheduledEnd = (shiftData['shift_end'] as Timestamp).toDate();
-              }
-              if (finalScheduledDurationMinutes == null) {
-                // Calculate from shift times
-                if (finalScheduledStart != null && finalScheduledEnd != null) {
-                  finalScheduledDurationMinutes = finalScheduledEnd.difference(finalScheduledStart).inMinutes;
-                }
+          Map<String, dynamic>? shiftData;
+          if (shiftCache.containsKey(shiftId)) {
+            shiftData = shiftCache[shiftId];
+            onShiftCacheHit();
+          } else {
+            final sw = Stopwatch()..start();
+            final shiftDoc = await FirebaseFirestore.instance
+                .collection('teaching_shifts')
+                .doc(shiftId)
+                .get();
+            sw.stop();
+            onShiftFetch(sw.elapsedMilliseconds);
+            shiftData = shiftDoc.data() as Map<String, dynamic>?;
+            shiftCache[shiftId] = shiftData;
+          }
+
+          if (shiftData != null) {
+            if (finalScheduledStart == null &&
+                shiftData['shift_start'] != null) {
+              finalScheduledStart =
+                  (shiftData['shift_start'] as Timestamp).toDate();
+            }
+            if (finalScheduledEnd == null && shiftData['shift_end'] != null) {
+              finalScheduledEnd =
+                  (shiftData['shift_end'] as Timestamp).toDate();
+            }
+            if (finalScheduledDurationMinutes == null) {
+              // Calculate from shift times
+              if (finalScheduledStart != null && finalScheduledEnd != null) {
+                finalScheduledDurationMinutes =
+                    finalScheduledEnd.difference(finalScheduledStart).inMinutes;
               }
             }
           }
         } catch (e) {
-          AppLogger.debug('Could not fetch shift data for shift_id $shiftId: $e');
+          AppLogger.debug(
+              'Could not fetch shift data for shift_id $shiftId: $e');
         }
       }
 
@@ -354,8 +522,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         approvedAt: data['approved_at'] as Timestamp?,
         rejectedAt: data['rejected_at'] as Timestamp?,
         rejectionReason: data['rejection_reason'] as String?,
-        paymentAmount: (data['payment_amount'] as num?)?.toDouble() ?? 
-                       (data['total_pay'] as num?)?.toDouble(),
+        paymentAmount: (data['payment_amount'] as num?)?.toDouble() ??
+            (data['total_pay'] as num?)?.toDouble(),
         source: data['source'] as String? ?? 'manual',
         // NEW: Export fields
         shiftTitle: data['shift_title'] as String?,
@@ -371,14 +539,17 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         clockInTimestamp: clockInTimestamp,
         clockOutTimestamp: clockOutTimestamp,
         // Edit tracking fields
-        isEdited: data['is_edited'] == true || data['edited_at'] != null, // Check both is_edited flag and edited_at timestamp
+        isEdited: data['is_edited'] == true ||
+            data['edited_at'] !=
+                null, // Check both is_edited flag and edited_at timestamp
         editApproved: data['edit_approved'] == true,
         originalData: data['original_data'] as Map<String, dynamic>?,
         editedAt: data['edited_at'] as Timestamp?,
         editedBy: data['edited_by'] as String?,
         // Readiness form fields
         formResponseId: data['form_response_id'] as String?,
-        formCompleted: data['form_completed'] == true || data['form_response_id'] != null,
+        formCompleted:
+            data['form_completed'] == true || data['form_response_id'] != null,
         reportedHours: (data['reported_hours'] as num?)?.toDouble(),
         formNotes: data['form_notes'] as String?,
         shiftId: shiftId,
@@ -448,38 +619,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       _selectedFilter = filter;
       _selectedTimesheetIds.clear(); // Clear selections when filter changes
 
-      List<TimesheetEntry> statusFiltered;
-      if (filter == 'All') {
-        statusFiltered = List.from(_allTimesheets);
-      } else {
-        TimesheetStatus targetStatus = _parseStatus(filter);
-        statusFiltered = _allTimesheets
-            .where((timesheet) => timesheet.status == targetStatus)
-            .toList();
-      }
-
-      // Apply teacher filter if selected
-      if (_selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty) {
-        statusFiltered = statusFiltered
-            .where((entry) => entry.teacherName == _selectedTeacherFilter)
-            .toList();
-      }
-
-      // Apply date range filter if selected
-      if (_selectedDateRange != null) {
-        statusFiltered = statusFiltered.where((entry) {
-          final entryDate = _parseEntryDate(entry.date);
-          if (entryDate == null) return false;
-
-          return entryDate.isAfter(_selectedDateRange!.start
-                  .subtract(const Duration(days: 1))) &&
-              entryDate.isBefore(
-                  _selectedDateRange!.end.add(const Duration(days: 1)));
-        }).toList();
-      }
-
-      _filteredTimesheets = statusFiltered;
-      _showBulkActions = _selectedTimesheetIds.isNotEmpty;
+      _filteredTimesheets = _computeFilteredTimesheets(
+        all: _allTimesheets,
+        filter: filter,
+        teacherFilter: _selectedTeacherFilter,
+        dateRange: _selectedDateRange,
+      );
+      _showBulkActions = false;
 
       _dataSource = TimesheetReviewDataSource(
         timesheets: _filteredTimesheets,
@@ -491,13 +637,40 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       );
     });
   }
-  
-  void _loadAvailableTeachers() {
-    final teachers = _allTimesheets.map((e) => e.teacherName).toSet().toList();
-    teachers.sort();
-    setState(() {
-      _availableTeachers = teachers;
-    });
+
+  List<TimesheetEntry> _computeFilteredTimesheets({
+    required List<TimesheetEntry> all,
+    required String filter,
+    required String? teacherFilter,
+    required DateTimeRange? dateRange,
+  }) {
+    List<TimesheetEntry> statusFiltered;
+    if (filter == 'All') {
+      statusFiltered = List.from(all);
+    } else {
+      final targetStatus = _parseStatus(filter);
+      statusFiltered =
+          all.where((timesheet) => timesheet.status == targetStatus).toList();
+    }
+
+    if (teacherFilter != null && teacherFilter.isNotEmpty) {
+      statusFiltered = statusFiltered
+          .where((entry) => entry.teacherName == teacherFilter)
+          .toList();
+    }
+
+    if (dateRange != null) {
+      statusFiltered = statusFiltered.where((entry) {
+        final entryDate = _parseEntryDate(entry.date);
+        if (entryDate == null) return false;
+
+        return entryDate
+                .isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+            entryDate.isBefore(dateRange.end.add(const Duration(days: 1)));
+      }).toList();
+    }
+
+    return statusFiltered;
   }
 
   void _onTimesheetSelectionChanged(String timesheetId, bool isSelected) {
@@ -519,9 +692,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     if (selectedTimesheets.isEmpty) return;
 
     // Check if any timesheets are edited but not approved
-    final editedTimesheets = selectedTimesheets
-        .where((t) => t.isEdited && !t.editApproved)
-        .toList();
+    final editedTimesheets =
+        selectedTimesheets.where((t) => t.isEdited && !t.editApproved).toList();
 
     if (editedTimesheets.isNotEmpty) {
       // Show warning about edited timesheets
@@ -544,15 +716,15 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
         // Check if timesheet is complete (has both clock-in and clock-out)
         final isComplete = _isTimesheetComplete(timesheet);
-        
+
         // Determine status: approved if complete, otherwise keep as pending
         final newStatus = isComplete ? 'approved' : 'pending';
 
         final updateData = <String, dynamic>{
-            'status': newStatus,
-            'approved_at': isComplete ? FieldValue.serverTimestamp() : null,
-            'payment_amount': payment, // Recalculated payment
-            'updated_at': FieldValue.serverTimestamp(),
+          'status': newStatus,
+          'approved_at': isComplete ? FieldValue.serverTimestamp() : null,
+          'payment_amount': payment, // Recalculated payment
+          'updated_at': FieldValue.serverTimestamp(),
         };
 
         // If edited, also approve the edit and clear edit tracking
@@ -632,118 +804,125 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   /// Show warning dialog when bulk approving edited timesheets
-  Future<bool> _showBulkEditWarningDialog(List<TimesheetEntry> editedTimesheets) async {
+  Future<bool> _showBulkEditWarningDialog(
+      List<TimesheetEntry> editedTimesheets) async {
     return await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Edited Timesheets Detected',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E293B),
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFF59E0B), size: 24),
                 ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${editedTimesheets.length} of the selected timesheets were edited and require approval:',
-              style: GoogleFonts.inter(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 200),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: editedTimesheets.length,
-                itemBuilder: (context, index) {
-                  final ts = editedTimesheets[index];
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.edit, size: 18, color: Color(0xFFF59E0B)),
-                    title: Text(
-                      ts.teacherName,
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      '${ts.date} - ${ts.totalHours}',
-                      style: GoogleFonts.inter(fontSize: 11),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDBEAFE),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF93C5FD)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Color(0xFF1E40AF), size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'By continuing, you will approve both the edits and the timesheets.',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xFF1E3A8A),
-                      ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Edited Timesheets Detected',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E293B),
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${editedTimesheets.length} of the selected timesheets were edited and require approval:',
+                  style: GoogleFonts.inter(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: editedTimesheets.length,
+                    itemBuilder: (context, index) {
+                      final ts = editedTimesheets[index];
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.edit,
+                            size: 18, color: Color(0xFFF59E0B)),
+                        title: Text(
+                          ts.teacherName,
+                          style: GoogleFonts.inter(
+                              fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          '${ts.date} - ${ts.totalHours}',
+                          style: GoogleFonts.inter(fontSize: 11),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDBEAFE),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF93C5FD)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline,
+                          color: Color(0xFF1E40AF), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'By continuing, you will approve both the edits and the timesheets.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFF1E3A8A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  'Approve All',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-            ),
-            child: Text(
-              'Approve All',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Future<bool> _showBulkApprovalDialog(List<TimesheetEntry> timesheets) async {
@@ -944,7 +1123,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
         return timesheet.paymentAmount!;
       }
-      
+
       // Fallback: Calculate from hours if payment_amount is missing (legacy data)
       // Parse total hours (format: "HH:MM" or "HH:MM:SS")
       final parts = timesheet.totalHours.split(':');
@@ -953,7 +1132,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       final hours = int.parse(parts[0]);
       final minutes = int.parse(parts[1]);
       final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
-      
+
       // Calculate total hours including seconds for accuracy
       final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
 
@@ -965,16 +1144,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       return 0.0;
     }
   }
-  
+
   /// Check if a timesheet is complete (has both clock-in and clock-out times)
   bool _isTimesheetComplete(TimesheetEntry timesheet) {
     // Check if both start and end times are present and valid
     final hasStart = timesheet.start.isNotEmpty && timesheet.start != '--';
     final hasEnd = timesheet.end.isNotEmpty && timesheet.end != '--';
-    final hasValidHours = timesheet.totalHours.isNotEmpty && 
-                         timesheet.totalHours != '00:00' &&
-                         timesheet.totalHours != '--';
-    
+    final hasValidHours = timesheet.totalHours.isNotEmpty &&
+        timesheet.totalHours != '00:00' &&
+        timesheet.totalHours != '--';
+
     return hasStart && hasEnd && hasValidHours;
   }
 
@@ -985,18 +1164,22 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Approve Consolidated Shift'),
-          content: Text('This will approve all ${timesheet.childEntries!.length} entries for this shift.\n\nTotal Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+          content: Text(
+              'This will approve all ${timesheet.childEntries!.length} entries for this shift.\n\nTotal Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green, foregroundColor: Colors.white),
               child: const Text('Approve All'),
             ),
           ],
         ),
       );
-      
+
       if (confirmed == true) {
         for (final child in timesheet.childEntries!) {
           await _approveTimesheet(child);
@@ -1010,7 +1193,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       // Show dialog with original data comparison
       final shouldApprove = await _showEditApprovalDialog(timesheet);
       if (shouldApprove != true) return; // Handle null or false
-      
+
       // IMPORTANT: Recalculate payment based on edited times
       // The timesheet object should already have updated totalHours from the real-time listener
       // after the edit was saved. Payment = edited hours × hourly rate
@@ -1021,7 +1204,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       try {
         // Check if timesheet is complete (has both clock-in and clock-out)
         final isComplete = _isTimesheetComplete(timesheet);
-        
+
         // Determine status: approved if complete, otherwise keep as pending
         final newStatus = isComplete ? 'approved' : 'pending';
 
@@ -1031,14 +1214,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             .update({
           'status': newStatus,
           'approved_at': isComplete ? FieldValue.serverTimestamp() : null,
-          'payment_amount': payment, // Recalculated payment based on edited times
+          'payment_amount':
+              payment, // Recalculated payment based on edited times
           'updated_at': FieldValue.serverTimestamp(),
           'edit_approved': true, // Mark edit as approved
           'edit_approved_at': FieldValue.serverTimestamp(),
           // Clear edit tracking fields after approval
           'is_edited': false,
           'original_data': FieldValue.delete(),
-          'employee_notes': FieldValue.delete(), // Clear employee notes after approval
+          'employee_notes':
+              FieldValue.delete(), // Clear employee notes after approval
         });
 
         if (isComplete) {
@@ -1081,7 +1266,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     if (timesheet.isConsolidated && timesheet.childEntries != null) {
       final reason = await _showRejectionDialog();
       if (reason == null) return;
-      
+
       for (final child in timesheet.childEntries!) {
         await _rejectTimesheetWithReason(child, reason);
       }
@@ -1092,14 +1277,14 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     if (timesheet.isEdited && !timesheet.editApproved) {
       final action = await _showEditRejectionDialog(timesheet);
       if (action == null) return;
-      
+
       if (action == 'revert') {
         // Revert to original data
         await _revertTimesheetEdit(timesheet);
       } else {
         // Reject the timesheet
-    final reason = await _showRejectionDialog();
-    if (reason == null) return;
+        final reason = await _showRejectionDialog();
+        if (reason == null) return;
         await _rejectTimesheetWithReason(timesheet, reason);
       }
     } else {
@@ -1118,7 +1303,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     try {
       final original = timesheet.originalData!;
-      
+
       // Revert to original data
       await FirebaseFirestore.instance
           .collection('timesheet_entries')
@@ -1131,7 +1316,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         'total_hours': original['total_hours'],
         'is_edited': false,
         'edit_approved': false,
-        'original_data': FieldValue.delete(), // Remove original data after revert
+        'original_data':
+            FieldValue.delete(), // Remove original data after revert
         'edit_reverted_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
@@ -1142,7 +1328,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     }
   }
 
-  Future<void> _rejectTimesheetWithReason(TimesheetEntry timesheet, String reason) async {
+  Future<void> _rejectTimesheetWithReason(
+      TimesheetEntry timesheet, String reason) async {
     try {
       await FirebaseFirestore.instance
           .collection('timesheet_entries')
@@ -1169,7 +1356,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     }
 
     final original = timesheet.originalData!;
-    
+
     // Parse original times
     String originalStart = original['start_time'] ?? 'N/A';
     String originalEnd = original['end_time'] ?? 'N/A';
@@ -1177,206 +1364,220 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
     // Get original timestamps for better formatting (in admin system time)
     if (original['clock_in_timestamp'] != null) {
-      final originalClockIn = (original['clock_in_timestamp'] as Timestamp).toDate();
-      originalStart = _formatAdminTime(originalClockIn, format: 'h:mm a') + ' (UTC)';
+      final originalClockIn =
+          (original['clock_in_timestamp'] as Timestamp).toDate();
+      originalStart =
+          _formatAdminTime(originalClockIn, format: 'h:mm a') + ' (UTC)';
     }
     if (original['clock_out_timestamp'] != null) {
-      final originalClockOut = (original['clock_out_timestamp'] as Timestamp).toDate();
-      originalEnd = _formatAdminTime(originalClockOut, format: 'h:mm a') + ' (UTC)';
+      final originalClockOut =
+          (original['clock_out_timestamp'] as Timestamp).toDate();
+      originalEnd =
+          _formatAdminTime(originalClockOut, format: 'h:mm a') + ' (UTC)';
     }
 
     return await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.edit, color: Color(0xFFF59E0B), size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Timesheet Was Edited',
-                style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Employee Notes (reason for edit)
-              if (timesheet.employeeNotes != null && timesheet.employeeNotes!.isNotEmpty) ...[
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
+                    color: const Color(0xFFF59E0B).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFCD34D)),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.note_outlined, color: Color(0xFFD97706), size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Reason for Edit:',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFD97706),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        timesheet.employeeNotes!,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: const Color(0xFF92400E),
-                        ),
-                      ),
-                    ],
+                  child: const Icon(Icons.edit,
+                      color: Color(0xFFF59E0B), size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Timesheet Was Edited',
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E293B),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
               ],
-              
-              // Comparison Table
-              Text(
-                'Data Comparison:',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    // Header
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Employee Notes (reason for edit)
+                  if (timesheet.employeeNotes != null &&
+                      timesheet.employeeNotes!.isNotEmpty) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCD34D)),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              'Field',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
+                          Row(
+                            children: [
+                              const Icon(Icons.note_outlined,
+                                  color: Color(0xFFD97706), size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Reason for Edit:',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFFD97706),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                          Expanded(
-                            child: Text(
-                              'Original',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              'Edited',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
-                              ),
-                              textAlign: TextAlign.center,
+                          const SizedBox(height: 8),
+                          Text(
+                            timesheet.employeeNotes!,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF92400E),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    // Clock In
-                    _buildComparisonRow('Clock In (UTC)', originalStart, _formatEditedTime(timesheet, 'start')),
-                    // Clock Out
-                    _buildComparisonRow('Clock Out (UTC)', originalEnd, _formatEditedTime(timesheet, 'end')),
-                    // Total Hours
-                    _buildComparisonRow('Total Hours', originalHours, timesheet.totalHours),
+                    const SizedBox(height: 16),
                   ],
+
+                  // Comparison Table
+                  Text(
+                    'Data Comparison:',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        // Header
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF8FAFC),
+                            borderRadius:
+                                BorderRadius.vertical(top: Radius.circular(8)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Field',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  'Original',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  'Edited',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Clock In
+                        _buildComparisonRow('Clock In (UTC)', originalStart,
+                            _formatEditedTime(timesheet, 'start')),
+                        // Clock Out
+                        _buildComparisonRow('Clock Out (UTC)', originalEnd,
+                            _formatEditedTime(timesheet, 'end')),
+                        // Total Hours
+                        _buildComparisonRow(
+                            'Total Hours', originalHours, timesheet.totalHours),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDBEAFE),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF93C5FD)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline,
+                            color: Color(0xFF1E40AF), size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'By approving, you accept the edited times and the timesheet will be approved.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF1E3A8A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDBEAFE),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF93C5FD)),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: Color(0xFF1E40AF), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'By approving, you accept the edited times and the timesheet will be approved.',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xFF1E3A8A),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Approve Edit & Continue',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-            ),
-            child: Text(
-              'Approve Edit & Continue',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Widget _buildComparisonRow(String field, String original, String edited) {
@@ -1406,7 +1607,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               original,
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: isChanged ? const Color(0xFFDC2626) : const Color(0xFF64748B),
+                color: isChanged
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFF64748B),
                 decoration: isChanged ? TextDecoration.lineThrough : null,
               ),
               textAlign: TextAlign.center,
@@ -1417,7 +1620,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (isChanged) ...[
-                  const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF10B981)),
+                  const Icon(Icons.arrow_forward,
+                      size: 16, color: Color(0xFF10B981)),
                   const SizedBox(width: 4),
                 ],
                 Text(
@@ -1425,7 +1629,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: isChanged ? FontWeight.w600 : FontWeight.normal,
-                    color: isChanged ? const Color(0xFF10B981) : const Color(0xFF64748B),
+                    color: isChanged
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF64748B),
                   ),
                 ),
               ],
@@ -1450,7 +1656,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 color: Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+              child: const Icon(Icons.warning_amber_rounded,
+                  color: Colors.red, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1480,7 +1687,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 'Revert to Original',
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text('Restore original times and keep timesheet pending'),
+              subtitle: const Text(
+                  'Restore original times and keep timesheet pending'),
               onTap: () => Navigator.of(context).pop('revert'),
             ),
             ListTile(
@@ -1489,7 +1697,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 'Reject Timesheet',
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text('Reject the entire timesheet (requires reason)'),
+              subtitle:
+                  const Text('Reject the entire timesheet (requires reason)'),
               onTap: () => Navigator.of(context).pop('reject'),
             ),
           ],
@@ -1660,14 +1869,20 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text('Shift Details (Consolidated)', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold))),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    Expanded(
+                        child: Text('Shift Details (Consolidated)',
+                            style: GoogleFonts.inter(
+                                fontSize: 20, fontWeight: FontWeight.bold))),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context)),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Text('Total Entries: ${timesheet.childEntries!.length}'),
                 Text('Total Hours: ${timesheet.totalHours}'),
-                Text('Total Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+                Text(
+                    'Total Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
                 const SizedBox(height: 16),
                 const Divider(),
                 Expanded(
@@ -1678,7 +1893,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       final child = timesheet.childEntries![index];
                       return ListTile(
                         title: Text('${child.start} - ${child.end}'),
-                        subtitle: Text('${child.totalHours} hours • \$${child.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+                        subtitle: Text(
+                            '${child.totalHours} hours • \$${child.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
                         trailing: _buildStatusChip(child.status),
                         onTap: () {
                           // Allow drilling down into individual entry
@@ -1712,25 +1928,25 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
                 child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff0386FF).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.schedule,
+                          color: Color(0xff0386FF), size: 20),
                     ),
-                    child: const Icon(Icons.schedule,
-                        color: Color(0xff0386FF), size: 20),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text('Timesheet Details',
-                      style: GoogleFonts.inter(
-                          fontSize: 18, fontWeight: FontWeight.w600)),
+                          style: GoogleFonts.inter(
+                              fontSize: 18, fontWeight: FontWeight.w600)),
                     ),
-                  _buildStatusChip(timesheet.status),
-                ],
-              ),
+                    _buildStatusChip(timesheet.status),
+                  ],
+                ),
               ),
               // Scrollable content
               Expanded(
@@ -1739,13 +1955,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-              _buildDetailRow('Teacher:', timesheet.teacherName),
-              _buildDetailRow('Date:', timesheet.date),
-              _buildDetailRow('Student:', timesheet.subject),
-              _buildDetailRow('Start Time:', timesheet.start),
-              _buildDetailRow('End Time:', timesheet.end),
-              _buildDetailRow('Total Hours:', timesheet.totalHours),
-              _buildDetailRow('Description:', timesheet.description),
+                      _buildDetailRow('Teacher:', timesheet.teacherName),
+                      _buildDetailRow('Date:', timesheet.date),
+                      _buildDetailRow('Student:', timesheet.subject),
+                      _buildDetailRow('Start Time:', timesheet.start),
+                      _buildDetailRow('End Time:', timesheet.end),
+                      _buildDetailRow('Total Hours:', timesheet.totalHours),
+                      _buildDetailRow('Description:', timesheet.description),
                       // Show edit warning if edited but not approved
                       if (timesheet.isEdited && !timesheet.editApproved) ...[
                         const SizedBox(height: 16),
@@ -1758,7 +1974,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.edit, color: Color(0xFFD97706), size: 20),
+                              const Icon(Icons.edit,
+                                  color: Color(0xFFD97706), size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -1774,25 +1991,26 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           ),
                         ),
                       ],
-              if (timesheet.description.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text('Description:',
-                    style: GoogleFonts.inter(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(timesheet.description,
-                      style: GoogleFonts.inter(fontSize: 14)),
-                ),
-              ],
+                      if (timesheet.description.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text('Description:',
+                            style: GoogleFonts.inter(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(timesheet.description,
+                              style: GoogleFonts.inter(fontSize: 14)),
+                        ),
+                      ],
                       // Employee Notes (from timesheet edits)
-                      if (timesheet.employeeNotes != null && timesheet.employeeNotes!.isNotEmpty) ...[
+                      if (timesheet.employeeNotes != null &&
+                          timesheet.employeeNotes!.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -1811,7 +2029,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             const SizedBox(width: 8),
                             Text('Employee Notes:',
                                 style: GoogleFonts.inter(
-                                    fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFD97706))),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -1825,7 +2045,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           ),
                           child: Text(
                             timesheet.employeeNotes!,
-                            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF92400E)),
+                            style: GoogleFonts.inter(
+                                fontSize: 14, color: const Color(0xFF92400E)),
                           ),
                         ),
                       ],
@@ -1849,7 +2070,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             const SizedBox(width: 8),
                             Text('Edit Information:',
                                 style: GoogleFonts.inter(
-                                    fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E40AF))),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1E40AF))),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -1863,14 +2086,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF3C7),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFFCD34D)),
+                              border:
+                                  Border.all(color: const Color(0xFFFCD34D)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 20),
+                                    const Icon(Icons.info_outline,
+                                        color: Color(0xFFD97706), size: 20),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -1909,7 +2134,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         ],
                       ],
                       // Manager Notes (admin notes)
-                      if (timesheet.managerNotes != null && timesheet.managerNotes!.isNotEmpty) ...[
+                      if (timesheet.managerNotes != null &&
+                          timesheet.managerNotes!.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -1928,7 +2154,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             const SizedBox(width: 8),
                             Text('Manager Notes:',
                                 style: GoogleFonts.inter(
-                                    fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E40AF))),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1E40AF))),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -1942,7 +2170,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           ),
                           child: Text(
                             timesheet.managerNotes!,
-                            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF1E3A8A)),
+                            style: GoogleFonts.inter(
+                                fontSize: 14, color: const Color(0xFF1E3A8A)),
                           ),
                         ),
                       ],
@@ -1957,39 +2186,39 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
                 child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                  if (timesheet.status == TimesheetStatus.pending) ...[
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _rejectTimesheet(timesheet);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Reject'),
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Close'),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _approveTimesheet(timesheet);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
+                    if (timesheet.status == TimesheetStatus.pending) ...[
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _rejectTimesheet(timesheet);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Reject'),
                       ),
-                      child: const Text('Approve'),
-                    ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _approveTimesheet(timesheet);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Approve'),
+                      ),
+                    ],
                   ],
-                ],
                 ),
               ),
             ],
@@ -2020,18 +2249,19 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
   Widget _buildOriginalDataComparison(TimesheetEntry timesheet) {
     if (timesheet.originalData == null) return const SizedBox.shrink();
-    
+
     final original = timesheet.originalData!;
-    
+
     // Parse original times
     String originalStart = original['start_time'] ?? 'N/A';
     String originalEnd = original['end_time'] ?? 'N/A';
     String originalHours = original['total_hours'] ?? 'N/A';
-    
+
     // Get original timestamps for better formatting
     if (original['clock_in_timestamp'] != null) {
       try {
-        final originalClockIn = (original['clock_in_timestamp'] as Timestamp).toDate();
+        final originalClockIn =
+            (original['clock_in_timestamp'] as Timestamp).toDate();
         originalStart = DateFormat('h:mm a').format(originalClockIn);
       } catch (e) {
         // Keep string format if parsing fails
@@ -2039,7 +2269,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     }
     if (original['clock_out_timestamp'] != null) {
       try {
-        final originalClockOut = (original['clock_out_timestamp'] as Timestamp).toDate();
+        final originalClockOut =
+            (original['clock_out_timestamp'] as Timestamp).toDate();
         originalEnd = DateFormat('h:mm a').format(originalClockOut);
       } catch (e) {
         // Keep string format if parsing fails
@@ -2102,7 +2333,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           // Clock Out
           _buildComparisonRow('Clock Out', originalEnd, timesheet.end),
           // Total Hours
-          _buildComparisonRow('Total Hours', originalHours, timesheet.totalHours),
+          _buildComparisonRow(
+              'Total Hours', originalHours, timesheet.totalHours),
         ],
       ),
     );
@@ -2224,14 +2456,18 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     ];
 
     List<List<dynamic>> detailedRows = [];
-    
+
     // Aggregation Maps for summaries
-    final Map<String, Map<String, double>> dailyStats = {}; // Teacher|Date -> {scheduled, worked, pay}
-    final Map<String, Map<String, double>> weeklyStats = {}; // Teacher|Week -> {scheduled, worked, pay}
-    final Map<String, Map<String, double>> monthlyStats = {}; // Teacher|Month -> {scheduled, worked, pay}
+    final Map<String, Map<String, double>> dailyStats =
+        {}; // Teacher|Date -> {scheduled, worked, pay}
+    final Map<String, Map<String, double>> weeklyStats =
+        {}; // Teacher|Week -> {scheduled, worked, pay}
+    final Map<String, Map<String, double>> monthlyStats =
+        {}; // Teacher|Month -> {scheduled, worked, pay}
 
     // Helper to update stats
-    void updateStats(Map<String, Map<String, double>> map, String key, double scheduled, double worked, double pay) {
+    void updateStats(Map<String, Map<String, double>> map, String key,
+        double scheduled, double worked, double pay) {
       if (!map.containsKey(key)) {
         map[key] = {'scheduled': 0.0, 'worked': 0.0, 'pay': 0.0};
       }
@@ -2245,14 +2481,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     sortedEntries.sort((a, b) {
       final nameCompare = a.teacherName.compareTo(b.teacherName);
       if (nameCompare != 0) return nameCompare;
-      return _parseEntryDate(a.date)?.compareTo(_parseEntryDate(b.date) ?? DateTime.now()) ?? 0;
+      return _parseEntryDate(a.date)
+              ?.compareTo(_parseEntryDate(b.date) ?? DateTime.now()) ??
+          0;
     });
 
     for (var entry in sortedEntries) {
       // Parse Date
       DateTime date = _parseEntryDate(entry.date) ?? DateTime.now();
       final dateKey = DateFormat('yyyy-MM-dd').format(date);
-      
+
       // Week and Month Keys
       final weekStart = date.subtract(Duration(days: date.weekday - 1));
       final weekKey = DateFormat('yyyy-MM-dd').format(weekStart);
@@ -2262,21 +2500,24 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       // Hours & Pay
       final workedHours = _parseHoursToDecimal(entry.totalHours);
       final pay = workedHours * entry.hourlyRate;
-      
+
       // Scheduled Hours Logic
       double scheduledHours = 0.0;
       String scheduledIn = '--';
       String scheduledOut = '--';
-      
-      if (entry.scheduledDurationMinutes != null && entry.scheduledDurationMinutes! > 0) {
+
+      if (entry.scheduledDurationMinutes != null &&
+          entry.scheduledDurationMinutes! > 0) {
         scheduledHours = entry.scheduledDurationMinutes! / 60.0;
       } else if (entry.scheduledStart != null && entry.scheduledEnd != null) {
         final duration = entry.scheduledEnd!.difference(entry.scheduledStart!);
         scheduledHours = duration.inMinutes / 60.0;
       }
-      
-      if (entry.scheduledStart != null) scheduledIn = DateFormat('h:mm a').format(entry.scheduledStart!);
-      if (entry.scheduledEnd != null) scheduledOut = DateFormat('h:mm a').format(entry.scheduledEnd!);
+
+      if (entry.scheduledStart != null)
+        scheduledIn = DateFormat('h:mm a').format(entry.scheduledStart!);
+      if (entry.scheduledEnd != null)
+        scheduledOut = DateFormat('h:mm a').format(entry.scheduledEnd!);
 
       final difference = workedHours - scheduledHours;
 
@@ -2305,14 +2546,23 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
       // Update Aggregates
       final teacher = entry.teacherName;
-      updateStats(dailyStats, '$teacher|$dateKey', scheduledHours, workedHours, pay);
-      updateStats(weeklyStats, '$teacher|$weekKey', scheduledHours, workedHours, pay);
-      updateStats(monthlyStats, '$teacher|$monthKey', scheduledHours, workedHours, pay);
+      updateStats(
+          dailyStats, '$teacher|$dateKey', scheduledHours, workedHours, pay);
+      updateStats(
+          weeklyStats, '$teacher|$weekKey', scheduledHours, workedHours, pay);
+      updateStats(
+          monthlyStats, '$teacher|$monthKey', scheduledHours, workedHours, pay);
     }
 
     // Build Summary Sheets
     final dailyHeaders = [
-      "Teacher", "Date", "Day", "Total Scheduled", "Total Worked", "Difference", "Daily Pay"
+      "Teacher",
+      "Date",
+      "Day",
+      "Total Scheduled",
+      "Total Worked",
+      "Difference",
+      "Daily Pay"
     ];
     List<List<dynamic>> dailyRows = [];
     dailyStats.forEach((key, stats) {
@@ -2337,7 +2587,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     });
 
     final weeklyHeaders = [
-      "Teacher", "Week Starting", "Total Scheduled", "Total Worked", "Difference", "Weekly Pay"
+      "Teacher",
+      "Week Starting",
+      "Total Scheduled",
+      "Total Worked",
+      "Difference",
+      "Weekly Pay"
     ];
     List<List<dynamic>> weeklyRows = [];
     weeklyStats.forEach((key, stats) {
@@ -2353,10 +2608,17 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         stats['pay']!.toStringAsFixed(2),
       ]);
     });
-    weeklyRows.sort((a, b) => a[0].compareTo(b[0]) == 0 ? a[1].compareTo(b[1]) : a[0].compareTo(b[0]));
+    weeklyRows.sort((a, b) => a[0].compareTo(b[0]) == 0
+        ? a[1].compareTo(b[1])
+        : a[0].compareTo(b[0]));
 
     final monthlyHeaders = [
-      "Teacher", "Month", "Total Scheduled", "Total Worked", "Difference", "Monthly Pay"
+      "Teacher",
+      "Month",
+      "Total Scheduled",
+      "Total Worked",
+      "Difference",
+      "Monthly Pay"
     ];
     List<List<dynamic>> monthlyRows = [];
     monthlyStats.forEach((key, stats) {
@@ -2373,7 +2635,9 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         stats['pay']!.toStringAsFixed(2),
       ]);
     });
-    monthlyRows.sort((a, b) => a[0].compareTo(b[0]) == 0 ? a[1].compareTo(b[1]) : a[0].compareTo(b[0]));
+    monthlyRows.sort((a, b) => a[0].compareTo(b[0]) == 0
+        ? a[1].compareTo(b[1])
+        : a[0].compareTo(b[0]));
 
     // Prepare Multi-Sheet Data
     final sheetsHeaders = {
@@ -2408,7 +2672,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   }
 
   // Removed _exportConnectTeamStyle - consolidated into _exportTimesheets
-  
+
   // ignore: unused_element
   void _old_exportConnectTeamStyle() {
     // ConnectTeam-style headers (enhanced with more columns)
@@ -2419,7 +2683,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       "Type",
       "Sub-job",
       "Start Date",
-      "Scheduled In",  // Scheduled start time
+      "Scheduled In", // Scheduled start time
       "In",
       "Start - device",
       "End Date",
@@ -2445,11 +2709,16 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     List<List<dynamic>> rows = [];
 
     // Group by employee and date for calculations
-    final Map<String, Map<String, double>> dailyTotals = {}; // employee|date -> hours
-    final Map<String, Map<String, double>> weeklyTotals = {}; // employee|week -> hours
-    final Map<String, Map<String, double>> dailyScheduled = {}; // employee|date -> scheduled hours
-    final Map<String, Map<String, double>> weeklyScheduled = {}; // employee|week -> scheduled hours
-    final Map<String, Map<String, double>> dailyOvertime = {}; // employee|date -> overtime hours
+    final Map<String, Map<String, double>> dailyTotals =
+        {}; // employee|date -> hours
+    final Map<String, Map<String, double>> weeklyTotals =
+        {}; // employee|week -> hours
+    final Map<String, Map<String, double>> dailyScheduled =
+        {}; // employee|date -> scheduled hours
+    final Map<String, Map<String, double>> weeklyScheduled =
+        {}; // employee|week -> scheduled hours
+    final Map<String, Map<String, double>> dailyOvertime =
+        {}; // employee|date -> overtime hours
 
     // Helper to get first/last name from full name
     List<String> _splitName(String fullName) {
@@ -2514,12 +2783,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
       // Hours
       final shiftHours = _parseHours(entry.totalHours);
-      
+
       // Scheduled times - try multiple sources
       String scheduledIn = '--';
       String scheduledOut = '--';
       double scheduledHours = 0.0;
-      
+
       // First, try to get from timesheet entry fields (most reliable)
       if (entry.scheduledStart != null) {
         scheduledIn = DateFormat('HH:mm').format(entry.scheduledStart!);
@@ -2527,9 +2796,10 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       if (entry.scheduledEnd != null) {
         scheduledOut = DateFormat('HH:mm').format(entry.scheduledEnd!);
       }
-      
+
       // Calculate scheduled hours - prioritize scheduledDurationMinutes
-      if (entry.scheduledDurationMinutes != null && entry.scheduledDurationMinutes! > 0) {
+      if (entry.scheduledDurationMinutes != null &&
+          entry.scheduledDurationMinutes! > 0) {
         scheduledHours = entry.scheduledDurationMinutes! / 60.0;
       } else if (entry.scheduledStart != null && entry.scheduledEnd != null) {
         // Calculate from start/end times
@@ -2540,14 +2810,15 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         // This is a fallback - ideally scheduled times should be in the entry
         // For now, use actual hours as fallback
         scheduledHours = shiftHours;
-        AppLogger.debug('Using actual hours as scheduled hours fallback for entry: ${entry.documentId}');
+        AppLogger.debug(
+            'Using actual hours as scheduled hours fallback for entry: ${entry.documentId}');
       }
-      
+
       // Form data
       final formCompleted = entry.formCompleted ? 'Yes' : 'No';
       final reportedHours = entry.reportedHours;
-      final hoursDifference = reportedHours != null 
-          ? (shiftHours - reportedHours).toStringAsFixed(2) 
+      final hoursDifference = reportedHours != null
+          ? (shiftHours - reportedHours).toStringAsFixed(2)
           : '--';
 
       // Add row
@@ -2558,7 +2829,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         shiftType,
         subJob,
         startDate,
-        scheduledIn,  // Scheduled start time
+        scheduledIn, // Scheduled start time
         inTime,
         clockInPlatform,
         endDate,
@@ -2593,7 +2864,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       weeklyTotals.putIfAbsent(employeeKey, () => {});
       weeklyTotals[employeeKey]![weekKey] =
           (weeklyTotals[employeeKey]![weekKey] ?? 0.0) + shiftHours;
-          
+
       // Track scheduled hours
       dailyScheduled.putIfAbsent(employeeKey, () => {});
       dailyScheduled[employeeKey]![dateKey] =
@@ -2602,7 +2873,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       weeklyScheduled.putIfAbsent(employeeKey, () => {});
       weeklyScheduled[employeeKey]![weekKey] =
           (weeklyScheduled[employeeKey]![weekKey] ?? 0.0) + scheduledHours;
-          
+
       // Track overtime (hours over 8 per day)
       dailyOvertime.putIfAbsent(employeeKey, () => {});
       final currentDayTotal = dailyTotals[employeeKey]![dateKey] ?? 0.0;
@@ -2630,18 +2901,25 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       final dailyTotal = dailyTotals[employeeKey]?[dateKey] ?? 0.0;
       final weeklyTotal = weeklyTotals[employeeKey]?[weekKey] ?? 0.0;
       final dailyScheduledTotal = dailyScheduled[employeeKey]?[dateKey] ?? 0.0;
-      final weeklyScheduledTotal = weeklyScheduled[employeeKey]?[weekKey] ?? 0.0;
-      final weeklyOvertimeTotal = dailyOvertime[employeeKey]?.values.fold<double>(0.0, (a, b) => a + b) ?? 0.0;
-      
+      final weeklyScheduledTotal =
+          weeklyScheduled[employeeKey]?[weekKey] ?? 0.0;
+      final weeklyOvertimeTotal = dailyOvertime[employeeKey]
+              ?.values
+              .fold<double>(0.0, (a, b) => a + b) ??
+          0.0;
+
       // Column indices (0-based):
       // 20: Daily difference, 21: Daily totals, 22: Weekly totals
       // 23: Total scheduled, 24: Total difference, 25: Total paid hours, 26: Total overtime
-      rows[i][20] = (dailyTotal - dailyScheduledTotal).toStringAsFixed(2); // Daily difference
+      rows[i][20] = (dailyTotal - dailyScheduledTotal)
+          .toStringAsFixed(2); // Daily difference
       rows[i][21] = dailyTotal.toStringAsFixed(2); // Daily totals
       rows[i][22] = weeklyTotal.toStringAsFixed(2); // Weekly totals
       rows[i][23] = weeklyScheduledTotal.toStringAsFixed(2); // Total scheduled
-      rows[i][24] = (weeklyTotal - weeklyScheduledTotal).toStringAsFixed(2); // Total difference
-      rows[i][25] = weeklyTotal.toStringAsFixed(2); // Total paid hours (same as weekly for now)
+      rows[i][24] = (weeklyTotal - weeklyScheduledTotal)
+          .toStringAsFixed(2); // Total difference
+      rows[i][25] = weeklyTotal
+          .toStringAsFixed(2); // Total paid hours (same as weekly for now)
       rows[i][26] = weeklyOvertimeTotal.toStringAsFixed(2); // Total overtime
     }
 
@@ -2656,11 +2934,11 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
     // Create sheets: 1 summary sheet + 1 sheet per teacher
     final Map<String, List<String>> sheetsHeaders = {};
     final Map<String, List<List<dynamic>>> sheetsData = {};
-    
+
     // Summary sheet (all data)
     sheetsHeaders['All Teachers'] = headers;
     sheetsData['All Teachers'] = rows;
-    
+
     // Group by employee for individual sheets
     final Map<String, List<List<dynamic>>> employeeRows = {};
     for (var row in rows) {
@@ -2668,7 +2946,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       employeeRows.putIfAbsent(employeeName, () => []);
       employeeRows[employeeName]!.add(row);
     }
-    
+
     // Create a sheet for each employee (limit name length for sheet name)
     for (var entry in employeeRows.entries) {
       String sheetName = entry.key;
@@ -2677,15 +2955,20 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         sheetName = '${sheetName.substring(0, 28)}...';
       }
       sheetName = sheetName.replaceAll(RegExp(r'[\\/*?\[\]:]'), '_');
-      
+
       sheetsHeaders[sheetName] = headers;
       sheetsData[sheetName] = entry.value;
     }
-    
+
     // Add summary statistics sheet
-    final summaryHeaders = ['Teacher', 'Total Shifts', 'Total Hours', 'Avg Hours/Shift'];
+    final summaryHeaders = [
+      'Teacher',
+      'Total Shifts',
+      'Total Hours',
+      'Avg Hours/Shift'
+    ];
     final summaryRows = <List<dynamic>>[];
-    
+
     for (var entry in employeeRows.entries) {
       final teacherRows = entry.value;
       final totalShifts = teacherRows.length;
@@ -2702,7 +2985,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         return sum;
       });
       final avgHours = totalShifts > 0 ? totalHours / totalShifts : 0.0;
-      
+
       summaryRows.add([
         entry.key,
         totalShifts,
@@ -2710,10 +2993,11 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         avgHours.toStringAsFixed(2),
       ]);
     }
-    
+
     // Sort summary by total hours descending
-    summaryRows.sort((a, b) => (double.tryParse(b[2].toString()) ?? 0).compareTo(double.tryParse(a[2].toString()) ?? 0));
-    
+    summaryRows.sort((a, b) => (double.tryParse(b[2].toString()) ?? 0)
+        .compareTo(double.tryParse(a[2].toString()) ?? 0));
+
     sheetsHeaders['Summary'] = summaryHeaders;
     sheetsData['Summary'] = summaryRows;
 
@@ -3248,7 +3532,8 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       child: DropdownButtonFormField<String>(
                         value: _selectedTeacherFilter,
                         decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -3267,12 +3552,15 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         items: [
                           DropdownMenuItem<String>(
                             value: null,
-                            child: Text('All Teachers', style: GoogleFonts.inter(fontSize: 13)),
+                            child: Text('All Teachers',
+                                style: GoogleFonts.inter(fontSize: 13)),
                           ),
-                          ..._availableTeachers.map((teacher) => DropdownMenuItem<String>(
-                            value: teacher,
-                            child: Text(teacher, style: GoogleFonts.inter(fontSize: 13)),
-                          )),
+                          ..._availableTeachers
+                              .map((teacher) => DropdownMenuItem<String>(
+                                    value: teacher,
+                                    child: Text(teacher,
+                                        style: GoogleFonts.inter(fontSize: 13)),
+                                  )),
                         ],
                         onChanged: (value) {
                           setState(() {
@@ -3513,7 +3801,7 @@ class TimesheetReviewDataSource extends DataGridSource {
       if (timesheet.paymentAmount != null && timesheet.paymentAmount! > 0) {
         return timesheet.paymentAmount!;
       }
-      
+
       // Fallback: Calculate from hours if payment_amount is missing (legacy data)
       // Parse total hours (format: "HH:MM" or "HH:MM:SS")
       final parts = timesheet.totalHours.split(':');
@@ -3522,7 +3810,7 @@ class TimesheetReviewDataSource extends DataGridSource {
       final hours = int.parse(parts[0]);
       final minutes = int.parse(parts[1]);
       final seconds = parts.length > 2 ? int.parse(parts[2]) : 0;
-      
+
       // Calculate total hours including seconds for accuracy
       final totalHoursDecimal = hours + (minutes / 60.0) + (seconds / 3600.0);
 
@@ -3535,11 +3823,14 @@ class TimesheetReviewDataSource extends DataGridSource {
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
     // Get timesheet entry for color coding
-    final timesheet = row.getCells().firstWhere(
-      (cell) => cell.columnName == 'select',
-      orElse: () => row.getCells().first,
-    ).value as TimesheetEntry?;
-    
+    final timesheet = row
+        .getCells()
+        .firstWhere(
+          (cell) => cell.columnName == 'select',
+          orElse: () => row.getCells().first,
+        )
+        .value as TimesheetEntry?;
+
     // Determine row background color based on status
     Color rowColor = Colors.white;
     if (timesheet != null) {
@@ -3558,7 +3849,7 @@ class TimesheetReviewDataSource extends DataGridSource {
           break;
       }
     }
-    
+
     return DataGridRowAdapter(
       color: rowColor,
       cells: row.getCells().map<Widget>((dataGridCell) {

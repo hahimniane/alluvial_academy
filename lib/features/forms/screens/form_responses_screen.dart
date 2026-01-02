@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/utils/performance_logger.dart';
 import '../widgets/form_submissions_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -79,36 +80,52 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
 
   // After loading data, compute counts and filter
   Future<void> _loadFormResponses() async {
-      setState(() => _isLoading = true);
+    final opId =
+        PerformanceLogger.newOperationId('FormResponsesScreen._loadFormResponses');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'tab': _selectedTab,
+    });
+
+    if (mounted) setState(() => _isLoading = true);
+
+    Object? caughtError;
+
     try {
-      final formTemplatesSnapshot = await FirebaseFirestore.instance
-          .collection('form')
-          .get();
+      final templatesQueryStopwatch = Stopwatch()..start();
+      final formTemplatesSnapshot =
+          await FirebaseFirestore.instance.collection('form').get();
+      templatesQueryStopwatch.stop();
 
       _formTemplates = {
-        for (var doc in formTemplatesSnapshot.docs) doc.id: doc,
+        for (final doc in formTemplatesSnapshot.docs) doc.id: doc,
       };
-      // DEBUG: Template count
-      // ignore: avoid_print
-      AppLogger.info('[FormResponses] Loaded ${_formTemplates.length} form templates');
+      PerformanceLogger.checkpoint(opId, 'templates_loaded', metadata: {
+        'template_count': _formTemplates.length,
+        'query_time_ms': templatesQueryStopwatch.elapsedMilliseconds,
+      });
 
-      // Always aggregate counts across all responses to ensure "Entries" is accurate
-      Query query = FirebaseFirestore.instance
+      // Always aggregate counts across all responses to ensure "Entries" is accurate.
+      final responsesQueryStopwatch = Stopwatch()..start();
+      final responsesSnapshot = await FirebaseFirestore.instance
           .collection('form_responses')
-            .orderBy('submittedAt', descending: true);
-      final responsesSnapshot = await query.get();
+          .orderBy('submittedAt', descending: true)
+          .get();
+      responsesQueryStopwatch.stop();
 
-          _allResponses = responsesSnapshot.docs;
-      // DEBUG: Responses count
-      // ignore: avoid_print
-      AppLogger.info('[FormResponses] Loaded ${_allResponses.length} form_responses documents');
+      _allResponses = responsesSnapshot.docs;
+      PerformanceLogger.checkpoint(opId, 'responses_loaded', metadata: {
+        'response_count': _allResponses.length,
+        'query_time_ms': responsesQueryStopwatch.elapsedMilliseconds,
+      });
 
-      // Aggregate entries per form (count every document with a valid formId)
+      // Aggregate entries per form (count every document with a valid formId).
+      final aggregationStopwatch = Stopwatch()..start();
       _formIdToEntries = {};
       final Set<String> uidsToFetch = {};
       int missingFormId = 0;
+
       for (final doc in _allResponses) {
-          final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data() as Map<String, dynamic>;
         final formId = (data['formId'] ?? '').toString();
         if (formId.isEmpty) {
           missingFormId++;
@@ -116,19 +133,15 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         }
         _formIdToEntries.update(formId, (v) => v + 1, ifAbsent: () => 1);
       }
-      // DEBUG: Aggregation summary
-      // ignore: avoid_print
-      AppLogger.debug('[FormResponses] Aggregated entries for ${_formIdToEntries.length} forms (missing formId: $missingFormId)');
-      int shown = 0;
-      _formIdToEntries.forEach((id, count) {
-        if (shown < 5) {
-          final title = (_formTemplates[id]?.data() as Map<String, dynamic>?)?['title'] ?? 'Unknown';
-          AppLogger.debug('  - $id → $count entries | $title');
-          shown++;
-        }
+      aggregationStopwatch.stop();
+
+      PerformanceLogger.checkpoint(opId, 'entries_aggregated', metadata: {
+        'forms_with_entries': _formIdToEntries.length,
+        'missing_form_id': missingFormId,
+        'aggregate_time_ms': aggregationStopwatch.elapsedMilliseconds,
       });
 
-      // Collect creator and assigned user ids from forms
+      // Collect creator and assigned user IDs from forms.
       for (final form in _formTemplates.values) {
         final d = form.data() as Map<String, dynamic>;
         final createdBy = (d['createdBy'] ?? '').toString();
@@ -143,14 +156,25 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         }
       }
 
-      // Fetch user names in one go (batched by 10)
+      // Fetch user names in batches of 10 (Firestore whereIn limit).
       final ids = uidsToFetch.toList();
+      int userBatches = 0;
+      int userDocsFound = 0;
+      int userQueryMs = 0;
+
       for (int i = 0; i < ids.length; i += 10) {
-        final chunk = ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
+        userBatches++;
+        final chunk =
+            ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
+        final batchStopwatch = Stopwatch()..start();
         final snap = await FirebaseFirestore.instance
             .collection('users')
             .where(FieldPath.documentId, whereIn: chunk)
             .get();
+        batchStopwatch.stop();
+        userQueryMs += batchStopwatch.elapsedMilliseconds;
+        userDocsFound += snap.docs.length;
+
         for (final u in snap.docs) {
           final ud = u.data();
           final first = (ud['first_name'] ?? ud['firstName'] ?? '').toString();
@@ -166,9 +190,29 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
         }
       }
 
+      PerformanceLogger.checkpoint(opId, 'user_names_loaded', metadata: {
+        'uids': ids.length,
+        'batches': userBatches,
+        'docs_found': userDocsFound,
+        'query_time_ms': userQueryMs,
+      });
+
       _filterForms();
+
+      PerformanceLogger.checkpoint(opId, 'filtered', metadata: {
+        'filtered_form_count': _filteredFormIds.length,
+      });
+    } catch (e) {
+      caughtError = e;
+      AppLogger.error('Error loading form responses: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+      PerformanceLogger.endTimer(opId, metadata: {
+        'template_count': _formTemplates.length,
+        'response_count': _allResponses.length,
+        'filtered_form_count': _filteredFormIds.length,
+        if (caughtError != null) 'error': caughtError.toString(),
+      });
     }
   }
 

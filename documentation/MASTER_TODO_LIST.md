@@ -261,7 +261,7 @@ Before deploying to production:
 - [ ] Code reviewed
 - [ ] Database backups completed
 - [ ] Version number incremented (`./increment_version.sh`)
-- [ ] Build successful (`flutter build web --release`)
+- [ ] Build successful (`flutter build web --release --pwa-strategy=none`)
 - [ ] Upload `build/web/` to Hostinger
 - [ ] Verify deployment works
 - [ ] Monitor for errors
@@ -323,4 +323,3 @@ This order allows you to:
 ---
 
 *This is the master to-do list. Check off items as you complete them.*
-

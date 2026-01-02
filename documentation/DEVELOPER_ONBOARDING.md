@@ -132,8 +132,8 @@ Each domain owns its own `screens/`, `widgets/`, `services/`, and sometimes
 | Mobile dev | `flutter run` (after device selection) |
 | Analyze | `flutter analyze` |
 | Tests | `flutter test` (currently minimal; add as you build) |
-| Web release build | `./increment_version.sh && flutter build web --release` (required for cache busting) |
-| Deploy web | Upload `build/web/` output + `.htaccess` to Hostinger (see repo rules). |
+| Web release build | `./increment_version.sh && flutter build web --release --pwa-strategy=none` |
+| Deploy web | Upload `build/web/` output and ensure `.htaccess` is present in the Hostinger web root (`public_html`). |
 
 Platform-specific docs in repo detail release steps for Android/iOS.
 
@@ -224,5 +224,4 @@ Platform-specific docs in repo detail release steps for Android/iOS.
 ### Need help?
 Reach out in the engineering channel or mention the last person who touched the
 area (check `git blame`). Welcome to the team—happy shipping! 🚀
-
 

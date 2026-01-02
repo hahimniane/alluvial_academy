@@ -52,7 +52,7 @@ flutter run -d ios
 ```
 OR manually:
 ```bash
-./increment_version.sh && flutter build web --release
+./increment_version.sh && flutter build web --release --pwa-strategy=none
 ```
 **⚠️ NEVER run `flutter build web --release` without incrementing the version first!**
 

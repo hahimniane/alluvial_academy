@@ -643,10 +643,9 @@ git commit -m "feat: [description]"
 Remember the build rule:
 ```bash
 # For production releases
-./increment_version.sh && flutter build web --release
+./increment_version.sh && flutter build web --release --pwa-strategy=none
 ```
 
 ---
 
 *This guide focuses on the highest-impact, lowest-effort improvements first.*
-

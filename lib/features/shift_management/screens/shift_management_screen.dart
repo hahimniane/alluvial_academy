@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,19 +11,31 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
+import '../../../core/models/subject.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
+import '../../../core/services/subject_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/utils/performance_logger.dart';
+import '../../../core/utils/timezone_utils.dart';
 import '../widgets/create_shift_dialog.dart';
 import '../widgets/teacher_shift_calendar.dart';
 import '../widgets/compact_shift_header.dart';
 import '../widgets/weekly_schedule_grid.dart';
 import '../widgets/quick_edit_shift_popup.dart';
+import '../widgets/bulk_edit_shift_dialog.dart';
+import '../widgets/shift_edit_options_dialog.dart';
+import '../widgets/shift_filter_panel.dart';
 import '../../settings/pay_settings_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
+enum _DeleteShiftScope {
+  single,
+  seriesScheduled,
+}
 
 class ShiftManagementScreen extends StatefulWidget {
   const ShiftManagementScreen({super.key});
@@ -61,9 +74,23 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Advanced filter state
+  bool _filtersExpanded = false;
+  List<Employee> _availableStudents = [];
+  List<Subject> _availableSubjects = [];
+  String? _selectedTeacherFilter;
+  String? _selectedStudentFilter;
+  String? _selectedSubjectFilter;
+  DateTimeRange? _dateRangeFilter;
+  TimeOfDay? _timeRangeStart;
+  TimeOfDay? _timeRangeEnd;
+  ShiftStatus? _statusFilter;
+
   // NEW: Week navigation and view state
-  DateTime _currentWeekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
-  String _viewMode = 'grid'; // 'list', 'grid', 'week' - default to grid for ConnectTeam style
+  DateTime _currentWeekStart =
+      DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+  String _viewMode =
+      'grid'; // 'list', 'grid', 'week' - default to grid for ConnectTeam style
   String _scheduleTypeFilter = 'all'; // 'all', 'teachers', 'leaders'
 
   // Filtered shifts
@@ -74,6 +101,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   // Payment cache: shiftId -> actual payment amount from timesheet
   Map<String, double> _shiftPayments = {};
+  StreamSubscription<List<TeachingShift>>? _shiftsSubscription;
+
+  bool _isPaymentLoadInProgress = false;
+  List<String>? _pendingPaymentShiftIds;
+  int? _inFlightPaymentsHash;
 
   @override
   void initState() {
@@ -89,10 +121,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         throw Exception('No authenticated user');
       }
 
-      final isAdmin = await UserRoleService.isAdmin();
+      final role = await UserRoleService.getCurrentUserRole();
       final activeRole = await UserRoleService.getActiveRole();
-      
-      AppLogger.debug('ShiftManagement: User ${currentUser.uid} - isAdmin=$isAdmin, activeRole=$activeRole');
+      final isAdmin = role?.toLowerCase() == 'admin' ||
+          role?.toLowerCase() == 'super_admin';
+
+      AppLogger.debug(
+          'ShiftManagement: User ${currentUser.uid} - role=$role, isAdmin=$isAdmin, activeRole=$activeRole');
 
       if (mounted) {
         setState(() {
@@ -100,16 +135,22 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _isAdmin = isAdmin;
         });
 
+        if (!_isAdmin) {
+          // This screen is admin-only; avoid querying admin-only collections when not authorized.
+          setState(() => _isLoading = false);
+          return;
+        }
+
         // OPTIMIZATION: Load data in parallel instead of sequentially
         // This reduces initial load time significantly
         final futures = <Future>[
           _loadShiftData(),
-          if (_isAdmin) ...[
-            _loadTeachers(),
-            _loadLeaders(),
-          ],
+          _loadSubjects(),
+          _loadTeachers(),
+          _loadLeaders(),
+          _loadStudents(),
         ];
-        
+
         // Load statistics after shifts are loaded (it depends on shifts)
         await Future.wait(futures);
         await _loadShiftStatistics();
@@ -126,12 +167,88 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   @override
   void dispose() {
+    _shiftsSubscription?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _requestPaymentsLoad(List<TeachingShift> shifts,
+      {required String emissionOpId}) {
+    final shiftIds = shifts.map((s) => s.id).toList(growable: false);
+    final requestHash = Object.hashAll(shiftIds);
+
+    if (_isPaymentLoadInProgress && _inFlightPaymentsHash == requestHash) {
+      _pendingPaymentShiftIds = null;
+      return;
+    }
+
+    _pendingPaymentShiftIds = shiftIds;
+    PerformanceLogger.checkpoint(emissionOpId, 'payments_load_queued',
+        metadata: {'shift_count': shiftIds.length});
+
+    if (!_isPaymentLoadInProgress) {
+      _processPendingPaymentsQueue();
+    }
+  }
+
+  Future<void> _processPendingPaymentsQueue() async {
+    if (_isPaymentLoadInProgress) return;
+    _isPaymentLoadInProgress = true;
+
+    try {
+      while (_pendingPaymentShiftIds != null) {
+        final shiftIds = _pendingPaymentShiftIds!;
+        _pendingPaymentShiftIds = null;
+        _inFlightPaymentsHash = Object.hashAll(shiftIds);
+
+        final paymentsOpId = PerformanceLogger.newOperationId(
+            'ShiftManagementScreen._loadPayments');
+        PerformanceLogger.startTimer(paymentsOpId, metadata: {
+          'shift_count': shiftIds.length,
+        });
+
+        try {
+          final paymentMap =
+              await ShiftTimesheetService.getActualPaymentsForShifts(shiftIds);
+
+          // Keep only non-zero actual payments so UI can fall back to scheduled
+          // payments using: shiftPayments[shift.id] ?? shift.totalPayment
+          final actualPayments = <String, double>{};
+          for (final entry in paymentMap.entries) {
+            if (entry.value != 0.0) {
+              actualPayments[entry.key] = entry.value;
+            }
+          }
+
+          PerformanceLogger.endTimer(paymentsOpId, metadata: {
+            'payment_count': actualPayments.length,
+          });
+
+          if (mounted) {
+            setState(() => _shiftPayments = actualPayments);
+          }
+        } catch (e) {
+          AppLogger.error('Error loading payments in background: $e');
+          PerformanceLogger.endTimer(paymentsOpId, metadata: {
+            'error': e.toString(),
+          });
+        }
+      }
+    } finally {
+      _isPaymentLoadInProgress = false;
+      _inFlightPaymentsHash = null;
+    }
+  }
+
   Future<void> _loadShiftData() async {
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftManagementScreen._loadShiftData');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'is_admin': _isAdmin,
+      'user_id': _currentUserId ?? '',
+    });
+
     setState(() => _isLoading = true);
 
     try {
@@ -140,41 +257,112 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (_isAdmin) {
         // Admins see all shifts
         shiftsStream = ShiftService.getAllShifts();
+        PerformanceLogger.checkpoint(opId, 'stream_selected', metadata: {
+          'stream': 'getAllShifts',
+        });
       } else {
         // Teachers only see their own shifts
         if (_currentUserId == null) {
           throw Exception('User ID not available');
         }
         shiftsStream = ShiftService.getTeacherShifts(_currentUserId!);
+        PerformanceLogger.checkpoint(opId, 'stream_selected', metadata: {
+          'stream': 'getTeacherShifts',
+          'teacher_id': _currentUserId!,
+        });
       }
 
-      shiftsStream.listen((shifts) async {
-        if (mounted) {
-          // OPTIMIZATION: Batch load all payments in a single query instead of N queries
-          // This reduces loading time from O(n) sequential queries to O(1) batch query
-          final shiftIds = shifts.map((s) => s.id).toList();
-          final paymentMap = await ShiftTimesheetService.getActualPaymentsForShifts(shiftIds);
-          
-          // Fill in any missing shifts with scheduled payment as fallback
-          for (var shift in shifts) {
-            if (!paymentMap.containsKey(shift.id) || paymentMap[shift.id] == 0.0) {
-              paymentMap[shift.id] = shift.totalPayment;
+      var initialEmissionHandled = false;
+
+      await _shiftsSubscription?.cancel();
+      _shiftsSubscription = shiftsStream.listen((shifts) {
+        final emissionOpId = initialEmissionHandled
+            ? PerformanceLogger.newOperationId(
+                'ShiftManagementScreen._loadShiftData.streamEmission')
+            : opId;
+        if (initialEmissionHandled) {
+          PerformanceLogger.startTimer(emissionOpId, metadata: {
+            'is_admin': _isAdmin,
+            'shift_count': shifts.length,
+          });
+        }
+
+        try {
+          if (!mounted) {
+            if (!initialEmissionHandled) {
+              initialEmissionHandled = true;
             }
+            PerformanceLogger.endTimer(emissionOpId, metadata: {
+              'shift_count': shifts.length,
+              'reason': 'unmounted',
+            });
+            return;
           }
 
-          setState(() {
-            _allShifts = shifts;
-            _shiftPayments = paymentMap;
-            _categorizeShifts();
-            _isLoading = false;
-          });
+          // OPTIMIZATION: Batch load all payments in a single query instead of N queries
+          // This reduces loading time from O(n) sequential queries to O(1) batch query
+          PerformanceLogger.checkpoint(emissionOpId, 'shifts_received',
+              metadata: {
+                'shift_count': shifts.length,
+              });
 
-          // Reload statistics when shifts change (non-blocking)
-          _loadShiftStatistics();
+          if (mounted) {
+            final stateStopwatch = Stopwatch()..start();
+            setState(() {
+              _allShifts = shifts;
+              _categorizeShifts();
+              _isLoading = false;
+            });
+            stateStopwatch.stop();
+            PerformanceLogger.checkpoint(emissionOpId, 'state_updated',
+                metadata: {
+                  'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
+                  'all_shifts': _allShifts.length,
+                });
+
+            // Reload statistics when shifts change (non-blocking)
+            _loadShiftStatistics();
+          }
+
+          _requestPaymentsLoad(shifts, emissionOpId: emissionOpId);
+
+          final metadata = {
+            'shift_count': shifts.length,
+            'payments': 'deferred',
+          };
+
+          if (!initialEmissionHandled) {
+            initialEmissionHandled = true;
+          }
+          PerformanceLogger.endTimer(emissionOpId, metadata: metadata);
+        } catch (e) {
+          AppLogger.error('Error processing shift stream emission: $e');
+          if (!initialEmissionHandled) {
+            initialEmissionHandled = true;
+          }
+          PerformanceLogger.endTimer(emissionOpId, metadata: {
+            'error': e.toString(),
+            'shift_count': shifts.length,
+          });
         }
+      }, onError: (Object e) {
+        AppLogger.error('Error in shift stream: $e');
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        if (!initialEmissionHandled) {
+          initialEmissionHandled = true;
+        }
+        PerformanceLogger.endTimer(opId, metadata: {
+          'error': e.toString(),
+          'source': 'stream',
+        });
       });
     } catch (e) {
       AppLogger.error('Error loading shift data: $e');
+      PerformanceLogger.endTimer(opId, metadata: {
+        'error': e.toString(),
+      });
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -182,27 +370,51 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   Future<void> _loadShiftStatistics() async {
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftManagementScreen._loadShiftStatistics');
+    PerformanceLogger.startTimer(opId, metadata: {
+      'is_admin': _isAdmin,
+      'user_id': _currentUserId ?? '',
+    });
+
     try {
       Map<String, dynamic> stats;
 
       if (_isAdmin) {
         // Admins see all shift statistics
+        PerformanceLogger.checkpoint(opId, 'stats_query_start',
+            metadata: {'type': 'all'});
         stats = await ShiftService.getShiftStatistics();
       } else {
         // Teachers only see their own shift statistics
         if (_currentUserId == null) {
           throw Exception('User ID not available');
         }
+        PerformanceLogger.checkpoint(opId, 'stats_query_start', metadata: {
+          'type': 'teacher',
+          'teacher_id': _currentUserId!,
+        });
         stats = await ShiftService.getTeacherShiftStatistics(_currentUserId!);
       }
 
+      PerformanceLogger.checkpoint(opId, 'stats_loaded', metadata: {
+        'keys': stats.length,
+      });
+
       if (mounted) {
+        final stateStopwatch = Stopwatch()..start();
         setState(() {
           _shiftStats = stats;
         });
+        stateStopwatch.stop();
+        PerformanceLogger.checkpoint(opId, 'state_updated', metadata: {
+          'set_state_time_ms': stateStopwatch.elapsedMilliseconds,
+        });
       }
+      PerformanceLogger.endTimer(opId, metadata: {'keys': stats.length});
     } catch (e) {
       AppLogger.error('Error loading shift statistics: $e');
+      PerformanceLogger.endTimer(opId, metadata: {'error': e.toString()});
     }
   }
 
@@ -238,7 +450,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
         return null;
       }).toList();
-      
+
       // Wait for all queries in parallel
       final emailResults = await Future.wait(emailQueries);
       for (final entry in emailResults) {
@@ -281,52 +493,216 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     }
   }
 
+  Future<void> _loadStudents() async {
+    try {
+      final students = await ShiftService.getAvailableStudents();
+      if (mounted) {
+        setState(() {
+          _availableStudents = students;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('ShiftManagement: ❌ Error loading students: $e');
+    }
+  }
+
+  Future<void> _loadSubjects() async {
+    try {
+      final subjects = await SubjectService.getActiveSubjects();
+      if (mounted) {
+        setState(() {
+          _availableSubjects = subjects;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('ShiftManagement: ❌ Error loading subjects: $e');
+    }
+  }
+
   void _categorizeShifts() {
+    final opId = PerformanceLogger.newOperationId(
+        'ShiftManagementScreen._categorizeShifts');
+    PerformanceLogger.startTimer(opId,
+        metadata: {'total_shifts': _allShifts.length});
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
 
+    final todayStopwatch = Stopwatch()..start();
     _todayShifts = _allShifts
         .where((shift) =>
             shift.shiftStart.isAfter(today) &&
             shift.shiftStart.isBefore(tomorrow))
         .toList();
+    todayStopwatch.stop();
+    PerformanceLogger.checkpoint(opId, 'today_filtered', metadata: {
+      'today_count': _todayShifts.length,
+      'time_ms': todayStopwatch.elapsedMilliseconds,
+    });
 
+    final upcomingStopwatch = Stopwatch()..start();
     _upcomingShifts = _allShifts
         .where((shift) =>
             shift.shiftStart.isAfter(now) &&
             shift.status == ShiftStatus.scheduled)
         .toList();
+    upcomingStopwatch.stop();
+    PerformanceLogger.checkpoint(opId, 'upcoming_filtered', metadata: {
+      'upcoming_count': _upcomingShifts.length,
+      'time_ms': upcomingStopwatch.elapsedMilliseconds,
+    });
 
+    final activeStopwatch = Stopwatch()..start();
     _activeShifts = _allShifts
         .where((shift) => shift.status == ShiftStatus.active)
         .toList();
+    activeStopwatch.stop();
+    PerformanceLogger.checkpoint(opId, 'active_filtered', metadata: {
+      'active_count': _activeShifts.length,
+      'time_ms': activeStopwatch.elapsedMilliseconds,
+    });
 
     // Apply search filter
+    final filterStopwatch = Stopwatch()..start();
     _filterShifts();
+    filterStopwatch.stop();
+    PerformanceLogger.checkpoint(opId, 'filter_applied', metadata: {
+      'time_ms': filterStopwatch.elapsedMilliseconds,
+    });
+
+    PerformanceLogger.endTimer(opId, metadata: {
+      'total_shifts': _allShifts.length,
+      'today': _todayShifts.length,
+      'upcoming': _upcomingShifts.length,
+      'active': _activeShifts.length,
+    });
+  }
+
+  int _activeFilterCount() {
+    int count = 0;
+    if (_selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty) {
+      count++;
+    }
+    if (_selectedStudentFilter != null && _selectedStudentFilter!.isNotEmpty) {
+      count++;
+    }
+    if (_selectedSubjectFilter != null && _selectedSubjectFilter!.isNotEmpty) {
+      count++;
+    }
+    if (_dateRangeFilter != null) count++;
+    if (_timeRangeStart != null && _timeRangeEnd != null) count++;
+    if (_statusFilter != null) count++;
+    return count;
+  }
+
+  bool _matchesSearch(TeachingShift shift, String query) {
+    final haystack = [
+      shift.teacherName,
+      shift.studentNames.join(', '),
+      shift.effectiveSubjectDisplayName,
+      shift.displayName,
+    ].join(' ').toLowerCase();
+    return haystack.contains(query);
+  }
+
+  bool _isShiftStartInTimeRange(
+    TeachingShift shift,
+    TimeOfDay start,
+    TimeOfDay end,
+  ) {
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    final wrapsMidnight = endMinutes <= startMinutes;
+
+    final localStart =
+        TimezoneUtils.convertToTimezone(shift.shiftStart, shift.adminTimezone);
+    final minutes = localStart.hour * 60 + localStart.minute;
+
+    if (!wrapsMidnight) {
+      return minutes >= startMinutes && minutes <= endMinutes;
+    }
+    return minutes >= startMinutes || minutes <= endMinutes;
+  }
+
+  List<TeachingShift> _applySearchAndFilters(List<TeachingShift> shifts) {
+    final query = _searchQuery.trim().toLowerCase();
+
+    String? selectedSubjectName;
+    if (_selectedSubjectFilter != null && _selectedSubjectFilter!.isNotEmpty) {
+      for (final subject in _availableSubjects) {
+        if (subject.id == _selectedSubjectFilter) {
+          selectedSubjectName = subject.name;
+          break;
+        }
+      }
+    }
+
+    DateTime? rangeStart;
+    DateTime? rangeEnd;
+    if (_dateRangeFilter != null) {
+      rangeStart = DateTime(
+        _dateRangeFilter!.start.year,
+        _dateRangeFilter!.start.month,
+        _dateRangeFilter!.start.day,
+      );
+      rangeEnd = DateTime(
+        _dateRangeFilter!.end.year,
+        _dateRangeFilter!.end.month,
+        _dateRangeFilter!.end.day,
+        23,
+        59,
+        59,
+        999,
+      );
+    }
+
+    return shifts.where((shift) {
+      if (query.isNotEmpty && !_matchesSearch(shift, query)) return false;
+
+      if (_selectedTeacherFilter != null &&
+          _selectedTeacherFilter!.isNotEmpty) {
+        if (shift.teacherId != _selectedTeacherFilter) return false;
+      }
+
+      if (_selectedStudentFilter != null &&
+          _selectedStudentFilter!.isNotEmpty) {
+        if (!shift.studentIds.contains(_selectedStudentFilter)) return false;
+      }
+
+      if (_selectedSubjectFilter != null &&
+          _selectedSubjectFilter!.isNotEmpty) {
+        final matchesSubjectId = shift.subjectId == _selectedSubjectFilter;
+        final matchesLegacySubject = selectedSubjectName != null &&
+            shift.subject.name == selectedSubjectName;
+        if (!matchesSubjectId && !matchesLegacySubject) return false;
+      }
+
+      if (_statusFilter != null && shift.status != _statusFilter) return false;
+
+      if (rangeStart != null && rangeEnd != null) {
+        if (shift.shiftStart.isBefore(rangeStart) ||
+            shift.shiftStart.isAfter(rangeEnd)) {
+          return false;
+        }
+      }
+
+      if (_timeRangeStart != null && _timeRangeEnd != null) {
+        if (!_isShiftStartInTimeRange(
+            shift, _timeRangeStart!, _timeRangeEnd!)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
   }
 
   void _filterShifts() {
-    if (_searchQuery.isEmpty) {
-      _filteredAllShifts = List.from(_allShifts);
-      _filteredTodayShifts = List.from(_todayShifts);
-      _filteredUpcomingShifts = List.from(_upcomingShifts);
-      _filteredActiveShifts = List.from(_activeShifts);
-    } else {
-      final query = _searchQuery.toLowerCase();
-      _filteredAllShifts = _allShifts
-          .where((shift) => shift.teacherName.toLowerCase().contains(query))
-          .toList();
-      _filteredTodayShifts = _todayShifts
-          .where((shift) => shift.teacherName.toLowerCase().contains(query))
-          .toList();
-      _filteredUpcomingShifts = _upcomingShifts
-          .where((shift) => shift.teacherName.toLowerCase().contains(query))
-          .toList();
-      _filteredActiveShifts = _activeShifts
-          .where((shift) => shift.teacherName.toLowerCase().contains(query))
-          .toList();
-    }
+    _filteredAllShifts = _applySearchAndFilters(_allShifts);
+    _filteredTodayShifts = _applySearchAndFilters(_todayShifts);
+    _filteredUpcomingShifts = _applySearchAndFilters(_upcomingShifts);
+    _filteredActiveShifts = _applySearchAndFilters(_activeShifts);
   }
 
   int _getFilteredShiftsCount() {
@@ -335,6 +711,22 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_isLoading && !_isAdmin) {
+      return const Scaffold(
+        backgroundColor: Color(0xffF8FAFC),
+        body: Center(
+          child: Text(
+            'Access restricted',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xff6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
       body: LayoutBuilder(
@@ -421,7 +813,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
           ),
           const Divider(height: 1),
-          // Search Bar - Single search bar below tabs
+          // Search Bar + Filters
           if (_viewMode == 'grid' || _viewMode == 'week' || _viewMode == 'list')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -445,10 +837,12 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                           fontSize: 14,
                           color: const Color(0xff9CA3AF),
                         ),
-                        prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xff6B7280)),
+                        prefixIcon: const Icon(Icons.search,
+                            size: 20, color: Color(0xff6B7280)),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, size: 20, color: Color(0xff6B7280)),
+                                icon: const Icon(Icons.clear,
+                                    size: 20, color: Color(0xff6B7280)),
                                 onPressed: () {
                                   _searchController.clear();
                                   setState(() {
@@ -460,17 +854,21 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                          borderSide:
+                              const BorderSide(color: Color(0xffE2E8F0)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xffE2E8F0)),
+                          borderSide:
+                              const BorderSide(color: Color(0xffE2E8F0)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                          borderSide: const BorderSide(
+                              color: Color(0xff0386FF), width: 2),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         isDense: true,
                       ),
                       onChanged: (value) {
@@ -481,10 +879,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       },
                     ),
                   ),
-                  if (_searchQuery.isNotEmpty) ...[
+                  if (_searchQuery.isNotEmpty || _activeFilterCount() > 0) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0386FF).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
@@ -499,8 +898,87 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       ),
                     ),
                   ],
+                  const SizedBox(width: 8),
+                  Stack(
+                    children: [
+                      IconButton(
+                        tooltip:
+                            _filtersExpanded ? 'Hide filters' : 'Show filters',
+                        onPressed: () {
+                          setState(() {
+                            _filtersExpanded = !_filtersExpanded;
+                          });
+                        },
+                        icon: Icon(
+                          Icons.filter_list,
+                          size: 20,
+                          color: _activeFilterCount() > 0
+                              ? const Color(0xff0386FF)
+                              : const Color(0xff6B7280),
+                        ),
+                      ),
+                      if (_activeFilterCount() > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xff0386FF),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
+            ),
+          if (_filtersExpanded)
+            ShiftFilterPanel(
+              teachers: _availableTeachers,
+              students: _availableStudents,
+              subjects: _availableSubjects,
+              selectedTeacherId: _selectedTeacherFilter,
+              selectedStudentId: _selectedStudentFilter,
+              selectedSubjectId: _selectedSubjectFilter,
+              dateRange: _dateRangeFilter,
+              timeRangeStart: _timeRangeStart,
+              timeRangeEnd: _timeRangeEnd,
+              statusFilter: _statusFilter,
+              onClear: () {
+                setState(() {
+                  _selectedTeacherFilter = null;
+                  _selectedStudentFilter = null;
+                  _selectedSubjectFilter = null;
+                  _dateRangeFilter = null;
+                  _timeRangeStart = null;
+                  _timeRangeEnd = null;
+                  _statusFilter = null;
+                  _filterShifts();
+                });
+              },
+              onApply: ({
+                String? teacherId,
+                String? studentId,
+                String? subjectId,
+                DateTimeRange? dateRange,
+                TimeOfDay? timeStart,
+                TimeOfDay? timeEnd,
+                ShiftStatus? status,
+              }) {
+                setState(() {
+                  _selectedTeacherFilter = teacherId;
+                  _selectedStudentFilter = studentId;
+                  _selectedSubjectFilter = subjectId;
+                  _dateRangeFilter = dateRange;
+                  _timeRangeStart = timeStart;
+                  _timeRangeEnd = timeEnd;
+                  _statusFilter = status;
+                  _filterShifts();
+                });
+              },
             ),
           // Tab contents - fixed, scrollable region
           SizedBox(
@@ -619,7 +1097,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         setState(() {
           if (value == 'grid' || value == 'week' || value == 'list') {
             _viewMode = value;
-          } else if (value == 'teachers' || value == 'leaders' || value == 'all') {
+          } else if (value == 'teachers' ||
+              value == 'leaders' ||
+              value == 'all') {
             _scheduleTypeFilter = value;
           }
         });
@@ -816,7 +1296,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                           if (_selectedShiftIds.isNotEmpty) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0386FF).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(16),
@@ -828,6 +1309,20 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   fontWeight: FontWeight.w600,
                                   color: const Color(0xFF0386FF),
                                 ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _editSelectedShifts,
+                              icon: const Icon(Icons.edit, size: 20),
+                              label: Text(
+                                'Edit (${_selectedShiftIds.length})',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xff0386FF),
+                                foregroundColor: Colors.white,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1155,10 +1650,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   Widget _buildShiftView(List<TeachingShift> shifts) {
     // Apply schedule type filter
     final filteredShifts = _applyScheduleTypeFilter(shifts);
-    
+
     // Debug output
-    AppLogger.debug('ShiftManagement: _buildShiftView called with viewMode=$_viewMode, isAdmin=$_isAdmin, shifts=${shifts.length}');
-    
+    AppLogger.debug(
+        'ShiftManagement: _buildShiftView called with viewMode=$_viewMode, isAdmin=$_isAdmin, shifts=${shifts.length}');
+
     // Switch between view modes
     if (_viewMode == 'grid') {
       AppLogger.debug('ShiftManagement: Rendering WeeklyScheduleGrid');
@@ -1193,7 +1689,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         shift.shiftStart.month,
         shift.shiftStart.day,
       );
-      return shiftDate.isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
+      return shiftDate
+              .isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
           shiftDate.isBefore(weekEnd.add(const Duration(days: 1)));
     }).toList();
 
@@ -1215,11 +1712,11 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       onCreateShift: (userId, date, time) {
         // Open create shift dialog with pre-filled teacher
         _showCreateShiftDialogWithPrefill(
-          userId: userId, 
-          date: date, 
+          userId: userId,
+          date: date,
           time: time,
-          category: _scheduleTypeFilter == 'leaders' 
-              ? ShiftCategory.leadership 
+          category: _scheduleTypeFilter == 'leaders'
+              ? ShiftCategory.leadership
               : ShiftCategory.teaching,
         );
       },
@@ -1237,7 +1734,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       },
       selectedShiftIds: _selectedShiftIds,
       onShiftSelectionChanged: _isAdmin && _isSelectionMode
-          ? (shiftId, isSelected) => _onShiftSelectionChanged(shiftId, isSelected)
+          ? (shiftId, isSelected) =>
+              _onShiftSelectionChanged(shiftId, isSelected)
           : null,
       isSelectionMode: _isAdmin && _isSelectionMode,
     );
@@ -1264,22 +1762,24 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         AppLogger.error('ShiftManagement: Teacher/leader not found: $userId');
       }
     }
-    
+
     if (teacher == null) {
       // Fallback: show dialog without pre-selection
       _showCreateShiftDialog(category: category);
       return;
     }
-    
+
     // Use email directly as initialTeacherId - the dialog will match by email
     // This is more reliable than using documentId
-    AppLogger.debug('ShiftManagement: Pre-filling shift dialog with teacher: ${teacher.email}');
-    
+    AppLogger.debug(
+        'ShiftManagement: Pre-filling shift dialog with teacher: ${teacher.email}');
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => CreateShiftDialog(
-        initialTeacherId: teacher!.email, // Use email directly for better matching
+        initialTeacherId:
+            teacher!.email, // Use email directly for better matching
         initialDate: date,
         initialTime: time,
         initialCategory: category, // Pass category to pre-select shift type
@@ -1510,8 +2010,50 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     );
   }
 
-  void _editShift(TeachingShift shift) {
-    // Use quick edit popup for faster editing
+  void _editShift(TeachingShift shift) async {
+    final isRecurring = shift.recurrenceSeriesId != null &&
+            shift.recurrenceSeriesId!.trim().isNotEmpty ||
+        shift.recurrence != RecurrencePattern.none ||
+        shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
+
+    if (!isRecurring) {
+      _showQuickEditDialog(shift);
+      return;
+    }
+
+    final selection = await showDialog<ShiftEditOptionsResult>(
+      context: context,
+      builder: (context) => ShiftEditOptionsDialog(shift: shift),
+    );
+    if (selection == null || !mounted) return;
+
+    switch (selection.mode) {
+      case ShiftEditOptionMode.single:
+        _showQuickEditDialog(shift);
+        return;
+      case ShiftEditOptionMode.series:
+        await _openBulkEditForSeries(shift);
+        return;
+      case ShiftEditOptionMode.studentAll:
+        if (selection.studentId == null) return;
+        await _openBulkEditForStudent(selection.studentId!);
+        return;
+      case ShiftEditOptionMode.studentTimeRange:
+        if (selection.studentId == null ||
+            selection.startTime == null ||
+            selection.endTime == null) {
+          return;
+        }
+        await _openBulkEditForStudentTimeRange(
+          selection.studentId!,
+          selection.startTime!,
+          selection.endTime!,
+        );
+        return;
+    }
+  }
+
+  void _showQuickEditDialog(TeachingShift shift) {
     showDialog(
       context: context,
       builder: (context) => QuickEditShiftPopup(
@@ -1525,6 +2067,169 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           _loadShiftStatistics();
         },
         onOpenFullEditor: () => _openFullShiftEditor(shift),
+      ),
+    );
+  }
+
+  List<Employee> _allAssignableTeachers() {
+    final byId = <String, Employee>{};
+    for (final t in [..._availableTeachers, ..._availableLeaders]) {
+      final id = t.documentId.trim();
+      if (id.isNotEmpty) byId[id] = t;
+    }
+    final list = byId.values.toList();
+    list.sort((a, b) {
+      final an = '${a.firstName} ${a.lastName}'.toLowerCase();
+      final bn = '${b.firstName} ${b.lastName}'.toLowerCase();
+      return an.compareTo(bn);
+    });
+    return list;
+  }
+
+  Future<void> _openBulkEditDialog(List<TeachingShift> shifts) async {
+    final scheduled =
+        shifts.where((s) => s.status == ShiftStatus.scheduled).toList();
+
+    if (scheduled.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No scheduled shifts found to edit.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (scheduled.length != shifts.length && mounted) {
+      final ignored = shifts.length - scheduled.length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Editing ${scheduled.length} shift(s). $ignored non-scheduled shift(s) ignored.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => BulkEditShiftDialog(
+        shifts: scheduled,
+        teachers: _allAssignableTeachers(),
+        students: _availableStudents,
+        subjects: _availableSubjects,
+        onApplied: () {
+          _loadShiftData();
+          _loadShiftStatistics();
+        },
+      ),
+    );
+  }
+
+  Future<void> _openBulkEditForSeries(TeachingShift shift) async {
+    if (!mounted) return;
+    _showBlockingLoading('Loading series…');
+    try {
+      final series = await ShiftService.getRecurringSeriesByShift(shift.id);
+      if (!mounted) return;
+      Navigator.pop(context);
+      if (series == null || series.shifts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to load series shifts.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      await _openBulkEditDialog(series.shifts);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load series: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openBulkEditForStudent(String studentId) async {
+    if (!mounted) return;
+    _showBlockingLoading('Loading student shifts…');
+    try {
+      final shifts = await ShiftService.findShiftsForBulkEdit(
+        studentId: studentId,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      await _openBulkEditDialog(shifts);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load student shifts: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openBulkEditForStudentTimeRange(
+    String studentId,
+    TimeOfDay start,
+    TimeOfDay end,
+  ) async {
+    if (!mounted) return;
+    _showBlockingLoading('Loading time-range shifts…');
+    try {
+      final shifts = await ShiftService.getStudentShiftsByTimeRange(
+        studentId,
+        start,
+        end,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      await _openBulkEditDialog(shifts);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load time-range shifts: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showBlockingLoading(String message) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1544,79 +2249,217 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   void _deleteShift(TeachingShift shift) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Delete Shift',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${shift.displayName}"? This action cannot be undone.',
-          style: GoogleFonts.inter(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(
-              'Delete',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
+    final isPossiblyRecurring = shift.recurrenceSeriesId != null &&
+            shift.recurrenceSeriesId!.trim().isNotEmpty ||
+        shift.recurrence != RecurrencePattern.none ||
+        shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
 
-    if (confirmed == true) {
-      try {
-        // Show loading state
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Deleting shift...'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
+    _DeleteShiftScope? scope;
 
+    if (!isPossiblyRecurring) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Delete Shift',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${shift.displayName}"? This action cannot be undone.',
+            style: GoogleFonts.inter(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true) scope = _DeleteShiftScope.single;
+    } else {
+      scope = await showDialog<_DeleteShiftScope>(
+        context: context,
+        builder: (context) =>
+            FutureBuilder<({String seriesId, List<TeachingShift> shifts})?>(
+          future: ShiftService.getRecurringSeriesByShift(shift.id),
+          builder: (context, snapshot) {
+            final series = snapshot.data;
+            final seriesScheduled = series?.shifts
+                    .where((s) => s.status == ShiftStatus.scheduled)
+                    .toList() ??
+                const <TeachingShift>[];
+
+            final canDeleteSeries = seriesScheduled.length > 1;
+
+            return AlertDialog(
+              title: Text(
+                'Delete Shift',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Delete "${shift.displayName}"?',
+                    style: GoogleFonts.inter(),
+                  ),
+                  const SizedBox(height: 10),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Checking recurring series…',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (canDeleteSeries)
+                    Text(
+                      'This shift is part of a series. You can delete just this shift, or delete all scheduled shifts in this series (${seriesScheduled.length}).\n\nCompleted/active shifts are not deleted.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    )
+                  else
+                    Text(
+                      'This action cannot be undone.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(context, _DeleteShiftScope.single),
+                  child: Text(
+                    'Delete this shift',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+                if (canDeleteSeries)
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(
+                      context,
+                      _DeleteShiftScope.seriesScheduled,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      'Delete series (${seriesScheduled.length})',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+    }
+
+    if (scope == null) return;
+
+    try {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            scope == _DeleteShiftScope.seriesScheduled
+                ? 'Deleting series shifts...'
+                : 'Deleting shift...',
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      if (scope == _DeleteShiftScope.single) {
         await ShiftService.deleteShift(shift.id);
-        
-        // Clean up any orphaned timesheets after deletion
-        await ShiftService.cleanupOrphanedTimesheets(deleteOrphans: true);
-
-        if (mounted) {
+      } else {
+        final series = await ShiftService.getRecurringSeriesByShift(shift.id);
+        final ids = (series?.shifts ?? const <TeachingShift>[])
+            .where((s) => s.status == ShiftStatus.scheduled)
+            .map((s) => s.id)
+            .toList();
+        if (ids.isEmpty) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Shift deleted successfully'),
-              backgroundColor: Colors.green,
+              content:
+                  Text('No scheduled shifts found to delete in this series.'),
+              backgroundColor: Colors.orange,
             ),
           );
-          // Force refresh statistics
-          _loadShiftStatistics();
-          _loadShiftData(); // Reload shifts to update payment cache
+          return;
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting shift: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        await ShiftService.deleteMultipleShifts(ids);
       }
+
+      await ShiftService.cleanupOrphanedTimesheets(deleteOrphans: true);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            scope == _DeleteShiftScope.seriesScheduled
+                ? 'Series deleted successfully'
+                : 'Shift deleted successfully',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadShiftStatistics();
+      _loadShiftData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting shift: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -1718,6 +2561,33 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         }
       }
     }
+  }
+
+  Future<void> _editSelectedShifts() async {
+    if (_selectedShiftIds.isEmpty) return;
+
+    final selected = _allShifts
+        .where((shift) => _selectedShiftIds.contains(shift.id))
+        .toList();
+    if (selected.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No shifts selected.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // If a single shift is selected, reuse the standard single-shift edit flow
+    // (which includes timezone selection and avoids bulk-only UX).
+    if (selected.length == 1) {
+      _editShift(selected.first);
+      return;
+    }
+
+    await _openBulkEditDialog(selected);
   }
 
   List<TeachingShift> _getCurrentShifts() {
@@ -2026,7 +2896,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
   Future<void> _showDuplicateWeekDialog() async {
     DateTime targetWeekStart = _currentWeekStart.add(const Duration(days: 7));
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -2064,12 +2934,14 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             children: [
               Text(
                 'Copy all shifts from current week to another week.',
-                style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff6B7280)),
+                style: GoogleFonts.inter(
+                    fontSize: 14, color: const Color(0xff6B7280)),
               ),
               const SizedBox(height: 16),
               Text(
                 'Source Week:',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600, fontSize: 13),
               ),
               const SizedBox(height: 4),
               Container(
@@ -2086,7 +2958,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               const SizedBox(height: 16),
               Text(
                 'Target Week:',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600, fontSize: 13),
               ),
               const SizedBox(height: 4),
               InkWell(
@@ -2094,11 +2967,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   final date = await showDatePicker(
                     context: context,
                     initialDate: targetWeekStart,
-                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                    firstDate:
+                        DateTime.now().subtract(const Duration(days: 30)),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                   );
                   if (date != null) {
-                    final monday = date.subtract(Duration(days: date.weekday - 1));
+                    final monday =
+                        date.subtract(Duration(days: date.weekday - 1));
                     setDialogState(() => targetWeekStart = monday);
                   }
                 },
@@ -2116,7 +2991,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         style: GoogleFonts.inter(fontWeight: FontWeight.w500),
                       ),
                       const Spacer(),
-                      const Icon(Icons.calendar_today, size: 18, color: Color(0xff6B7280)),
+                      const Icon(Icons.calendar_today,
+                          size: 18, color: Color(0xff6B7280)),
                     ],
                   ),
                 ),
@@ -2130,12 +3006,14 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Color(0xffD97706), size: 18),
+                    const Icon(Icons.info_outline,
+                        color: Color(0xffD97706), size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'This will duplicate all shifts (${_getFilteredShiftsForCurrentWeek().length} shifts)',
-                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xffD97706)),
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: const Color(0xffD97706)),
                       ),
                     ),
                   ],
@@ -2169,19 +3047,22 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   List<TeachingShift> _getFilteredShiftsForCurrentWeek() {
     final weekEnd = _currentWeekStart.add(const Duration(days: 7));
     return _allShifts.where((shift) {
-      return shift.shiftStart.isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
-             shift.shiftStart.isBefore(weekEnd);
+      return shift.shiftStart
+              .isAfter(_currentWeekStart.subtract(const Duration(days: 1))) &&
+          shift.shiftStart.isBefore(weekEnd);
     }).toList();
   }
 
   Future<void> _performDuplicateWeek(DateTime targetWeekStart) async {
     setState(() => _isLoading = true);
     try {
-      final count = await ShiftService.duplicateWeek(_currentWeekStart, targetWeekStart);
+      final count =
+          await ShiftService.duplicateWeek(_currentWeekStart, targetWeekStart);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Duplicated $count shifts to week of ${DateFormat('MMM d').format(targetWeekStart)}'),
+            content: Text(
+                'Duplicated $count shifts to week of ${DateFormat('MMM d').format(targetWeekStart)}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -2618,7 +3499,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
 class ShiftDataSource extends DataGridSource {
   final List<TeachingShift> shifts;
-  final Map<String, double> shiftPayments; // shiftId -> actual payment from timesheet
+  final Map<String, double>
+      shiftPayments; // shiftId -> actual payment from timesheet
   final Function(TeachingShift) onViewDetails;
   final Function(TeachingShift) onEditShift;
   final Function(TeachingShift) onDeleteShift;
@@ -2739,6 +3621,54 @@ class ShiftDataSource extends DataGridSource {
                   onSelectionChanged(shift.id, value ?? false);
                 }
               },
+            ),
+          );
+        } else if (cell.columnName == 'shiftName') {
+          final shift = _getShiftFromRow(row);
+          final isRecurring = shift != null &&
+              ((shift.recurrenceSeriesId != null &&
+                      shift.recurrenceSeriesId!.trim().isNotEmpty) ||
+                  shift.recurrence != RecurrencePattern.none ||
+                  shift.enhancedRecurrence.type != EnhancedRecurrenceType.none);
+
+          return Container(
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    cell.value.toString(),
+                    style: GoogleFonts.inter(
+                      color: const Color(0xff374151),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isRecurring) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff7C3AED).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: const Color(0xff7C3AED).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'Series',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff7C3AED),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           );
         } else if (cell.columnName == 'status') {

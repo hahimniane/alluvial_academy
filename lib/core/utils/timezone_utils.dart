@@ -63,7 +63,8 @@ class TimezoneUtils {
     if (!_initialized) initializeTimezones();
 
     try {
-      final location = tz.getLocation(timezoneId);
+      final safeId = normalizeTimezone(timezoneId);
+      final location = tz.getLocation(safeId);
       return tz.TZDateTime.from(utcTime.toUtc(), location);
     } catch (e) {
       AppLogger.error('Error converting to timezone $timezoneId: $e');
@@ -76,8 +77,9 @@ class TimezoneUtils {
     if (!_initialized) initializeTimezones();
 
     try {
+      final safeId = normalizeTimezone(timezoneId);
       // If timezone is UTC, treat the components as UTC
-      if (timezoneId == 'UTC') {
+      if (safeId == 'UTC') {
         return DateTime.utc(
           localTime.year,
           localTime.month,
@@ -90,7 +92,7 @@ class TimezoneUtils {
         );
       }
 
-      final location = tz.getLocation(timezoneId);
+      final location = tz.getLocation(safeId);
       final tzDateTime = tz.TZDateTime(
         location,
         localTime.year,
@@ -103,7 +105,7 @@ class TimezoneUtils {
         localTime.microsecond,
       );
       AppLogger.debug(
-          'TimezoneUtils: Converting $localTime from $timezoneId to UTC: ${tzDateTime.toUtc()}');
+          'TimezoneUtils: Converting $localTime from $safeId to UTC: ${tzDateTime.toUtc()}');
       return tzDateTime.toUtc();
     } catch (e) {
       AppLogger.error('Error converting from timezone $timezoneId: $e');
@@ -123,7 +125,9 @@ class TimezoneUtils {
   /// Get timezone abbreviation (e.g., EST, PST)
   static String getTimezoneAbbreviation(String timezoneId) {
     try {
-      final location = tz.getLocation(timezoneId);
+      if (!_initialized) initializeTimezones();
+      final safeId = normalizeTimezone(timezoneId);
+      final location = tz.getLocation(safeId);
       final now = tz.TZDateTime.now(location);
       return now.timeZone.abbreviation;
     } catch (e) {
@@ -137,8 +141,10 @@ class TimezoneUtils {
     if (!_initialized) initializeTimezones();
 
     try {
+      final safeFrom = normalizeTimezone(fromTz);
+      final safeTo = normalizeTimezone(toTz);
       // Create a TZDateTime in the source timezone
-      final fromLocation = tz.getLocation(fromTz);
+      final fromLocation = tz.getLocation(safeFrom);
       final fromTime = tz.TZDateTime(
         fromLocation,
         dateTime.year,
@@ -149,12 +155,12 @@ class TimezoneUtils {
       );
 
       // Convert to target timezone
-      final toLocation = tz.getLocation(toTz);
+      final toLocation = tz.getLocation(safeTo);
       final toTime = tz.TZDateTime.from(fromTime, toLocation);
 
       final formatter = DateFormat('h:mm a');
-      final fromAbbr = getTimezoneAbbreviation(fromTz);
-      final toAbbr = getTimezoneAbbreviation(toTz);
+      final fromAbbr = getTimezoneAbbreviation(safeFrom);
+      final toAbbr = getTimezoneAbbreviation(safeTo);
 
       return '${formatter.format(fromTime)} ($fromAbbr) ≈ ${formatter.format(toTime)} ($toAbbr)';
     } catch (e) {
@@ -163,7 +169,116 @@ class TimezoneUtils {
     }
   }
 
+  /// Returns `timezoneId` if it exists in the tz database, otherwise `fallback`.
+  static String normalizeTimezone(String? timezoneId,
+      {String fallback = 'UTC'}) {
+    if (!_initialized) initializeTimezones();
+    final id = timezoneId?.trim();
+    if (id == null || id.isEmpty) return fallback;
+    if (tz.timeZoneDatabase.locations.containsKey(id)) return id;
+    AppLogger.warning(
+        'TimezoneUtils: Unknown timezone "$id", falling back to $fallback');
+    return fallback;
+  }
+
+  /// Returns all IANA timezones available from the timezone database.
+  /// Sorted alphabetically.
+  static List<String> getAllTimezones() {
+    if (!_initialized) initializeTimezones();
+    final timezones = tz.timeZoneDatabase.locations.keys.toList()..sort();
+    return timezones;
+  }
+
+  /// Returns timezones grouped by region (first segment before `/`).
+  /// Example: `America/New_York` -> `America`.
+  static Map<String, List<String>> getTimezonesByRegion() {
+    final all = getAllTimezones();
+    final grouped = <String, List<String>>{};
+
+    for (final timezoneId in all) {
+      final region =
+          timezoneId.contains('/') ? timezoneId.split('/').first : 'Other';
+      grouped.putIfAbsent(region, () => []).add(timezoneId);
+    }
+
+    // Keep a human-friendly region ordering for UI consumers.
+    const preferredOrder = <String>[
+      'UTC',
+      'Africa',
+      'America',
+      'Antarctica',
+      'Asia',
+      'Atlantic',
+      'Australia',
+      'Europe',
+      'Indian',
+      'Pacific',
+      'Etc',
+      'Other',
+    ];
+
+    final ordered = <String, List<String>>{};
+    for (final region in preferredOrder) {
+      final items = grouped.remove(region);
+      if (items == null) continue;
+      items.sort();
+      ordered[region] = items;
+    }
+
+    final remainingRegions = grouped.keys.toList()..sort();
+    for (final region in remainingRegions) {
+      final items = grouped[region]!..sort();
+      ordered[region] = items;
+    }
+
+    return ordered;
+  }
+
+  /// Returns the user-facing city/display name from an IANA timezone ID.
+  /// Example: `America/New_York` -> `New York`.
+  static String getTimezoneDisplayName(String timezoneId) {
+    final parts = timezoneId.split('/');
+    final raw = parts.isNotEmpty ? parts.last : timezoneId;
+    return raw.replaceAll('_', ' ');
+  }
+
+  /// Formats a timezone for display.
+  /// Format: `City Name (Timezone ID) - Abbreviation (UTC±HH:MM)`.
+  static String formatTimezoneForDisplay(
+    String timezoneId, {
+    DateTime? atTime,
+  }) {
+    if (!_initialized) initializeTimezones();
+
+    final safeId = normalizeTimezone(timezoneId);
+    try {
+      final location = tz.getLocation(safeId);
+      final tzDateTime = atTime == null
+          ? tz.TZDateTime.now(location)
+          : tz.TZDateTime.from(atTime.toUtc(), location);
+
+      final city = getTimezoneDisplayName(safeId);
+      final abbr = tzDateTime.timeZone.abbreviation;
+      final offset = _formatOffset(tzDateTime.timeZoneOffset);
+
+      return '$city ($safeId) - $abbr (UTC$offset)';
+    } catch (e) {
+      AppLogger.warning('TimezoneUtils: Failed to format "$timezoneId": $e');
+      return safeId;
+    }
+  }
+
+  static String _formatOffset(Duration offset) {
+    final totalMinutes = offset.inMinutes;
+    final sign = totalMinutes >= 0 ? '+' : '-';
+    final absMinutes = totalMinutes.abs();
+    final hours = absMinutes ~/ 60;
+    final minutes = absMinutes % 60;
+    return '$sign${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+  }
+
   /// Get list of common timezones for dropdown
+  @Deprecated('Use getAllTimezones() and TimezoneSelectorDialog instead.')
   static List<String> getCommonTimezones() {
     return [
       'UTC',

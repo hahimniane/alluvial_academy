@@ -1,17 +1,16 @@
 # Cache Busting Version Management
 
 ## How It Works
-To prevent users from having to manually clear their cache when you update your website, we've implemented cache busting using URL versioning.
+To prevent users from having to manually clear their cache when you update the website, we use:
 
-## Current Version: 1
-
-## Files with Versioning:
-- `flutter_bootstrap.js?v=1` - Main Flutter bootstrap loader
-- `manifest.json?v=1` - Web app manifest
+- URL versioning in `web/index.html` (query params for `flutter_bootstrap.js` and `manifest.json`)
+- Server cache headers via `web/.htaccess` (critical for Hostinger/LiteSpeed)
+- No PWA caching (`flutter build web --pwa-strategy=none`)
 
 ## Additional Cache Busting Methods Implemented:
 - Cache-Control meta tags in HTML head
-- HTTP headers for different file types (via Hostinger .htaccess if needed)
+- HTTP headers for different file types (via Hostinger `.htaccess`)
+- Temporary one-time service worker cleanup snippet (see below)
 
 ## How to Update Versions:
 
@@ -59,16 +58,35 @@ Use the provided script to automatically increment versions:
    - Or manually edit `web/index.html` version numbers
 3. **Build the Flutter web app**:
    ```bash
-   flutter build web
+   ./build_release.sh
    ```
 4. **Upload to Hostinger**:
    - Upload the entire `build/web/` folder contents
-   - Make sure to include the `.htaccess` file for optimal caching
+   - Confirm `.htaccess` exists in the Hostinger web root (`public_html/.htaccess`)
+     - Some upload tools skip dotfiles; `build_release.sh` copies `web/.htaccess` into `build/web/.htaccess` to help prevent this.
+
+## One-time Service Worker Cleanup (Temporary)
+
+To unstick existing users that still have an old Flutter service worker registered, `web/index.html` contains a temporary snippet that:
+
+- unregisters service workers for this origin
+- clears Cache Storage
+- reloads the page once
+
+Remove that snippet after 1–2 days (or after confirming most users have refreshed).
 
 ## Server Configuration (Hostinger):
 - Upload the `.htaccess` file to your web root
 - This ensures proper cache headers at the server level
 - Hostinger supports .htaccess files by default
+
+After deploy, verify key headers:
+```bash
+curl -I https://<domain>/main.dart.js | head
+curl -I https://<domain>/flutter_bootstrap.js | head
+curl -I https://<domain>/index.html | head
+```
+You should see `Cache-Control: no-cache, no-store, must-revalidate` on those files.
 
 ## How This Solves Your Problem:
 - ✅ Users won't need to manually clear cache

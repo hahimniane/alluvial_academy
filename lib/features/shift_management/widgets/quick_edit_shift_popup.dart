@@ -5,6 +5,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/timezone_utils.dart';
+import '../../../core/widgets/timezone_selector_field.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Quick edit popup for modifying shift times and basic info
@@ -38,13 +39,22 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
   @override
   void initState() {
     super.initState();
-    // Initialize timezone from shift's teacher timezone
-    _selectedTimezone = widget.shift.teacherTimezone ?? 'UTC';
-    
+    // Default to the shift's scheduling timezone (admin timezone), matching
+    // the create/edit shift form behavior.
+    final shiftTz = widget.shift.adminTimezone.trim();
+    _selectedTimezone =
+        shiftTz.isNotEmpty ? shiftTz : widget.shift.teacherTimezone;
+
     // Convert shift times from UTC to selected timezone for display
-    final startLocal = TimezoneUtils.convertToTimezone(widget.shift.shiftStart, _selectedTimezone);
-    final endLocal = TimezoneUtils.convertToTimezone(widget.shift.shiftEnd, _selectedTimezone);
-    
+    final startLocal = TimezoneUtils.convertToTimezone(
+      widget.shift.shiftStart.toUtc(),
+      _selectedTimezone,
+    );
+    final endLocal = TimezoneUtils.convertToTimezone(
+      widget.shift.shiftEnd.toUtc(),
+      _selectedTimezone,
+    );
+
     _shiftDate = DateTime(
       startLocal.year,
       startLocal.month,
@@ -122,7 +132,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 16),
-            
+
             // Teacher info (read-only)
             _buildInfoRow(
               'Teacher',
@@ -130,39 +140,45 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
               Icons.person,
             ),
             const SizedBox(height: 12),
-            
+
             // Subject/Category info (read-only)
             _buildInfoRow(
-              widget.shift.category == ShiftCategory.teaching ? 'Subject' : 'Role',
-              widget.shift.subjectDisplayName ?? widget.shift.leaderRole ?? 'N/A',
-              widget.shift.category == ShiftCategory.teaching 
-                  ? Icons.school 
+              widget.shift.category == ShiftCategory.teaching
+                  ? 'Subject'
+                  : 'Role',
+              widget.shift.subjectDisplayName ??
+                  widget.shift.leaderRole ??
+                  'N/A',
+              widget.shift.category == ShiftCategory.teaching
+                  ? Icons.school
                   : Icons.admin_panel_settings,
             ),
             const SizedBox(height: 16),
-            
+
             // Date selector
             _buildDateSelector(),
             const SizedBox(height: 12),
-            
+
             // Timezone selector
             _buildTimezoneSelector(),
             const SizedBox(height: 12),
-            
+
             // Time selectors
             Row(
               children: [
-                Expanded(child: _buildTimeSelector('Start', _startTime, (time) {
+                Expanded(
+                    child: _buildTimeSelector('Start', _startTime, (time) {
                   setState(() => _startTime = time);
                 })),
                 const SizedBox(width: 12),
-                Expanded(child: _buildTimeSelector('End', _endTime, (time) {
+                Expanded(
+                    child: _buildTimeSelector('End', _endTime, (time) {
                   setState(() => _endTime = time);
                 })),
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Notes
             TextField(
               controller: _notesController,
@@ -173,25 +189,30 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 isDense: true,
               ),
               style: GoogleFonts.inter(fontSize: 13),
               maxLines: 2,
             ),
             const SizedBox(height: 20),
-            
+
             // Action buttons
             Row(
               children: [
                 // Delete button
                 OutlinedButton.icon(
                   onPressed: _confirmDelete,
-                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                  label: Text('Delete', style: GoogleFonts.inter(fontSize: 12, color: Colors.red)),
+                  icon: const Icon(Icons.delete_outline,
+                      size: 16, color: Colors.red),
+                  label: Text('Delete',
+                      style:
+                          GoogleFonts.inter(fontSize: 12, color: Colors.red)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
                 const Spacer(),
@@ -203,7 +224,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                   },
                   child: Text(
                     'More options...',
-                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280)),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: const Color(0xff6B7280)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -213,7 +235,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff0386FF),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -224,10 +247,13 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : Text('Save', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
+                      : Text('Save',
+                          style: GoogleFonts.inter(
+                              fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
               ],
             ),
@@ -287,11 +313,13 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, size: 16, color: Color(0xff6B7280)),
+            const Icon(Icons.calendar_today,
+                size: 16, color: Color(0xff6B7280)),
             const SizedBox(width: 8),
             Text(
               DateFormat('EEE, MMM d, yyyy').format(_shiftDate),
-              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff374151)),
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: const Color(0xff374151)),
             ),
             const Spacer(),
             const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280)),
@@ -299,6 +327,44 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         ),
       ),
     );
+  }
+
+  void _handleTimezoneChange(String newValue) {
+    if (newValue == _selectedTimezone) return;
+
+    setState(() {
+      // Get current times in old timezone as naive DateTime
+      final currentStart = DateTime(
+        _shiftDate.year,
+        _shiftDate.month,
+        _shiftDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+      final currentEnd = DateTime(
+        _shiftDate.year,
+        _shiftDate.month,
+        _shiftDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+
+      // Convert to UTC using old timezone, then to new timezone
+      final utcStart =
+          TimezoneUtils.convertToUtc(currentStart, _selectedTimezone);
+      final utcEnd = TimezoneUtils.convertToUtc(currentEnd, _selectedTimezone);
+      final newStartLocal = TimezoneUtils.convertToTimezone(utcStart, newValue);
+      final newEndLocal = TimezoneUtils.convertToTimezone(utcEnd, newValue);
+
+      _selectedTimezone = newValue;
+      _shiftDate = DateTime(
+        newStartLocal.year,
+        newStartLocal.month,
+        newStartLocal.day,
+      );
+      _startTime = TimeOfDay.fromDateTime(newStartLocal);
+      _endTime = TimeOfDay.fromDateTime(newEndLocal);
+    });
   }
 
   Widget _buildTimezoneSelector() {
@@ -327,75 +393,23 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xffD1D5DB)),
-            borderRadius: BorderRadius.circular(8),
+        TimezoneSelectorField(
+          selectedTimezone: _selectedTimezone,
+          borderRadius: BorderRadius.circular(8),
+          borderColor: const Color(0xffD1D5DB),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          textStyle: GoogleFonts.inter(
+            fontSize: 13,
+            color: const Color(0xff111827),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: TimezoneUtils.getCommonTimezones()
-                      .contains(_selectedTimezone)
-                  ? _selectedTimezone
-                  : 'UTC',
-              isExpanded: true,
-              isDense: true,
-              icon: const Icon(Icons.arrow_drop_down, color: Color(0xff6B7280), size: 20),
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: const Color(0xff111827),
-              ),
-              items: TimezoneUtils.getCommonTimezones().map((String tz) {
-                return DropdownMenuItem<String>(
-                  value: tz,
-                  child: Text(tz, style: GoogleFonts.inter(fontSize: 13)),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  setState(() {
-                    // Get current times in old timezone as naive DateTime
-                    final currentStart = DateTime(
-                      _shiftDate.year,
-                      _shiftDate.month,
-                      _shiftDate.day,
-                      _startTime.hour,
-                      _startTime.minute,
-                    );
-                    final currentEnd = DateTime(
-                      _shiftDate.year,
-                      _shiftDate.month,
-                      _shiftDate.day,
-                      _endTime.hour,
-                      _endTime.minute,
-                    );
-                    
-                    // Convert to UTC using old timezone, then to new timezone
-                    final utcStart = TimezoneUtils.convertToUtc(currentStart, _selectedTimezone);
-                    final utcEnd = TimezoneUtils.convertToUtc(currentEnd, _selectedTimezone);
-                    final newStartLocal = TimezoneUtils.convertToTimezone(utcStart, newValue);
-                    final newEndLocal = TimezoneUtils.convertToTimezone(utcEnd, newValue);
-                    
-                    _selectedTimezone = newValue;
-                    _shiftDate = DateTime(
-                      newStartLocal.year,
-                      newStartLocal.month,
-                      newStartLocal.day,
-                    );
-                    _startTime = TimeOfDay.fromDateTime(newStartLocal);
-                    _endTime = TimeOfDay.fromDateTime(newEndLocal);
-                  });
-                }
-              },
-            ),
-          ),
+          onTimezoneSelected: _handleTimezoneChange,
         ),
       ],
     );
   }
 
-  Widget _buildTimeSelector(String label, TimeOfDay time, Function(TimeOfDay) onChanged) {
+  Widget _buildTimeSelector(
+      String label, TimeOfDay time, Function(TimeOfDay) onChanged) {
     return InkWell(
       onTap: () async {
         final selected = await showTimePicker(
@@ -420,12 +434,16 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
               children: [
                 Text(
                   '$label: ',
-                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff6B7280)),
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: const Color(0xff6B7280)),
                 ),
                 Expanded(
                   child: Text(
                     time.format(context),
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151)),
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff374151)),
                   ),
                 ),
               ],
@@ -448,7 +466,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Delete Shift?', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        title: Text('Delete Shift?',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         content: Text(
           'This will permanently delete this shift. This action cannot be undone.',
           style: GoogleFonts.inter(),
@@ -479,7 +498,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         Navigator.pop(context);
         widget.onDeleted();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Shift deleted'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Shift deleted'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -505,7 +525,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         _startTime.hour,
         _startTime.minute,
       );
-      
+
       // Handle end time - if it's before start time, assume next day
       DateTime naiveEnd = DateTime(
         _shiftDate.year,
@@ -514,29 +534,34 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         _endTime.hour,
         _endTime.minute,
       );
-      
+
       if (naiveEnd.isBefore(naiveStart)) {
         naiveEnd = naiveEnd.add(const Duration(days: 1));
       }
 
       // Convert to UTC using selected timezone
-      final utcStart = TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
+      final utcStart =
+          TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
       final utcEnd = TimezoneUtils.convertToUtc(naiveEnd, _selectedTimezone);
 
       final updatedShift = widget.shift.copyWith(
         shiftStart: utcStart,
         shiftEnd: utcEnd,
-        teacherTimezone: _selectedTimezone, // Update timezone if changed
+        adminTimezone:
+            _selectedTimezone, // Update scheduling timezone if changed
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
-      await ShiftService.updateShiftDirect(updatedShift);
-      
+      // Use the standard update path so lifecycle tasks are rescheduled for the
+      // new times (best-effort; will not block the edit if scheduling fails).
+      await ShiftService.updateShift(updatedShift);
+
       if (mounted) {
         Navigator.pop(context);
         widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Shift updated'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Shift updated'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -551,4 +576,3 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
     }
   }
 }
-

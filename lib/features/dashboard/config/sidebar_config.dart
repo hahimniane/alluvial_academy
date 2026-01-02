@@ -10,6 +10,8 @@ class SidebarConfig {
       return _getAdminStructure();
     } else if (userRole == 'teacher') {
       return _getTeacherStructure();
+    } else if (userRole == 'parent') {
+      return _getParentStructure();
     } else {
       return _getStudentStructure();
     }
@@ -97,10 +99,17 @@ class SidebarConfig {
           ),
           const SidebarItem(
             id: 'zoom',
-            label: 'Zoom',
+            label: 'Classes',
             icon: Icons.videocam,
             screenIndex: 12,
             colorValue: 0xff2D8CFF,
+          ),
+          const SidebarItem(
+            id: 'quran',
+            label: 'Quran',
+            icon: Icons.menu_book,
+            screenIndex: 19,
+            colorValue: 0xff10B981,
           ),
           const SidebarItem(
             id: 'notifications',
@@ -234,10 +243,17 @@ class SidebarConfig {
           ),
           const SidebarItem(
             id: 'zoom',
-            label: 'Zoom',
+            label: 'Classes',
             icon: Icons.videocam,
             screenIndex: 12,
             colorValue: 0xff2D8CFF,
+          ),
+          const SidebarItem(
+            id: 'quran',
+            label: 'Quran',
+            icon: Icons.menu_book,
+            screenIndex: 19,
+            colorValue: 0xff10B981,
           ),
         ],
       ),
@@ -278,10 +294,17 @@ class SidebarConfig {
         items: [
           const SidebarItem(
             id: 'zoom',
-            label: 'Zoom Class',
+            label: 'Classes',
             icon: Icons.videocam,
             screenIndex: 12,
             colorValue: 0xff2D8CFF,
+          ),
+          const SidebarItem(
+            id: 'quran',
+            label: 'Quran',
+            icon: Icons.menu_book,
+            screenIndex: 19,
+            colorValue: 0xff10B981,
           ),
           const SidebarItem(
             id: 'tasks',
@@ -302,6 +325,70 @@ class SidebarConfig {
             icon: Icons.chat,
             screenIndex: 5,
             colorValue: 0xffA646F2,
+          ),
+        ],
+      ),
+    ];
+  }
+
+  static List<SidebarSection> _getParentStructure() {
+    return [
+      SidebarSection(
+        id: 'overview',
+        title: 'Overview',
+        items: [
+          const SidebarItem(
+            id: 'dashboard',
+            label: 'Dashboard',
+            icon: Icons.dashboard,
+            screenIndex: 0,
+            colorValue: 0xff0386FF,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'financial',
+        title: 'Financial',
+        items: [
+          const SidebarItem(
+            id: 'invoices',
+            label: 'Invoices',
+            icon: Icons.receipt_long,
+            screenIndex: 1,
+            colorValue: 0xffF59E0B,
+          ),
+          const SidebarItem(
+            id: 'payments',
+            label: 'Payments',
+            icon: Icons.payments,
+            screenIndex: 2,
+            colorValue: 0xff10B981,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'forms',
+        title: 'Forms',
+        items: [
+          const SidebarItem(
+            id: 'submit_form',
+            label: 'Submit Form',
+            icon: Icons.description,
+            screenIndex: 3,
+            colorValue: 0xffEC4899,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'account',
+        title: 'Account',
+        items: [
+          const SidebarItem(
+            id: 'profile',
+            label: 'Profile',
+            icon: Icons.person,
+            screenIndex: 4,
+            colorValue: 0xff6366F1,
           ),
         ],
       ),

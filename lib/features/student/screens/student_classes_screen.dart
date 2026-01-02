@@ -14,7 +14,7 @@ import '../../../core/utils/app_logger.dart';
 class StudentClassesScreen extends StatefulWidget {
   /// User ID passed from parent widget to avoid web auth race conditions
   final String? userId;
-  
+
   const StudentClassesScreen({super.key, this.userId});
 
   @override
@@ -38,35 +38,36 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   Future<void> _initializeAuth() async {
     if (!mounted) return;
     AppLogger.debug('=== StudentClassesScreen._initializeAuth() ===');
-    
+
     // First, use the userId passed from parent widget (most reliable)
     String? userId = widget.userId;
     AppLogger.debug('  widget.userId: $userId');
-    
+
     // If not provided, try UserRoleService cache
     if (userId == null) {
       userId = UserRoleService.getCurrentUserId();
       AppLogger.debug('  UserRoleService.getCurrentUserId(): $userId');
     }
-    
+
     // If still null, try FirebaseAuth directly
     if (userId == null) {
       final user = FirebaseAuth.instance.currentUser;
       userId = user?.uid;
       AppLogger.debug('  FirebaseAuth.instance.currentUser?.uid: $userId');
     }
-    
+
     // If still null, wait briefly and try again (web issue)
     if (userId == null) {
       AppLogger.debug('  userId is null, waiting for auth state...');
       await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
-      userId = UserRoleService.getCurrentUserId() ?? FirebaseAuth.instance.currentUser?.uid;
+      userId = UserRoleService.getCurrentUserId() ??
+          FirebaseAuth.instance.currentUser?.uid;
       AppLogger.debug('  After delay, userId: $userId');
     }
-    
+
     if (!mounted) return;
-    
+
     if (userId != null) {
       AppLogger.debug('  ✅ Auth initialized, userId: $userId');
       setState(() {
@@ -109,11 +110,16 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
       }
 
       // Load today's classes
-      final todayClasses = await ShiftService.getTodayShiftsForStudent(userId);
+      final todayClasses = (await ShiftService.getTodayShiftsForStudent(userId))
+          .where((shift) => shift.studentIds.contains(userId))
+          .toList();
 
       // Load upcoming classes (next 7 days, excluding today)
-      final upcomingClasses = await ShiftService.getUpcomingShiftsForStudent(userId);
-      
+      final upcomingClasses =
+          (await ShiftService.getUpcomingShiftsForStudent(userId))
+              .where((shift) => shift.studentIds.contains(userId))
+              .toList();
+
       // Filter out today's classes from upcoming
       final today = DateTime.now();
       final todayDate = DateTime(today.year, today.month, today.day);
@@ -154,7 +160,8 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   Widget build(BuildContext context) {
     AppLogger.debug('=== StudentClassesScreen.build() called ===');
     AppLogger.debug('  isLoading: $_isLoading, error: $_error');
-    AppLogger.debug('  todayClasses: ${_todayClasses.length}, upcomingClasses: ${_upcomingClasses.length}');
+    AppLogger.debug(
+        '  todayClasses: ${_todayClasses.length}, upcomingClasses: ${_upcomingClasses.length}');
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: SafeArea(
@@ -166,7 +173,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
               SliverToBoxAdapter(
                 child: _buildHeader(),
               ),
-              
+
               // Content
               if (_isLoading)
                 const SliverFillRemaining(
@@ -184,23 +191,29 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Today's Classes
-                        _buildSectionTitle('Today\'s Classes', Icons.today_rounded),
+                        _buildSectionTitle(
+                            'Today\'s Classes', Icons.today_rounded),
                         const SizedBox(height: 12),
                         if (_todayClasses.isEmpty)
-                          _buildEmptyState('No classes today', 'Enjoy your free time!')
+                          _buildEmptyState(
+                              'No classes today', 'Enjoy your free time!')
                         else
-                          ..._todayClasses.map((shift) => _buildClassCard(shift, isToday: true)),
-                        
+                          ..._todayClasses.map(
+                              (shift) => _buildClassCard(shift, isToday: true)),
+
                         const SizedBox(height: 24),
-                        
+
                         // Upcoming Classes
-                        _buildSectionTitle('Upcoming Classes', Icons.calendar_month_rounded),
+                        _buildSectionTitle(
+                            'Upcoming Classes', Icons.calendar_month_rounded),
                         const SizedBox(height: 12),
                         if (_upcomingClasses.isEmpty)
-                          _buildEmptyState('No upcoming classes', 'Check back later for your schedule')
+                          _buildEmptyState('No upcoming classes',
+                              'Check back later for your schedule')
                         else
-                          ..._upcomingClasses.map((shift) => _buildClassCard(shift, isToday: false)),
-                        
+                          ..._upcomingClasses.map((shift) =>
+                              _buildClassCard(shift, isToday: false)),
+
                         const SizedBox(height: 100), // Bottom padding
                       ],
                     ),
@@ -462,7 +475,8 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E3A5F),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -478,19 +492,19 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     final canJoin = VideoCallService.canJoinClass(shift);
     final timeUntil = VideoCallService.getTimeUntilCanJoin(shift);
     final isLiveKit = shift.usesLiveKit;
-    
+
     // Format time
     final startTime = DateFormat('h:mm a').format(shift.shiftStart.toLocal());
     final endTime = DateFormat('h:mm a').format(shift.shiftEnd.toLocal());
-    final dateStr = isToday 
-        ? 'Today' 
+    final dateStr = isToday
+        ? 'Today'
         : DateFormat('EEEE, MMM d').format(shift.shiftStart.toLocal());
 
     // Determine status color
     Color statusColor;
     String statusText;
     IconData statusIcon;
-    
+
     if (shift.status == ShiftStatus.active) {
       statusColor = Colors.green;
       statusText = 'In Progress';
@@ -524,7 +538,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: canJoin 
+            color: canJoin
                 ? const Color(0xFF10B981).withOpacity(0.15)
                 : Colors.black.withOpacity(0.05),
             blurRadius: 15,
@@ -532,7 +546,8 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           ),
         ],
         border: canJoin
-            ? Border.all(color: const Color(0xFF10B981).withOpacity(0.3), width: 2)
+            ? Border.all(
+                color: const Color(0xFF10B981).withOpacity(0.3), width: 2)
             : null,
       ),
       child: Column(
@@ -618,9 +633,9 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Time and date
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -661,7 +676,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     ],
                   ),
                 ),
-                
+
                 // LiveKit badge
                 if (isLiveKit)
                   Padding(
@@ -699,17 +714,16 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
               ],
             ),
           ),
-          
+
           // Join button
-          if (canJoin || (isToday && timeUntil != null && timeUntil.inMinutes <= 30))
+          if (canJoin ||
+              (isToday && timeUntil != null && timeUntil.inMinutes <= 30))
             Container(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: canJoin
-                      ? () => _joinClass(shift)
-                      : null,
+                  onPressed: canJoin ? () => _joinClass(shift) : null,
                   icon: Icon(
                     canJoin ? Icons.video_call_rounded : Icons.schedule_rounded,
                   ),
@@ -723,7 +737,8 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     backgroundColor: canJoin
                         ? const Color(0xFF10B981)
                         : const Color(0xFFE5E7EB),
-                    foregroundColor: canJoin ? Colors.white : const Color(0xFF9CA3AF),
+                    foregroundColor:
+                        canJoin ? Colors.white : const Color(0xFF9CA3AF),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -746,4 +761,3 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     );
   }
 }
-

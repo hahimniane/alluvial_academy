@@ -278,6 +278,18 @@ class TaskService {
     });
   }
 
+  /// Get all tasks assigned to a specific student ID
+  Stream<List<Task>> getStudentTasks(String studentId) {
+    return _taskCollection
+        .where('assignedTo', arrayContains: studentId)
+        .snapshots()
+        .map((snapshot) {
+      final tasks = snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
+      tasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return tasks;
+    });
+  }
+
   /// Get role-appropriate tasks based on user role
   Future<Stream<List<Task>>> getRoleBasedTasks() async {
     try {

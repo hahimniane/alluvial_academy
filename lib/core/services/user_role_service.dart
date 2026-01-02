@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -18,32 +19,18 @@ class UserRoleService {
   static String? _cachedUserEmail;
   static DateTime? _cacheTimestamp;
 
+  static bool _looksLikeFirestoreWebInternalError(Object error) {
+    if (!kIsWeb) return false;
+    final text = error.toString();
+    return text.contains('FIRESTORE') &&
+        text.contains('INTERNAL ASSERTION FAILED') &&
+        text.contains('Unexpected state');
+  }
+
   /// Get all available roles for the current user
   static Future<List<String>> getAvailableRoles() async {
     try {
-      final User? currentUser = _auth.currentUser;
-      if (currentUser == null) return [];
-
-      // First try to get user document by UID (most reliable, especially for students)
-      final userDocByUid = await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
-
-      Map<String, dynamic>? userData;
-      if (userDocByUid.exists) {
-        userData = userDocByUid.data() as Map<String, dynamic>;
-      } else {
-        // Fallback: Query by email (for backwards compatibility)
-        final QuerySnapshot userQuery = await _firestore
-            .collection('users')
-            .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
-            .limit(1)
-            .get();
-
-        if (userQuery.docs.isEmpty) return [];
-        userData = userQuery.docs.first.data() as Map<String, dynamic>;
-      }
+      final userData = await getCurrentUserData();
 
       if (userData == null) return [];
 
@@ -68,6 +55,11 @@ class UserRoleService {
 
       return roles.toList();
     } catch (e) {
+      if (_looksLikeFirestoreWebInternalError(e)) {
+        AppLogger.debug(
+            'UserRoleService: Firestore web internal error while getting available roles');
+        return [];
+      }
       AppLogger.error('Error getting available roles: $e');
       return [];
     }
@@ -98,42 +90,20 @@ class UserRoleService {
   /// Get the user's primary role from Firestore
   static Future<String?> getPrimaryRole() async {
     try {
-      final User? currentUser = _auth.currentUser;
-      if (currentUser == null) {
-        AppLogger.debug('No authenticated user found');
+      final userData = await getCurrentUserData();
+      final userType = userData?['user_type'] as String?;
+      if (userType == null || userType.isEmpty) {
         return null;
       }
-
-      // First try to get user document by UID (most reliable)
-      final userDocByUid = await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
-
-      if (userDocByUid.exists) {
-        final userData = userDocByUid.data() as Map<String, dynamic>;
-        final userType = userData['user_type'] as String?;
-        AppLogger.debug('Found user by UID: $userType');
-        return userType;
-      }
-
-      // Fallback: Query Firestore users collection by email
-      final QuerySnapshot userQuery = await _firestore
-          .collection('users')
-          .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
-          .limit(1)
-          .get();
-
-      if (userQuery.docs.isEmpty) {
-        AppLogger.debug('No user document found for email: ${currentUser.email} or UID: ${currentUser.uid}');
-        return null;
-      }
-
-      final userData = userQuery.docs.first.data() as Map<String, dynamic>;
-      final userType = userData['user_type'] as String?;
-
       return userType;
     } catch (e) {
+      if (_looksLikeFirestoreWebInternalError(e)) {
+        AppLogger.debug(
+            'UserRoleService: Firestore web internal error while getting primary role');
+        // Best-effort fallback to cached data if present.
+        final cachedRole = _cachedUserData?['user_type'] as String?;
+        return cachedRole;
+      }
       AppLogger.error('Error getting user role: $e');
       return null;
     }
@@ -215,6 +185,11 @@ class UserRoleService {
 
       return userData;
     } catch (e) {
+      if (_looksLikeFirestoreWebInternalError(e)) {
+        AppLogger.debug(
+            'UserRoleService: Firestore web internal error while getting user data');
+        return _cachedUserData;
+      }
       AppLogger.error('Error getting user data: $e');
       return null;
     }

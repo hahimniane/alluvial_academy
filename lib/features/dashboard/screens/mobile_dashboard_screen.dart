@@ -33,7 +33,9 @@ class _NavItemData {
 
 /// Beautiful mobile-optimized dashboard with bottom navigation
 class MobileDashboardScreen extends StatefulWidget {
-  const MobileDashboardScreen({super.key});
+  final String? userId;
+
+  const MobileDashboardScreen({super.key, this.userId});
 
   @override
   State<MobileDashboardScreen> createState() => _MobileDashboardScreenState();
@@ -366,7 +368,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     // Students get classes as their main screen
     if (role == 'student') {
       return [
-        const StudentClassesScreen(), // Main screen for students
+        StudentClassesScreen(userId: widget.userId), // Main screen for students
         const ChatPage(),
         const QuickTasksScreen(),
       ];
@@ -390,7 +392,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         _NavItemData(Icons.home_rounded, 'Home', 0),
         _NavItemData(Icons.calendar_today_rounded, 'Shifts', 1),
         _NavItemData(Icons.chat_bubble_rounded, 'Chat', 2),
-        _NavItemData(Icons.video_call_rounded, 'Zoom', 3),
+        _NavItemData(Icons.video_call_rounded, 'Classes', 3),
         _NavItemData(Icons.work_outline_rounded, 'Jobs', 4),
       ];
     }
@@ -725,4 +727,3 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   }
 
 }
-

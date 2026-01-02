@@ -34,6 +34,9 @@ sed -i.bak "s/flutter_bootstrap\.js?v=$CURRENT_VERSION/flutter_bootstrap.js?v=$N
 # Update manifest.json version
 sed -i.bak "s/manifest\.json?v=$CURRENT_VERSION/manifest.json?v=$NEW_VERSION/g" "$INDEX_FILE"
 
+# Update version check script CURRENT_VERSION (match any number)
+sed -i.bak "s/var CURRENT_VERSION = [0-9]*;/var CURRENT_VERSION = $NEW_VERSION;/g" "$INDEX_FILE"
+
 # Remove backup file
 rm "${INDEX_FILE}.bak"
 
@@ -41,5 +44,5 @@ echo "✅ Successfully updated version to $NEW_VERSION"
 echo "📝 Modified files:"
 echo "   - $INDEX_FILE"
 echo ""
-echo "🔄 Now run: flutter build web"
-echo "📤 Then upload to Hostinger"
+echo "🔄 Now run: flutter build web --release --pwa-strategy=none"
+echo "📤 Then upload to Hostinger" 

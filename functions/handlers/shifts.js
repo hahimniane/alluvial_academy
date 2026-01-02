@@ -86,12 +86,13 @@ const scheduleShiftLifecycle = onCall(async (request) => {
     console.log('[DEBUG] Cloud Tasks configuration verified successfully.');
 
     const queue = queuePath();
-    const startTaskName = taskName(shiftId, 'start');
-    const endTaskName = taskName(shiftId, 'end');
+    const legacyStartTaskName = taskName(shiftId, 'start');
+    const legacyEndTaskName = taskName(shiftId, 'end');
 
-    console.log(`[DEBUG] Deleting any existing tasks for shiftId: ${shiftId}`);
-    await Promise.all([deleteTaskIfExists(startTaskName), deleteTaskIfExists(endTaskName)]);
-    console.log('[DEBUG] Existing tasks deleted.');
+    // Best-effort cleanup for legacy tasks that used fixed names. New tasks are scheduled with
+    // unique names (based on schedule time) to avoid Cloud Tasks name de-duplication errors.
+    console.log(`[DEBUG] Cleaning up legacy tasks (if any) for shiftId: ${shiftId}`);
+    await Promise.all([deleteTaskIfExists(legacyStartTaskName), deleteTaskIfExists(legacyEndTaskName)]);
 
     if (cancel) {
       console.log(`[INFO] Cancellation requested. No new tasks will be created for shiftId: ${shiftId}.`);
@@ -113,6 +114,9 @@ const scheduleShiftLifecycle = onCall(async (request) => {
     const scheduledStart = ensureFutureDate(new Date(shiftStart));
     const scheduledEnd = ensureFutureDate(new Date(shiftEnd));
 
+    const startTaskName = taskName(shiftId, 'start', Math.floor(scheduledStart.getTime() / 1000));
+    const endTaskName = taskName(shiftId, 'end', Math.floor(scheduledEnd.getTime() / 1000));
+
     const startTask = {
       httpRequest: {
         httpMethod: 'POST',
@@ -121,7 +125,9 @@ const scheduleShiftLifecycle = onCall(async (request) => {
           serviceAccountEmail: await getTasksServiceAccount(),
         },
         headers: {'Content-Type': 'application/json'},
-        body: Buffer.from(JSON.stringify({shiftId})).toString('base64'),
+        body: Buffer.from(
+          JSON.stringify({shiftId, shiftStart: shiftStart.toISOString(), shiftEnd: shiftEnd.toISOString()})
+        ).toString('base64'),
       },
       scheduleTime: {
         seconds: Math.floor(scheduledStart.getTime() / 1000),
@@ -156,11 +162,17 @@ const scheduleShiftLifecycle = onCall(async (request) => {
       results.startTaskCreated = true;
       console.log(`[INFO] Shift ${shiftId}: start task scheduled for ${scheduledStart.toISOString()}`);
     } catch (error) {
-      console.error('[FATAL] Failed to create start task:', error.message, {
-        code: error.code,
-        details: error.details,
-      });
-      throw new functions.https.HttpsError('internal', `Failed to schedule start task: ${error.message}`);
+      if (error.code === 6) {
+        results.startTaskCreated = false;
+        results.startTaskAlreadyExists = true;
+        console.log(`[INFO] Shift ${shiftId}: start task already exists (${startTaskName})`);
+      } else {
+        console.error('[FATAL] Failed to create start task:', error.message, {
+          code: error.code,
+          details: error.details,
+        });
+        throw new functions.https.HttpsError('internal', `Failed to schedule start task: ${error.message}`);
+      }
     }
 
     try {
@@ -169,11 +181,17 @@ const scheduleShiftLifecycle = onCall(async (request) => {
       results.endTaskCreated = true;
       console.log(`[INFO] Shift ${shiftId}: end task scheduled for ${scheduledEnd.toISOString()}`);
     } catch (error) {
-      console.error('[FATAL] Failed to create end task:', error.message, {
-        code: error.code,
-        details: error.details,
-      });
-      throw new functions.https.HttpsError('internal', `Failed to schedule end task: ${error.message}`);
+      if (error.code === 6) {
+        results.endTaskCreated = false;
+        results.endTaskAlreadyExists = true;
+        console.log(`[INFO] Shift ${shiftId}: end task already exists (${endTaskName})`);
+      } else {
+        console.error('[FATAL] Failed to create end task:', error.message, {
+          code: error.code,
+          details: error.details,
+        });
+        throw new functions.https.HttpsError('internal', `Failed to schedule end task: ${error.message}`);
+      }
     }
 
     console.log(`[SUCCESS] scheduleShiftLifecycle completed for shiftId: ${shiftId}`);
@@ -232,10 +250,16 @@ const handleShiftStartTask = onRequest(async (req, res) => {
 
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-    const {shiftId} = payload;
+    const {shiftId, shiftStart} = payload;
 
     if (!shiftId) {
       res.status(400).json({success: false, error: 'shiftId is required'});
+      return;
+    }
+
+    const taskShiftStart = shiftStart ? new Date(shiftStart) : null;
+    if (taskShiftStart && Number.isNaN(taskShiftStart.getTime())) {
+      res.status(400).json({success: false, error: 'shiftStart must be an ISO date string'});
       return;
     }
 
@@ -249,6 +273,35 @@ const handleShiftStartTask = onRequest(async (req, res) => {
     }
 
     const shiftData = snapshot.data();
+
+    // Safety Check: Verify the task matches the current shift schedule.
+    // - New tasks include `shiftStart` in the payload and are compared directly to the document.
+    // - Legacy tasks (no shiftStart) fall back to a time-window check around the current shift start.
+    if (shiftData.shift_start) {
+      const currentShiftStart = toDate(shiftData.shift_start);
+
+      if (taskShiftStart) {
+        const diffMs = Math.abs(currentShiftStart.getTime() - taskShiftStart.getTime());
+        if (diffMs > 60000) {
+          console.log(
+            `handleShiftStartTask: Mismatch in shift start time (Doc: ${currentShiftStart.toISOString()} vs Task: ${taskShiftStart.toISOString()}) - likely rescheduled. Skipping.`
+          );
+          res.status(200).json({success: true, message: 'Stale task - shift rescheduled'});
+          return;
+        }
+      } else {
+        const now = new Date();
+        const toleranceMs = 30 * 60 * 1000; // 30 minutes
+        const diffMs = Math.abs(now.getTime() - currentShiftStart.getTime());
+        if (diffMs > toleranceMs) {
+          console.log(
+            `handleShiftStartTask: Legacy task outside tolerance window (Now: ${now.toISOString()} vs Shift: ${currentShiftStart.toISOString()}) - skipping.`
+          );
+          res.status(200).json({success: true, message: 'Legacy task outside tolerance window'});
+          return;
+        }
+      }
+    }
 
     if (shiftData.status !== 'scheduled') {
       console.log(`handleShiftStartTask: shift ${shiftId} already ${shiftData.status} - skipping`);

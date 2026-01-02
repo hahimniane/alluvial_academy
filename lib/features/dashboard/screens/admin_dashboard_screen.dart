@@ -20,6 +20,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_screen.dart';
 import '../../profile/widgets/teacher_profile_edit_dialog.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -180,6 +181,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _loadStats() async {
     try {
+      final role = userRole ?? await UserRoleService.getCurrentUserRole();
+      final isAdmin = role?.toLowerCase() == 'admin' || role?.toLowerCase() == 'super_admin';
+      if (!isAdmin) {
+        // Only admins can load global stats (users/forms/responses). Other roles should not query admin-only data.
+        if (mounted && stats.isNotEmpty) {
+          setState(() => stats = {});
+        }
+        return;
+      }
+
       AppLogger.debug('Loading comprehensive dashboard statistics...');
 
       // Load all collections in parallel with more detailed queries
@@ -411,17 +422,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return _buildDashboardContent();
     }
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildWelcomeHeader(),
-          const SizedBox(height: 24),
-          Expanded(
-            child: _buildDashboardContent(),
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            sliver: SliverToBoxAdapter(
+              child: _buildWelcomeHeader(),
+            ),
           ),
-        ],
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ];
+      },
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: _buildDashboardContent(),
       ),
     );
   }
@@ -516,6 +531,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     // Desktop layout
     return SingleChildScrollView(
+      primary: true,
       child: Column(
         children: [
           // Modern Header with Gradient
@@ -934,6 +950,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return _buildMobileTeacherDashboard();
     }
     return SingleChildScrollView(
+      primary: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1268,6 +1285,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildStudentDashboard() {
     return SingleChildScrollView(
+      primary: true,
       child: Column(
         children: [
           // Student Stats
@@ -1305,39 +1323,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildParentDashboard() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Parent Stats
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.3,
-            children: [
-              _buildStatCard('My Children', 2, Icons.child_care, Colors.pink),
-              _buildStatCard('School Forms', 5, Icons.description, Colors.blue),
-              _buildStatCard('Messages', 3, Icons.message, Colors.green),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildMyChildrenCard()),
-              const SizedBox(width: 16),
-              Expanded(child: _buildSchoolUpdatesCard()),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          _buildParentResourcesCard(),
-        ],
-      ),
-    );
+    return const ParentDashboardScreen();
   }
 
   Widget _buildDefaultDashboard() {

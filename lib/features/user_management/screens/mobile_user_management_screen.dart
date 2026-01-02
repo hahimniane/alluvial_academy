@@ -577,59 +577,114 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
 
   /// Show reset password confirmation dialog
   Future<void> _showResetPasswordDialog(Employee user, String studentCode) async {
-    final confirmed = await showDialog<bool>(
+    final customPassword = await showDialog<String?>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Reset password for ${user.firstName} ${user.lastName}?',
-              style: GoogleFonts.inter(fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'A new password will be generated and saved. If the student has a parent linked, they will receive an email with the new credentials.',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: Colors.blue.shade700,
+      builder: (context) {
+        final passwordController = TextEditingController();
+        bool obscurePassword = true;
+        String? errorText;
+
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Reset Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Reset password for ${user.firstName} ${user.lastName}?',
+                  style: GoogleFonts.inter(fontSize: 16),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  'Student ID: $studentCode',
+                  style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Custom password (optional)',
+                    hintText: 'Leave blank to generate a password',
+                    helperText: 'Min 6 characters. Avoid leading/trailing spaces.',
+                    errorText: errorText,
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'If left blank, a secure password will be generated and saved. '
+                    'If the student has a parent linked, they will receive an email with the new credentials.',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+              ElevatedButton(
+                onPressed: () {
+                  final value = passwordController.text;
+                  if (value.trim().isEmpty) {
+                    Navigator.pop(context, '');
+                    return;
+                  }
+                  if (value != value.trim()) {
+                    setState(() => errorText = 'Password cannot start or end with spaces');
+                    return;
+                  }
+                  if (value.length < 6) {
+                    setState(() => errorText = 'Password must be at least 6 characters');
+                    return;
+                  }
+                  if (value.length > 128) {
+                    setState(() => errorText = 'Password must be 128 characters or less');
+                    return;
+                  }
+                  Navigator.pop(context, value);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff3B82F6),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Reset Password'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff3B82F6),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Reset Password'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
-    if (confirmed == true) {
-      await _resetStudentPassword(user, studentCode);
+    if (customPassword != null) {
+      await _resetStudentPassword(
+        user,
+        customPassword: customPassword.trim().isEmpty ? null : customPassword,
+      );
     }
   }
 
   /// Reset student password via Cloud Function
-  Future<void> _resetStudentPassword(Employee user, String studentCode) async {
+  Future<void> _resetStudentPassword(
+    Employee user, {
+    String? customPassword,
+  }) async {
     try {
       // Show loading
       showDialog(
@@ -649,10 +704,15 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
 
       // Call Cloud Function to reset password (updates both Firebase Auth and Firestore)
       final callable = FirebaseFunctions.instance.httpsCallable('resetStudentPassword');
-      final result = await callable.call({
+      final payload = <String, dynamic>{
         'studentId': user.documentId,
         'sendEmailToParent': true,
-      });
+      };
+      if (customPassword != null && customPassword.trim().isNotEmpty) {
+        payload['customPassword'] = customPassword;
+      }
+
+      final result = await callable.call(payload);
 
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog

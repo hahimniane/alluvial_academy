@@ -407,7 +407,7 @@ Email sending is implemented via Nodemailer in `functions/services/email/*`.
 - Web bootstrap is `web/index.html`.
 - Cache busting is handled by `increment_version.sh`, which increments `flutter_bootstrap.js?v=...` and `manifest.json?v=...` in `web/index.html`.
 - Hostinger-specific cache headers and SPA routing are configured in `web/.htaccess`.
-- Netlify is configured via `netlify.toml` to run `flutter build web` and publish `build/web`.
+- Netlify is configured via `netlify.toml` to run `flutter build web --release --pwa-strategy=none` and publish `build/web`.
 - Firebase Hosting is also configured in `firebase.json` (public: `build/web`).
 
 ### Zoom Web SDK (web builds)
@@ -419,7 +419,7 @@ Email sending is implemented via Nodemailer in `functions/services/email/*`.
 
 ### Root scripts
 - `build_android.sh` — bumps build number and builds a release APK.
-- `build_release.sh` — web release build wrapper (**currently contains unresolved merge-conflict markers; fix before using**).
+- `build_release.sh` — web release build wrapper (includes `--pwa-strategy=none` and copies `web/.htaccess` into `build/web/`).
 - `increment_version.sh` — web cache busting.
 
 ### `scripts/` folder

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
+import '../../../core/services/shift_service.dart';
 
 class ShiftDetailsDialog extends StatelessWidget {
   final TeachingShift shift;
@@ -42,6 +44,10 @@ class ShiftDetailsDialog extends StatelessWidget {
                     _buildBasicInfo(),
                     const SizedBox(height: 24),
                     _buildScheduleInfo(),
+                    if (_isPossiblyRecurring) ...[
+                      const SizedBox(height: 24),
+                      _buildSeriesInfo(context),
+                    ],
                     const SizedBox(height: 24),
                     _buildParticipantsInfo(),
                     const SizedBox(height: 24),
@@ -61,6 +67,13 @@ class ShiftDetailsDialog extends StatelessWidget {
     );
   }
 
+  bool get _isPossiblyRecurring {
+    final seriesId = shift.recurrenceSeriesId?.trim() ?? '';
+    return seriesId.isNotEmpty ||
+        shift.recurrence != RecurrencePattern.none ||
+        shift.enhancedRecurrence.type != EnhancedRecurrenceType.none;
+  }
+
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -72,7 +85,7 @@ class ShiftDetailsDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _getStatusColor().withOpacity(0.1),
+              color: _getStatusColor().withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -99,7 +112,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getStatusColor().withOpacity(0.1),
+                    color: _getStatusColor().withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -156,20 +169,217 @@ class ShiftDetailsDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildSeriesInfo(BuildContext context) {
+    final seriesId = shift.recurrenceSeriesId?.trim();
+    if (seriesId != null && seriesId.isNotEmpty) {
+      return FutureBuilder<List<TeachingShift>>(
+        future: ShiftService.getRecurringSeriesShifts(seriesId),
+        builder: (context, snapshot) {
+          final shifts = snapshot.data ?? const <TeachingShift>[];
+          final countText = snapshot.connectionState == ConnectionState.waiting
+              ? 'Loading…'
+              : '${shifts.length} shifts';
+
+          return _buildSection(
+            'Series',
+            Icons.repeat,
+            [
+              _buildInfoRow('Series ID', _shortId(seriesId)),
+              _buildInfoRowWidget(
+                'Shifts',
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        countText,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff374151),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: snapshot.connectionState ==
+                                  ConnectionState.waiting ||
+                              shifts.isEmpty
+                          ? null
+                          : () => _showSeriesDialog(context, seriesId, shifts),
+                      child: const Text('View'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    // Older recurring shifts may not have a series ID yet — fetch series info
+    // via the service (best-effort; may backfill IDs).
+    return FutureBuilder<({String seriesId, List<TeachingShift> shifts})?>(
+      future: ShiftService.getRecurringSeriesByShift(shift.id),
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildSection(
+            'Series',
+            Icons.repeat,
+            [
+              _buildInfoRow('Series', 'Loading…'),
+            ],
+          );
+        }
+
+        if (data == null || data.shifts.isEmpty) {
+          return _buildSection(
+            'Series',
+            Icons.repeat,
+            [
+              _buildInfoRow('Series', 'Not available'),
+            ],
+          );
+        }
+
+        return _buildSection(
+          'Series',
+          Icons.repeat,
+          [
+            _buildInfoRow('Series ID', _shortId(data.seriesId)),
+            _buildInfoRowWidget(
+              'Shifts',
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${data.shifts.length} shifts',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: const Color(0xff374151),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        _showSeriesDialog(context, data.seriesId, data.shifts),
+                    child: const Text('View'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildParticipantsInfo() {
+    final studentCount = shift.studentIds.isNotEmpty
+        ? shift.studentIds.length
+        : shift.studentNames.length;
+
     return _buildSection(
       'Participants',
       Icons.people,
       [
         _buildInfoRow('Teacher', shift.teacherName),
-        _buildInfoRow(
-          'Students (${shift.studentNames.length})',
-          shift.studentNames.isNotEmpty
-              ? shift.studentNames.join(', ')
-              : 'No students assigned',
+        _buildInfoRowWidget(
+          'Students ($studentCount)',
+          shift.studentIds.isEmpty && shift.studentNames.isEmpty
+              ? Text(
+                  'No students assigned',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff374151),
+                  ),
+                )
+              : FutureBuilder<List<String>>(
+                  future: _loadStudentDisplayLines(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Text(
+                        'Loading…',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff374151),
+                        ),
+                      );
+                    }
+                    final lines = snapshot.data ?? const <String>[];
+                    if (lines.isEmpty) {
+                      return Text(
+                        shift.studentNames.isNotEmpty
+                            ? shift.studentNames.join(', ')
+                            : 'No students assigned',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xff374151),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: lines
+                          .map(
+                            (line) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                line,
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  color: const Color(0xff374151),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  },
+                ),
         ),
       ],
     );
+  }
+
+  Future<List<String>> _loadStudentDisplayLines() async {
+    // Prefer the canonical student IDs (uids) when available.
+    if (shift.studentIds.isEmpty) {
+      return shift.studentNames;
+    }
+
+    final lines = <String>[];
+    for (final studentId in shift.studentIds) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .get();
+        if (!doc.exists) {
+          lines.add(studentId);
+          continue;
+        }
+
+        final data = doc.data();
+        final first = (data?['first_name'] ?? '').toString().trim();
+        final last = (data?['last_name'] ?? '').toString().trim();
+        final name = '$first $last'.trim();
+        final code = (data?['student_code'] ?? data?['studentCode'] ?? '')
+            .toString()
+            .trim();
+
+        if (code.isNotEmpty) {
+          lines.add('${name.isNotEmpty ? name : studentId} (ID: $code)');
+        } else {
+          lines.add(name.isNotEmpty ? name : studentId);
+        }
+      } catch (_) {
+        lines.add(studentId);
+      }
+    }
+
+    return lines;
   }
 
   Widget _buildStatusInfo() {
@@ -287,6 +497,147 @@ class ShiftDetailsDialog extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRowWidget(String label, Widget value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xff6B7280),
+              ),
+            ),
+          ),
+          Expanded(child: value),
+        ],
+      ),
+    );
+  }
+
+  String _shortId(String value) {
+    final v = value.trim();
+    if (v.length <= 8) return v;
+    return v.substring(0, 8);
+  }
+
+  void _showSeriesDialog(
+    BuildContext context,
+    String seriesId,
+    List<TeachingShift> seriesShifts,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 560,
+          constraints: const BoxConstraints(maxHeight: 720),
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Series (${seriesShifts.length})',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff111827),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Series ID: ${_shortId(seriesId)}',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: seriesShifts.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final s = seriesShifts[index];
+                    final isCurrent = s.id == shift.id;
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        s.displayName,
+                        style: GoogleFonts.inter(
+                          fontWeight:
+                              isCurrent ? FontWeight.w800 : FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${_formatDate(s.shiftStart)} • ${_formatTime(s.shiftStart)} - ${_formatTime(s.shiftEnd)} • ${s.status.name}',
+                        style: GoogleFonts.inter(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: isCurrent
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xff0386FF)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: const Color(0xff0386FF)
+                                      .withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Text(
+                                'Current',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xff0386FF),
+                                ),
+                              ),
+                            )
+                          : null,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

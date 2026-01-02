@@ -6,6 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/widgets/performance_log_viewer.dart';
+import 'package:alluwalacademyadmin/core/widgets/performance_summary_dashboard.dart';
+
 class FirestoreDebugScreen extends StatefulWidget {
   const FirestoreDebugScreen({super.key});
 
@@ -365,7 +368,7 @@ This helps us debug the login tracking system.''';
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Firestore Debug',
+          'Debug',
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         backgroundColor: const Color(0xff0386FF),
@@ -386,41 +389,73 @@ This helps us debug the login tracking system.''';
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error, size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('Error: $error'),
-                    ],
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Email Test Section
-                      _buildEmailTestSection(),
-                      const SizedBox(height: 32),
-                      _buildCollectionSection(
-                        'users (lowercase)',
-                        userDocuments,
-                        Colors.blue,
-                      ),
-                      const SizedBox(height: 32),
-                      _buildCollectionSection(
-                        'Users (uppercase)',
-                        capitalUserDocuments,
-                        Colors.red,
-                      ),
-                    ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const PerformanceSummaryDashboard(),
+            const SizedBox(height: 10),
+            Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                childrenPadding: const EdgeInsets.only(top: 10),
+                title: Text(
+                  'Detailed performance logs',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff111827),
                   ),
                 ),
+                subtitle: Text(
+                  'Only if you need the raw events',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+                children: const [
+                  PerformanceLogViewer(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (error != null)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Error: $error'),
+                  ],
+                ),
+              )
+            else ...[
+              // Email Test Section
+              _buildEmailTestSection(),
+              const SizedBox(height: 32),
+              _buildCollectionSection(
+                'users (lowercase)',
+                userDocuments,
+                Colors.blue,
+              ),
+              const SizedBox(height: 32),
+              _buildCollectionSection(
+                'Users (uppercase)',
+                capitalUserDocuments,
+                Colors.red,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

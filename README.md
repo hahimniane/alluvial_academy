@@ -216,7 +216,7 @@ lib/
 ### Cache Busting for Web
 Before deploying web updates, always run:
 ```bash
-./increment_version.sh && flutter build web --release
+./increment_version.sh && flutter build web --release --pwa-strategy=none
 ```
 
 This ensures users get the latest version without needing to clear their browser cache.
@@ -238,4 +238,3 @@ This is a private project. For questions or issues, please contact the developme
 ## License
 
 Proprietary - All rights reserved
-

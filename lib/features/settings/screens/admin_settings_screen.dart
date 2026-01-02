@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+import '../../../core/constants/build_info.dart';
+import '../../../core/services/user_role_service.dart';
+
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class AdminSettingsScreen extends StatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -14,17 +20,47 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   final _notificationEmailController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _hasAccess = true;
+  late final Future<PackageInfo> _packageInfoFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _packageInfoFuture = PackageInfo.fromPlatform();
+    _checkAccessAndLoad();
   }
 
   @override
   void dispose() {
     _notificationEmailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkAccessAndLoad() async {
+    try {
+      final role = await UserRoleService.getCurrentUserRole();
+      final lower = role?.toLowerCase();
+      final isAdmin = lower == 'admin' || lower == 'super_admin';
+
+      if (!mounted) return;
+
+      if (!isAdmin) {
+        setState(() {
+          _hasAccess = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      await _loadSettings();
+    } catch (e) {
+      AppLogger.error('AdminSettings: error checking access: $e');
+      if (!mounted) return;
+      setState(() {
+        _hasAccess = false;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -53,6 +89,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
+    if (!_hasAccess) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
@@ -91,6 +128,22 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasAccess) {
+      return const Scaffold(
+        backgroundColor: Color(0xffF8FAFC),
+        body: Center(
+          child: Text(
+            'Access restricted',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xff6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -154,6 +207,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                     ),
                             ),
                           ),
+                          const SizedBox(height: 48),
+                          _buildSectionTitle('About'),
+                          const SizedBox(height: 16),
+                          _buildVersionCard(),
                         ],
                       ),
                     ),
@@ -211,6 +268,71 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     );
   }
 
+  Widget _buildVersionCard() {
+    return FutureBuilder<PackageInfo>(
+      future: _packageInfoFuture,
+      builder: (context, snapshot) {
+        final textStyle = GoogleFonts.inter(
+          fontSize: 13,
+          color: const Color(0xff374151),
+        );
+
+        final labelStyle = GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xff111827),
+        );
+
+        String appVersionText = 'Loading...';
+        if (snapshot.hasError) {
+          appVersionText = 'Unknown';
+        } else if (snapshot.hasData) {
+          final info = snapshot.data!;
+          appVersionText = '${info.version}+${info.buildNumber}';
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xffF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xffE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildVersionRow('App Version', appVersionText, labelStyle, textStyle),
+              if (BuildInfo.hasWebBuildVersion) ...[
+                const SizedBox(height: 8),
+                _buildVersionRow(
+                  'Web Build',
+                  BuildInfo.webBuildVersion,
+                  labelStyle,
+                  textStyle,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVersionRow(
+    String label,
+    String value,
+    TextStyle labelStyle,
+    TextStyle valueStyle,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 110, child: Text(label, style: labelStyle)),
+        Expanded(child: Text(value, style: valueStyle)),
+      ],
+    );
+  }
+
   Widget _buildTextField({
     required String label,
     required String hint,
@@ -257,4 +379,3 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     );
   }
 }
-

@@ -6,8 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import '../../../core/models/teacher_application.dart';
+import '../../../core/services/user_role_service.dart';
 import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
+
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 class TeacherApplicationManagementScreen extends StatefulWidget {
   const TeacherApplicationManagementScreen({super.key});
@@ -22,6 +25,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
   ApplicationDataSource? _dataSource;
   String _selectedFilter = 'Pending';
   bool _isLoading = true;
+  bool _hasAccess = true;
   DateTimeRange? _selectedDateRange;
   final Set<String> _selectedApplicationIds = {};
   bool _showBulkActions = false;
@@ -40,13 +44,40 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
   @override
   void initState() {
     super.initState();
-    _setupRealtimeListener();
+    _checkAccessAndInitialize();
   }
 
   @override
   void dispose() {
     _applicationListener?.cancel();
     super.dispose();
+  }
+
+  Future<void> _checkAccessAndInitialize() async {
+    try {
+      final role = await UserRoleService.getCurrentUserRole();
+      final lower = role?.toLowerCase();
+      final isAdmin = lower == 'admin' || lower == 'super_admin';
+
+      if (!mounted) return;
+
+      if (!isAdmin) {
+        setState(() {
+          _hasAccess = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      _setupRealtimeListener();
+    } catch (e) {
+      AppLogger.error('TeacherApplications: error checking access: $e');
+      if (!mounted) return;
+      setState(() {
+        _hasAccess = false;
+        _isLoading = false;
+      });
+    }
   }
 
   void _setupRealtimeListener() {
@@ -59,7 +90,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
         .listen((snapshot) async {
       await _processSnapshot(snapshot);
     }, onError: (error) {
-      print('Error in teacher application listener: $error');
+      AppLogger.error('TeacherApplications: listener error: $error');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -75,7 +106,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
           final application = TeacherApplication.fromFirestore(doc);
           applications.add(application);
         } catch (e) {
-          print('Error parsing application ${doc.id}: $e');
+          AppLogger.error('TeacherApplications: error parsing application ${doc.id}: $e');
         }
       }
 
@@ -87,7 +118,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
         });
       }
     } catch (e) {
-      print('Error processing application snapshot: $e');
+      AppLogger.error('TeacherApplications: error processing snapshot: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -239,6 +270,22 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasAccess) {
+      return const Scaffold(
+        backgroundColor: Color(0xffF8FAFC),
+        body: Center(
+          child: Text(
+            'Access restricted',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xff6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -781,4 +828,3 @@ class _ApplicationDetailsDialog extends StatelessWidget {
     );
   }
 }
-

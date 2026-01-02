@@ -29,6 +29,8 @@ class TeachingShift {
   final RecurrencePattern recurrence; // Keep for backward compatibility
   final DateTime? recurrenceEndDate;
   final Map<String, dynamic>? recurrenceSettings;
+  final String? recurrenceSeriesId; // Links shifts in same recurring series
+  final DateTime? seriesCreatedAt; // Timestamp when series was first created
   final EnhancedRecurrence enhancedRecurrence; // New enhanced recurrence
   final String? notes;
 
@@ -105,6 +107,8 @@ class TeachingShift {
     this.recurrence = RecurrencePattern.none,
     this.recurrenceEndDate,
     this.recurrenceSettings,
+    this.recurrenceSeriesId,
+    this.seriesCreatedAt,
     this.enhancedRecurrence = const EnhancedRecurrence(),
     this.notes,
     this.clockInTime,
@@ -405,6 +409,9 @@ class TeachingShift {
           ? Timestamp.fromDate(recurrenceEndDate!)
           : null,
       'recurrence_settings': recurrenceSettings,
+      'recurrence_series_id': recurrenceSeriesId,
+      'series_created_at':
+          seriesCreatedAt != null ? Timestamp.fromDate(seriesCreatedAt!) : null,
       'notes': notes,
       'clock_in_time':
           clockInTime != null ? Timestamp.fromDate(clockInTime!) : null,
@@ -453,6 +460,59 @@ class TeachingShift {
   factory TeachingShift.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
+    ShiftCategory parseCategory() {
+      final raw = data['shift_category'] ?? data['shiftCategory'] ?? 'teaching';
+      return ShiftCategory.values.firstWhere(
+        (e) => e.name == raw,
+        orElse: () => ShiftCategory.teaching,
+      );
+    }
+
+    final category = parseCategory();
+
+    String? parseString(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      return value.toString();
+    }
+
+    final zoomMeetingId = parseString(data['zoom_meeting_id'] ?? data['zoomMeetingId']);
+    final zoomEncryptedJoinUrl =
+        parseString(data['zoom_encrypted_join_url'] ?? data['zoomEncryptedJoinUrl']);
+    final hubMeetingId =
+        parseString(data['hubMeetingId'] ?? data['hub_meeting_id'] ?? data['hubMeetingID']);
+
+    final breakoutRoomName =
+        parseString(data['breakoutRoomName'] ?? data['breakout_room_name']);
+    final breakoutRoomKey =
+        parseString(data['breakoutRoomKey'] ?? data['breakout_room_key']);
+    final zoomRoutingMode =
+        parseString(data['zoomRoutingMode'] ?? data['zoom_routing_mode']);
+
+    VideoProvider parseVideoProvider() {
+      final rawProvider = parseString(data['video_provider'] ?? data['videoProvider']);
+      if (rawProvider != null && rawProvider.trim().isNotEmpty) {
+        final normalized = rawProvider.trim().toLowerCase();
+        for (final provider in VideoProvider.values) {
+          if (provider.name == normalized) return provider;
+        }
+      }
+
+      final hasZoomData = (zoomMeetingId != null && zoomMeetingId.trim().isNotEmpty) ||
+          (hubMeetingId != null && hubMeetingId.trim().isNotEmpty) ||
+          (zoomEncryptedJoinUrl != null && zoomEncryptedJoinUrl.trim().isNotEmpty);
+
+      if (hasZoomData) return VideoProvider.zoom;
+
+      // Legacy teaching shifts without explicit provider default to LiveKit to avoid "Meeting not ready"
+      // when no Zoom meeting/hub is provisioned.
+      if (category == ShiftCategory.teaching) return VideoProvider.livekit;
+
+      return VideoProvider.zoom;
+    }
+
+    final videoProvider = parseVideoProvider();
+
     return TeachingShift(
       id: data['id'] ?? doc.id,
       teacherId: data['teacher_id'] ?? '',
@@ -485,6 +545,10 @@ class TeachingShift {
         (e) => e.name == data['recurrence'],
         orElse: () => RecurrencePattern.none,
       ),
+      recurrenceSeriesId: data['recurrence_series_id'],
+      seriesCreatedAt: data['series_created_at'] != null
+          ? (data['series_created_at'] as Timestamp).toDate()
+          : null,
       enhancedRecurrence: data['enhanced_recurrence'] != null
           ? EnhancedRecurrence.fromFirestore(
               Map<String, dynamic>.from(data['enhanced_recurrence']))
@@ -516,23 +580,20 @@ class TeachingShift {
           : null,
       originalTeacherId: data['original_teacher_id'],
       originalTeacherName: data['original_teacher_name'],
-      category: ShiftCategory.values.firstWhere(
-        (e) => e.name == (data['shift_category'] ?? 'teaching'),
-        orElse: () => ShiftCategory.teaching,
-      ),
+      category: category,
       leaderRole: data['leader_role'],
-      zoomMeetingId: data['zoom_meeting_id'],
-      zoomEncryptedJoinUrl: data['zoom_encrypted_join_url'],
+      zoomMeetingId: zoomMeetingId,
+      zoomEncryptedJoinUrl: zoomEncryptedJoinUrl,
       zoomMeetingCreatedAt: data['zoom_meeting_created_at'] != null
           ? (data['zoom_meeting_created_at'] as Timestamp).toDate()
           : null,
       zoomInviteSentAt: data['zoom_invite_sent_at'] != null
           ? (data['zoom_invite_sent_at'] as Timestamp).toDate()
           : null,
-      hubMeetingId: data['hubMeetingId'],
-      breakoutRoomName: data['breakoutRoomName'],
-      breakoutRoomKey: data['breakoutRoomKey'],
-      zoomRoutingMode: data['zoomRoutingMode'],
+      hubMeetingId: hubMeetingId,
+      breakoutRoomName: breakoutRoomName,
+      breakoutRoomKey: breakoutRoomKey,
+      zoomRoutingMode: zoomRoutingMode,
       routingRiskParticipants: data['routingRiskParticipants'] != null
           ? List<Map<String, dynamic>>.from(
               (data['routingRiskParticipants'] as List)
@@ -542,10 +603,7 @@ class TeachingShift {
           ? List<String>.from(data['preAssignedParticipants'])
           : const [],
       hasRoutingRisk: data['hasRoutingRisk'] ?? false,
-      videoProvider: VideoProvider.values.firstWhere(
-        (e) => e.name == (data['video_provider'] ?? 'zoom'),
-        orElse: () => VideoProvider.zoom,
-      ),
+      videoProvider: videoProvider,
       livekitRoomName: data['livekit_room_name'],
       livekitLastTokenIssuedAt: data['livekit_last_token_issued_at'] != null
           ? (data['livekit_last_token_issued_at'] as Timestamp).toDate()
@@ -578,6 +636,8 @@ class TeachingShift {
     EnhancedRecurrence? enhancedRecurrence,
     DateTime? recurrenceEndDate,
     Map<String, dynamic>? recurrenceSettings,
+    String? recurrenceSeriesId,
+    DateTime? seriesCreatedAt,
     String? notes,
     DateTime? clockInTime,
     DateTime? clockOutTime,
@@ -634,6 +694,8 @@ class TeachingShift {
       enhancedRecurrence: enhancedRecurrence ?? this.enhancedRecurrence,
       recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
       recurrenceSettings: recurrenceSettings ?? this.recurrenceSettings,
+      recurrenceSeriesId: recurrenceSeriesId ?? this.recurrenceSeriesId,
+      seriesCreatedAt: seriesCreatedAt ?? this.seriesCreatedAt,
       notes: notes ?? this.notes,
       clockInTime: clockInTime ?? this.clockInTime,
       clockOutTime: clockOutTime ?? this.clockOutTime,
