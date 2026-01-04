@@ -327,12 +327,236 @@ const createUser = async (data) => {
   }
 };
 
-const deleteUserAccount = async (data) => {
+const _isArray = (value) => Array.isArray(value);
+const _asStringArray = (value) =>
+  _isArray(value) ? value.map((v) => String(v)).filter((v) => v.trim().length > 0) : null;
+
+const _lower = (value) => (value == null ? '' : String(value).trim().toLowerCase());
+const _truthy = (value) => {
+  if (value === true) return true;
+  if (value === 1) return true;
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    return v === 'true' || v === '1' || v === 'yes';
+  }
+  return false;
+};
+const _normalizeRole = (value) => _lower(value).replace(/[\s-]+/g, '_');
+
+const _deleteShiftRelatedDocuments = async ({
+  db,
+  shiftId,
+  queueDelete,
+  summary,
+}) => {
+  // Delete timesheet entries linked to this shift
+  for (const field of ['shift_id', 'shiftId']) {
+    try {
+      const snap = await db.collection('timesheet_entries').where(field, '==', shiftId).get();
+      for (const doc of snap.docs) {
+        await queueDelete(doc.ref);
+        summary.timesheetEntriesDeleted += 1;
+      }
+    } catch (e) {
+      console.log(`[DeleteUserAccount] Error querying timesheet_entries by ${field}:`, e.message);
+    }
+  }
+
+  // Delete form responses linked to this shift
+  for (const field of ['shift_id', 'shiftId']) {
+    try {
+      const snap = await db.collection('form_responses').where(field, '==', shiftId).get();
+      for (const doc of snap.docs) {
+        await queueDelete(doc.ref);
+        summary.formResponsesDeleted += 1;
+      }
+    } catch (e) {
+      console.log(`[DeleteUserAccount] Error querying form_responses by ${field}:`, e.message);
+    }
+  }
+};
+
+const _cleanupTeachingShiftsForDeletedUser = async ({
+  db,
+  userType,
+  userIdsToRemove,
+  userData,
+}) => {
+  const shiftsRef = db.collection('teaching_shifts');
+  const idsToRemove = userIdsToRemove.map(String);
+  const userFullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim();
+
+  const summary = {
+    shiftsDeleted: 0,
+    shiftsUpdated: 0,
+    timesheetEntriesDeleted: 0,
+    formResponsesDeleted: 0,
+  };
+
+  // Write batching (keep margin under 500 ops)
+  let batch = db.batch();
+  let opCount = 0;
+
+  const flush = async () => {
+    if (opCount === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    opCount = 0;
+  };
+
+  const queueDelete = async (ref) => {
+    batch.delete(ref);
+    opCount += 1;
+    if (opCount >= 450) {
+      await flush();
+    }
+  };
+
+  const queueUpdate = async (ref, data) => {
+    batch.update(ref, data);
+    opCount += 1;
+    if (opCount >= 450) {
+      await flush();
+    }
+  };
+
+  const addQueryDocs = (into, snapshot) => {
+    for (const doc of snapshot.docs) {
+      into.set(doc.id, doc);
+    }
+  };
+
+  const shiftDocs = new Map();
+
+  if (userType === 'teacher') {
+    for (const id of idsToRemove) {
+      for (const field of ['teacher_id', 'teacherId']) {
+        try {
+          const snap = await shiftsRef.where(field, '==', id).get();
+          addQueryDocs(shiftDocs, snap);
+        } catch (e) {
+          console.log(`[DeleteUserAccount] Error querying teaching_shifts by ${field}:`, e.message);
+        }
+      }
+    }
+
+    for (const doc of shiftDocs.values()) {
+      const data = doc.data() || {};
+      const assignedTeacherId = String(data.teacher_id || data.teacherId || '');
+      if (!idsToRemove.includes(assignedTeacherId)) continue;
+
+      await queueDelete(doc.ref);
+      summary.shiftsDeleted += 1;
+
+      await _deleteShiftRelatedDocuments({
+        db,
+        shiftId: doc.id,
+        queueDelete,
+        summary,
+      });
+    }
+
+    await flush();
+    return summary;
+  }
+
+  if (userType === 'student') {
+    for (const id of idsToRemove) {
+      for (const field of ['student_ids', 'studentIds']) {
+        try {
+          const snap = await shiftsRef.where(field, 'array-contains', id).get();
+          addQueryDocs(shiftDocs, snap);
+        } catch (e) {
+          console.log(
+            `[DeleteUserAccount] Error querying teaching_shifts array by ${field}:`,
+            e.message
+          );
+        }
+      }
+    }
+
+    const nameLower = _lower(userFullName);
+
+    for (const doc of shiftDocs.values()) {
+      const data = doc.data() || {};
+
+      const idsSnake = _asStringArray(data.student_ids);
+      const idsCamel = _asStringArray(data.studentIds);
+      const ids = idsSnake || idsCamel || [];
+
+      const hasTarget = ids.some((id) => idsToRemove.includes(id));
+      if (!hasTarget) continue;
+
+      const remainingIds = ids.filter((id) => !idsToRemove.includes(id));
+
+      if (remainingIds.length === 0) {
+        await queueDelete(doc.ref);
+        summary.shiftsDeleted += 1;
+
+        await _deleteShiftRelatedDocuments({
+          db,
+          shiftId: doc.id,
+          queueDelete,
+          summary,
+        });
+        continue;
+      }
+
+      const updates = {
+        last_modified: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (idsSnake != null) {
+        updates.student_ids = remainingIds;
+      }
+      if (idsCamel != null) {
+        updates.studentIds = remainingIds;
+      }
+
+      // Best-effort: keep student names aligned with IDs.
+      const namesSnake = _asStringArray(data.student_names);
+      if (namesSnake != null) {
+        let nextNames = namesSnake;
+        if (idsSnake != null && namesSnake.length === idsSnake.length) {
+          nextNames = namesSnake.filter((_, idx) => !idsToRemove.includes(idsSnake[idx]));
+        } else if (nameLower) {
+          nextNames = namesSnake.filter((n) => _lower(n) !== nameLower);
+        }
+        updates.student_names = nextNames;
+      }
+
+      const namesCamel = _asStringArray(data.studentNames);
+      if (namesCamel != null) {
+        let nextNames = namesCamel;
+        if (idsCamel != null && namesCamel.length === idsCamel.length) {
+          nextNames = namesCamel.filter((_, idx) => !idsToRemove.includes(idsCamel[idx]));
+        } else if (nameLower) {
+          nextNames = namesCamel.filter((n) => _lower(n) !== nameLower);
+        }
+        updates.studentNames = nextNames;
+      }
+
+      await queueUpdate(doc.ref, updates);
+      summary.shiftsUpdated += 1;
+    }
+
+    await flush();
+    return summary;
+  }
+
+  return summary;
+};
+
+const deleteUserAccount = async (data, context) => {
   console.log('Raw data received - type:', typeof data);
-  const requestData = data.data || data;
+  const requestData = (data && data.data) || data || {};
   console.log('Using requestData:', requestData);
 
   const {email, adminEmail} = requestData;
+  const deleteClasses =
+    requestData.deleteClasses === true ||
+    requestData.delete_classes === true ||
+    requestData.deleteAssociatedClasses === true;
 
   console.log('Extracted email:', email);
   console.log('Extracted adminEmail:', adminEmail);
@@ -342,37 +566,149 @@ const deleteUserAccount = async (data) => {
     throw new functions.https.HttpsError('invalid-argument', 'Email is required');
   }
 
-  if (!adminEmail) {
-    console.log('No admin email provided in request');
-    throw new functions.https.HttpsError('invalid-argument', 'Admin email is required');
+  if (!context || !context.auth) {
+    console.log('Unauthenticated request to deleteUserAccount');
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
-  console.log(`Starting delete process for user: ${email} by admin: ${adminEmail}`);
+  const callerUid = context.auth.uid;
+  const token = context.auth.token || {};
+  const tokenEmail = token.email ? String(token.email).toLowerCase() : null;
+  const tokenRole = _normalizeRole(token.role || token.user_type || token.userType);
+  const tokenIsAdmin =
+    tokenRole === 'admin' ||
+    tokenRole === 'administrator' ||
+    tokenRole === 'super_admin' ||
+    tokenRole === 'superadmin' ||
+    _truthy(token.isAdmin) ||
+    _truthy(token.is_admin) ||
+    _truthy(token.admin) ||
+    _truthy(token.is_super_admin) ||
+    _truthy(token.isSuperAdmin);
+
+  // For backward compatibility, accept adminEmail from the client, but never trust it over the auth token.
+  const effectiveAdminEmail = tokenEmail || (adminEmail ? String(adminEmail).toLowerCase() : null);
+
+  console.log(`Starting delete process for user: ${email} by caller uid: ${callerUid}`);
 
   try {
-    const callerDoc = await admin
-      .firestore()
-      .collection('users')
-      .where('e-mail', '==', adminEmail.toLowerCase())
-      .limit(1)
-      .get();
+    const usersRef = admin.firestore().collection('users');
+    let callerData = null;
 
-    if (callerDoc.empty) {
-      console.log(`Admin not found in users collection: ${adminEmail}`);
-      throw new functions.https.HttpsError('permission-denied', 'Admin not found in users collection');
+    // Prefer UID-based lookup (most reliable).
+    try {
+      const callerByUid = await usersRef.doc(callerUid).get();
+      if (callerByUid.exists) {
+        callerData = callerByUid.data();
+      }
+    } catch (e) {
+      console.log('Error looking up caller by UID:', e.message);
     }
 
-    const callerData = callerDoc.docs[0].data();
-    const isAdmin = callerData.user_type === 'admin' || callerData.is_admin_teacher === true;
+    // Legacy: some deployments store docs keyed by email.
+    if (!callerData && effectiveAdminEmail) {
+      try {
+        const callerByEmailId = await usersRef.doc(effectiveAdminEmail).get();
+        if (callerByEmailId.exists) {
+          callerData = callerByEmailId.data();
+        }
+      } catch (e) {
+        console.log('Error looking up caller by email doc ID:', e.message);
+      }
+    }
+
+    // Fallback: query by email field.
+    if (!callerData && effectiveAdminEmail) {
+      const callerQuery = await usersRef.where('e-mail', '==', effectiveAdminEmail).limit(1).get();
+      if (!callerQuery.empty) {
+        callerData = callerQuery.docs[0].data();
+      }
+    }
+
+    // Fallback: query by uid field (some schemas use auto IDs but store uid in a field).
+    if (!callerData) {
+      try {
+        const callerUidQuery = await usersRef.where('uid', '==', callerUid).limit(1).get();
+        if (!callerUidQuery.empty) {
+          callerData = callerUidQuery.docs[0].data();
+        }
+      } catch (e) {
+        console.log('Error looking up caller by uid field:', e.message);
+      }
+    }
+
+    // Fallback: some schemas use `email` field instead of `e-mail`.
+    if (!callerData && effectiveAdminEmail) {
+      try {
+        const callerEmailFieldQuery = await usersRef
+          .where('email', '==', effectiveAdminEmail)
+          .limit(1)
+          .get();
+        if (!callerEmailFieldQuery.empty) {
+          callerData = callerEmailFieldQuery.docs[0].data();
+        }
+      } catch (e) {
+        console.log('Error looking up caller by email field:', e.message);
+      }
+    }
+
+    if (!callerData) {
+      console.log(`Caller not found in users collection. uid=${callerUid}, email=${effectiveAdminEmail}`);
+      if (!tokenIsAdmin) {
+        throw new functions.https.HttpsError('permission-denied', 'Caller not found in users collection');
+      }
+      console.log(
+        'Caller user doc missing, but auth token indicates admin; proceeding with token-based authorization.'
+      );
+    }
+    
+    // Log caller data for debugging
+    if (callerData) {
+      console.log(`Caller data found:`, {
+        uid: callerUid,
+        email: effectiveAdminEmail,
+        user_type: callerData.user_type,
+        role: callerData.role,
+        userType: callerData.userType,
+        is_admin_teacher: callerData.is_admin_teacher,
+        is_admin: callerData.is_admin,
+        isAdmin: callerData.isAdmin,
+        is_super_admin: callerData.is_super_admin,
+        isSuperAdmin: callerData.isSuperAdmin,
+      });
+    } else {
+      console.log(`Caller data not found; tokenIsAdmin=${tokenIsAdmin}`, {
+        uid: callerUid,
+        email: effectiveAdminEmail,
+        tokenRole,
+      });
+    }
+    
+    const callerUserType = _normalizeRole(
+      callerData ? callerData.user_type || callerData.role || callerData.userType || '' : ''
+    );
+    const isAdminFromFirestore =
+      callerUserType === 'admin' ||
+      callerUserType === 'administrator' ||
+      callerUserType === 'super_admin' ||
+      callerUserType === 'superadmin' ||
+      _truthy(callerData?.is_admin_teacher) ||
+      _truthy(callerData?.is_admin) ||
+      _truthy(callerData?.isAdmin) ||
+      _truthy(callerData?.is_super_admin) ||
+      _truthy(callerData?.isSuperAdmin);
+    const isAdmin = tokenIsAdmin || isAdminFromFirestore;
+
+    console.log(`Admin check result: isAdmin=${isAdmin}, callerUserType="${callerUserType}"`);
 
     if (!isAdmin) {
       console.log(
-        `User ${adminEmail} is not an admin. user_type: ${callerData.user_type}, is_admin_teacher: ${callerData.is_admin_teacher}`
+        `Caller ${effectiveAdminEmail || callerUid} is not an admin. user_type: ${callerData.user_type}, role: ${callerData.role}, userType: ${callerData.userType}, is_admin_teacher: ${callerData.is_admin_teacher}, is_admin: ${callerData.is_admin}, isAdmin: ${callerData.isAdmin}`
       );
       throw new functions.https.HttpsError('permission-denied', 'Only administrators can delete users');
     }
 
-    console.log(`Admin ${adminEmail} (verified) attempting to delete user: ${email}`);
+    console.log(`Admin ${effectiveAdminEmail || callerUid} (verified) attempting to delete user: ${email}`);
 
     const userQuery = await admin
       .firestore()
@@ -388,6 +724,7 @@ const deleteUserAccount = async (data) => {
     const userDoc = userQuery.docs[0];
     const userData = userDoc.data();
     const userId = userDoc.id;
+    let canonicalUserId = userData && userData.uid ? String(userData.uid) : userId;
 
     const isActive = userData.is_active !== false;
     console.log(`User active status: ${userData.is_active} (isActive: ${isActive})`);
@@ -400,65 +737,180 @@ const deleteUserAccount = async (data) => {
       );
     }
 
-    console.log(`Deleting user: ${email} (ID: ${userId})`);
+    console.log(`Deleting user: ${email} (Firestore ID: ${userId}, canonical UID: ${canonicalUserId})`);
 
-    let authUser = null;
+    let deletedFromAuth = false;
     try {
-      authUser = await admin.auth().getUserByEmail(email);
-      console.log(`Found user in Firebase Auth: ${authUser.uid}`);
-
-      await admin.auth().deleteUser(authUser.uid);
-      console.log(`Successfully deleted user from Firebase Auth: ${email}`);
-    } catch (authError) {
-      console.log(`User not found in Firebase Auth or already deleted: ${email}`, authError.message);
+      // Prefer deleting by UID to support student accounts where Auth email may be an alias.
+      if (!canonicalUserId) {
+        throw new Error('No canonical UID available');
+      }
+      await admin.auth().deleteUser(canonicalUserId);
+      deletedFromAuth = true;
+      console.log(`Successfully deleted user from Firebase Auth by uid: ${canonicalUserId}`);
+    } catch (authErrorByUid) {
+      console.log(`Auth delete by uid failed (uid=${canonicalUserId}):`, authErrorByUid.message);
+      try {
+        const authUser = await admin.auth().getUserByEmail(email);
+        console.log(`Found user in Firebase Auth by email: ${authUser.uid}`);
+        canonicalUserId = authUser.uid || canonicalUserId;
+        await admin.auth().deleteUser(authUser.uid);
+        deletedFromAuth = true;
+        console.log(`Successfully deleted user from Firebase Auth by email: ${email}`);
+      } catch (authError) {
+        console.log(`User not found in Firebase Auth or already deleted: ${email}`, authError.message);
+      }
     }
+
+    const userIdsToPurge = Array.from(new Set([userId, canonicalUserId].filter(Boolean)));
 
     const batch = admin.firestore().batch();
     batch.delete(userDoc.ref);
+    // In case this project has duplicate user docs (legacy schemas), also delete the canonical UID doc.
+    if (canonicalUserId && canonicalUserId !== userId) {
+      batch.delete(admin.firestore().collection('users').doc(canonicalUserId));
+    }
 
-    const collections = [
-      {name: 'timesheet_entries', field: 'userId'},
-      {name: 'form_submissions', field: 'submittedBy'},
-      {name: 'form_drafts', field: 'createdBy'},
-    ];
+    // Best-effort cleanup for parent/student relationships and auxiliary collections.
+    const userType = (userData.user_type || userData.userType || userData.role || '')
+      .toString()
+      .toLowerCase();
+
+    if (userType === 'student') {
+      // Remove from students collection (created by createStudentAccount).
+      batch.delete(admin.firestore().collection('students').doc(canonicalUserId));
+
+      const guardianIds = Array.isArray(userData.guardian_ids)
+        ? userData.guardian_ids
+        : Array.isArray(userData.guardianIds)
+          ? userData.guardianIds
+          : [];
+
+      for (const guardianId of guardianIds) {
+        try {
+          const guardianRef = admin.firestore().collection('users').doc(String(guardianId));
+          const guardianSnap = await guardianRef.get();
+          if (!guardianSnap.exists) continue;
+
+          const guardianData = guardianSnap.data() || {};
+          const updates = {};
+          if (guardianData.children_ids !== undefined) {
+            updates.children_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
+          }
+          if (guardianData.childrenIds !== undefined) {
+            updates.childrenIds = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
+          }
+          if (Object.keys(updates).length === 0) {
+            updates.children_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
+          }
+          updates.updated_at = admin.firestore.FieldValue.serverTimestamp();
+          batch.update(guardianRef, updates);
+        } catch (e) {
+          console.log(`Error removing student from guardian ${guardianId}:`, e.message);
+        }
+      }
+    }
+
+	    if (userType === 'parent') {
+	      const childrenIds = Array.isArray(userData.children_ids)
+	        ? userData.children_ids
+	        : Array.isArray(userData.childrenIds)
+	          ? userData.childrenIds
+	          : [];
+
+      for (const childId of childrenIds) {
+        try {
+          const childRef = admin.firestore().collection('users').doc(String(childId));
+          const childSnap = await childRef.get();
+          if (!childSnap.exists) continue;
+
+          const childData = childSnap.data() || {};
+          const updates = {};
+          if (childData.guardian_ids !== undefined) {
+            updates.guardian_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
+          }
+          if (childData.guardianIds !== undefined) {
+            updates.guardianIds = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
+          }
+          if (Object.keys(updates).length === 0) {
+            updates.guardian_ids = admin.firestore.FieldValue.arrayRemove(canonicalUserId);
+          }
+          updates.updated_at = admin.firestore.FieldValue.serverTimestamp();
+          batch.update(childRef, updates);
+        } catch (e) {
+          console.log(`Error removing parent from student ${childId}:`, e.message);
+	        }
+	      }
+	    }
+
+	    if (deleteClasses && (userType === 'teacher' || userType === 'student')) {
+	      console.log(
+	        `[DeleteUserAccount] deleteClasses enabled for ${userType}; cleaning up teaching_shifts...`
+	      );
+	      const classesSummary = await _cleanupTeachingShiftsForDeletedUser({
+	        db: admin.firestore(),
+	        userType,
+	        userIdsToRemove: userIdsToPurge,
+	        userData,
+	      });
+	      console.log('[DeleteUserAccount] teaching_shifts cleanup summary:', classesSummary);
+	    }
+
+	    const collections = [
+	      {name: 'timesheet_entries', field: 'userId'},
+	      {name: 'form_submissions', field: 'submittedBy'},
+	      {name: 'form_drafts', field: 'createdBy'},
+	    ];
 
     for (const collection of collections) {
-      try {
-        const relatedQuery = await admin
-          .firestore()
-          .collection(collection.name)
-          .where(collection.field, '==', userId)
-          .get();
+      for (const idToDelete of userIdsToPurge) {
+        try {
+          const relatedQuery = await admin
+            .firestore()
+            .collection(collection.name)
+            .where(collection.field, '==', idToDelete)
+            .get();
 
-        console.log(`Found ${relatedQuery.size} documents in ${collection.name} to delete`);
+          console.log(
+            `Found ${relatedQuery.size} documents in ${collection.name} to delete (userId=${idToDelete})`
+          );
 
-        relatedQuery.docs.forEach((doc) => {
-          batch.delete(doc.ref);
-        });
-      } catch (error) {
-        console.log(`Error querying ${collection.name}:`, error.message);
+          relatedQuery.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+          });
+        } catch (error) {
+          console.log(`Error querying ${collection.name}:`, error.message);
+        }
       }
     }
 
     try {
-      const taskQuery = await admin
-        .firestore()
-        .collection('tasks')
-        .where('assignedTo', 'array-contains', userId)
-        .get();
+      const processedTaskIds = new Set();
+      for (const idToRemove of userIdsToPurge) {
+        const taskQuery = await admin
+          .firestore()
+          .collection('tasks')
+          .where('assignedTo', 'array-contains', idToRemove)
+          .get();
 
-      console.log(`Found ${taskQuery.size} tasks assigned to user`);
+        console.log(`Found ${taskQuery.size} tasks assigned to userId=${idToRemove}`);
 
-      taskQuery.docs.forEach((doc) => {
-        const taskData = doc.data();
-        const assignedTo = (taskData.assignedTo || []).filter((id) => id !== userId);
+        taskQuery.docs.forEach((doc) => {
+          if (processedTaskIds.has(doc.id)) return;
+          processedTaskIds.add(doc.id);
 
-        if (assignedTo.length === 0) {
-          batch.delete(doc.ref);
-        } else {
-          batch.update(doc.ref, {assignedTo});
-        }
-      });
+          const taskData = doc.data();
+          const assignedTo = (taskData.assignedTo || []).filter(
+            (id) => !userIdsToPurge.includes(id)
+          );
+
+          if (assignedTo.length === 0) {
+            batch.delete(doc.ref);
+          } else {
+            batch.update(doc.ref, {assignedTo});
+          }
+        });
+      }
     } catch (error) {
       console.log(`Error handling tasks:`, error.message);
     }
@@ -470,7 +922,7 @@ const deleteUserAccount = async (data) => {
     return {
       success: true,
       message: `User ${email} and all associated data have been permanently deleted`,
-      deletedFromAuth: authUser !== null,
+      deletedFromAuth,
       deletedFromFirestore: true,
     };
   } catch (error) {
@@ -630,4 +1082,3 @@ module.exports = {
   deleteUserAccount,
   findUserByEmailOrCode,
 };
-
