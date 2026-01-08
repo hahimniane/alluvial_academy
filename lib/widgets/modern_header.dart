@@ -219,7 +219,7 @@ class _ModernHeaderState extends State<ModernHeader> {
             context,
             MaterialPageRoute(
               settings: const RouteSettings(name: '/signup'),
-              builder: (context) => const AuthenticationWrapper(showLogin: true),
+              builder: (context) => const AuthenticationWrapper(),
             ),
           );
         },
