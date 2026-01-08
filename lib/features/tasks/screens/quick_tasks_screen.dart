@@ -54,6 +54,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   Set<String> _selectedTaskIds = {};
   bool _isBulkMode = false;
   bool? _filterRecurring; // null = all, true = recurring only, false = non-recurring only
+  List<String> _filterLabels = []; // Filter by labels/tags
 
   @override
   void initState() {
@@ -293,17 +294,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ],
         ),
       ),
-      // Floating action button
+      // Floating action button with dropdown menu
       floatingActionButton: _isAdmin
-          ? FloatingActionButton.extended(
-              backgroundColor: ConnecteamStyle.primaryBlue,
-              label: Text(
-                "Add Task",
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-              ),
-              icon: const Icon(Icons.add),
-              onPressed: () => _showAddEditTaskDialog(),
-            )
+          ? _buildAddTaskButton()
           : null,
     );
   }
@@ -499,6 +492,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     ? 'One-time Only'
                     : null,
           ),
+          // Labels/Tags Filter
+          _buildFilterChip(
+            label: 'Labels',
+            icon: Icons.label_outline,
+            isActive: _filterLabels.isNotEmpty,
+            onTap: () => _showLabelsFilter(),
+            activeLabel: _filterLabels.isNotEmpty 
+                ? '${_filterLabels.length} label${_filterLabels.length == 1 ? '' : 's'}'
+                : null,
+          ),
           // Clear All Filters Button
           if (_hasActiveFilters())
             InkWell(
@@ -544,7 +547,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Reduced padding
         decoration: BoxDecoration(
           color: isActive 
               ? ConnecteamStyle.primaryBlue.withOpacity(0.1)
@@ -561,14 +564,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           children: [
             Icon(
               icon,
-              size: 16,
+              size: 14, // Smaller icon
               color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5), // Reduced spacing
             Text(
               activeLabel ?? label,
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 12, // Smaller font
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                 color: isActive ? ConnecteamStyle.primaryBlue : ConnecteamStyle.textGrey,
               ),
@@ -655,7 +658,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         _filterAssignedToUserIds.isNotEmpty ||
         _filterAssignedByUserId != null ||
         _dueDateRange != null ||
-        _filterRecurring != null;
+        _filterRecurring != null ||
+        _filterLabels.isNotEmpty;
   }
 
   void _clearAllFilters() {
@@ -666,6 +670,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       _filterAssignedByUserId = null;
       _dueDateRange = null;
       _filterRecurring = null;
+      _filterLabels.clear();
     });
   }
 
@@ -1958,6 +1963,13 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           .toList();
     }
 
+    // Labels filter
+    if (_filterLabels.isNotEmpty) {
+      filteredTasks = filteredTasks.where((task) {
+        return task.labels.any((label) => _filterLabels.contains(label));
+      }).toList();
+    }
+
     return filteredTasks;
   }
 
@@ -2176,14 +2188,57 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
   }
 
   Widget _buildCardFooter(Task task) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: _buildStatusChip(task.status),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: _buildMultipleAssigneeAvatars(task.assignedTo),
+        // Labels/Tags display
+        if (task.labels.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: task.labels.map((label) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff0386FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xff0386FF).withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.label, size: 12, color: const Color(0xff0386FF)),
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xff0386FF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        // Status and Assignees
+        Row(
+          children: [
+            Flexible(
+              child: _buildStatusChip(task.status),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: _buildMultipleAssigneeAvatars(task.assignedTo),
+            ),
+          ],
         ),
       ],
     );
@@ -2303,6 +2358,122 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Builds clickable assignee avatars with names that show a user picker dialog
+  Widget _buildClickableAssigneeAvatars(List<String> assigneeIds) {
+    if (assigneeIds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Build mini avatars with names
+    return GestureDetector(
+      onTap: () => _showAssigneeDetailsPopup(assigneeIds),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Show up to 3 mini avatars
+          ...assigneeIds.take(3).map((id) {
+            final name = _userIdToName[id];
+            if (name == null) _fetchUserNameIfMissing(id);
+            final displayChar = (name != null && name.isNotEmpty)
+                ? name.substring(0, 1).toUpperCase()
+                : (id.isNotEmpty ? id.substring(0, 1).toUpperCase() : '?');
+            
+            return Padding(
+              padding: const EdgeInsets.only(right: 2),
+              child: CircleAvatar(
+                radius: 10,
+                backgroundColor: const Color(0xff0386FF).withOpacity(0.15),
+                child: Text(
+                  displayChar,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xff0386FF),
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 4),
+          // Show names or count
+          if (assigneeIds.length == 1)
+            Text(
+              _userIdToName[assigneeIds.first] ?? 'Loading...',
+              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
+            )
+          else
+            Text(
+              assigneeIds.length <= 2
+                  ? assigneeIds.map((id) => (_userIdToName[id] ?? '...').split(' ').first).join(', ')
+                  : '${(_userIdToName[assigneeIds.first] ?? '...').split(' ').first} +${assigneeIds.length - 1}',
+              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Shows a popup with all assignee details
+  void _showAssigneeDetailsPopup(List<String> assigneeIds) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.people_outline, color: Color(0xff0386FF)),
+            const SizedBox(width: 8),
+            Text(
+              'Assigned To (${assigneeIds.length})',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: assigneeIds.map((id) {
+              final name = _userIdToName[id] ?? 'Loading...';
+              final displayChar = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
+              return ListTile(
+                leading: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xff0386FF).withOpacity(0.1),
+                  child: Text(
+                    displayChar,
+                    style: const TextStyle(
+                      color: Color(0xff0386FF),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  name,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Filter tasks by this assignee
+                  setState(() {
+                    _filterAssignedToUserIds = [id];
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -2427,7 +2598,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     );
   }
 
-  // NEW: Task summary statistics (ConnectTeam style)
+  // NEW: Task summary statistics (ConnectTeam style) - Clickable stats
   Widget _buildTaskSummary(int totalTasks, int openTasks, int doneTasks) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2468,33 +2639,51 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xff0386FF).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$openTasks open task${openTasks == 1 ? '' : 's'}',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: const Color(0xff0386FF),
-                fontWeight: FontWeight.w600,
+          // Clickable Open Tasks
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedStatus = TaskStatus.todo; // Filter to open tasks
+              });
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xff0386FF).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$openTasks open task${openTasks == 1 ? '' : 's'}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xff0386FF),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xff10B981).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$doneTasks done task${doneTasks == 1 ? '' : 's'}',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: const Color(0xff10B981),
-                fontWeight: FontWeight.w600,
+          // Clickable Done Tasks
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedStatus = TaskStatus.done; // Filter to done tasks
+              });
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xff10B981).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$doneTasks done task${doneTasks == 1 ? '' : 's'}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xff10B981),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -2615,12 +2804,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                             const SizedBox(width: 12),
                           ],
                           if (task.assignedTo.isNotEmpty) ...[
-                            Icon(Icons.person_outline, size: 12, color: Colors.grey.shade500),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${task.assignedTo.length} assignee${task.assignedTo.length > 1 ? 's' : ''}',
-                              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade600),
-                            ),
+                            _buildClickableAssigneeAvatars(task.assignedTo),
                           ],
                         ],
                       ),
@@ -2872,47 +3056,81 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Row(
+                const SizedBox(height: 6),
+                // Second row: Status, Labels, Dates, Assignees
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
                   children: [
-                    // Sub-tasks count (placeholder)
-                    const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
-                    const SizedBox(width: 16),
-                    // Label (placeholder)
-                    const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
-                    const SizedBox(width: 16),
-                    // Start date
-                    if (task.startDate != null)
-                      Text(
-                        DateFormat('M/d').format(task.startDate!),
-                        style: const TextStyle(fontSize: 12, color: Color(0xff6B7280)),
-                      )
-                    else
-                      const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
-                    const SizedBox(width: 8),
-                    const Text('→', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
-                    const SizedBox(width: 8),
-                    // Due date
-                    Text(
-                      DateFormat('M/d').format(task.dueDate),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isOverdue ? Colors.red : const Color(0xff6B7280),
-                        fontWeight: isOverdue ? FontWeight.w600 : FontWeight.normal,
+                    // Chat icon
+                    Icon(Icons.chat_bubble_outline, size: 14, color: Colors.grey[400]),
+                    // Status
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(task.status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                    if (isOverdue)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Text(
-                          '(overdue)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.red,
-                            fontStyle: FontStyle.italic,
-                          ),
+                      child: Text(
+                        _getStatusLabel(task.status),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _getStatusColor(task.status),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                    ),
+                    // Sub-tasks count
+                    const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    // Labels display
+                    if (task.labels.isNotEmpty)
+                      ...task.labels.take(2).map((label) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff0386FF).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: const Color(0xff0386FF).withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.label, size: 10, color: const Color(0xff0386FF)),
+                            const SizedBox(width: 3),
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xff0386FF),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    // Start date → Due date
+                    if (task.startDate != null)
+                      Text(
+                        '${DateFormat('M/d').format(task.startDate!)} → ${DateFormat('M/d').format(task.dueDate)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isOverdue ? Colors.red : const Color(0xff6B7280),
+                          fontWeight: isOverdue ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      )
+                    else
+                      Text(
+                        DateFormat('M/d').format(task.dueDate),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isOverdue ? Colors.red : const Color(0xff6B7280),
+                          fontWeight: isOverdue ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    // Assignees with avatars (ConnectTeam style)
+                    _buildMultipleAssigneeAvatars(task.assignedTo),
                   ],
                 ),
               ],
@@ -3246,6 +3464,73 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     }
   }
 
+  void _showLabelsFilter() async {
+    // If already filtered, clicking again clears it
+    if (_filterLabels.isNotEmpty) {
+      setState(() => _filterLabels.clear());
+      return;
+    }
+    
+    // Get all unique labels from tasks
+    if (_taskStream == null) return;
+    
+    final snapshot = await _taskStream!.first;
+    final allLabels = <String>{};
+    for (var task in snapshot) {
+      allLabels.addAll(task.labels);
+    }
+    
+    final selectedLabels = List<String>.from(_filterLabels);
+    
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Filter by Labels', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: allLabels.isEmpty
+                ? const Text('No labels available')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: allLabels.length,
+                    itemBuilder: (context, index) {
+                      final label = allLabels.elementAt(index);
+                      final isSelected = selectedLabels.contains(label);
+                      return CheckboxListTile(
+                        title: Text(label),
+                        value: isSelected,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            if (value == true) {
+                              selectedLabels.add(label);
+                            } else {
+                              selectedLabels.remove(label);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() => _filterLabels = selectedLabels);
+                Navigator.pop(context);
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showRecurringFilter() {
     // If already filtered, clicking again clears it
     if (_filterRecurring != null) {
@@ -3532,6 +3817,55 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       // Reload tasks after dialog closes
       _loadUserRoleAndTasks();
     });
+  }
+
+  /// Build Add Task button with dropdown menu
+  Widget _buildAddTaskButton() {
+    return PopupMenuButton<String>(
+      offset: const Offset(0, -60),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: FloatingActionButton.extended(
+        backgroundColor: ConnecteamStyle.primaryBlue,
+        label: Text(
+          "Add Task",
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        icon: const Icon(Icons.add),
+        onPressed: () {
+          // Default action: show single task dialog
+          _showAddEditTaskDialog();
+        },
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          value: 'single',
+          child: Row(
+            children: [
+              const Icon(Icons.add_task, size: 20),
+              const SizedBox(width: 12),
+              Text('Add single task', style: GoogleFonts.inter()),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'multiple',
+          child: Row(
+            children: [
+              const Icon(Icons.post_add, size: 20),
+              const SizedBox(width: 12),
+              Text('Add multiple tasks', style: GoogleFonts.inter()),
+            ],
+          ),
+        ),
+      ],
+      onSelected: (value) {
+        if (value == 'multiple') {
+          _showMultipleTaskCreationDialog();
+        } else {
+          _showAddEditTaskDialog();
+        }
+      },
+    );
   }
 
   void _showTaskDetailsDialog(Task task) {

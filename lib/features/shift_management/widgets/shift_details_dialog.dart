@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_form_service.dart';
+import '../../../form_screen.dart';
 
 class ShiftDetailsDialog extends StatelessWidget {
   final TeachingShift shift;
@@ -13,6 +15,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   final VoidCallback? onClaimShift;
   final VoidCallback? onRefresh;
   final Function(ShiftStatus)? onCorrectStatus;
+  final VoidCallback? onFillForm;
 
   const ShiftDetailsDialog({
     super.key,
@@ -22,6 +25,7 @@ class ShiftDetailsDialog extends StatelessWidget {
     this.onClaimShift,
     this.onRefresh,
     this.onCorrectStatus,
+    this.onFillForm,
   });
 
   @override
@@ -767,6 +771,14 @@ class ShiftDetailsDialog extends StatelessWidget {
                     ),
                   ),
                 ),
+              
+              // Fill Form button for shift owner (completed or missed shifts)
+              if (isMyShift && 
+                  (shift.status == ShiftStatus.completed || 
+                   shift.status == ShiftStatus.fullyCompleted ||
+                   shift.status == ShiftStatus.partiallyCompleted ||
+                   shift.status == ShiftStatus.missed))
+                _buildFillFormButton(context),
             ],
           ),
 
@@ -785,6 +797,53 @@ class ShiftDetailsDialog extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFillFormButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12),
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          Navigator.pop(context);
+          
+          // Get the form ID from config
+          final readinessFormId = await ShiftFormService.getReadinessFormId();
+          
+          // Navigate to form screen with shift context
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FormScreen(
+                  timesheetId: null, // timesheet not available in shift details; linkage enforced via shiftId
+                  shiftId: shift.id,
+                  autoSelectFormId: readinessFormId,
+                ),
+              ),
+            ).then((_) {
+              // Call refresh callback if provided
+              onRefresh?.call();
+            });
+          }
+        },
+        icon: const Icon(Icons.assignment_outlined, size: 18),
+        label: Text(
+          'Fill Form',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xff8B5CF6),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       ),
     );
   }

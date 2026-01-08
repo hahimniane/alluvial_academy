@@ -232,6 +232,10 @@ class TeachingShift {
         return 'Quran Interpretation (Tafseer)';
       case IslamicSubject.seerah:
         return 'Prophet\'s Biography (Seerah)';
+      case IslamicSubject.other:
+        // For non-Islamic subjects, the display name should come from subjectDisplayName
+        // If we reach here, it means subjectDisplayName was not set
+        return 'Other Subject';
     }
   }
 
@@ -377,6 +381,8 @@ class TeachingShift {
         return 'Tafseer';
       case IslamicSubject.seerah:
         return 'Seerah';
+      case IslamicSubject.other:
+        return 'Other';
     }
   }
 

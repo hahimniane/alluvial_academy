@@ -146,51 +146,51 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                   children: [
                     // Logo Section
                     if (!keyboardVisible) ...[
-                      Hero(
-                        tag: 'app_logo',
-                        child: Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xff0386FF).withOpacity(0.15),
-                                blurRadius: 32,
-                                offset: const Offset(0, 8),
+                        Hero(
+                          tag: 'app_logo',
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xff0386FF).withOpacity(0.15),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Image.asset(
+                                'assets/Alluwal_Education_Hub_Logo.png',
+                                fit: BoxFit.contain,
                               ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(28),
-                            child: Image.asset(
-                              'assets/Alluwal_Education_Hub_Logo.png',
-                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        'Welcome Back',
-                        style: GoogleFonts.inter(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xff111827),
-                          letterSpacing: -0.5,
+                        const SizedBox(height: 16),
+                        Text(
+                          'Welcome Back',
+                          style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xff111827),
+                            letterSpacing: -0.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sign in to continue',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          color: const Color(0xff6B7280),
-                          fontWeight: FontWeight.w400,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Sign in to continue',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff6B7280),
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 48),
+                        const SizedBox(height: 24),
                     ] else ...[
                       const SizedBox(height: 24),
                     ],

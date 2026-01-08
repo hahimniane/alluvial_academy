@@ -10,6 +10,8 @@ enum ShiftStatus {
 }
 
 /// Islamic subjects enum
+/// Note: This enum is legacy - new subjects should use the dynamic `subjects` collection
+/// The `other` value is used for non-Islamic subjects like English, Maths, etc.
 enum IslamicSubject {
   quranStudies,
   hadithStudies,
@@ -19,6 +21,7 @@ enum IslamicSubject {
   aqeedah,
   tafseer,
   seerah,
+  other, // For non-Islamic subjects (English, Maths, Science, etc.)
 }
 
 /// Recurrence pattern enum

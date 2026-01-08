@@ -18,36 +18,17 @@ class ShiftTimesheetService {
   static Future<Map<String, dynamic>> getValidShiftForClockIn(
       String teacherId) async {
     try {
-      AppLogger.debug(
-          'ShiftTimesheetService: Checking for valid shift for teacher $teacherId');
       final now = DateTime.now();
       final nowUtc = now.toUtc();
-      AppLogger.debug('ShiftTimesheetService: Current local time: $now');
-      AppLogger.debug('ShiftTimesheetService: Current UTC time: $nowUtc');
-      AppLogger.debug(
-          'ShiftTimesheetService: Current timezone: ${now.timeZoneName}');
-      AppLogger.debug(
-          'ShiftTimesheetService: Current UTC offset: ${now.timeZoneOffset}');
 
       // First check if teacher has an active shift (already clocked in)
       final activeShift = await getActiveShift(teacherId);
-      AppLogger.debug(
-          'ShiftTimesheetService: getActiveShift returned: ${activeShift != null ? "shift ${activeShift.id}" : "null"}');
 
       if (activeShift != null) {
         // Defensive check: ensure the shift is truly active (no clockOutTime)
-        AppLogger.debug(
-            'ShiftTimesheetService: Checking activeShift.clockOutTime: ${activeShift.clockOutTime}');
-
         if (activeShift.clockOutTime != null) {
-          AppLogger.debug(
-              'ShiftTimesheetService: ⚠️ UNEXPECTED: activeShift has clockOutTime set (should not happen). Ignoring as active.');
-          AppLogger.debug(
-              'ShiftTimesheetService: clockOutTime value: ${activeShift.clockOutTime}');
           // Treat as no active shift - fall through to check for valid shifts
         } else {
-          AppLogger.debug(
-              'ShiftTimesheetService: ✅ Found genuinely active shift ${activeShift.id} - ${activeShift.displayName}');
           return {
             'shift': activeShift,
             'canClockIn': false,
@@ -65,9 +46,6 @@ class ShiftTimesheetService {
           .where('teacher_id', isEqualTo: teacherId)
           .get();
 
-      AppLogger.debug(
-          'ShiftTimesheetService: Found ${snapshot.docs.length} total shifts for teacher');
-
       List<TeachingShift> validShifts = [];
 
       for (var doc in snapshot.docs) {
@@ -80,16 +58,6 @@ class ShiftTimesheetService {
         final clockInWindowUtc = shiftStartUtc;
         final clockOutWindowUtc = shiftEndUtc;
 
-        AppLogger.debug('ShiftTimesheetService: Shift ${shift.id}:');
-        AppLogger.debug('  - Display Name: ${shift.displayName}');
-        AppLogger.debug('  - Status: ${shift.status.name}');
-        AppLogger.debug('  - Shift Start (UTC): $shiftStartUtc');
-        AppLogger.debug('  - Shift End (UTC): $shiftEndUtc');
-        AppLogger.debug(
-            '  - Clock-in Window (UTC): $clockInWindowUtc to $clockOutWindowUtc');
-        AppLogger.debug(
-            '  - Current UTC time in window: ${nowUtc.isAfter(clockInWindowUtc) && nowUtc.isBefore(clockOutWindowUtc)}');
-
         // Allow clock-in 1 minute before shift start until shift end
         // Use inclusive comparison (!isBefore and !isAfter) to include exact start/end times
         // Add 1 minute buffer to start time to allow early clock-in
@@ -98,12 +66,7 @@ class ShiftTimesheetService {
 
         if (!nowUtc.isBefore(bufferedStartUtc) &&
             !nowUtc.isAfter(clockOutWindowUtc)) {
-          AppLogger.debug(
-              'ShiftTimesheetService: ✅ VALID SHIFT FOUND: ${shift.id} - ${shift.displayName}');
           validShifts.add(shift);
-        } else {
-          AppLogger.debug(
-              'ShiftTimesheetService: ❌ Shift not valid for clock-in - outside time window');
         }
       }
 
@@ -130,6 +93,7 @@ class ShiftTimesheetService {
         AppLogger.debug('  - nowUtc: $nowUtc');
         AppLogger.debug('  - shiftStartUtc: $shiftStartUtc');
 
+
         return {
           'shift': shift,
           'canClockIn': canClockInNow, // TRUE when shift has started
@@ -144,9 +108,6 @@ class ShiftTimesheetService {
                   : 'Clock-in window opens at ${DateFormat('h:mm a').format(shiftStartUtc.subtract(const Duration(minutes: 1)).toLocal())}'),
         };
       }
-
-      AppLogger.debug(
-          'ShiftTimesheetService: No valid shifts found for clock-in');
       return {
         'shift': null,
         'canClockIn': false,

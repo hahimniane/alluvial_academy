@@ -1,0 +1,27 @@
+{
+  "users": [
+    {
+      "email": "dev-admin@example.com",
+      "password": "DevPass123!",
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "userType": "admin",
+      "title": "Administrator",
+      "phoneNumber": "",
+      "countryCode": "+1",
+      "kioskCode": "DEV123"
+    },
+    {
+      "email": "dev-teacher@example.com",
+      "password": "DevPass123!",
+      "firstName": "Dev",
+      "lastName": "Teacher",
+      "userType": "teacher",
+      "title": "Teacher",
+      "phoneNumber": "",
+      "countryCode": "+1",
+      "kioskCode": "DEV124"
+    }
+  ]
+}
+

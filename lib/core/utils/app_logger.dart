@@ -1,7 +1,7 @@
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized logger for the application.
+/// Centralized logger for the application with throttling support.
 /// 
 /// Usage:
 /// ```dart
@@ -36,16 +36,77 @@ class AppLogger {
     filter: kDebugMode ? DevelopmentFilter() : ProductionFilter(),
   );
 
+  /// Throttle mechanism to prevent log spam
+  static final Map<String, DateTime> _lastLogTimes = {};
+  static const Duration _throttleDuration = Duration(seconds: 5);
+
+  /// Services/prefixes to suppress verbose debug logs from
+  static final Set<String> _suppressedDebugPrefixes = {
+    'ShiftTimesheetService:',
+    'ShiftService:',
+    'TeacherAuditService:',
+    // Add more services here to suppress their debug logs
+  };
+
+  /// Enable/disable debug logging globally
+  static bool enableVerboseDebug = false;
+
+  /// Check if a log should be throttled
+  static bool _shouldThrottle(String key) {
+    final now = DateTime.now();
+    final lastTime = _lastLogTimes[key];
+    
+    if (lastTime == null || now.difference(lastTime) >= _throttleDuration) {
+      _lastLogTimes[key] = now;
+      return false; // Don't throttle, allow log
+    }
+    return true; // Throttle, suppress log
+  }
+
+  /// Check if message should be suppressed based on prefix
+  static bool _shouldSuppressDebug(String message) {
+    if (enableVerboseDebug) return false;
+    
+    final msgStr = message.toString();
+    for (final prefix in _suppressedDebugPrefixes) {
+      if (msgStr.contains(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Log a debug message (verbose information)
   /// Use for detailed debugging information that helps during development
+  /// Note: Some services have their debug logs suppressed by default
   static void debug(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    final msgStr = message.toString();
+    
+    // Suppress verbose debug from certain services unless explicitly enabled
+    if (_shouldSuppressDebug(msgStr)) {
+      return;
+    }
+    
     _logger.d(message, error: error, stackTrace: stackTrace);
+  }
+
+  /// Log a debug message with throttling (prevents spam)
+  /// Use for debug messages that might be called frequently
+  static void debugThrottled(String key, dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_shouldThrottle(key)) return;
+    debug(message, error: error, stackTrace: stackTrace);
   }
 
   /// Log an info message (general information)
   /// Use for general informational messages about app state
   static void info(dynamic message, {dynamic error, StackTrace? stackTrace}) {
     _logger.i(message, error: error, stackTrace: stackTrace);
+  }
+
+  /// Log an info message with throttling
+  static void infoThrottled(String key, dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (_shouldThrottle(key)) return;
+    info(message, error: error, stackTrace: stackTrace);
   }
 
   /// Log a warning message (potential issues)
@@ -71,5 +132,29 @@ class AppLogger {
   static void trace(dynamic message, {dynamic error, StackTrace? stackTrace}) {
     _logger.t(message, error: error, stackTrace: stackTrace);
   }
-}
 
+  /// Enable verbose debug logging for all services
+  static void enableVerbose() {
+    enableVerboseDebug = true;
+  }
+
+  /// Disable verbose debug logging (default state)
+  static void disableVerbose() {
+    enableVerboseDebug = false;
+  }
+
+  /// Clear the throttle cache (useful for testing)
+  static void clearThrottleCache() {
+    _lastLogTimes.clear();
+  }
+
+  /// Add a prefix to suppress debug logs from
+  static void suppressDebugFrom(String prefix) {
+    _suppressedDebugPrefixes.add(prefix);
+  }
+
+  /// Remove a prefix from suppression list
+  static void unsuppressDebugFrom(String prefix) {
+    _suppressedDebugPrefixes.remove(prefix);
+  }
+}

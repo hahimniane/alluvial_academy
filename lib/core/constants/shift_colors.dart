@@ -21,6 +21,8 @@ extension IslamicSubjectExtension on IslamicSubject {
         return 'tafseer';
       case IslamicSubject.seerah:
         return 'seerah';
+      case IslamicSubject.other:
+        return 'other';
     }
   }
 }
@@ -29,6 +31,7 @@ extension IslamicSubjectExtension on IslamicSubject {
 class ShiftColors {
   // Subject Colors (for teaching shifts)
   static const Map<String, Color> _subjectColors = {
+    // Islamic subjects
     'quran_studies': Color(0xff10B981),      // Green
     'quran': Color(0xff10B981),
     'hadith_studies': Color(0xffF59E0B),     // Amber
@@ -41,6 +44,19 @@ class ShiftColors {
     'aqeedah': Color(0xff06B6D4),            // Cyan
     'tafseer': Color(0xffEC4899),            // Pink
     'seerah': Color(0xffF97316),             // Orange
+    // Non-Islamic subjects
+    'english': Color(0xff2563EB),            // Royal Blue
+    'english_language': Color(0xff2563EB),
+    'maths': Color(0xff059669),              // Emerald
+    'mathematics': Color(0xff059669),
+    'math': Color(0xff059669),
+    'science': Color(0xff7C3AED),            // Violet
+    'programming': Color(0xff0EA5E9),        // Sky Blue
+    'coding': Color(0xff0EA5E9),
+    'tutoring': Color(0xffD97706),           // Amber darker
+    'after_school_tutoring': Color(0xffD97706),
+    'adult_literacy': Color(0xff4F46E5),     // Indigo
+    'other': Color(0xff6B7280),              // Gray (fallback)
   };
 
   // Category Colors (for leader shifts)
@@ -97,4 +113,3 @@ class ShiftColors {
   /// Get all category colors map
   static Map<ShiftCategory, Color> get categoryColors => Map.unmodifiable(_categoryColors);
 }
-

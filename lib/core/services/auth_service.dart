@@ -8,6 +8,7 @@ import 'prayer_time_service.dart';
 import 'user_role_service.dart';
 import 'timezone_service.dart';
 import 'notification_service.dart';
+import 'route_persistence_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -296,6 +297,9 @@ class AuthService {
         }
       }
       
+      // Clear persisted route on sign out
+      await RoutePersistenceService.clearRoute();
+
       return await _auth.signOut();
     } catch (e) {
       AppLogger.error(e.toString());

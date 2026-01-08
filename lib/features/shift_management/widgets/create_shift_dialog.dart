@@ -1968,14 +1968,21 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   }
 
   IslamicSubject _mapSubjectToEnum(String subjectName) {
-    switch (subjectName) {
+    // Normalize the subject name for comparison
+    final normalized = subjectName.toLowerCase().replaceAll(' ', '_');
+    
+    switch (normalized) {
       case 'quran_studies':
+      case 'quran':
         return IslamicSubject.quranStudies;
       case 'hadith_studies':
+      case 'hadith':
         return IslamicSubject.hadithStudies;
       case 'fiqh':
+      case 'islamic_jurisprudence':
         return IslamicSubject.fiqh;
       case 'arabic_language':
+      case 'arabic':
         return IslamicSubject.arabicLanguage;
       case 'islamic_history':
         return IslamicSubject.islamicHistory;
@@ -1985,8 +1992,27 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         return IslamicSubject.tafseer;
       case 'seerah':
         return IslamicSubject.seerah;
+      // Non-Islamic subjects - use 'other' category
+      case 'english':
+      case 'english_language':
+        return IslamicSubject.other;
+      case 'maths':
+      case 'mathematics':
+      case 'math':
+        return IslamicSubject.other;
+      case 'science':
+        return IslamicSubject.other;
+      case 'programming':
+      case 'coding':
+        return IslamicSubject.other;
+      case 'tutoring':
+      case 'after_school_tutoring':
+        return IslamicSubject.other;
+      case 'adult_literacy':
+        return IslamicSubject.other;
       default:
-        return IslamicSubject.quranStudies;
+        // For unknown subjects, use 'other' instead of defaulting to quran
+        return IslamicSubject.other;
     }
   }
 

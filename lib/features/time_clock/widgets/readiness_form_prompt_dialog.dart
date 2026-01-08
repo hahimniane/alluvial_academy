@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/shift_form_service.dart';
@@ -37,12 +38,28 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
   final Map<String, dynamic> _responses = {};
   final Map<String, TextEditingController> _textControllers = {};
   final TextEditingController _hoursController = TextEditingController();
+  
+  // Auto-filled context data (read-only, shown to user)
+  late final Map<String, String> _autoFilledContext;
 
   @override
   void initState() {
     super.initState();
+    _initAutoFilledContext();
     _calculateDefaultHours();
     _loadFormTemplate();
+  }
+  
+  void _initAutoFilledContext() {
+    final duration = widget.clockOutTime.difference(widget.clockInTime);
+    final durationStr = '${duration.inHours}h ${duration.inMinutes % 60}m';
+    
+    _autoFilledContext = {
+      'Teacher': widget.teacherName,
+      'Class': widget.shiftTitle,
+      'Date': DateFormat('EEEE, MMM d, yyyy').format(widget.clockInTime),
+      'Duration': durationStr,
+    };
   }
 
   @override
@@ -182,6 +199,9 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Auto-filled context (read-only info)
+                        _buildAutoFilledContext(),
+                        const SizedBox(height: 16),
                         _buildDurationCard(),
                         const SizedBox(height: 24),
                         if (_formFields.isNotEmpty) ...[
@@ -231,6 +251,64 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Shows auto-filled context info (teacher, class, date) - read-only
+  Widget _buildAutoFilledContext() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_fix_high, size: 14, color: Color(0xFF16A34A)),
+              const SizedBox(width: 6),
+              Text(
+                'Auto-filled (no need to enter)',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF16A34A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: _autoFilledContext.entries.map((e) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${e.key}: ',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  Text(
+                    e.value,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -291,32 +369,134 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
   }
 
   Widget _buildField(Map<String, dynamic> field) {
-    final id = field['id'];
+    final id = field['id'] as String;
     final label = field['label'] ?? 'Field';
     final type = field['type'] ?? 'text';
     final placeholder = field['placeholder'] ?? '';
+    final required = field['required'] ?? false;
+    final options = (field['options'] as List<dynamic>?)?.cast<String>() ?? [];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+          Row(
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF334155),
+                ),
+              ),
+              if (required) ...[
+                const SizedBox(width: 4),
+                const Text('*', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+              ],
+            ],
+          ),
           const SizedBox(height: 8),
-          if (type == 'textarea' || type == 'long_text')
-            TextFormField(
-              controller: _textControllers.putIfAbsent(id, () => TextEditingController()),
-              maxLines: 3,
-              decoration: _inputDecoration(placeholder),
-            )
-          else
-            TextFormField(
-              controller: _textControllers.putIfAbsent(id, () => TextEditingController()),
-              decoration: _inputDecoration(placeholder),
-            ),
+          _buildFieldInput(id, type, placeholder, options),
         ],
       ),
     );
+  }
+  
+  Widget _buildFieldInput(String id, String type, String placeholder, List<String> options) {
+    switch (type) {
+      case 'radio':
+        // Radio button group
+        return Column(
+          children: options.map((option) {
+            final isSelected = _responses[id] == option;
+            return InkWell(
+              onTap: () => setState(() => _responses[id] = option),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                      size: 20,
+                      color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      option,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+        
+      case 'dropdown':
+        // Dropdown selector
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: DropdownButtonFormField<String>(
+            value: _responses[id] as String?,
+            decoration: InputDecoration(
+              hintText: placeholder.isEmpty ? 'Select an option' : placeholder,
+              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            items: options.map((option) {
+              return DropdownMenuItem(value: option, child: Text(option));
+            }).toList(),
+            onChanged: (value) => setState(() => _responses[id] = value),
+          ),
+        );
+        
+      case 'number':
+        // Number input
+        return TextFormField(
+          controller: _textControllers.putIfAbsent(id, () => TextEditingController()),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: _inputDecoration(placeholder),
+          onChanged: (value) => _responses[id] = int.tryParse(value) ?? 0,
+        );
+        
+      case 'textarea':
+      case 'long_text':
+        // Multi-line text
+        return TextFormField(
+          controller: _textControllers.putIfAbsent(id, () => TextEditingController()),
+          maxLines: 3,
+          decoration: _inputDecoration(placeholder),
+        );
+        
+      default:
+        // Single-line text
+        return TextFormField(
+          controller: _textControllers.putIfAbsent(id, () => TextEditingController()),
+          decoration: _inputDecoration(placeholder),
+        );
+    }
   }
 
   InputDecoration _inputDecoration(String hint) {

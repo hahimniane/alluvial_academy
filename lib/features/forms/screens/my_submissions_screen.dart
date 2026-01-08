@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
+/// Now supports month filtering for better organization
 class MySubmissionsScreen extends StatefulWidget {
   const MySubmissionsScreen({super.key});
 
@@ -21,10 +22,18 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
   String _searchQuery = '';
   Map<String, List<QueryDocumentSnapshot>> _groupedSubmissions = {};
   Map<String, String> _formTitles = {};
+  
+  // Month filtering - default to current month
+  late String _selectedYearMonth;
+  List<String> _availableMonths = [];
+  bool _showAllMonths = false;
 
   @override
   void initState() {
     super.initState();
+    // Default to current month
+    final now = DateTime.now();
+    _selectedYearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
     _loadMySubmissions();
   }
 
@@ -32,6 +41,20 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+  
+  /// Get display name for yearMonth (e.g., "January 2026")
+  String _getMonthDisplayName(String yearMonth) {
+    try {
+      final parts = yearMonth.split('-');
+      if (parts.length != 2) return yearMonth;
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final date = DateTime(year, month, 1);
+      return DateFormat('MMMM yyyy').format(date);
+    } catch (e) {
+      return yearMonth;
+    }
   }
 
   Future<void> _loadMySubmissions() async {
@@ -54,13 +77,33 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
 
       if (!mounted) return;
 
-      // Group submissions by formId
+      // Collect available months and group submissions
+      final monthsSet = <String>{};
       final grouped = <String, List<QueryDocumentSnapshot>>{};
       final titles = <String, String>{};
       
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final formId = data['formId'] as String?;
+        
+        // Extract yearMonth from doc (or derive from submittedAt)
+        String? yearMonth = data['yearMonth'] as String?;
+        if (yearMonth == null) {
+          // Derive from submittedAt for backward compatibility
+          final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+          if (submittedAt != null) {
+            yearMonth = '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
+          }
+        }
+        
+        if (yearMonth != null) {
+          monthsSet.add(yearMonth);
+        }
+        
+        // Filter by selected month (unless showing all)
+        if (!_showAllMonths && yearMonth != _selectedYearMonth) {
+          continue;
+        }
         
         if (formId != null) {
           if (!grouped.containsKey(formId)) {
@@ -72,15 +115,21 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
           grouped[formId]!.add(doc);
         }
       }
+      
+      // Sort months in descending order (most recent first)
+      final sortedMonths = monthsSet.toList()..sort((a, b) => b.compareTo(a));
 
       setState(() {
         _mySubmissions = snapshot.docs;
         _groupedSubmissions = grouped;
         _formTitles = titles;
+        _availableMonths = sortedMonths;
         _isLoading = false;
       });
 
-      AppLogger.debug('MySubmissions: Loaded ${_mySubmissions.length} submissions, grouped into ${grouped.length} forms');
+      AppLogger.debug('MySubmissions: Loaded ${_mySubmissions.length} total submissions');
+      AppLogger.debug('MySubmissions: Showing ${grouped.values.fold(0, (sum, list) => sum + list.length)} for $_selectedYearMonth');
+      AppLogger.debug('MySubmissions: Available months: $sortedMonths');
     } catch (e) {
       AppLogger.error('Error loading my submissions: $e');
       if (mounted) {
@@ -122,6 +171,137 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     
     return filtered;
   }
+  
+  /// Show month picker dialog
+  void _showMonthPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'Select Month',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff1E293B),
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            
+            // "All Time" option
+            ListTile(
+              leading: Icon(
+                Icons.all_inclusive,
+                color: _showAllMonths ? const Color(0xff0386FF) : const Color(0xff64748B),
+              ),
+              title: Text(
+                'All Time',
+                style: GoogleFonts.inter(
+                  fontWeight: _showAllMonths ? FontWeight.w600 : FontWeight.w400,
+                  color: _showAllMonths ? const Color(0xff0386FF) : const Color(0xff1E293B),
+                ),
+              ),
+              trailing: _showAllMonths 
+                  ? const Icon(Icons.check, color: Color(0xff0386FF))
+                  : null,
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _showAllMonths = true);
+                _loadMySubmissions();
+              },
+            ),
+            
+            const Divider(height: 1),
+            
+            // Month options
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _availableMonths.length,
+                itemBuilder: (context, index) {
+                  final month = _availableMonths[index];
+                  final isSelected = !_showAllMonths && month == _selectedYearMonth;
+                  
+                  // Check if this is current month
+                  final now = DateTime.now();
+                  final currentYearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+                  final isCurrent = month == currentYearMonth;
+                  
+                  return ListTile(
+                    leading: Icon(
+                      Icons.calendar_today,
+                      color: isSelected ? const Color(0xff0386FF) : const Color(0xff64748B),
+                    ),
+                    title: Row(
+                      children: [
+                        Text(
+                          _getMonthDisplayName(month),
+                          style: GoogleFonts.inter(
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected ? const Color(0xff0386FF) : const Color(0xff1E293B),
+                          ),
+                        ),
+                        if (isCurrent) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff10B981).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Current',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xff10B981),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    trailing: isSelected 
+                        ? const Icon(Icons.check, color: Color(0xff0386FF))
+                        : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        _selectedYearMonth = month;
+                        _showAllMonths = false;
+                      });
+                      _loadMySubmissions();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<String> _getFormTitle(Map<String, dynamic> data, String? formId) async {
     // Try to get title from the stored data first
@@ -159,6 +339,9 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Count submissions for current month display
+    final currentMonthCount = _groupedSubmissions.values.fold(0, (sum, list) => sum + list.length);
+    
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FA),
       appBar: AppBar(
@@ -172,6 +355,21 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
             color: const Color(0xff1E293B),
           ),
         ),
+        actions: [
+          // Month filter toggle
+          if (!_isLoading)
+            TextButton.icon(
+              onPressed: () => _showMonthPicker(),
+              icon: const Icon(Icons.calendar_month, size: 18),
+              label: Text(
+                _showAllMonths ? 'All Time' : _getMonthDisplayName(_selectedYearMonth),
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(
@@ -182,6 +380,66 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
       ),
       body: Column(
         children: [
+          // Month summary banner
+          if (!_isLoading && !_showAllMonths)
+            Container(
+              color: const Color(0xffEFF6FF),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff0386FF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_outlined,
+                      size: 20,
+                      color: Color(0xff0386FF),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getMonthDisplayName(_selectedYearMonth),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff1E293B),
+                          ),
+                        ),
+                        Text(
+                          '$currentMonthCount ${currentMonthCount == 1 ? 'submission' : 'submissions'} this month',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _showAllMonths = true);
+                      _loadMySubmissions();
+                    },
+                    child: Text(
+                      'View All',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff0386FF),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
           // Search bar
           Container(
             color: Colors.white,

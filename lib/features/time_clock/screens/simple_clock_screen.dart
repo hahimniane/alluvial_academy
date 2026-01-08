@@ -25,10 +25,12 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
   DateTime? _clockInTime;  // Timestamp when user clocked in
   Timer? _timer;  // Timer for tracking elapsed time
   Timer? _autoLogoutTimer;  // Timer for automatic logout after shift
+  Timer? _availabilityRefreshTimer;  // Timer to periodically check shift availability
   String _elapsedTime = "00:00:00";  // Formatted elapsed time display
   TeachingShift? _currentShift;  // Current teaching shift data
   bool _isProcessing = false;  // Flag for in-progress operations
   StreamSubscription<User?>? _authSub;  // Firebase auth state listener
+  String? _availabilityMessage;  // Message about when clock-in becomes available
 
   @override
   void initState() {
@@ -42,6 +44,14 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
         _checkCurrentShiftStatus();
       }
     });
+
+    // Periodically check shift availability to enable 1-minute early clock-in
+    // This ensures the button becomes active when the clock-in window opens
+    _availabilityRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!_isClockedIn && !_isProcessing && mounted) {
+        _checkShiftAvailability();
+      }
+    });
   }
 
   @override
@@ -49,8 +59,43 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
     // Clean up timers and subscriptions when widget is disposed
     _timer?.cancel();
     _autoLogoutTimer?.cancel();
+    _availabilityRefreshTimer?.cancel();
     _authSub?.cancel();
     super.dispose();
+  }
+
+  /// Checks shift availability and updates UI message
+  /// This runs periodically to enable 1-minute early clock-in
+  Future<void> _checkShiftAvailability() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final shiftResult = await ShiftTimesheetService.getValidShiftForClockIn(user.uid);
+      final shift = shiftResult['shift'] as TeachingShift?;
+      final canClockIn = shiftResult['canClockIn'] as bool;
+      final canProgramClockIn = (shiftResult['canProgramClockIn'] as bool?) ?? false;
+      final message = shiftResult['message'] as String?;
+
+      if (mounted) {
+        setState(() {
+          if (shift != null && (canClockIn || canProgramClockIn)) {
+            // Shift is available for clock-in
+            _availabilityMessage = null;
+            if (!_isClockedIn && _currentShift?.id != shift.id) {
+              _currentShift = shift;
+            }
+          } else if (message != null) {
+            // Show when clock-in becomes available
+            _availabilityMessage = message;
+          } else {
+            _availabilityMessage = null;
+          }
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error checking shift availability: $e');
+    }
   }
 
   /// Checks if user is already clocked in to a shift
@@ -151,6 +196,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
           _isClockedIn = true;
           _currentShift = shift;
           _clockInTime = DateTime.now();
+          _availabilityMessage = null;  // Clear availability message after successful clock-in
           _startTimer();
           _startAutoLogoutTimer();
         });
@@ -213,6 +259,8 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
           _autoLogoutTimer?.cancel();
         });
         _showMessage('Clocked out and timesheet submitted!');
+        // Check for next available shift after clock-out
+        _checkShiftAvailability();
       } else {
         _showMessage(result['message'], isError: true);
       }
@@ -436,6 +484,20 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
                       ),
 
                     const SizedBox(height: 16),
+
+                    // Availability Message (shows when clock-in window opens)
+                    if (_availabilityMessage != null && !_isClockedIn)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          _availabilityMessage!,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff6B7280),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
 
                     // Timer
                     Container(
