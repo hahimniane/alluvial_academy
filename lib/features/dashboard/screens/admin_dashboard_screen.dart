@@ -5177,6 +5177,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return const Color(0xffF97316);
       case IslamicSubject.seerah:
         return const Color(0xff84CC16);
+      case IslamicSubject.other:
+        return const Color(0xff6B7280);
     }
   }
 
@@ -5198,6 +5200,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return Icons.psychology_rounded;
       case IslamicSubject.seerah:
         return Icons.person_rounded;
+      case IslamicSubject.other:
+        return Icons.school_rounded;
     }
   }
 

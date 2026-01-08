@@ -282,6 +282,15 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       }
     });
     
+    // Periodically check shift availability to enable 1-minute early clock-in
+    // This ensures the button becomes active when the clock-in window opens
+    // Works on both iOS and Android consistently
+    Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!_isClockingIn && !_isCheckingShift && mounted) {
+        _checkForActiveShift();
+      }
+    });
+    
     // DISABLED: Shift monitoring is now handled by backend cloud function
     // to avoid timezone issues and ensure consistency
     // _runPeriodicShiftMonitoring();
@@ -2467,16 +2476,20 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
     if (shouldFillForm == true && mounted) {
       // User chose to complete now - navigate to form
+      // Get the form ID from config (async)
+      final readinessFormId = await ShiftFormService.getReadinessFormId();
+      if (mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => FormScreen(
             timesheetId: timesheetId,
             shiftId: shift.id,
-            autoSelectFormId: ShiftFormService.readinessFormId,
+              autoSelectFormId: readinessFormId,
           ),
         ),
       );
+      }
     } else {
       // User chose "Later" - send a local notification as reminder
       _sendFormReminderNotification(shift, timesheetId);
@@ -2486,6 +2499,9 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   /// Sends a local notification reminding the teacher to complete the form
   Future<void> _sendFormReminderNotification(TeachingShift shift, String timesheetId) async {
     try {
+      // Get the form ID from config
+      final readinessFormId = await ShiftFormService.getReadinessFormId();
+      
       await NotificationService().showLocalNotification(
         id: timesheetId.hashCode,
         title: 'Readiness Form Required',
@@ -2494,7 +2510,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           'type': 'form_required',
           'timesheetId': timesheetId,
           'shiftId': shift.id,
-          'formId': ShiftFormService.readinessFormId,
+          'formId': readinessFormId,
         }),
       );
       _debugLog('📬 Sent form reminder notification for shift ${shift.id}');

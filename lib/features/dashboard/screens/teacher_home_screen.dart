@@ -12,6 +12,7 @@ import '../../tasks/models/task.dart';
 import '../../tasks/services/task_service.dart';
 import '../../../form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
+import '../../forms/screens/teacher_forms_screen.dart';
 import '../../assignments/screens/teacher_assignments_screen.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../../../core/models/teaching_shift.dart';
@@ -1144,7 +1145,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   /// Navigate to FormScreen for a specific shift
   /// Handles both completed shifts (with timesheet) and missed shifts (without timesheet)
-  void _navigateToFormForShift(Map<String, dynamic> shift) {
+  Future<void> _navigateToFormForShift(Map<String, dynamic> shift) async {
     final timesheetId = shift['timesheetId'] as String?;
     final shiftId = shift['shiftId'] as String?;
     final shiftType = shift['type'] as String?; // 'completed' or 'missed'
@@ -1164,13 +1165,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     debugPrint('   - Type: ${shiftType ?? "unknown"}');
     debugPrint('   - TimesheetId: $timesheetId');
     
+    // Get the form ID from config (async)
+    final readinessFormId = await ShiftFormService.getReadinessFormId();
+    
+    if (!mounted) return;
+    
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FormScreen(
           timesheetId: timesheetId, // Can be null for missed shifts
           shiftId: shiftId, // Always required
-          autoSelectFormId: ShiftFormService.readinessFormId,
+          autoSelectFormId: readinessFormId,
         ),
       ),
     ).then((_) {
@@ -1687,7 +1693,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const FormScreen(),
+                      builder: (context) => const TeacherFormsScreen(),
                     ),
                   );
                 },

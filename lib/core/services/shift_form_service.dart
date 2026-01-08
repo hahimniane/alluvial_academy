@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/app_logger.dart';
+import 'form_config_service.dart';
+import 'pilot_flag_service.dart';
+import 'form_template_service.dart';
 
 /// Service to manage the link between shifts/timesheets and readiness forms
 class ShiftFormService {
@@ -16,14 +19,58 @@ class ShiftFormService {
     return null;
   }
 
-  /// The ID of the "Readiness Form" that teachers must fill after each class
-  /// This should be configured in app settings, but we'll use a constant for now
-  static const String readinessFormId = 'Ur1oW7SmFsMyNniTf6jS'; // From screenshot
+  /// Get the readiness form ID from config (async, reads from Firestore)
+  /// For PILOT users: returns the new daily template ID from form_templates
+  /// For REGULAR users: returns the old readiness form ID from form collection
+  static Future<String> getReadinessFormId() async {
+    // Check if current user is in pilot mode
+    final isPilot = await PilotFlagService.isCurrentUserPilot();
+    
+    if (isPilot) {
+      AppLogger.debug('ShiftFormService: Pilot user - using new template system');
+      // Try to get the active daily template ID
+      try {
+        final template = await FormTemplateService.getActiveDailyTemplate();
+        if (template != null && template.id.isNotEmpty) {
+          AppLogger.debug('ShiftFormService: Using pilot template ID: ${template.id}');
+          return template.id;
+        }
+      } catch (e) {
+        AppLogger.error('ShiftFormService: Error getting pilot template: $e');
+      }
+    }
+    
+    // Fallback to old config-based form ID
+    return await FormConfigService.getReadinessFormId();
+  }
+  
+  /// Synchronous getter for backward compatibility - uses cached value or fallback
+  /// WARNING: This may return stale data. Prefer getReadinessFormId() when possible.
+  @Deprecated('Use getReadinessFormId() instead for fresh config values')
+  static String get readinessFormId => 'Ur1oW7SmFsMyNniTf6jS';
 
   /// Get the readiness form template
+  /// For PILOT users: returns the new minimal template from form_templates
+  /// For REGULAR users: returns the old form from form collection
   static Future<Map<String, dynamic>?> getReadinessFormTemplate() async {
     try {
-      final doc = await _firestore.collection('form').doc(readinessFormId).get();
+      // Check if current user is in pilot mode
+      final isPilot = await PilotFlagService.isCurrentUserPilot();
+      
+      if (isPilot) {
+        AppLogger.debug('ShiftFormService: Pilot user - loading new template');
+        // Try to get the active daily template
+        final template = await FormTemplateService.getActiveDailyTemplate();
+        if (template != null) {
+          AppLogger.debug('ShiftFormService: Using pilot template: ${template.name}');
+          // Convert FormTemplate to map format compatible with existing form UI
+          return _convertTemplateToFormFormat(template);
+        }
+      }
+      
+      // Fallback to old form collection
+      final formId = await FormConfigService.getReadinessFormId();
+      final doc = await _firestore.collection('form').doc(formId).get();
       if (doc.exists) {
         return doc.data();
       }
@@ -31,6 +78,59 @@ class ShiftFormService {
     } catch (e) {
       AppLogger.error('ShiftFormService: Error getting readiness form template: $e');
       return null;
+    }
+  }
+  
+  /// Convert new FormTemplate format to old form format for UI compatibility
+  static Map<String, dynamic> _convertTemplateToFormFormat(dynamic template) {
+    // template is a FormTemplate object
+    final fields = <Map<String, dynamic>>[];
+    
+    for (final field in template.fields) {
+      fields.add({
+        'id': field.id,
+        'label': field.label,
+        'type': _mapFieldType(field.type),
+        'placeholder': field.placeholder ?? '',
+        'required': field.required,
+        'order': field.order,
+        'options': field.options,
+        'validation': field.validation,
+      });
+    }
+    
+    return {
+      'id': template.id,
+      'name': template.name,
+      'description': template.description,
+      'fields': fields,
+      'isActive': template.isActive,
+      'version': template.version,
+      'isPilotTemplate': true, // Flag to identify new template system
+    };
+  }
+  
+  /// Map new field types to old field types for UI compatibility
+  static String _mapFieldType(String newType) {
+    switch (newType) {
+      case 'text':
+        return 'openEnded';
+      case 'long_text':
+        return 'longAnswer';
+      case 'number':
+        return 'number';
+      case 'radio':
+        return 'multipleChoice';
+      case 'checkbox':
+        return 'checkbox';
+      case 'date':
+        return 'date';
+      case 'time':
+        return 'time';
+      case 'image':
+        return 'image';
+      default:
+        return 'openEnded';
     }
   }
 
@@ -222,13 +322,17 @@ class ShiftFormService {
       final user = _auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
+      // Get form ID from config
+      final formId = await getReadinessFormId();
+      
       // Get user details
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data() ?? {};
 
-      // Create form response document
+      // Create form response document with yearMonth for monthly grouping
+      final now = DateTime.now();
       final formResponseData = {
-        'formId': readinessFormId,
+        'formId': formId,
         'userId': user.uid,
         'userEmail': user.email,
         'firstName': userData['first_name'] ?? '',
@@ -238,6 +342,8 @@ class ShiftFormService {
         'responses': formResponses,
         'reportedHours': reportedHours,
         'submittedAt': FieldValue.serverTimestamp(),
+        'yearMonth': FormConfigService.getYearMonth(now), // For monthly grouping/audits
+        'status': 'completed',
       };
 
       final docRef = await _firestore.collection('form_responses').add(formResponseData);

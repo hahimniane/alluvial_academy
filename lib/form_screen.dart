@@ -7,20 +7,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
+import 'package:intl/intl.dart';
 import 'core/services/user_role_service.dart';
 import 'core/services/shift_form_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/core/models/form_template.dart';
+import 'package:alluwalacademyadmin/core/services/form_template_service.dart';
+
 class FormScreen extends StatefulWidget {
   final String? timesheetId;
   final String? shiftId;
-  final String? autoSelectFormId; // Auto-select and open a specific form by ID
+  final String? autoSelectFormId; // Auto-select and open a specific form by ID (can be from 'form' or 'form_templates')
+  final FormTemplate? template; // Direct template object (preferred for new templates)
 
   const FormScreen({
     super.key,
     this.timesheetId,
     this.shiftId,
     this.autoSelectFormId,
+    this.template,
   });
 
   @override
@@ -36,12 +42,21 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       {}; // For non-text values like images, booleans
   String searchQuery = '';
   bool _isSubmitting = false;
+  bool _isAutoSelecting = false; // New state to track auto-selection
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final Map<String, bool> _userFormSubmissions = {}; // Track user form submissions
   String? _currentUserRole;
   String? _currentUserId;
   Map<String, dynamic>? _currentUserData;
+  
+  // Google Forms style: Track focused field for visual feedback
+  String? _focusedFieldKey;
+  
+  // Google Forms colors
+  final Color _primaryColor = const Color(0xff673AB7); // Google Forms Purple
+  final Color _accentColor = const Color(0xff0386FF);
+  final Color _backgroundColor = const Color(0xffF0F4F8);
   
   // Platform detection for responsive layouts
   bool get _isMobile {
@@ -69,19 +84,58 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     _loadUserFormSubmissions();
     _loadCurrentUserData();
     
-    // Auto-select form if specified
-    if (widget.autoSelectFormId != null) {
+    // If template is provided directly, use it IMMEDIATELY (no delay)
+    if (widget.template != null) {
+      _isAutoSelecting = true;
+      final formData = _convertTemplateToFormData(widget.template!);
+      // Set form data immediately to avoid showing the list screen
+      selectedFormId = widget.template!.id;
+      selectedFormData = formData;
+      // Load form data asynchronously (for auto-fill, etc.)
+      _handleFormSelection(widget.template!.id, formData).then((_) {
+        if (mounted) {
+          setState(() => _isAutoSelecting = false);
+        }
+      });
+    } else if (widget.autoSelectFormId != null) {
+      // Auto-select form if specified
+      _isAutoSelecting = true;
       _autoSelectForm(widget.autoSelectFormId!);
     }
   }
   
   /// Auto-select a form by ID (used when navigating from clock-out)
+  /// First tries form_templates, then falls back to form collection
   Future<void> _autoSelectForm(String formId) async {
     try {
       AppLogger.debug('FormScreen: Auto-selecting form: $formId');
       debugPrint('📋 FormScreen: Auto-selecting form with ID: $formId');
       debugPrint('📋 FormScreen: timesheetId=${widget.timesheetId}, shiftId=${widget.shiftId}');
       
+      // First, try to find in form_templates (new system)
+      final templateDoc = await FirebaseFirestore.instance
+          .collection('form_templates')
+          .doc(formId)
+          .get();
+      
+      if (templateDoc.exists && mounted) {
+        // Convert template to form format
+        final template = FormTemplate.fromFirestore(templateDoc);
+        final formData = _convertTemplateToFormData(template);
+        debugPrint('✅ FormScreen: Template found - "${template.name}"');
+        
+        // Delay to ensure the widget is fully built
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _handleFormSelection(formId, formData);
+            setState(() => _isAutoSelecting = false);
+            debugPrint('✅ FormScreen: Template selected and displayed');
+          }
+        });
+        return;
+      }
+      
+      // Fallback to old form collection
       final formDoc = await FirebaseFirestore.instance
           .collection('form')
           .doc(formId)
@@ -95,6 +149,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _handleFormSelection(formId, formData);
+            setState(() => _isAutoSelecting = false);
             debugPrint('✅ FormScreen: Form selected and displayed');
           }
         });
@@ -104,10 +159,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         
         // Show error message to user
         if (mounted) {
+          setState(() => _isAutoSelecting = false);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Readiness Form not found (ID: $formId). Please contact admin.'),
+                content: Text('Form not found (ID: $formId). Please contact admin.'),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 5),
               ),
@@ -118,7 +174,48 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     } catch (e) {
       AppLogger.error('FormScreen: Error auto-selecting form: $e');
       debugPrint('❌ FormScreen: Error auto-selecting form: $e');
+      if (mounted) setState(() => _isAutoSelecting = false);
     }
+  }
+  
+  /// Convert FormTemplate to the format expected by FormScreen (legacy form format)
+  Map<String, dynamic> _convertTemplateToFormData(FormTemplate template) {
+    // Convert fields from List<FormFieldDefinition> to Map<String, dynamic>
+    final fieldsMap = <String, dynamic>{};
+    for (var field in template.fields) {
+      fieldsMap[field.id] = {
+        'label': field.label,
+        'type': field.type,
+        'placeholder': field.placeholder,
+        'required': field.required,
+        'order': field.order,
+        if (field.options != null) 'options': field.options,
+        if (field.validation != null) 'validation': field.validation,
+        if (field.conditionalLogic != null) 'conditionalLogic': field.conditionalLogic,
+      };
+    }
+    
+    // Convert autoFillRules to list of maps
+    final autoFillRulesList = template.autoFillRules.map((rule) => {
+      'fieldId': rule.fieldId,
+      'sourceField': rule.sourceFieldString,
+      'editable': rule.editable,
+    }).toList();
+    
+    return {
+      'title': template.name, // Use name as title
+      'description': template.description ?? '',
+      'fields': fieldsMap,
+      'autoFillRules': autoFillRulesList, // Include auto-fill rules
+      'status': template.isActive ? 'active' : 'inactive',
+      'frequency': template.frequency.name,
+      'category': template.category.name,
+      'version': template.version,
+      'createdAt': Timestamp.fromDate(template.createdAt),
+      'updatedAt': Timestamp.fromDate(template.updatedAt),
+      'isTemplate': true, // Flag to indicate this is from form_templates
+      'templateId': template.id, // Keep reference to original template ID
+    };
   }
 
   Future<void> _loadUserFormSubmissions() async {
@@ -239,7 +336,58 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return false;
     }
 
-    final formTitle = formData['title'] ?? 'Untitled Form';
+    final formTitle = (formData['title'] ?? 'Untitled Form').toString().toLowerCase();
+    final isTeacher = _currentUserRole?.toLowerCase() == 'teacher';
+    
+    // Admin-only form keywords (teachers should NOT see these)
+    const adminOnlyKeywords = [
+      'admin',
+      'coach',
+      'leadership',
+      'management',
+      'ceo',
+      'director',
+      'supervisor',
+      'payroll',
+      'paycheck',
+      'salary',
+      'audit',
+      'performance review',
+      'staff evaluation',
+    ];
+    
+    // Teacher-allowed form keywords
+    const teacherAllowedKeywords = [
+      'teacher',
+      'excuse',
+      'student',
+      'class',
+      'lesson',
+      'feedback',
+      'complaint',
+      'assessment',
+      'grade',
+    ];
+    
+    // If teacher, check if form title contains admin-only keywords
+    if (isTeacher) {
+      for (final keyword in adminOnlyKeywords) {
+        if (formTitle.contains(keyword)) {
+          // Exception: if it also contains teacher-allowed keywords
+          bool hasTeacherKeyword = false;
+          for (final tk in teacherAllowedKeywords) {
+            if (formTitle.contains(tk)) {
+              hasTeacherKeyword = true;
+              break;
+            }
+          }
+          if (!hasTeacherKeyword) {
+            AppLogger.debug('Form "$formTitle": Hidden from teacher (admin-only keyword: $keyword)');
+            return false;
+          }
+        }
+      }
+    }
 
     // Get form permissions
     final permissions = formData['permissions'] as Map<String, dynamic>?;
@@ -570,9 +718,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
           // Main content area
           Expanded(
-            child: selectedFormData == null
-                ? _buildWelcomeScreen()
-                : _buildFormView(),
+            child: _isAutoSelecting
+                ? _buildLoadingState()
+                : (selectedFormData == null && widget.template == null)
+                    ? _buildWelcomeScreen() // Only show list if no template provided
+                    : _buildFormView(), // Show form directly if template is provided
           ),
         ],
       ),
@@ -581,7 +731,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   
   Widget _buildMobileLayout() {
     // On mobile, show either the form list OR the selected form
-    if (selectedFormData != null) {
+    if (selectedFormData != null || widget.template != null) {
       // Show the form content with a back button
       return Scaffold(
         backgroundColor: const Color(0xffF8FAFC),
@@ -591,12 +741,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () {
-              setState(() {
-                selectedFormId = null;
-                selectedFormData = null;
-                fieldControllers.clear();
-                fieldValues.clear();
-              });
+              // If template was provided, pop back to previous screen
+              // Otherwise, go back to form list
+              if (widget.template != null) {
+                Navigator.of(context).pop();
+              } else {
+                setState(() {
+                  selectedFormId = null;
+                  selectedFormData = null;
+                  fieldControllers.clear();
+                  fieldValues.clear();
+                });
+              }
             },
           ),
           title: Text(
@@ -730,10 +886,19 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     final status = data['status'] ?? 'active';
                     if (status != 'active') return false;
                     if (!_canAccessForm(data)) return false;
-                    return data['title']
-                        .toString()
-                        .toLowerCase()
-                        .contains(searchQuery);
+                    
+                    // Hide old readiness forms - teachers should use new template system
+                    final title = (data['title'] ?? '').toString().toLowerCase();
+                    final isLegacyReadinessForm = title.contains('readiness') ||
+                        title.contains('class readiness') ||
+                        title.contains('formulaire de préparation');
+                    
+                    // Only admins can see legacy readiness forms (for management)
+                    if (isLegacyReadinessForm && _currentUserRole?.toLowerCase() != 'admin') {
+                      return false;
+                    }
+                    
+                    return title.contains(searchQuery);
                   }).toList();
 
                   if (forms.isEmpty) {
@@ -994,14 +1159,17 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   Widget _buildFormView() {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                 // Form header card
                 Container(
                   width: double.infinity,
@@ -1127,35 +1295,13 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   const SizedBox(height: 16),
                 ],
 
-                // Form fields card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Form Fields',
-                          style: GoogleFonts.inter(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff111827),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                // Form fields - each field is now a separate card (Google Forms style)
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                         // Debug: Check if fields exist
                         if (_getVisibleFields().isEmpty) ...[
                           Container(
@@ -1232,7 +1378,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                               }
 
                               return Padding(
-                                padding: const EdgeInsets.only(bottom: 24),
+                                padding: const EdgeInsets.only(bottom: 16),
                                 child: _buildModernFormField(
                                   fieldEntry.value['label'] ?? 'Untitled Field',
                                   fieldEntry.value['placeholder'] ??
@@ -1289,7 +1435,6 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       ],
                     ),
                   ),
-                ),
 
                 const SizedBox(height: 24),
 
@@ -1308,94 +1453,216 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submitForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xff0386FF),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Use column layout on small screens, row on larger screens
+                      final isSmallScreen = constraints.maxWidth < 400;
+                      
+                      if (isSmallScreen) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isSubmitting ? null : _submitForm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _primaryColor,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: _isSubmitting
+                                    ? Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.white),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Flexible(
+                                            child: Text(
+                                              'Submitting...',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.send, size: 20),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              'Submit Form',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
                             ),
-                          ),
-                          child: _isSubmitting
-                              ? Row(
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: _isSubmitting ? null : _resetForm,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xff6B7280),
+                                  side: const BorderSide(color: Color(0xffE5E7EB)),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 16, horizontal: 24),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                                Colors.white),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Submitting...',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.send, size: 20),
+                                    const Icon(Icons.refresh, size: 20),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      'Submit Form',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                    Flexible(
+                                      child: Text(
+                                        'Reset',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
                                 ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      OutlinedButton(
-                        onPressed: _isSubmitting ? null : _resetForm,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xff6B7280),
-                          side: const BorderSide(color: Color(0xffE5E7EB)),
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 16, horizontal: 24),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.refresh, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Reset',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
+                        );
+                      }
+                      
+                      // Row layout for larger screens
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isSubmitting ? null : _submitForm,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isSubmitting
+                                  ? Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Flexible(
+                                          child: Text(
+                                            'Submitting...',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.send, size: 20),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            'Submit Form',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Flexible(
+                            child: OutlinedButton(
+                              onPressed: _isSubmitting ? null : _resetForm,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xff6B7280),
+                                side: const BorderSide(color: Color(0xffE5E7EB)),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.refresh, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      'Reset',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
         ),
+          );
+        },
       ),
     );
   }
@@ -1409,79 +1676,120 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String fieldKey, {
     List<String>? options,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label with required indicator
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff374151),
+    final bool isFocused = _focusedFieldKey == fieldKey;
+    
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _focusedFieldKey = fieldKey),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isFocused
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  )
+                ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The colored focus indicator on the left (Google Forms style)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: isFocused ? 6 : 0,
+                  color: _primaryColor,
                 ),
-                softWrap: true,
-                overflow: TextOverflow.visible,
-              ),
-            ),
-            if (required) ...[
-              const SizedBox(width: 4),
-              Tooltip(
-                message: 'This field is required',
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffEF4444).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'Required',
-                    style: TextStyle(
-                      color: Color(0xffEF4444),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Question Label
+                        RichText(
+                          text: TextSpan(
+                            text: label,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                            children: [
+                              if (required)
+                                const TextSpan(
+                                  text: ' *',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Render specific input based on type
+                        _renderInputByType(
+                          fieldKey,
+                          type,
+                          controller,
+                          hintText,
+                          options,
+                          required,
+                          label,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-
-        // Field input based on type
-        if (type == 'select' || type == 'dropdown') ...[
-          _buildDropdownField(controller, hintText, options, required, label),
-        ] else if (type == 'multi_select') ...[
-          _buildMultiSelectField(
-              controller, hintText, options, required, label, fieldKey),
-        ] else if (type == 'multiline' ||
-            type == 'long_text' ||
-            type == 'description') ...[
-          _buildTextAreaField(controller, hintText, required, label),
-        ] else if (type == 'date') ...[
-          _buildDateField(controller, hintText, required, label),
-        ] else if (type == 'boolean' ||
-            type == 'yes_no' ||
-            type == 'radio' ||
-            type == 'yesNo') ...[
-          _buildBooleanField(controller, label, fieldKey),
-        ] else if (type == 'number') ...[
-          _buildNumberField(controller, hintText, required, label),
-        ] else if (type == 'image_upload' || type == 'imageUpload') ...[
-          _buildImageField(controller, hintText, required, label),
-        ] else if (type == 'signature') ...[
-          _buildSignatureField(controller, hintText, required, label),
-        ] else ...[
-          _buildTextInputField(controller, hintText, required, label, type),
-        ],
-      ],
+      ),
     );
+  }
+  
+  Widget _renderInputByType(
+    String fieldKey,
+    String type,
+    TextEditingController controller,
+    String hintText,
+    dynamic options,
+    bool required,
+    String label,
+  ) {
+    if (type == 'select' || type == 'dropdown') {
+      return _buildDropdownField(controller, hintText, options, required, label, fieldKey);
+    } else if (type == 'multi_select') {
+      return _buildMultiSelectField(controller, hintText, options, required, label, fieldKey);
+    } else if (type == 'multiline' || type == 'long_text' || type == 'description') {
+      return _buildTextAreaField(controller, hintText, required, label, fieldKey);
+    } else if (type == 'date') {
+      return _buildDateField(controller, hintText, required, label, fieldKey);
+    } else if (type == 'boolean' || type == 'yes_no' || type == 'radio' || type == 'yesNo') {
+      return _buildBooleanField(controller, label, fieldKey);
+    } else if (type == 'number') {
+      return _buildNumberField(controller, hintText, required, label, fieldKey);
+    } else if (type == 'image_upload' || type == 'imageUpload') {
+      return _buildImageField(controller, hintText, required, label, fieldKey);
+    } else if (type == 'signature') {
+      return _buildSignatureField(controller, hintText, required, label, fieldKey);
+    } else {
+      return _buildTextInputField(controller, hintText, required, label, type, fieldKey);
+    }
   }
 
   Widget _buildTextInputField(
@@ -1490,43 +1798,24 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     bool required,
     String label,
     String type,
+    String fieldKey,
   ) {
     return TextFormField(
       controller: controller,
-      maxLines:
-          type == 'text' ? null : 1, // Allow text wrapping for text fields
+      maxLines: type == 'text' ? null : 1,
       minLines: 1,
+      onTap: () => setState(() => _focusedFieldKey = fieldKey),
       decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: GoogleFonts.inter(
-          color: const Color(0xff9CA3AF),
-          fontSize: 14,
-        ),
+        hintText: hintText.isEmpty ? 'Your answer' : hintText,
+        hintStyle: TextStyle(color: Colors.grey[400]),
         filled: true,
-        fillColor: const Color(0xffF9FAFB),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffEF4444)),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
-        ),
-        contentPadding: const EdgeInsets.all(16),
-        prefixIcon: _getFieldIcon(type),
-        alignLabelWithHint: true,
+        fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _primaryColor, width: 2)),
+        errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red)),
+        focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
       ),
       style: GoogleFonts.inter(
         fontSize: 14,
@@ -1559,6 +1848,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     List<String>? options,
     bool required,
     String label,
+    String fieldKey,
   ) {
     return DropdownButtonFormField<String>(
       initialValue: controller.text.isEmpty ? null : controller.text,
@@ -1820,41 +2110,24 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String hintText,
     bool required,
     String label,
+    String fieldKey,
   ) {
     return TextFormField(
       controller: controller,
-      maxLines: null, // Allow unlimited lines
-      minLines: 3, // Start with 3 lines minimum
+      maxLines: null,
+      minLines: 3,
+      onTap: () => setState(() => _focusedFieldKey = fieldKey),
       decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: GoogleFonts.inter(
-          color: const Color(0xff9CA3AF),
-          fontSize: 14,
-        ),
+        hintText: hintText.isEmpty ? 'Your answer' : hintText,
+        hintStyle: TextStyle(color: Colors.grey[400]),
         filled: true,
-        fillColor: const Color(0xffF9FAFB),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffE5E7EB)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffEF4444)),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffEF4444), width: 2),
-        ),
-        contentPadding: const EdgeInsets.all(16),
-        alignLabelWithHint: true,
+        fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _primaryColor, width: 2)),
+        errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red)),
+        focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
       ),
       style: GoogleFonts.inter(
         fontSize: 14,
@@ -1878,6 +2151,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String hintText,
     bool required,
     String label,
+    String fieldKey,
   ) {
     return TextFormField(
       controller: controller,
@@ -2008,6 +2282,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String hintText,
     bool required,
     String label,
+    String fieldKey,
   ) {
     return TextFormField(
       controller: controller,
@@ -2072,6 +2347,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String hintText,
     bool required,
     String label,
+    String fieldKey,
   ) {
     final fieldKey = selectedFormData!['fields'].keys.firstWhere(
           (key) => selectedFormData!['fields'][key]['label'] == label,
@@ -2261,6 +2537,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String hintText,
     bool required,
     String label,
+    String fieldKey,
   ) {
     final fieldKey = selectedFormData!['fields'].keys.firstWhere(
           (key) => selectedFormData!['fields'][key]['label'] == label,
@@ -2569,7 +2846,56 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return '$count field${count != 1 ? 's' : ''}';
   }
 
-  void _handleFormSelection(String formId, Map<String, dynamic> formData) {
+  Future<void> _handleFormSelection(String formId, Map<String, dynamic> formData) async {
+    // SECURITY CHECK: Orphan Prevention
+    // If this is the Readiness Form but we don't have a shiftId (context),
+    // we MUST force the user to select which class they are reporting for.
+    final readinessFormId = await ShiftFormService.getReadinessFormId();
+    
+    if (formId == readinessFormId && widget.shiftId == null) {
+      if (mounted) {
+        final selectedShift = await _showShiftSelectionDialog();
+        if (selectedShift != null) {
+          // User selected a shift - inject context and proceed
+          if (mounted) {
+            // We need to reload the screen with the new context
+            // Easier to push a new instance of FormScreen with the context
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FormScreen(
+                  timesheetId: selectedShift['timesheetId'],
+                  shiftId: selectedShift['shiftId'],
+                  autoSelectFormId: formId,
+                ),
+              ),
+            );
+            return;
+          }
+        } else {
+          // User cancelled selection - do not open the form
+          return;
+        }
+      }
+    }
+
+    // Fetch shift data if shiftId is provided (for auto-fill)
+    Map<String, dynamic>? shiftData;
+    if (widget.shiftId != null) {
+      try {
+        final shiftDoc = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(widget.shiftId)
+            .get();
+        if (shiftDoc.exists) {
+          shiftData = shiftDoc.data();
+          debugPrint('✅ Shift data loaded for auto-fill: ${shiftData?.keys}');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error fetching shift data for auto-fill: $e');
+      }
+    }
+
     if (mounted) {
       setState(() {
         selectedFormId = formId;
@@ -2582,14 +2908,40 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         fieldControllers.clear();
         fieldValues.clear();
 
-        // Create new controllers for form fields
+        // Get autoFillRules if present
+        final autoFillRules = formData['autoFillRules'] as List<dynamic>? ?? [];
+
+        // Create new controllers for form fields with auto-fill support
         final fields = formData['fields'] as Map<String, dynamic>?;
         if (fields != null) {
           AppLogger.debug('FormScreen: Creating controllers for ${fields.length} fields');
           fields.forEach((fieldId, fieldData) {
             AppLogger.debug(
                 'FormScreen: Creating controller for field: $fieldId (type: ${fieldId.runtimeType})');
-            fieldControllers[fieldId] = TextEditingController();
+            
+            // Check if this field has an autoFillRule
+            String? autoFilledValue;
+            for (var rule in autoFillRules) {
+              if (rule is Map<String, dynamic> && rule['fieldId'] == fieldId) {
+                final sourceField = rule['sourceField'] as String?;
+                final editable = rule['editable'] as bool? ?? false;
+                
+                // Apply auto-fill from shift data if available
+                if (shiftData != null && sourceField != null) {
+                  autoFilledValue = _getAutoFillValue(shiftData, sourceField);
+                  debugPrint('✅ Auto-filled $fieldId = $autoFilledValue (editable: $editable)');
+                }
+                break;
+              }
+            }
+            
+            // Initialize controller with auto-filled value if available
+            fieldControllers[fieldId] = TextEditingController(text: autoFilledValue ?? '');
+            
+            // Store auto-filled values in fieldValues for non-text fields
+            if (autoFilledValue != null) {
+              fieldValues[fieldId] = autoFilledValue;
+            }
           });
           AppLogger.debug(
               'FormScreen: Controllers created for keys: ${fieldControllers.keys.toList()}');
@@ -2601,6 +2953,148 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     }
 
     _animationController.forward();
+  }
+  
+  /// Get auto-fill value from shift data based on sourceField
+  String? _getAutoFillValue(Map<String, dynamic> shiftData, String sourceField) {
+    switch (sourceField) {
+      case 'shiftId':
+        return widget.shiftId;
+      case 'shift.subjectDisplayName':
+      case 'subject':
+        return shiftData['subject'] as String?;
+      case 'shift.studentNames':
+      case 'students':
+        final students = shiftData['students'] as List<dynamic>?;
+        return students?.join(', ');
+      case 'shift.duration':
+      case 'duration':
+        final start = (shiftData['shift_start'] as Timestamp?)?.toDate();
+        final end = (shiftData['shift_end'] as Timestamp?)?.toDate();
+        if (start != null && end != null) {
+          final duration = end.difference(start).inMinutes / 60;
+          return duration.toStringAsFixed(2);
+        }
+        return null;
+      case 'shift.classType':
+      case 'classType':
+        return shiftData['type'] as String?;
+      case 'shift.clockInTime':
+      case 'clockInTime':
+        final clockIn = (shiftData['clock_in'] as Timestamp?)?.toDate();
+        return clockIn != null ? DateFormat('h:mm a').format(clockIn) : null;
+      case 'shift.clockOutTime':
+      case 'clockOutTime':
+        final clockOut = (shiftData['clock_out'] as Timestamp?)?.toDate();
+        return clockOut != null ? DateFormat('h:mm a').format(clockOut) : null;
+      case 'teacherName':
+        return _currentUserData?['firstName'] != null && _currentUserData?['lastName'] != null
+            ? '${_currentUserData!['firstName']} ${_currentUserData!['lastName']}'
+            : null;
+      case 'teacherEmail':
+        return FirebaseAuth.instance.currentUser?.email;
+      default:
+        // For unknown fields, try direct lookup in shift data
+        return shiftData[sourceField]?.toString();
+    }
+  }
+
+  /// Show dialog to select a shift for linkage
+  Future<Map<String, dynamic>?> _showShiftSelectionDialog() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Fetch pending forms
+      final pendingShifts = await ShiftFormService.getPendingFormsForTeacher();
+      
+      if (!mounted) return null;
+      Navigator.pop(context); // Close loading
+
+      if (pendingShifts.isEmpty) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('No Pending Classes'),
+            content: const Text(
+              'You have no recent classes that are missing reports.\n\n'
+              'If you are trying to submit a report for an older class, please contact your admin.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return null;
+      }
+
+      return await showDialog<Map<String, dynamic>>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Select Class'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Please select which class this report is for:',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: pendingShifts.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final shift = pendingShifts[index];
+                      final title = shift['shiftTitle'] ?? 'Unknown Class';
+                      final type = shift['type'] == 'missed' ? 'Missed Clock-in' : 'Completed';
+                      final date = shift['shiftStart'] ?? shift['clockInTime'];
+                      String dateStr = '';
+                      if (date != null) {
+                        if (date is Timestamp) {
+                          dateStr = DateFormat('MMM d, h:mm a').format(date.toDate());
+                        } else if (date is DateTime) {
+                          dateStr = DateFormat('MMM d, h:mm a').format(date);
+                        }
+                      }
+
+                      return ListTile(
+                        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('$dateStr • $type'),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () => Navigator.pop(context, shift),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading if error
+      AppLogger.error('Error fetching pending shifts: $e');
+      return null;
+    }
   }
 
   // Get fields that should be visible based on conditional logic
@@ -3322,8 +3816,97 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       final userFirstName = userData.data()?['first_name'] as String? ?? '';
       final userLastName = userData.data()?['last_name'] as String? ?? '';
 
+      // Generate yearMonth for monthly grouping/audits based on SHIFT date, not submission date
+      String yearMonth;
+      if (widget.timesheetId != null) {
+        // Get yearMonth from timesheet (which has shift info)
+        final timesheetDoc = await FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .doc(widget.timesheetId)
+            .get();
+        if (timesheetDoc.exists) {
+          final tsData = timesheetDoc.data()!;
+          final shiftId = tsData['shift_id'] as String?;
+          if (shiftId != null) {
+            final shiftDoc = await FirebaseFirestore.instance
+                .collection('teaching_shifts')
+                .doc(shiftId)
+                .get();
+            if (shiftDoc.exists) {
+              final shiftData = shiftDoc.data()!;
+              final shiftStart = (shiftData['shift_start'] as Timestamp).toDate();
+              yearMonth = '${shiftStart.year}-${shiftStart.month.toString().padLeft(2, '0')}';
+            } else {
+              // Fallback to current month if shift not found
+              final now = DateTime.now();
+              yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+            }
+          } else {
+            // Fallback to current month if shift_id not found
+            final now = DateTime.now();
+            yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+          }
+        } else {
+          // Fallback to current month if timesheet not found
+          final now = DateTime.now();
+          yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        }
+      } else if (widget.shiftId != null) {
+        // Get yearMonth directly from shift
+        final shiftDoc = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(widget.shiftId)
+            .get();
+        if (shiftDoc.exists) {
+          final shiftData = shiftDoc.data()!;
+          final shiftStart = (shiftData['shift_start'] as Timestamp).toDate();
+          yearMonth = '${shiftStart.year}-${shiftStart.month.toString().padLeft(2, '0')}';
+        } else {
+          // Fallback to current month if shift not found
+          final now = DateTime.now();
+          yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        }
+      } else {
+        // Fallback to current month if no shift/timesheet info
+        final now = DateTime.now();
+        yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      }
+      
+      // Determine if this is a template-based form
+      final isTemplate = selectedFormData?['isTemplate'] == true;
+      final templateId = selectedFormData?['templateId'] as String?;
+      
+      // Get form name/title for better identification
+      final formName = selectedFormData?['title'] as String? ?? 
+                      selectedFormData?['name'] as String? ?? 
+                      'Untitled Form';
+      
+      // Get form type for audit system (daily, weekly, monthly, onDemand)
+      final frequency = selectedFormData?['frequency'] as String?;
+      String formType = 'legacy'; // Default for old forms
+      if (frequency != null) {
+        switch (frequency) {
+          case 'perSession':
+            formType = 'daily';
+            break;
+          case 'weekly':
+            formType = 'weekly';
+            break;
+          case 'monthly':
+            formType = 'monthly';
+            break;
+          case 'onDemand':
+            formType = 'onDemand';
+            break;
+        }
+      }
+      
       final Map<String, dynamic> submissionData = {
         'formId': selectedFormId,
+        'formName': formName, // Store form name for easier identification
+        'formType': formType, // Store form type for audit system
+        if (isTemplate && templateId != null) 'templateId': templateId, // Store template ID for new system
+        if (frequency != null) 'frequency': frequency, // Store frequency for filtering
         'userId': currentUser.uid,
         'userEmail': currentUser.email,
         'userFirstName': userFirstName,
@@ -3332,6 +3915,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         'submittedAt': FieldValue.serverTimestamp(),
         'status': 'completed',
         'lastUpdated': FieldValue.serverTimestamp(),
+        'yearMonth': yearMonth, // For monthly grouping and audits
       };
 
       // Add linkage IDs if present

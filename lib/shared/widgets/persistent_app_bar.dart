@@ -426,7 +426,9 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
           () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => const FirebaseInitializer()),
+              settings: const RouteSettings(name: '/login'),
+              builder: (context) => const AuthenticationWrapper(showLogin: true),
+            ),
           ),
         ),
         const SizedBox(width: 16),
@@ -436,7 +438,9 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
           () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => const FirebaseInitializer()),
+              settings: const RouteSettings(name: '/signup'),
+              builder: (context) => const AuthenticationWrapper(showLogin: true),
+            ),
           ),
         ),
       ],
@@ -585,7 +589,9 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const FirebaseInitializer()),
+                          settings: const RouteSettings(name: '/login'),
+                          builder: (context) => const AuthenticationWrapper(showLogin: true),
+                        ),
                       );
                     },
                   ),
@@ -598,7 +604,9 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const FirebaseInitializer()),
+                          settings: const RouteSettings(name: '/signup'),
+                          builder: (context) => const AuthenticationWrapper(showLogin: true),
+                        ),
                       );
                     },
                   ),

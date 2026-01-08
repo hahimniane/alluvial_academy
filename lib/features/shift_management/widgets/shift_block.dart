@@ -389,6 +389,8 @@ class _ShiftBlockState extends State<ShiftBlock> {
         return 'Tafseer';
       case IslamicSubject.seerah:
         return 'Seerah';
+      case IslamicSubject.other:
+        return 'Other Subject';
     }
   }
 

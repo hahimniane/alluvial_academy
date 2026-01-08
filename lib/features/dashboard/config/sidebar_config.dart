@@ -82,6 +82,20 @@ class SidebarConfig {
             screenIndex: 11,
             colorValue: 0xff14B8A6,
           ),
+          const SidebarItem(
+            id: 'audits',
+            label: 'Audits',
+            icon: Icons.assessment,
+            screenIndex: 19,
+            colorValue: 0xffDC2626,
+          ),
+          const SidebarItem(
+            id: 'subject_rates',
+            label: 'Subject Rates',
+            icon: Icons.attach_money,
+            screenIndex: 20,
+            colorValue: 0xff059669,
+          ),
         ],
       ),
       SidebarSection(
@@ -161,6 +175,13 @@ class SidebarConfig {
             icon: Icons.settings,
             screenIndex: 18,
             colorValue: 0xff6B7280,
+          ),
+          const SidebarItem(
+            id: 'test_audit',
+            label: 'Test Audit Génération',
+            icon: Icons.play_arrow,
+            screenIndex: 22,
+            colorValue: 0xff10B981,
           ),
           const SidebarItem(
             id: 'roles',
@@ -249,8 +270,21 @@ class SidebarConfig {
             id: 'submit_form',
             label: 'Submit Form',
             icon: Icons.description,
-            screenIndex: 8,
+            screenIndex: 23, // Changed to TeacherFormsScreen (new template system)
             colorValue: 0xffEC4899,
+          ),
+        ],
+      ),
+      SidebarSection(
+        id: 'reports',
+        title: 'Reports',
+        items: [
+          const SidebarItem(
+            id: 'my_audit',
+            label: 'My Report',
+            icon: Icons.assessment,
+            screenIndex: 21,
+            colorValue: 0xffDC2626,
           ),
         ],
       ),

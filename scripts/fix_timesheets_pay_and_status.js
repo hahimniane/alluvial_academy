@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 /**
  * Comprehensive script to fix all timesheet and shift issues:
- * 1. Fix shifts that are still "active" but should be completed
- * 2. Fix payment amounts that are 0 but should have values
- * 3. Fix overpaid shifts (> hourly rate for scheduled duration)
- * 4. Ensure payment_amount is set correctly in all timesheet entries
+ * 1. Process ALL shifts (regardless of status) and fix status if needed
+ * 2. Fix payment amounts for ALL timesheets based on actual time worked
+ * 3. Ensure payment ALWAYS matches time worked - recalculate if ANY mismatch found
+ * 4. Fix approved shifts/timesheets where payment doesn't reflect actual work time
+ * 5. Fix overpaid shifts (> hourly rate for scheduled duration)
+ * 6. Fix underpaid shifts (payment less than time worked * hourly rate)
+ * 
+ * This script will:
+ * - Process all shifts in the database (not filtered by status)
+ * - Check ALL timesheets and compare payment against actual time worked
+ * - Fix payment even if timesheet is already approved
+ * - Recalculate payment based on: billable minutes * hourly rate
  * 
  * Usage:
  *   node scripts/fix_timesheets_pay_and_status.js [--dry-run]
@@ -70,18 +78,19 @@ async function fixAllIssues() {
     timesheetsChecked: 0,
     zeroPayFixed: 0,
     overpaidFixed: 0,
+    mismatchedPayFixed: 0, // Payment doesn't match time worked
+    approvedPayFixed: 0, // Approved but payment is wrong
     errors: []
   };
 
   try {
     // Step 1: Fix shifts that are still "active" but should be completed
-    console.log('📋 Step 1: Fixing shifts that should be completed...');
-    const shiftsSnapshot = await db.collection('teaching_shifts')
-      .where('status', 'in', ['active', 'scheduled'])
-      .get();
+    // Process ALL shifts to ensure status matches actual completion
+    console.log('📋 Step 1: Checking ALL shifts for status issues...');
+    const shiftsSnapshot = await db.collection('teaching_shifts').get();
     
     stats.shiftsChecked = shiftsSnapshot.docs.length;
-    console.log(`   Found ${stats.shiftsChecked} active/scheduled shifts to check\n`);
+    console.log(`   Found ${stats.shiftsChecked} shifts to check\n`);
 
     let shiftBatch = db.batch();
     let shiftBatchCount = 0;
@@ -99,8 +108,13 @@ async function fixAllIssues() {
 
       const now = new Date();
       
-      // If shift end time has passed, check if it should be completed
-      if (shiftEnd < now) {
+      // Check all shifts - fix status if it doesn't match actual completion
+      // Process shifts where end time has passed OR where status doesn't match completion
+      const shouldCheckStatus = shiftEnd < now || 
+        (shiftData.status === 'active' && shiftEnd < now) ||
+        (shiftData.status === 'scheduled' && shiftEnd < now);
+      
+      if (shouldCheckStatus) {
         // Get timesheet entries for this shift
         const timesheetsSnapshot = await db.collection('timesheet_entries')
           .where('shift_id', '==', shiftId)
@@ -238,35 +252,54 @@ async function fixAllIssues() {
       
       // Get current payment
       const currentPayment = timesheetData.payment_amount || timesheetData.total_pay || 0;
+      const timesheetStatus = timesheetData.status || 'pending';
       
       // Check if payment needs fixing
       let needsFix = false;
+      let fixReason = '';
       const updateData = {};
       
-      // Fix zero payment
-      if (currentPayment === 0 && billableMinutes > 0) {
+      // Tolerance for rounding differences (1 cent)
+      const paymentTolerance = 0.01;
+      const paymentMismatch = Math.abs(currentPayment - correctPayment) > paymentTolerance;
+      
+      // ALWAYS check if payment matches time worked - regardless of status (including approved)
+      // This includes cases where billableMinutes is 0 (payment should be 0) or where payment doesn't match
+      if (paymentMismatch) {
         updateData.payment_amount = correctPayment;
         updateData.total_pay = correctPayment;
-        updateData.hourly_rate = hourlyRate;
+        if (billableMinutes > 0) {
+          updateData.hourly_rate = hourlyRate;
+        }
         needsFix = true;
-        stats.zeroPayFixed++;
-      }
-      
-      // Fix overpayment (more than scheduled duration * hourly rate)
-      const maxPayment = (scheduledDuration / 60.0) * hourlyRate;
-      if (currentPayment > maxPayment + 0.01) { // Add small tolerance for rounding
-        updateData.payment_amount = correctPayment;
-        updateData.total_pay = correctPayment;
-        updateData.hourly_rate = hourlyRate;
-        needsFix = true;
-        stats.overpaidFixed++;
-        console.log(`   ⚠️  Overpaid: ${timesheetId} - Current: $${currentPayment.toFixed(2)}, Correct: $${correctPayment.toFixed(2)} (${billableMinutes} min @ $${hourlyRate}/hr)`);
-      }
-      
-      // Ensure payment_amount is set even if it's correct
-      if (!timesheetData.payment_amount && currentPayment > 0) {
-        updateData.payment_amount = correctPayment;
-        needsFix = true;
+        
+        if (billableMinutes === 0 && currentPayment > paymentTolerance) {
+          stats.zeroPayFixed++;
+          fixReason = 'no work time but has payment';
+        } else if (currentPayment === 0 && billableMinutes > 0) {
+          stats.zeroPayFixed++;
+          fixReason = 'zero payment';
+        } else if (currentPayment > correctPayment + paymentTolerance) {
+          stats.overpaidFixed++;
+          fixReason = 'overpaid';
+        } else {
+          stats.mismatchedPayFixed++;
+          fixReason = 'underpaid/mismatch';
+        }
+        
+        // Track approved timesheets that are being fixed
+        if (timesheetStatus === 'approved') {
+          stats.approvedPayFixed++;
+          console.log(`   ⚠️  APPROVED timesheet mismatch: ${timesheetId} - Status: ${timesheetStatus}, Current: $${currentPayment.toFixed(2)}, Correct: $${correctPayment.toFixed(2)} (${billableMinutes} min @ $${hourlyRate}/hr) - ${fixReason}`);
+        } else {
+          console.log(`   ⚠️  Payment mismatch: ${timesheetId} - Status: ${timesheetStatus}, Current: $${currentPayment.toFixed(2)}, Correct: $${correctPayment.toFixed(2)} (${billableMinutes} min @ $${hourlyRate}/hr) - ${fixReason}`);
+        }
+      } else if (billableMinutes > 0) {
+        // Ensure payment_amount field exists even if payment is correct
+        if (!timesheetData.payment_amount && currentPayment > 0) {
+          updateData.payment_amount = correctPayment;
+          needsFix = true;
+        }
       }
 
       if (needsFix && !DRY_RUN) {
@@ -301,6 +334,8 @@ async function fixAllIssues() {
     console.log(`   Timesheets fixed: ${stats.timesheetsFixed}`);
     console.log(`   Zero payment fixed: ${stats.zeroPayFixed}`);
     console.log(`   Overpaid fixed: ${stats.overpaidFixed}`);
+    console.log(`   Payment mismatch fixed: ${stats.mismatchedPayFixed}`);
+    console.log(`   Approved timesheets fixed: ${stats.approvedPayFixed}`);
 
     if (stats.errors.length > 0) {
       console.log(`\n⚠️  Errors encountered: ${stats.errors.length}`);

@@ -241,24 +241,16 @@ class FlutterZoomMeetingSdkPlugin : FlutterPlugin, MethodCallHandler {
             )
         }
 
-        val meetingService = ZoomSDK.getInstance().meetingService
-            ?: return StandardZoomResponse(
-                isSuccess = false,
-                message = "MSG_MEETING_SERVICE_NOT_AVAILABLE",
-                action = action
-            )
-
-        val result = meetingService.claimHostWithHostKey(hostKey)
-        // Zoom Android SDK returns boolean for this method in some versions, or uses a listener
-        // In recent versions it returns boolean.
-        
+        // Note: claimHostWithHostKey is not available in the current Zoom SDK version
+        // This feature is disabled until the SDK is updated
         return StandardZoomResponse(
-            isSuccess = result,
-            message = if (result) "MSG_CLAIM_HOST_SUCCESS" else "MSG_CLAIM_HOST_FAILED",
+            isSuccess = false,
+            message = "MSG_CLAIM_HOST_NOT_SUPPORTED",
             action = action,
             params = mapOf(
-                "statusCode" to if (result) 0 else 1,
-                "statusLabel" to if (result) "SUCCESS" else "FAILED"
+                "statusCode" to 1,
+                "statusLabel" to "NOT_SUPPORTED",
+                "reason" to "claimHostWithHostKey is not available in this SDK version"
             )
         )
     }

@@ -80,7 +80,10 @@ class _ModernHeaderState extends State<ModernHeader> {
               _buildNavLink('Log in', () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
+                  MaterialPageRoute(
+                    settings: const RouteSettings(name: '/login'),
+                    builder: (context) => const AuthenticationWrapper(showLogin: true),
+                  ),
                 );
               }),
               const SizedBox(width: 16),
@@ -92,12 +95,24 @@ class _ModernHeaderState extends State<ModernHeader> {
                   IconButton(
                     icon: const Icon(Icons.app_registration_rounded, color: Color(0xff3B82F6)),
                     tooltip: 'Enroll',
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProgramSelectionPage())),
+                    onPressed: () => Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/enroll'),
+                        builder: (context) => const ProgramSelectionPage(),
+                      ),
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.login_rounded, color: Color(0xff111827)),
                     tooltip: 'Log in',
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FirebaseInitializer())),
+                    onPressed: () => Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/login'),
+                        builder: (context) => const AuthenticationWrapper(showLogin: true),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
@@ -202,7 +217,10 @@ class _ModernHeaderState extends State<ModernHeader> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const FirebaseInitializer()),
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/signup'),
+              builder: (context) => const AuthenticationWrapper(showLogin: true),
+            ),
           );
         },
         style: ElevatedButton.styleFrom(
@@ -567,7 +585,13 @@ class _ModernHeaderState extends State<ModernHeader> {
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const FirebaseInitializer()));
+                      Navigator.push(
+                        context, 
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/login'),
+                          builder: (context) => const AuthenticationWrapper(showLogin: true),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff111827),
