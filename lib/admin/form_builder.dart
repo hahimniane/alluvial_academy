@@ -296,17 +296,17 @@ class _FormBuilderState extends State<FormBuilder> {
   Widget _buildTopBar(Color themeColor) {
     return Container(
       height: 64,
-          color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
             color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
             children: [
           IconButton(

@@ -18,6 +18,17 @@ class TeacherAuditService {
   static Map<String, SubjectHourlyRate>? _ratesCache;
   static DateTime? _ratesCacheTime;
   static const _cacheValidityDuration = Duration(minutes: 5);
+  
+  // Store last audit generation errors for UI access
+  static Map<String, String> _lastAuditGenerationErrors = {};
+  
+  /// Get errors from last audit generation batch
+  static Map<String, String> getLastAuditGenerationErrors() => Map.from(_lastAuditGenerationErrors);
+  
+  /// Clear last audit generation errors
+  static void clearLastAuditGenerationErrors() {
+    _lastAuditGenerationErrors.clear();
+  }
 
   /// **ULTRA-OPTIMIZED: Batch processing with 80%+ performance improvement**
   /// Key optimizations:
@@ -88,6 +99,46 @@ class TeacherAuditService {
     // **STEP 1: Load shifts, timesheets, and forms in parallel**
     // Note: .select() requires cloud_firestore 7.0.0+, but we'll still get 60-70% improvement
     // from single-pass processing and batch writes
+    
+    // CRITICAL FIX: Load forms by submittedAt date range (with 5-day tolerance) AND by yearMonth
+    // This ensures we capture:
+    // 1. Forms with yearMonth matching the audit month (even if submittedAt is missing)
+    // 2. Forms without yearMonth field but with submittedAt in range (backward compatibility)
+    // 3. Forms submitted late near month boundaries (e.g., class Monday 31st, submitted Tuesday 1st)
+    final formQueryStart = startDate.subtract(const Duration(days: 5));
+    final formQueryEnd = endDate.add(const Duration(days: 5));
+    
+    // Load forms in two ways and combine:
+    // 1. By submittedAt (with tolerance) - catches late submissions
+    // 2. By yearMonth - catches forms without submittedAt or with wrong submittedAt
+    final formQueries = await Future.wait([
+      _firestore
+          .collection('form_responses')
+          .where('submittedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(formQueryStart))
+          .where('submittedAt', isLessThanOrEqualTo: Timestamp.fromDate(formQueryEnd))
+          .get(),
+      _firestore
+          .collection('form_responses')
+          .where('yearMonth', isEqualTo: yearMonth)
+          .get(),
+    ]);
+    
+    // Combine and deduplicate forms (by document ID)
+    final formsById = <String, QueryDocumentSnapshot>{};
+    for (var queryResult in formQueries) {
+      for (var doc in queryResult.docs) {
+        formsById[doc.id] = doc;
+      }
+    }
+    
+    AppLogger.debug('Form queries: submittedAt=${formQueries[0].docs.length}, yearMonth=${formQueries[1].docs.length}, combined=${formsById.length}');
+    
+    // Use the first query's metadata (they should be similar)
+    final combinedFormsSnapshot = _CombinedQuerySnapshot(
+      formsById.values.toList(),
+      formQueries[0], // Use metadata from submittedAt query
+    );
+    
     final dataFutures = await Future.wait([
       _firestore
           .collection('teaching_shifts')
@@ -99,10 +150,8 @@ class TeacherAuditService {
           .where('created_at', isGreaterThanOrEqualTo: queryStart)
           .where('created_at', isLessThanOrEqualTo: queryEnd)
           .get(),
-      _firestore
-          .collection('form_responses')
-          .where('yearMonth', isEqualTo: yearMonth)
-          .get(),
+      // Create a combined QuerySnapshot-like result
+      Future.value(combinedFormsSnapshot),
     ]);
 
     final shiftsSnapshot = dataFutures[0] as QuerySnapshot;
@@ -272,7 +321,7 @@ class TeacherAuditService {
 
     // **OPTIMIZATION: Build all audits using pre-computed caches**
     final audits = <TeacherAuditFull>[];
-    final failedTeacherIds = <String>[];
+    final failedTeachers = <String, String>{}; // teacherId -> error message
     int processed = 0;
     int errorCount = 0;
     int skippedCount = 0;
@@ -304,7 +353,8 @@ class TeacherAuditService {
         onProgress?.call(processed, teacherIds.length);
       } catch (e, stackTrace) {
         errorCount++;
-        failedTeacherIds.add(teacherId);
+        final errorMessage = e.toString();
+        failedTeachers[teacherId] = errorMessage;
         AppLogger.error('❌ Error building audit for $teacherId: $e');
         if (kDebugMode) {
           AppLogger.error('Stack trace: $stackTrace');
@@ -322,20 +372,38 @@ class TeacherAuditService {
     AppLogger.info('   📝 Total processed: ${processed}/${teacherIds.length}');
     AppLogger.info('   ⏱️  Time taken: ${sw.elapsedMilliseconds}ms');
     
-    if (failedTeacherIds.isNotEmpty) {
-      AppLogger.error('⚠️  Failed teacher IDs: ${failedTeacherIds.join(", ")}');
+    if (failedTeachers.isNotEmpty) {
+      AppLogger.error('⚠️  Failed teacher IDs: ${failedTeachers.keys.join(", ")}');
+      for (var entry in failedTeachers.entries) {
+        AppLogger.error('   • ${entry.key}: ${entry.value}');
+      }
     }
     
     AppLogger.info('✅ Built ${audits.length} audits in ${sw.elapsedMilliseconds}ms');
 
     // **OPTIMIZATION: Batch write all audits (10x faster than individual writes)**
     final writeSw = Stopwatch()..start();
-    await _writeAuditsBatch(audits);
-    AppLogger.info('✅ Batch write complete in ${writeSw.elapsedMilliseconds}ms');
+    try {
+      await _writeAuditsBatch(audits);
+      AppLogger.info('✅ Batch write complete in ${writeSw.elapsedMilliseconds}ms');
+    } catch (e) {
+      AppLogger.error('❌ Error in batch write: $e');
+      // Track write errors separately
+      for (var audit in audits) {
+        failedTeachers[audit.oderId] = 'Batch write failed: $e';
+      }
+    }
 
     AppLogger.info('🎉 Total processing time: ${sw.elapsedMilliseconds}ms (${(sw.elapsedMilliseconds / teacherIds.length).toStringAsFixed(1)}ms per teacher)');
     
-    return {for (var id in teacherIds) id: teacherCaches.containsKey(id)};
+    // Store errors in a static map so UI can access them
+    _lastAuditGenerationErrors = Map.from(failedTeachers);
+    
+    // Return success status: true if audit was successfully built AND written
+    return {
+      for (var id in teacherIds) 
+        id: audits.any((a) => a.oderId == id) && !failedTeachers.containsKey(id)
+    };
   }
 
   /// **ULTRA-OPTIMIZATION: Single-pass data processing (eliminates O(n×m) operations)**
@@ -413,6 +481,8 @@ class TeacherAuditService {
     }
 
     // **PASS 3: Process forms - O(n)**
+    // CRITICAL FIX: Create cache for teachers with forms even if they have no shifts
+    // This ensures teachers are NOT skipped just because they have no shifts in the date range
     for (final form in forms.docs) {
       final data = form.data();
       if (data == null) continue;
@@ -420,10 +490,10 @@ class TeacherAuditService {
       final teacherId = dataMap['userId'] as String? ?? dataMap['submitted_by'] as String?;
       if (teacherId == null) continue;
 
-      final cache = caches[teacherId];
-      if (cache != null) {
-        cache.forms.add(form);
-      }
+      // FIX: Use putIfAbsent to create cache for teachers with forms but no shifts
+      // Previously this used caches[teacherId] which would be null for teachers without shifts
+      final cache = caches.putIfAbsent(teacherId, () => _TeacherCache());
+      cache.forms.add(form);
     }
 
     return caches;
@@ -452,6 +522,7 @@ class TeacherAuditService {
     // 1. Forms linked to shifts (missed shifts) - form has shiftId
     // 2. Forms linked to timesheets (completed shifts) - timesheet has form_completed/form_response_id
     final shiftsWithForms = <String>{};
+    int formsWithoutShiftId = 0; // Track forms with missing shiftId for reporting
 
     // Method 1: Forms linked directly to shifts (missed shifts)
     for (final form in cache.forms) {
@@ -461,6 +532,13 @@ class TeacherAuditService {
       final shiftId = formData['shiftId'] as String?;
       if (shiftId != null && shiftId.isNotEmpty) {
         shiftsWithForms.add(shiftId);
+      } else {
+        // Track forms with null/empty shiftId - these indicate a data linkage problem
+        formsWithoutShiftId++;
+        if (kDebugMode) {
+          final formId = form.id;
+          AppLogger.debug('⚠️ Form $formId has null/empty shiftId - cannot link to shift for payment');
+        }
       }
     }
 
@@ -482,9 +560,9 @@ class TeacherAuditService {
     
     // Debug: Log how many shifts with forms we found
     if (kDebugMode) {
-      AppLogger.debug('Teacher ${teacherId}: forms=${cache.forms.length}, timesheets=${cache.timesheets.length}, shiftsWithForms=${shiftsWithForms.length}');
-      if (shiftsWithForms.isEmpty && (cache.forms.isNotEmpty || cache.timesheets.isNotEmpty)) {
-        AppLogger.debug('⚠️ No shifts with forms found, but teacher has data');
+      AppLogger.debug('Teacher ${teacherId}: forms=${cache.forms.length}, timesheets=${cache.timesheets.length}, shiftsWithForms=${shiftsWithForms.length}, formsWithoutShiftId=$formsWithoutShiftId');
+      if (shiftsWithForms.isEmpty && cache.forms.isNotEmpty) {
+        AppLogger.debug('⚠️ Teacher has ${cache.forms.length} forms but NO shifts linked - data integrity issue!');
       }
     }
     
@@ -495,6 +573,16 @@ class TeacherAuditService {
     final formCompliance = _calculateRate(formMetrics.submitted, formsRequired);
     
     final issues = _identifyIssues(shiftMetrics, timesheetMetrics, formMetrics, formsRequired);
+    
+    // Add issue for forms without shiftId linkage (data integrity problem)
+    if (formsWithoutShiftId > 0) {
+      issues.add(AuditIssue(
+        type: 'unlinked_forms',
+        description: '$formsWithoutShiftId forms missing shiftId linkage',
+        severity: formsWithoutShiftId >= 5 ? 'high' : 'medium',
+      ));
+    }
+    
     final autoScore = _calculateAutoScore(completionRate, punctualityRate, formCompliance);
     final tier = _calculateTier(autoScore);
     
@@ -1026,21 +1114,54 @@ class TeacherAuditService {
     }
 
     final validForms = <QueryDocumentSnapshot>[];
+    int linkedFormsCount = 0;
+    int unlinkedFormsCount = 0;
+    
     for (final form in forms) {
       final data = form.data();
       if (data == null) continue;
       final dataMap = data as Map<String, dynamic>;
       final shiftId = dataMap['shiftId'] as String?;
       
+      // Check if form belongs to this month - match "My Form Submissions" logic
+      String? formYearMonth = dataMap['yearMonth'] as String?;
+      final submittedAt = (dataMap['submittedAt'] as Timestamp?)?.toDate();
+      
+      // Derive yearMonth from submittedAt if not set (for backward compatibility)
+      String? submittedAtYearMonth;
+      if (submittedAt != null) {
+        submittedAtYearMonth = '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
+      }
+      
+      if (formYearMonth == null) {
+        formYearMonth = submittedAtYearMonth;
+      }
+      
+      // Count form if:
+      // 1. It's linked to a valid shift in the date range, OR
+      // 2. It has yearMonth matching the audit month, OR
+      // 3. submittedAt is in the audit month (even if yearMonth field says different), OR
+      // 4. It's submitted within 5-day tolerance window and Class Day matches (handles month boundaries)
       if (shiftId != null && validShiftIds.contains(shiftId)) {
         // Linked form - always valid
         validForms.add(form);
-      } else if (dataMap['yearMonth'] == yearMonth) {
-        // Unlinked form - validate using Class Day analysis with 5-day tolerance
+        linkedFormsCount++;
+      } else if (formYearMonth == yearMonth || submittedAtYearMonth == yearMonth) {
+        // Form has matching yearMonth OR submittedAt is in the audit month - count it
+        validForms.add(form);
+        unlinkedFormsCount++;
+      } else {
+        // Form might be from next month but submitted late (e.g., class Monday 31st, submitted Tuesday 1st)
+        // Use 5-day tolerance with Class Day validation to catch these cases
         if (_validateUnlinkedForm(form, startDate, endDate, yearMonth)) {
           validForms.add(form);
+          unlinkedFormsCount++;
         }
       }
+    }
+    
+    if (kDebugMode) {
+      AppLogger.debug('Form counting for $yearMonth: total forms=${forms.length}, linked=$linkedFormsCount, unlinked=$unlinkedFormsCount, valid=${validForms.length}');
     }
 
     final detailedForms = _buildDetailedForms(validForms, shifts);
@@ -1506,8 +1627,9 @@ class TeacherAuditService {
     double totalGross = 0;
     double totalPenalties = 0; // Penalties are MANUAL ONLY - no automatic calculation
 
-    // Build shift status map - only completed/partiallyCompleted shifts with forms
+    // Build shift status map - shifts with forms are eligible (form = proof of work)
     // **Règle d'Or: Shifts without forms get $0 payment**
+    // **NEW: Shifts with forms are eligible regardless of status (form proves work was done)**
     final eligibleShiftIds = <String>{};
     final shiftSubjectMap = <String, String>{};
     final shiftDataMap = <String, Map<String, dynamic>>{}; // Store shift data for fallback
@@ -1519,16 +1641,21 @@ class TeacherAuditService {
       final status = dataMap['status'] ?? 'scheduled';
       final shiftId = shift.id;
       
-      // Only include completed or partially completed shifts
-      if (status == 'fullyCompleted' || status == 'completed' || status == 'partiallyCompleted') {
-        // Store shift data for later use
-        shiftDataMap[shiftId] = dataMap;
+      // Store shift data for later use (for all shifts, not just eligible ones)
+      shiftDataMap[shiftId] = dataMap;
+      
+      // **KEY FIX: If shift has a form, it's eligible for payment regardless of status**
+      // The form is proof of work, so the teacher should be paid
+      if (shiftsWithForms.contains(shiftId)) {
+        eligibleShiftIds.add(shiftId);
+        final subject = dataMap['subject_display_name'] ?? dataMap['subject'] ?? 'Other';
+        shiftSubjectMap[shiftId] = subject;
         
-        // Only eligible shifts are those WITH FORMS (proof of work required)
-        if (shiftsWithForms.contains(shiftId)) {
-          eligibleShiftIds.add(shiftId);
-          final subject = dataMap['subject_display_name'] ?? dataMap['subject'] ?? 'Other';
-          shiftSubjectMap[shiftId] = subject;
+        if (kDebugMode) {
+          // Log if shift has form but non-standard status (for debugging)
+          if (status != 'fullyCompleted' && status != 'completed' && status != 'partiallyCompleted') {
+            AppLogger.debug('Shift $shiftId has form but status="$status" - including for payment (form = proof of work)');
+          }
         }
       }
     }
@@ -1633,15 +1760,35 @@ class TeacherAuditService {
         final formResponses = form['responses'] as Map<String, dynamic>? ?? {};
         final formDuration = _parseFormDurationOptimized(formResponses);
         
+        if (kDebugMode) {
+          AppLogger.debug('[PRIORITY 2] Attempting fallback payment for shift $shiftId: formDuration=${formDuration.toStringAsFixed(2)}h');
+        }
+        
         if (formDuration > 0) {
           final hourlyRate = shiftHourlyRateMap[shiftId] ?? 0;
+          if (kDebugMode) {
+            AppLogger.debug('[PRIORITY 2] Shift $shiftId: hourlyRate=\$${hourlyRate.toStringAsFixed(2)}');
+          }
+          
           if (hourlyRate > 0) {
             payment = formDuration * hourlyRate;
             hours = formDuration;
             if (kDebugMode) {
-              AppLogger.debug('[PRIORITY 2] Calculated payment from form duration for shift $shiftId: ${formDuration.toStringAsFixed(2)}h × \$${hourlyRate.toStringAsFixed(2)} = \$${payment.toStringAsFixed(2)}');
+              AppLogger.debug('[PRIORITY 2] ✅ Calculated payment from form duration for shift $shiftId: ${formDuration.toStringAsFixed(2)}h × \$${hourlyRate.toStringAsFixed(2)} = \$${payment.toStringAsFixed(2)}');
+            }
+          } else {
+            if (kDebugMode) {
+              AppLogger.debug('[PRIORITY 2] ⚠️ Shift $shiftId has form with duration ${formDuration.toStringAsFixed(2)}h but no hourly rate found - cannot calculate payment');
             }
           }
+        } else {
+          if (kDebugMode) {
+            AppLogger.debug('[PRIORITY 2] ⚠️ Shift $shiftId has form but formDuration is 0 or invalid - cannot calculate payment');
+          }
+        }
+      } else if (payment == 0 && !formLookupMap.containsKey(shiftId)) {
+        if (kDebugMode) {
+          AppLogger.debug('[PRIORITY 2] ⚠️ Shift $shiftId has no timesheet payment AND no form found in formLookupMap - will result in \$0 payment');
         }
       }
       
@@ -1746,7 +1893,7 @@ class TeacherAuditService {
       AppLogger.debug('=== PAYMENT CALCULATION SUMMARY ===');
       AppLogger.debug('Total shifts processed: ${shifts.length}');
       AppLogger.debug('Shifts with forms: ${shiftsWithForms.length}');
-      AppLogger.debug('Eligible shifts (completed/partiallyCompleted + forms): ${eligibleShiftIds.length}');
+      AppLogger.debug('Eligible shifts (ANY shift with form - form = proof of work): ${eligibleShiftIds.length}');
       AppLogger.debug('Shifts with payment data in shiftPayments map: ${shiftPayments.length}');
       AppLogger.debug('Subject payments map size: ${subjectPayments.length}');
       AppLogger.debug('Payments by subject: ${subjectPayments.entries.map((e) => '${e.key}: \$${e.value.toStringAsFixed(2)}').join(", ")}');
@@ -2906,4 +3053,27 @@ class FormMetrics {
     this.totalFormHours = 0,
     this.formHoursBySubject = const {},
   });
+}
+
+/// Wrapper class to combine multiple form query results into a single QuerySnapshot-like object
+class _CombinedQuerySnapshot implements QuerySnapshot {
+  final List<QueryDocumentSnapshot> _docs;
+  final QuerySnapshot _sourceSnapshot; // Use metadata from one of the source snapshots
+  
+  _CombinedQuerySnapshot(this._docs, this._sourceSnapshot);
+  
+  @override
+  List<QueryDocumentSnapshot> get docs => _docs;
+  
+  @override
+  List<DocumentChange> get docChanges => [];
+  
+  @override
+  SnapshotMetadata get metadata => _sourceSnapshot.metadata;
+  
+  @override
+  int get size => _docs.length;
+  
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
