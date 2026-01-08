@@ -82,7 +82,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                   context,
                   MaterialPageRoute(
                     settings: const RouteSettings(name: '/login'),
-                    builder: (context) => const AuthenticationWrapper(showLogin: true),
+                    builder: (context) => const AuthenticationWrapper(),
                   ),
                 );
               }),
@@ -110,7 +110,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                       context, 
                       MaterialPageRoute(
                         settings: const RouteSettings(name: '/login'),
-                        builder: (context) => const AuthenticationWrapper(showLogin: true),
+                        builder: (context) => const AuthenticationWrapper(),
                       ),
                     ),
                   ),
@@ -589,7 +589,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                         context, 
                         MaterialPageRoute(
                           settings: const RouteSettings(name: '/login'),
-                          builder: (context) => const AuthenticationWrapper(showLogin: true),
+                          builder: (context) => const AuthenticationWrapper(),
                         ),
                       );
                     },
