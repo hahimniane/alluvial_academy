@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'core/services/user_role_service.dart';
 import 'core/constants/app_constants.dart';
+import 'core/utils/app_logger.dart';
 import 'shared/widgets/role_switcher.dart';
 import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
@@ -29,6 +30,11 @@ import 'features/notifications/screens/send_notification_screen.dart';
 import 'features/enrollment_management/screens/enrollment_management_screen.dart';
 import 'features/teacher_applications/screens/teacher_application_management_screen.dart';
 import 'features/settings/screens/admin_settings_screen.dart';
+import 'admin/screens/admin_audit_screen.dart';
+import 'admin/screens/subject_rates_screen.dart';
+import 'features/audit/screens/teacher_audit_screen.dart';
+import 'admin/screens/test_audit_generation.dart';
+import 'features/forms/screens/teacher_forms_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
@@ -122,11 +128,22 @@ class _DashboardPageState extends State<DashboardPage> {
         const EnrollmentManagementScreen(),
         const TeacherApplicationManagementScreen(),
         const AdminSettingsScreen(),
+        // Additional screens for admin and teacher features
+        const AdminAuditScreen(), // Index 19
+        const SubjectRatesScreen(), // Index 20
+        const TeacherAuditScreen(), // Index 21 - My Report
+        const TestAuditGenerationScreen(), // Index 22
+        const TeacherFormsScreen(), // Index 23 - Submit Form
       ];
 
   /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
     if (mounted) {
+      // Validate index is within bounds
+      if (index < 0 || index >= _screens.length) {
+        AppLogger.error('Invalid screen index: $index (max: ${_screens.length - 1})');
+        return;
+      }
       setState(() {
         _selectedIndex = index;
         // Trigger refresh for FormResponsesScreen (index 9) when navigated to

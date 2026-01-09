@@ -91,6 +91,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       // Set form data immediately to avoid showing the list screen
       selectedFormId = widget.template!.id;
       selectedFormData = formData;
+      // Initialize controllers immediately to prevent showing list
+      _initializeControllersForFormData(formData);
       // Load form data asynchronously (for auto-fill, etc.)
       _handleFormSelection(widget.template!.id, formData).then((_) {
         if (mounted) {
@@ -495,20 +497,21 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       backgroundColor: const Color(0xffF8FAFC),
       body: Row(
         children: [
-          // Left sidebar with form list
-          Container(
-            width: 320,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x0F000000),
-                  offset: Offset(2, 0),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Column(
+          // Left sidebar with form list - HIDE if template is provided or form is selected
+          if (widget.template == null && selectedFormData == null)
+            Container(
+              width: 320,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    offset: Offset(2, 0),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: Column(
               children: [
                 // Header
                 Container(
@@ -718,15 +721,33 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
           // Main content area
           Expanded(
-            child: _isAutoSelecting
-                ? _buildLoadingState()
-                : (selectedFormData == null && widget.template == null)
-                    ? _buildWelcomeScreen() // Only show list if no template provided
-                    : _buildFormView(), // Show form directly if template is provided
+            child: _buildMainContent(),
           ),
         ],
       ),
     );
+  }
+
+  /// Build main content - never show list if template is provided
+  Widget _buildMainContent() {
+    // If template is provided, NEVER show the list - always show form or loading
+    if (widget.template != null) {
+      if (_isAutoSelecting || selectedFormData == null) {
+        return _buildLoadingState();
+      }
+      return _buildFormView();
+    }
+    
+    // No template provided - show list or form based on selection
+    if (_isAutoSelecting) {
+      return _buildLoadingState();
+    }
+    
+    if (selectedFormData == null) {
+      return _buildWelcomeScreen(); // Show form list
+    }
+    
+    return _buildFormView(); // Show selected form
   }
   
   Widget _buildMobileLayout() {
@@ -2953,6 +2974,24 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     }
 
     _animationController.forward();
+  }
+
+  /// Initialize controllers for form data (used when template is provided directly)
+  void _initializeControllersForFormData(Map<String, dynamic> formData) {
+    // Clear existing controllers
+    for (var controller in fieldControllers.values) {
+      controller.dispose();
+    }
+    fieldControllers.clear();
+    fieldValues.clear();
+
+    // Create controllers for all fields
+    final fields = formData['fields'] as Map<String, dynamic>?;
+    if (fields != null) {
+      fields.forEach((fieldId, fieldData) {
+        fieldControllers[fieldId] = TextEditingController(text: '');
+      });
+    }
   }
   
   /// Get auto-fill value from shift data based on sourceField
