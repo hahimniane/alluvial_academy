@@ -197,6 +197,8 @@ class ShiftService {
     String? leaderRole,
     // NEW: Hourly rate - if provided, use it; otherwise use subject's defaultWage or teacher's wage
     double? hourlyRate,
+    // Video provider (Zoom or LiveKit)
+    VideoProvider videoProvider = VideoProvider.zoom,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -310,6 +312,8 @@ class ShiftService {
         // NEW: Category and leader role
         category: category,
         leaderRole: leaderRole,
+        // Video provider
+        videoProvider: videoProvider,
       );
 
       // Validate that end time is after start time
@@ -633,6 +637,89 @@ class ShiftService {
 
       return shifts;
     });
+  }
+
+  /// Get shifts for a specific student
+  static Stream<List<TeachingShift>> getStudentShifts(String studentId) {
+    return _shiftsCollection
+        .where('student_ids', arrayContains: studentId)
+        .snapshots()
+        .map((snapshot) {
+      final shifts =
+          snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
+
+      // Sort by shift_start
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      return shifts;
+    });
+  }
+
+  /// Get today's shifts for a student
+  static Future<List<TeachingShift>> getTodayShiftsForStudent(String studentId) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final snapshot = await _shiftsCollection
+          .where('student_ids', arrayContains: studentId)
+          .where('shift_start',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('shift_start', isLessThan: Timestamp.fromDate(endOfDay))
+          .get();
+
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .toList();
+
+      // Sort by shift_start
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      return shifts;
+    } catch (e) {
+      AppLogger.error('Error getting today\'s shifts for student: $e');
+      return [];
+    }
+  }
+
+  /// Get upcoming shifts for a student (next 7 days, excluding today)
+  static Future<List<TeachingShift>> getUpcomingShiftsForStudent(String studentId) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 8)); // Next 7 days
+
+      final snapshot = await _shiftsCollection
+          .where('student_ids', arrayContains: studentId)
+          .where('shift_start',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('shift_start', isLessThan: Timestamp.fromDate(endOfDay))
+          .get();
+
+      final shifts = snapshot.docs
+          .map((doc) => TeachingShift.fromFirestore(doc))
+          .toList();
+
+      // Filter out today's shifts and sort by shift_start
+      final now = DateTime.now();
+      final todayDate = DateTime(now.year, now.month, now.day);
+      shifts.removeWhere((shift) {
+        final shiftDate = DateTime(
+          shift.shiftStart.year,
+          shift.shiftStart.month,
+          shift.shiftStart.day,
+        );
+        return shiftDate.isAtSameMomentAs(todayDate);
+      });
+
+      shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
+      return shifts;
+    } catch (e) {
+      AppLogger.error('Error getting upcoming shifts for student: $e');
+      return [];
+    }
   }
 
   /// Get all shifts (admin view)
