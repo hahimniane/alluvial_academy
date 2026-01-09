@@ -5,6 +5,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_form_service.dart';
 import '../../../form_screen.dart';
+import 'quick_edit_shift_popup.dart';
 
 class ShiftDetailsDialog extends StatelessWidget {
   final TeachingShift shift;
@@ -14,6 +15,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   final VoidCallback? onRefresh;
   final Function(ShiftStatus)? onCorrectStatus;
   final VoidCallback? onFillForm;
+  final VoidCallback? onEditShift;
 
   const ShiftDetailsDialog({
     super.key,
@@ -24,6 +26,7 @@ class ShiftDetailsDialog extends StatelessWidget {
     this.onRefresh,
     this.onCorrectStatus,
     this.onFillForm,
+    this.onEditShift,
   });
 
   @override
@@ -428,6 +431,10 @@ class ShiftDetailsDialog extends StatelessWidget {
                    shift.status == ShiftStatus.partiallyCompleted ||
                    shift.status == ShiftStatus.missed))
                 _buildFillFormButton(context),
+              
+              // Edit Shift button for shift owner (scheduled shifts only)
+              if (isMyShift && shift.status == ShiftStatus.scheduled && !shift.hasExpired)
+                _buildEditShiftButton(context),
             ],
           ),
 
@@ -446,6 +453,50 @@ class ShiftDetailsDialog extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEditShiftButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.pop(context);
+          // Open quick edit popup
+          showDialog(
+            context: context,
+            builder: (ctx) => QuickEditShiftPopup(
+              shift: shift,
+              onSaved: () {
+                onRefresh?.call();
+              },
+              onDeleted: () {
+                onRefresh?.call();
+              },
+              onOpenFullEditor: () {
+                // For teachers, just close - they can only do quick edit
+                onRefresh?.call();
+              },
+            ),
+          );
+        },
+        icon: const Icon(Icons.edit_calendar, size: 18),
+        label: Text(
+          'Edit Shift',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xffF59E0B),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       ),
     );
   }
