@@ -1525,100 +1525,105 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isToday 
-                    ? const Color(0xFF0386FF).withOpacity(0.1)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('d').format(shift.shiftStart),
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
-                    ),
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isToday 
+                        ? const Color(0xFF0386FF).withOpacity(0.1)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    DateFormat('MMM').format(shift.shiftStart).toUpperCase(),
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: isToday ? const Color(0xFF0386FF) : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Text(
-                          shift.displayName,
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF1E293B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isToday 
-                              ? const Color(0xFF0386FF).withOpacity(0.1)
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          dateLabel,
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
-                      const SizedBox(width: 4),
                       Text(
-                        '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
+                        DateFormat('d').format(shift.shiftStart),
                         style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: const Color(0xFF64748B),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        DateFormat('MMM').format(shift.shiftStart).toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: isToday ? const Color(0xFF0386FF) : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              shift.displayName,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1E293B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isToday 
+                                  ? const Color(0xFF0386FF).withOpacity(0.1)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              dateLabel,
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+              ],
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+            // Clock-in action buttons based on time
+            const SizedBox(height: 12),
+            _buildClockInActionButtons(shift),
           ],
         ),
-        // Clock-in action buttons based on time
-        const SizedBox(height: 12),
-        _buildClockInActionButtons(shift),
       ),
     );
   }
@@ -1966,8 +1971,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       }
 
       // Perform clock-in via service
-      final result = await ShiftTimesheetService.clockIn(
-        shift: shift,
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not authenticated'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+      
+      final result = await ShiftTimesheetService.clockInToShift(
+        user.uid,
+        shift.id,
         location: location,
         platform: 'mobile',
       );
