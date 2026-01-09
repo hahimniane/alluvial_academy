@@ -100,45 +100,8 @@ class TeacherAuditService {
     // Note: .select() requires cloud_firestore 7.0.0+, but we'll still get 60-70% improvement
     // from single-pass processing and batch writes
     
-    // CRITICAL FIX: Load forms by submittedAt date range (with 5-day tolerance) AND by yearMonth
-    // This ensures we capture:
-    // 1. Forms with yearMonth matching the audit month (even if submittedAt is missing)
-    // 2. Forms without yearMonth field but with submittedAt in range (backward compatibility)
-    // 3. Forms submitted late near month boundaries (e.g., class Monday 31st, submitted Tuesday 1st)
-    final formQueryStart = startDate.subtract(const Duration(days: 5));
-    final formQueryEnd = endDate.add(const Duration(days: 5));
-    
-    // Load forms in two ways and combine:
-    // 1. By submittedAt (with tolerance) - catches late submissions
-    // 2. By yearMonth - catches forms without submittedAt or with wrong submittedAt
-    final formQueries = await Future.wait([
-      _firestore
-          .collection('form_responses')
-          .where('submittedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(formQueryStart))
-          .where('submittedAt', isLessThanOrEqualTo: Timestamp.fromDate(formQueryEnd))
-          .get(),
-      _firestore
-          .collection('form_responses')
-          .where('yearMonth', isEqualTo: yearMonth)
-          .get(),
-    ]);
-    
-    // Combine and deduplicate forms (by document ID)
-    final formsById = <String, QueryDocumentSnapshot>{};
-    for (var queryResult in formQueries) {
-      for (var doc in queryResult.docs) {
-        formsById[doc.id] = doc;
-      }
-    }
-    
-    AppLogger.debug('Form queries: submittedAt=${formQueries[0].docs.length}, yearMonth=${formQueries[1].docs.length}, combined=${formsById.length}');
-    
-    // Use the first query's metadata (they should be similar)
-    final combinedFormsSnapshot = _CombinedQuerySnapshot(
-      formsById.values.toList(),
-      formQueries[0], // Use metadata from submittedAt query
-    );
-    
+    // Load forms by yearMonth only - simple and correct
+    // The 5-day tolerance is used later for VALIDATION, not for loading
     final dataFutures = await Future.wait([
       _firestore
           .collection('teaching_shifts')
@@ -150,8 +113,10 @@ class TeacherAuditService {
           .where('created_at', isGreaterThanOrEqualTo: queryStart)
           .where('created_at', isLessThanOrEqualTo: queryEnd)
           .get(),
-      // Create a combined QuerySnapshot-like result
-      Future.value(combinedFormsSnapshot),
+      _firestore
+          .collection('form_responses')
+          .where('yearMonth', isEqualTo: yearMonth)
+          .get(),
     ]);
 
     final shiftsSnapshot = dataFutures[0] as QuerySnapshot;
@@ -1123,36 +1088,16 @@ class TeacherAuditService {
       final dataMap = data as Map<String, dynamic>;
       final shiftId = dataMap['shiftId'] as String?;
       
-      // Check if form belongs to this month - match "My Form Submissions" logic
-      String? formYearMonth = dataMap['yearMonth'] as String?;
-      final submittedAt = (dataMap['submittedAt'] as Timestamp?)?.toDate();
-      
-      // Derive yearMonth from submittedAt if not set (for backward compatibility)
-      String? submittedAtYearMonth;
-      if (submittedAt != null) {
-        submittedAtYearMonth = '${submittedAt.year}-${submittedAt.month.toString().padLeft(2, '0')}';
-      }
-      
-      if (formYearMonth == null) {
-        formYearMonth = submittedAtYearMonth;
-      }
-      
       // Count form if:
       // 1. It's linked to a valid shift in the date range, OR
-      // 2. It has yearMonth matching the audit month, OR
-      // 3. submittedAt is in the audit month (even if yearMonth field says different), OR
-      // 4. It's submitted within 5-day tolerance window and Class Day matches (handles month boundaries)
+      // 2. It has yearMonth matching the audit month (already filtered by query)
       if (shiftId != null && validShiftIds.contains(shiftId)) {
         // Linked form - always valid
         validForms.add(form);
         linkedFormsCount++;
-      } else if (formYearMonth == yearMonth || submittedAtYearMonth == yearMonth) {
-        // Form has matching yearMonth OR submittedAt is in the audit month - count it
-        validForms.add(form);
-        unlinkedFormsCount++;
       } else {
-        // Form might be from next month but submitted late (e.g., class Monday 31st, submitted Tuesday 1st)
-        // Use 5-day tolerance with Class Day validation to catch these cases
+        // Unlinked form - use 5-day tolerance with Class Day validation
+        // This VALIDATES (not includes from other months) that the form belongs to this month
         if (_validateUnlinkedForm(form, startDate, endDate, yearMonth)) {
           validForms.add(form);
           unlinkedFormsCount++;
@@ -3053,27 +2998,4 @@ class FormMetrics {
     this.totalFormHours = 0,
     this.formHoursBySubject = const {},
   });
-}
-
-/// Wrapper class to combine multiple form query results into a single QuerySnapshot-like object
-class _CombinedQuerySnapshot implements QuerySnapshot {
-  final List<QueryDocumentSnapshot> _docs;
-  final QuerySnapshot _sourceSnapshot; // Use metadata from one of the source snapshots
-  
-  _CombinedQuerySnapshot(this._docs, this._sourceSnapshot);
-  
-  @override
-  List<QueryDocumentSnapshot> get docs => _docs;
-  
-  @override
-  List<DocumentChange> get docChanges => [];
-  
-  @override
-  SnapshotMetadata get metadata => _sourceSnapshot.metadata;
-  
-  @override
-  int get size => _docs.length;
-  
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
