@@ -248,9 +248,16 @@ class _CustomSidebarState extends State<CustomSidebar> {
               curve: Curves.easeInOut,
               alignment: Alignment.topCenter,
               child: section.isExpanded
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: section.items.map((item) => _buildItem(item)).toList(),
+                  ? ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 0,
+                        maxWidth: 220, // Match sidebar width
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: section.items.map((item) => _buildItem(item)).toList(),
+                      ),
                     )
                   : const SizedBox.shrink(),
             ),
@@ -356,7 +363,6 @@ class _CustomSidebarState extends State<CustomSidebar> {
           minWidth: 64,
           maxWidth: _isHovered ? 180 : 64,
         ),
-        width: _isHovered ? 180 : 64,
         color: const Color(0xFFF9FAFB),
         child: Column(
           mainAxisSize: MainAxisSize.min,
