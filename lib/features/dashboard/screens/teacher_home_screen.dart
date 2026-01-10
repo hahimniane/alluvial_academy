@@ -1959,7 +1959,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         }
       }
       
-      if (location == null && !isAutoStart) {
+      // Check location - if null and not auto-start, return early
+      if (location == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1970,20 +1971,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         return;
       }
 
-      // Perform clock-in via service
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Not authenticated'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-      
+      // At this point, location is guaranteed to be non-null
+      final locationData = location!;
+
+      // Perform clock-in via service (user is already checked at the beginning of the method)
       final result = await ShiftTimesheetService.clockInToShift(
         user.uid,
         shift.id,
-        location: location,
+        location: locationData,
         platform: 'mobile',
       );
 
