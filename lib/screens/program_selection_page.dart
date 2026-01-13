@@ -77,43 +77,62 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   String? _preferredLanguage;
   String _whatsAppNumber = '';
   String? _gender;
-  bool? _knowsZoom;
+  // Removed: bool? _knowsZoom; (Zoom question removed)
   String? _classType;
   String? _sessionDuration;
   String? _timeOfDayPreference;
+  String? _selectedLevel; // For program level (Beginner/Intermediate/Advanced or After School levels)
   
   // Available options
   final List<String> _subjects = [
-    'Islamic Studies',
-    'English',
-    'French',
-    'Maths',
-    'Programming',
-    'Quran',
-    'Arabic',
-    'Science'
+    'Islamic Program (Arabic, Quran, etc...)',
+    'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)',
+    'Entrepreneurship',
+    'Coding',
+    'After School Tutoring (Math, Science, Physics, etc...)',
+    'Adult Literacy (Reading and Writing English & French, etc...)',
   ];
 
   final List<String> _otherAfricanLanguages = [
+    'Pular',
+    'Mandingo',
     'Swahili',
-    'Yoruba',
-    'Amharic',
     'Wolof',
     'Hausa',
-    'Mandinka',
-    'Fulani',
-    'Igbo',
-    'Zulu',
-    'Xhosa',
+    'Yoruba',
+    'Other'
   ];
 
   final List<String> _grades = [
-    'Elementary school',
-    'Middle school',
-    'High school / Sixth form',
+    'Elementary School',
+    'Middle School',
+    'High School',
     'University',
     'Adult Professionals'
   ];
+
+  // Program level options (for non-After School programs)
+  final List<String> _programLevelOptions = [
+    'Beginner',
+    'Intermediate',
+    'Advanced',
+  ];
+
+  // After School level options
+  final List<String> _afterSchoolLevelOptions = [
+    'Elementary School',
+    'Middle School',
+    'High School',
+    'University',
+  ];
+
+  // Get current level options based on selected subject
+  List<String> get _currentLevels {
+    if (_selectedSubject == 'After School Tutoring (Math, Science, Physics, etc...)') {
+      return _afterSchoolLevelOptions;
+    }
+    return _programLevelOptions;
+  }
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   final List<String> _selectedDays = [];
@@ -152,10 +171,14 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
   
   int? _parseDurationToMinutes(String duration) {
-    if (duration.contains('30')) return 30;
-    if (duration.contains('45')) return 45;
-    if (duration.contains('60')) return 60;
-    if (duration.contains('90')) return 90;
+    // Handle new duration format
+    if (duration.contains('30 mins')) return 30;
+    if (duration.contains('1 hr 30')) return 90;
+    if (duration.contains('2 hr 30')) return 150;
+    if (duration.contains('1 hr')) return 60; // Check '1 hr' after '1 hr 30' to avoid partial match
+    if (duration.contains('2 hrs')) return 120;
+    if (duration.contains('3 hrs')) return 180;
+    if (duration.contains('4 hrs')) return 240;
     return null;
   }
   
@@ -190,13 +213,16 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   
   final List<String> _roles = ['Student', 'Parent', 'Guardian'];
   final List<String> _languages = ['English', 'French', 'Arabic', 'Other'];
-  final List<String> _genders = ['Male', 'Female', 'Prefer not to say'];
+  final List<String> _genders = ['Male', 'Female']; // Removed "Prefer not to say"
   final List<String> _classTypes = ['One-on-One', 'Group', 'Both'];
   final List<String> _sessionDurations = [
-    '30 minutes',
-    '45 minutes',
-    '60 minutes',
-    '90 minutes'
+    '30 mins',
+    '1 hr',
+    '1 hr 30 mins',
+    '2 hrs',
+    '2 hr 30 mins',
+    '3 hrs',
+    '4 hrs',
   ];
   final List<String> _timeOfDayOptions = [
     'Morning',
@@ -377,38 +403,27 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   bool _validateCurrentStep() {
     switch (_currentStep) {
-      case 0: // Student Info
-        return _validateStudentInfoStep();
-      case 1: // Program
-        return _validateProgramStep();
-      case 2: // Schedule
-        return _validateScheduleStep();
-      case 3: // Contact
+      case 0: // Contact/Role
         return _validateContactStep();
+      case 1: // Student Info
+        return _validateStudentInfoStep();
+      case 2: // Program
+        return _validateProgramStep();
+      case 3: // Schedule
+        return _validateScheduleStep();
       default:
         return true;
     }
   }
 
   bool _validateStudentInfoStep() {
-    print('🔍 Validating student info step - _isAdult: $_isAdult, _role: $_role, studentName: "${_studentNameController.text.trim()}"');
-
-    // Role is always required
-    if (_role == null || _role!.isEmpty) {
-      print('❌ Validation failed: Role not selected');
-      _showSnackBar('Please select who you are (Student, Parent, or Guardian)', isError: true);
-      return false;
-    }
-
     // Student name is always required
     final studentName = _studentNameController.text.trim();
     if (studentName.isEmpty) {
-      print('❌ Validation failed: Student name is empty');
       _showSnackBar('Please enter the student name', isError: true);
       return false;
     }
 
-    print('✅ Student info validation passed');
     return true;
   }
 
@@ -417,18 +432,15 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
       _showSnackBar('Please select a subject', isError: true);
       return false;
     }
-
-    if (_selectedSubject == 'African Languages (Other)' &&
+    if (_selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)' &&
         (_selectedAfricanLanguage == null || _selectedAfricanLanguage!.isEmpty)) {
-      _showSnackBar('Please select a specific African language', isError: true);
+      _showSnackBar('Please select a specific language', isError: true);
       return false;
     }
-
-    if (_selectedGrade == null || _selectedGrade!.isEmpty) {
-      _showSnackBar('Please select a grade level', isError: true);
+    if (_selectedLevel == null || _selectedLevel!.isEmpty) {
+      _showSnackBar('Please select a level', isError: true);
       return false;
     }
-
     return true;
   }
 
@@ -447,14 +459,21 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   bool _validateContactStep() {
+    // Role is required
+    if (_role == null || _role!.isEmpty) {
+      _showSnackBar('Please select who you are (Student, Parent, or Guardian)', isError: true);
+      return false;
+    }
+
     // Validate form fields using FormKey
     if (!_formKey.currentState!.validate()) {
       _showSnackBar('Please fill in all required fields', isError: true);
       return false;
     }
 
-    // For minor students, either parent identity must be linked OR parent name must be provided
-    if (!_isAdult) {
+    // For Parent/Guardian role, parent name is required (unless linked)
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    if (isParentOrGuardian) {
       final hasLinkedParent = _linkedParentData != null;
       final hasParentName = _parentNameController.text.trim().isNotEmpty;
 
@@ -590,7 +609,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                           borderRadius: BorderRadius.circular(100),
                         ),
                   child: Text(
-                          'FREE TRIAL',
+                          'CLASS SIGN UP',
                     style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -604,7 +623,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                     FadeInSlide(
                       delay: 0.15,
                       child: Text(
-                        'Begin Your\nLearning Journey',
+                        'Class Sign Up',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 38,
                       fontWeight: FontWeight.w800,
@@ -642,10 +661,10 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   Widget _buildStepIndicator() {
     final steps = [
+      {'title': 'Contact', 'icon': Icons.mail_outline},
       {'title': 'Student', 'icon': Icons.person_outline},
       {'title': 'Program', 'icon': Icons.auto_stories_outlined},
       {'title': 'Schedule', 'icon': Icons.calendar_today_outlined},
-      {'title': 'Contact', 'icon': Icons.mail_outline},
     ];
 
     return Column(
@@ -779,17 +798,17 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
             child: Column(
           mainAxisSize: MainAxisSize.min,
               children: [
-            // Only show parent lookup on Contact step
-            if (_currentStep == 3) _buildParentLookup(),
+            // Only show parent lookup on Contact step (Step 0)
+            if (_currentStep == 0) _buildParentLookup(),
             Expanded(
               child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
+                  _buildStep0Contact(),
                   _buildStep1StudentInfo(),
                   _buildStep2Program(),
                   _buildStep3Schedule(),
-                  _buildStep4Contact(),
                 ],
               ),
             ),
@@ -1109,10 +1128,12 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   bool get _isAdult {
-    // Check if grade is Adult/University OR Age >= 18
+    // Check if level is University (adult) OR Age >= 18
     // Note: 'Student' role does NOT automatically mean adult.
-    if (_selectedGrade == 'Adult Professionals' ||
-        _selectedGrade == 'University') return true;
+    // Updated to use new level system while maintaining backward compatibility
+    if (_selectedLevel == 'University' ||
+        _selectedGrade == 'University' ||
+        _selectedGrade == 'Adult Professionals') return true;
 
     final age = int.tryParse(_studentAgeController.text) ?? 0;
     if (age >= 18) return true;
@@ -1185,14 +1206,6 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     return _buildStepCard(
       title: 'Student Information',
       children: [
-        _buildModernDropdown(
-          'I am the',
-          _roles,
-          _role,
-          (v) => setState(() => _role = v),
-          Icons.account_circle_outlined,
-        ),
-        const SizedBox(height: 20),
         _buildModernTextField(
           'Student Name',
           _studentNameController,
@@ -1224,90 +1237,8 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                       ),
                     ],
                 ),
-                const SizedBox(height: 24),
-        _buildModernLabel('Technical Experience'),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xffF8FAFC),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xffE2E8F0)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Does the student know how to use Zoom?',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff374151),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildZoomOption(true, 'Yes, they do'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildZoomOption(false, 'No, needs help'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+                // Removed: Zoom question section
       ],
-    );
-  }
-
-  Widget _buildZoomOption(bool value, String label) {
-    final isSelected = _knowsZoom == value;
-    return InkWell(
-      onTap: () => setState(() => _knowsZoom = value),
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xff3B82F6).withOpacity(0.1)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xff3B82F6)
-                : const Color(0xffE2E8F0),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected
-                  ? const Color(0xff3B82F6)
-                  : const Color(0xff94A3B8),
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-                    style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? const Color(0xff3B82F6)
-                    : const Color(0xff64748B),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1316,20 +1247,22 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
       title: 'Program Details',
       children: [
         _buildModernDropdown(
-          'Subject',
+          'Select Program',
           widget.isLanguageSelection
-              ? ['English', 'French', 'Adlam', 'African Languages (Other)']
+              ? ['English', 'French', 'Adlam', 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)']
               : _subjects,
           _selectedSubject,
           (v) {
-                          setState(() {
+            setState(() {
               _selectedSubject = v;
-              if (v != 'African Languages (Other)') _selectedAfricanLanguage = null;
-                          });
-                        },
+              if (v != 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') _selectedAfricanLanguage = null;
+              _selectedLevel = null; // Reset level when subject changes
+            });
+          },
           Icons.auto_stories_outlined,
         ),
-        if (_selectedSubject == 'African Languages (Other)') ...[
+        // Conditional AfroLanguages
+        if (_selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') ...[
           const SizedBox(height: 20),
           _buildModernDropdown(
             'Specific Language',
@@ -1339,15 +1272,17 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
             Icons.language_rounded,
           ),
         ],
-        const SizedBox(height: 20),
-        _buildModernDropdown(
-          'Grade Level',
-          _grades,
-          _selectedGrade,
-          (v) => setState(() => _selectedGrade = v),
-          Icons.school_outlined,
-          isRequired: false,
-        ),
+        // Conditional Levels (Req 6)
+        if (_selectedSubject != null) ...[
+          const SizedBox(height: 20),
+          _buildModernDropdown(
+            _selectedSubject == 'After School Tutoring (Math, Science, Physics, etc...)' ? 'Grade Level' : 'Proficiency Level',
+            _currentLevels,
+            _selectedLevel,
+            (v) => setState(() => _selectedLevel = v),
+            Icons.school_outlined,
+          ),
+        ],
         const SizedBox(height: 20),
         Row(
           children: [
@@ -1572,11 +1507,24 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     );
   }
 
-  Widget _buildStep4Contact() {
+  Widget _buildStep0Contact() {
+    // Determine if we should show parent fields based on role
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    
     return _buildStepCard(
       title: 'Contact Information',
       children: [
-        if (!_isAdult) ...[
+        // Role selection first
+        _buildModernDropdown(
+          'I am the',
+          _roles,
+          _role,
+          (v) => setState(() => _role = v),
+          Icons.account_circle_outlined,
+        ),
+        const SizedBox(height: 20),
+        // Parent info first when role is Parent/Guardian
+        if (isParentOrGuardian) ...[
           _buildModernTextField(
             'Parent/Guardian Name',
             _parentNameController,
@@ -1586,7 +1534,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           const SizedBox(height: 20),
         ],
         _buildModernTextField(
-          _isAdult ? 'Your Email Address' : 'Email Address',
+          _role == 'Student' ? 'Your Email Address' : 'Email Address',
           _emailController,
           Icons.email_outlined,
           hint: 'your@email.com',
@@ -1874,12 +1822,23 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
       setState(() => _isSubmitting = true);
       try {
         final isAdultStudent = _isAdult;
+        final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+        
+        // Build list of students (currently single student, but structure supports multi-student)
+        final students = <StudentInfo>[
+          StudentInfo(
+            name: _studentNameController.text.trim(),
+            age: _studentAgeController.text.trim(),
+            gender: _gender,
+          ),
+        ];
+        
         final request = EnrollmentRequest(
           subject: _selectedSubject,
-          specificLanguage: _selectedSubject == 'African Languages (Other)'
+          specificLanguage: _selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)'
               ? _selectedAfricanLanguage
               : null,
-          gradeLevel: _selectedGrade ?? '',
+          gradeLevel: _selectedLevel ?? _selectedGrade ?? '',
           email: _emailController.text.trim(),
           phoneNumber: _phoneNumber,
           countryCode: _selectedCountry?.countryCode ?? 'US',
@@ -1895,15 +1854,16 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
               : _parentNameController.text.trim(),
           city: _cityController.text.trim(),
           whatsAppNumber: _whatsAppNumber,
-          studentName: _studentNameController.text.trim(),
-          studentAge: _studentAgeController.text.trim(),
-          gender: _gender,
-          knowsZoom: _knowsZoom,
+          studentName: _studentNameController.text.trim(), // Backward compatibility
+          studentAge: _studentAgeController.text.trim(), // Backward compatibility
+          gender: _gender, // Backward compatibility
+          knowsZoom: null, // Removed - Zoom question no longer asked
           classType: _classType,
           sessionDuration: _sessionDuration,
           timeOfDayPreference: _timeOfDayPreference,
           guardianId: _guardianId,
           isAdult: isAdultStudent,
+          students: isParentOrGuardian && students.isNotEmpty ? students : null, // Multi-student support
         );
 
         await EnrollmentService().submitEnrollment(request);

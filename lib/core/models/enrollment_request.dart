@@ -1,5 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class StudentInfo {
+  final String name;
+  final String age;
+  final String? gender;
+
+  StudentInfo({
+    required this.name,
+    required this.age,
+    this.gender,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'age': age,
+      if (gender != null) 'gender': gender,
+    };
+  }
+
+  factory StudentInfo.fromMap(Map<String, dynamic> map) {
+    return StudentInfo(
+      name: map['name'] ?? '',
+      age: map['age'] ?? '',
+      gender: map['gender'],
+    );
+  }
+}
+
 class EnrollmentRequest {
   final String? id;
   final String? subject;
@@ -33,6 +61,9 @@ class EnrollmentRequest {
   final String? timeOfDayPreference;
   final String? guardianId; // Linked parent ID if available
   final bool isAdult; // Flag to indicate if the student is an adult
+  
+  // Multi-student support (new)
+  final List<StudentInfo>? students;
 
   EnrollmentRequest({
     this.id,
@@ -66,6 +97,7 @@ class EnrollmentRequest {
     this.timeOfDayPreference,
     this.guardianId,
     this.isAdult = false,
+    this.students,
   });
 
   factory EnrollmentRequest.fromFirestore(DocumentSnapshot doc) {
@@ -111,6 +143,10 @@ class EnrollmentRequest {
       timeOfDayPreference: preferences['timeOfDayPreference'] ?? data['timeOfDayPreference'],
       guardianId: contact['guardianId'] ?? data['guardianId'],
       isAdult: metadata['isAdult'] ?? false,
+      // Handle multi-student format
+      students: data['students'] != null
+          ? (data['students'] as List).map((e) => StudentInfo.fromMap(e as Map<String, dynamic>)).toList()
+          : null,
     );
   }
 
@@ -141,6 +177,8 @@ class EnrollmentRequest {
         if (gender != null) 'gender': gender,
         if (knowsZoom != null) 'knowsZoom': knowsZoom,
       },
+      // Multi-student support
+      if (students != null && students!.isNotEmpty) 'students': students!.map((s) => s.toMap()).toList(),
       'program': {
         if (role != null) 'role': role,
         if (classType != null) 'classType': classType,
@@ -192,6 +230,7 @@ class EnrollmentRequest {
     String? timeOfDayPreference,
     String? guardianId,
     bool? isAdult,
+    List<StudentInfo>? students,
   }) {
     return EnrollmentRequest(
       id: id ?? this.id,
@@ -224,6 +263,7 @@ class EnrollmentRequest {
       timeOfDayPreference: timeOfDayPreference ?? this.timeOfDayPreference,
       guardianId: guardianId ?? this.guardianId,
       isAdult: isAdult ?? this.isAdult,
+      students: students ?? this.students,
     );
   }
 }
