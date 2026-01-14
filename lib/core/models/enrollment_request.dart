@@ -4,11 +4,29 @@ class StudentInfo {
   final String name;
   final String age;
   final String? gender;
+  
+  // Individual program details for each student
+  final String? subject;
+  final String? specificLanguage;
+  final String? level;
+  final String? classType;
+  final String? sessionDuration;
+  final String? timeOfDayPreference;
+  final List<String>? preferredDays;
+  final List<String>? preferredTimeSlots;
 
   StudentInfo({
     required this.name,
     required this.age,
     this.gender,
+    this.subject,
+    this.specificLanguage,
+    this.level,
+    this.classType,
+    this.sessionDuration,
+    this.timeOfDayPreference,
+    this.preferredDays,
+    this.preferredTimeSlots,
   });
 
   Map<String, dynamic> toMap() {
@@ -16,6 +34,14 @@ class StudentInfo {
       'name': name,
       'age': age,
       if (gender != null) 'gender': gender,
+      if (subject != null) 'subject': subject,
+      if (specificLanguage != null) 'specificLanguage': specificLanguage,
+      if (level != null) 'level': level,
+      if (classType != null) 'classType': classType,
+      if (sessionDuration != null) 'sessionDuration': sessionDuration,
+      if (timeOfDayPreference != null) 'timeOfDayPreference': timeOfDayPreference,
+      if (preferredDays != null && preferredDays!.isNotEmpty) 'preferredDays': preferredDays,
+      if (preferredTimeSlots != null && preferredTimeSlots!.isNotEmpty) 'preferredTimeSlots': preferredTimeSlots,
     };
   }
 
@@ -24,6 +50,18 @@ class StudentInfo {
       name: map['name'] ?? '',
       age: map['age'] ?? '',
       gender: map['gender'],
+      subject: map['subject'],
+      specificLanguage: map['specificLanguage'],
+      level: map['level'],
+      classType: map['classType'],
+      sessionDuration: map['sessionDuration'],
+      timeOfDayPreference: map['timeOfDayPreference'],
+      preferredDays: map['preferredDays'] != null 
+          ? List<String>.from(map['preferredDays']) 
+          : null,
+      preferredTimeSlots: map['preferredTimeSlots'] != null 
+          ? List<String>.from(map['preferredTimeSlots']) 
+          : null,
     );
   }
 }
