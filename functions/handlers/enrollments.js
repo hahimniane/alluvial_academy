@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { createTransporter } = require('../services/email/transporter');
 
-// Email template for enrollment confirmation to student/parent
+// Email template for enrollment confirmation to student/parent (single student)
 const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
   const transporter = createTransporter();
   const contact = enrollmentData.contact || {};
@@ -133,6 +133,173 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
     return true;
   } catch (error) {
     console.error(`❌ Failed to send enrollment confirmation email to ${email}:`, error);
+    return false;
+  }
+};
+
+// Email template for multi-student enrollment confirmation (consolidated)
+const sendMultiStudentEnrollmentEmail = async (allEnrollments) => {
+  const transporter = createTransporter();
+  
+  if (!allEnrollments || allEnrollments.length === 0) {
+    console.warn('No enrollments provided for multi-student email');
+    return false;
+  }
+
+  // Use first enrollment for parent/contact info (all should have same parent)
+  const firstEnrollment = allEnrollments[0];
+  const contact = firstEnrollment.contact || {};
+  const email = contact.email;
+
+  if (!email) {
+    console.warn('No email found in enrollment data, skipping confirmation email');
+    return false;
+  }
+
+  const recipientName = contact.parentName || contact.email?.split('@')[0] || 'Parent';
+  const studentCount = allEnrollments.length;
+
+  // Build HTML for all students
+  let studentsHtml = '';
+  allEnrollments.forEach((enrollment, index) => {
+    const student = enrollment.student || {};
+    const program = enrollment.program || {};
+    const preferences = enrollment.preferences || {};
+    const subject = enrollment.subject || 'Not specified';
+    const specificLanguage = enrollment.specificLanguage;
+    const gradeLevel = enrollment.gradeLevel || 'Not specified';
+
+    studentsHtml = studentsHtml + `
+      <div style="background-color: #f9fafb; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <h3 style="margin-top: 0; color: #111827;">👤 Student ${index + 1}: ${student.name || 'Student'}</h3>
+        <div style="margin: 10px 0;">
+          <strong>Name:</strong> ${student.name || 'Not provided'}<br>
+          ${student.age ? `<strong>Age:</strong> ${student.age}<br>` : ''}
+          ${student.gender ? `<strong>Gender:</strong> ${student.gender}<br>` : ''}
+        </div>
+        <div style="margin: 10px 0;">
+          <strong>Program Details:</strong><br>
+          <strong>Subject:</strong> ${subject}${specificLanguage ? ` (${specificLanguage})` : ''}<br>
+          <strong>Level:</strong> ${gradeLevel}<br>
+          ${program.classType ? `<strong>Class Type:</strong> ${program.classType}<br>` : ''}
+          ${program.sessionDuration ? `<strong>Session Duration:</strong> ${program.sessionDuration}<br>` : ''}
+        </div>
+        ${preferences.days && preferences.days.length > 0 ? `
+        <div style="margin: 10px 0;">
+          <strong>Preferred Days:</strong> ${preferences.days.join(', ')}<br>
+        </div>
+        ` : ''}
+        ${preferences.timeSlots && preferences.timeSlots.length > 0 ? `
+        <div style="margin: 10px 0;">
+          <strong>Preferred Times:</strong> ${preferences.timeSlots.join(', ')}<br>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  });
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: email,
+    subject: `🎓 Enrollment Request Received - ${studentCount} Student${studentCount > 1 ? 's' : ''} - Alluwal Academy`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Enrollment Confirmation</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+          .container { max-width: 700px; margin: 0 auto; background-color: white; }
+          .header { background: linear-gradient(135deg, #0386FF 0%, #0693e3 100%); color: white; padding: 30px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+          .content { padding: 30px 20px; }
+          .info-box { background-color: #f0f9ff; border-left: 4px solid #0386FF; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+          .info-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 5px 0; border-bottom: 1px solid #e5e7eb; }
+          .info-label { font-weight: bold; color: #374151; }
+          .info-value { color: #6b7280; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+          .success-note { background-color: #ecfdf5; border: 1px solid #10b981; padding: 15px; margin: 15px 0; border-radius: 6px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🎓 Enrollment Request Received</h1>
+            <p>Thank you for choosing Alluwal Academy</p>
+          </div>
+          
+          <div class="content">
+            <h2>Dear ${recipientName},</h2>
+            <p>We're excited to inform you that we've received your enrollment request for <strong>${studentCount} student${studentCount > 1 ? 's' : ''}</strong>!</p>
+
+            <div class="success-note">
+              <h3>✅ What Happens Next?</h3>
+              <ul>
+                <li>Our team will review your enrollment request within 24-48 hours</li>
+                <li>We'll match you with qualified teachers based on your preferences</li>
+                <li>You'll receive email notifications once teachers accept your requests</li>
+                <li>We'll then help you set up your first class sessions</li>
+              </ul>
+            </div>
+
+            <div class="info-box">
+              <h3>📋 Parent/Guardian Information</h3>
+              <div class="info-row">
+                <span class="info-label">Name:</span>
+                <span class="info-value">${contact.parentName || 'Not provided'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span class="info-value">${email}</span>
+              </div>
+              ${contact.phone ? `
+              <div class="info-row">
+                <span class="info-label">Phone:</span>
+                <span class="info-value">${contact.phone}</span>
+              </div>
+              ` : ''}
+              ${contact.city ? `
+              <div class="info-row">
+                <span class="info-label">City:</span>
+                <span class="info-value">${contact.city}</span>
+              </div>
+              ` : ''}
+              ${contact.country ? `
+              <div class="info-row">
+                <span class="info-label">Country:</span>
+                <span class="info-value">${contact.country.name || contact.country.code || 'Not provided'}</span>
+              </div>
+              ` : ''}
+            </div>
+
+            <div style="margin: 30px 0;">
+              <h3 style="color: #111827; margin-bottom: 20px;">👥 Student${studentCount > 1 ? 's' : ''} Information</h3>
+              ${studentsHtml}
+            </div>
+            
+            <p>If you have any questions or need to update your enrollment information, please don't hesitate to contact us at <a href="mailto:support@alluwaleducationhub.org">support@alluwaleducationhub.org</a>.</p>
+            
+            <p>Best regards,<br>
+            <strong>The Alluwal Academy Team</strong></p>
+          </div>
+          
+          <div class="footer">
+            <p>This is an automated confirmation. For questions, please contact our support team.</p>
+            <p>Alluwal Academy - Excellence in Islamic Education</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Multi-student enrollment confirmation email sent to ${email} for ${studentCount} student(s)`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send multi-student enrollment confirmation email to ${email}:`, error);
     return false;
   }
 };
@@ -506,10 +673,54 @@ const onEnrollmentCreated = onDocumentCreated('enrollments/{enrollmentId}', asyn
   console.log(`📝 Processing new enrollment: ${enrollmentId}`);
   
   try {
-    // 1. Send confirmation email to student/parent
-    const confirmationSent = await sendEnrollmentConfirmationEmail(enrollmentData);
+    const metadata = enrollmentData.metadata || {};
+    const parentLinkId = metadata.parentLinkId;
+    const studentIndex = metadata.studentIndex;
+    const totalStudents = metadata.totalStudents;
+
+    let confirmationSent = false;
+
+    // Check if this is a multi-student submission
+    if (parentLinkId && typeof studentIndex === 'number' && typeof totalStudents === 'number') {
+      console.log(`🔗 Multi-student enrollment detected: parentLinkId=${parentLinkId}, studentIndex=${studentIndex}, totalStudents=${totalStudents}`);
+      
+      // Only send email for the last student (to ensure all enrollments are created)
+      if (studentIndex === totalStudents - 1) {
+        console.log(`📧 This is the last student (${studentIndex + 1}/${totalStudents}), collecting all enrollments for consolidated email...`);
+        
+        // Wait a bit to ensure all documents are created
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Query all enrollments with the same parentLinkId
+        const enrollmentsSnapshot = await admin.firestore()
+          .collection('enrollments')
+          .where('metadata.parentLinkId', '==', parentLinkId)
+          .orderBy('metadata.studentIndex', 'asc')
+          .get();
+        
+        if (enrollmentsSnapshot.empty) {
+          console.warn(`⚠️ No enrollments found with parentLinkId=${parentLinkId}`);
+          // Fallback to single email
+          confirmationSent = await sendEnrollmentConfirmationEmail(enrollmentData);
+        } else {
+          const allEnrollments = enrollmentsSnapshot.docs.map(doc => doc.data());
+          console.log(`✅ Found ${allEnrollments.length} enrollment(s) linked to parentLinkId=${parentLinkId}`);
+          
+          // Send consolidated email with all students
+          confirmationSent = await sendMultiStudentEnrollmentEmail(allEnrollments);
+        }
+      } else {
+        console.log(`⏭️ Skipping email for student ${studentIndex + 1}/${totalStudents} (will be sent with last student)`);
+        // Don't send email for intermediate students
+        confirmationSent = true; // Mark as "handled" to avoid errors
+      }
+    } else {
+      // Single student enrollment - send normal email
+      console.log(`👤 Single student enrollment, sending normal confirmation email`);
+      confirmationSent = await sendEnrollmentConfirmationEmail(enrollmentData);
+    }
     
-    // 2. Send notification email to admin
+    // 2. Send notification email to admin (always send for each enrollment)
     const adminNotified = await sendAdminEnrollmentNotification(enrollmentData, enrollmentId);
     
     // 3. Create job opportunity - DISABLED: Now manual via Admin Dashboard

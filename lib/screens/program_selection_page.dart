@@ -209,12 +209,12 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
   
   int? _parseDurationToMinutes(String duration) {
-    // Handle new duration format
+    // Handle new duration format - check longer/more specific durations first
+    if (duration.contains('1 hr 30')) return 90; // Must check before '30 mins' and '1 hr'
+    if (duration.contains('2 hr 30')) return 150; // Must check before '30 mins' and '2 hrs'
     if (duration.contains('30 mins')) return 30;
-    if (duration.contains('1 hr 30')) return 90;
-    if (duration.contains('2 hr 30')) return 150;
-    if (duration.contains('1 hr')) return 60; // Check '1 hr' after '1 hr 30' to avoid partial match
-    if (duration.contains('2 hrs')) return 120;
+    if (duration.contains('1 hr')) return 60; // Must check after '1 hr 30' to avoid partial match
+    if (duration.contains('2 hrs')) return 120; // Must check after '2 hr 30' to avoid partial match
     if (duration.contains('3 hrs')) return 180;
     if (duration.contains('4 hrs')) return 240;
     return null;
