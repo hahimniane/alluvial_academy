@@ -43,14 +43,14 @@ class SidebarConfig {
           ),
           const SidebarItem(
             id: 'enrollment',
-            label: 'Enrollment',
+            label: 'Student Applicants',
             icon: Icons.school,
             screenIndex: 16,
             colorValue: 0xff8B5CF6,
           ),
           const SidebarItem(
             id: 'applications',
-            label: 'Applications',
+            label: 'Teacher Applicants',
             icon: Icons.assignment_ind,
             screenIndex: 17,
             colorValue: 0xffF59E0B,
