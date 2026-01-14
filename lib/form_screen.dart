@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +12,9 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'core/services/user_role_service.dart';
 import 'core/services/shift_form_service.dart';
+import 'core/services/shift_service.dart';
+import 'core/enums/shift_enums.dart';
+import 'features/forms/widgets/form_details_modal.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/models/form_template.dart';
@@ -52,6 +57,25 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   
   // Google Forms style: Track focused field for visual feedback
   String? _focusedFieldKey;
+
+  /// Helper to write debug log
+  Future<void> _writeDebugLog(String location, String message, Map<String, dynamic> data, String hypothesisId) async {
+    try {
+      final logEntry = {
+        'location': location,
+        'message': message,
+        'data': data,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'sessionId': 'debug-session',
+        'runId': 'run1',
+        'hypothesisId': hypothesisId,
+      };
+      final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+      await file.writeAsString('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+    } catch (e) {
+      // Silently fail - don't break the app
+    }
+  }
   
   // Google Forms colors
   final Color _primaryColor = const Color(0xff673AB7); // Google Forms Purple
@@ -91,8 +115,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       // Set form data immediately to avoid showing the list screen
       selectedFormId = widget.template!.id;
       selectedFormData = formData;
-      // Initialize controllers immediately to prevent showing list
-      _initializeControllersForFormData(formData);
+      // Don't initialize controllers here - let _handleFormSelection do it with auto-fill
       // Load form data asynchronously (for auto-fill, etc.)
       _handleFormSelection(widget.template!.id, formData).then((_) {
         if (mounted) {
@@ -110,51 +133,83 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   /// First tries form_templates, then falls back to form collection
   Future<void> _autoSelectForm(String formId) async {
     try {
+      // #region agent log
+      await _writeDebugLog('form_screen.dart:110', '_autoSelectForm called', {
+        'formId': formId,
+        'timesheetId': widget.timesheetId,
+        'shiftId': widget.shiftId,
+      }, 'C');
+      // #endregion
+      
       AppLogger.debug('FormScreen: Auto-selecting form: $formId');
       debugPrint('📋 FormScreen: Auto-selecting form with ID: $formId');
       debugPrint('📋 FormScreen: timesheetId=${widget.timesheetId}, shiftId=${widget.shiftId}');
       
-      // First, try to find in form_templates (new system)
+      // First, try to find in form_templates (new system) - force refresh from server
       final templateDoc = await FirebaseFirestore.instance
           .collection('form_templates')
           .doc(formId)
-          .get();
+          .get(const GetOptions(source: Source.server));
+      
+      // #region agent log
+      await _writeDebugLog('form_screen.dart:122', 'Template doc fetched from server', {
+        'formId': formId,
+        'exists': templateDoc.exists,
+        'data': templateDoc.exists ? {
+          'name': templateDoc.data()?['name'],
+          'version': templateDoc.data()?['version'],
+          'updatedAt': templateDoc.data()?['updatedAt']?.toString(),
+        } : null,
+      }, 'C');
+      // #endregion
       
       if (templateDoc.exists && mounted) {
         // Convert template to form format
         final template = FormTemplate.fromFirestore(templateDoc);
         final formData = _convertTemplateToFormData(template);
+        
+        // #region agent log
+        await _writeDebugLog('form_screen.dart:128', 'Template converted to form data', {
+          'templateId': template.id,
+          'templateName': template.name,
+          'templateVersion': template.version,
+          'fieldCount': (formData['fields'] as Map?)?.length,
+        }, 'C');
+        // #endregion
+        
         debugPrint('✅ FormScreen: Template found - "${template.name}"');
         
-        // Delay to ensure the widget is fully built
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _handleFormSelection(formId, formData);
-            setState(() => _isAutoSelecting = false);
-            debugPrint('✅ FormScreen: Template selected and displayed');
-          }
-        });
+        // Call _handleFormSelection directly (no delay needed - it's async)
+        if (mounted) {
+          _handleFormSelection(formId, formData).then((_) {
+            if (mounted) {
+              setState(() => _isAutoSelecting = false);
+              debugPrint('✅ FormScreen: Template selected and displayed');
+            }
+          });
+        }
         return;
       }
       
-      // Fallback to old form collection
+      // Fallback to old form collection - force refresh from server
       final formDoc = await FirebaseFirestore.instance
           .collection('form')
           .doc(formId)
-          .get();
+          .get(const GetOptions(source: Source.server));
       
       if (formDoc.exists && mounted) {
         final formData = formDoc.data()!;
         debugPrint('✅ FormScreen: Form found - "${formData['title'] ?? 'Untitled'}"');
         
-        // Delay to ensure the widget is fully built
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _handleFormSelection(formId, formData);
-            setState(() => _isAutoSelecting = false);
-            debugPrint('✅ FormScreen: Form selected and displayed');
-          }
-        });
+        // Call _handleFormSelection directly (no delay needed - it's async)
+        if (mounted) {
+          _handleFormSelection(formId, formData).then((_) {
+            if (mounted) {
+              setState(() => _isAutoSelecting = false);
+              debugPrint('✅ FormScreen: Form selected and displayed');
+            }
+          });
+        }
       } else {
         AppLogger.error('FormScreen: Form not found for auto-select: $formId');
         debugPrint('❌ FormScreen: Form with ID $formId NOT FOUND in database!');
@@ -638,7 +693,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       AppLogger.debug(
                           'FormScreen: Processing ${snapshot.data!.docs.length} forms from Firestore');
 
-                      final forms = snapshot.data!.docs.where((doc) {
+                      final allForms = snapshot.data!.docs.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
 
                         // First check if the form is active
@@ -658,6 +713,70 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             .toLowerCase()
                             .contains(searchQuery);
                       }).toList();
+
+                      // Filter to show only latest version of each form
+                      // Group by title (normalized) and keep only the one with latest updatedAt or createdAt
+                      final Map<String, QueryDocumentSnapshot> latestForms = {};
+                      for (var doc in allForms) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        // Normalize title: trim, lowercase, remove extra spaces
+                        final title = (data['title'] ?? '').toString()
+                            .trim()
+                            .toLowerCase()
+                            .replaceAll(RegExp(r'\s+'), ' ');
+                        
+                        // Get update time (prefer updatedAt, fallback to createdAt)
+                        Timestamp? updateTime;
+                        if (data['updatedAt'] != null) {
+                          final updatedAtValue = data['updatedAt'];
+                          if (updatedAtValue is Timestamp) {
+                            updateTime = updatedAtValue;
+                          } else if (updatedAtValue is DateTime) {
+                            updateTime = Timestamp.fromDate(updatedAtValue);
+                          }
+                        } else if (data['createdAt'] != null) {
+                          final createdAtValue = data['createdAt'];
+                          if (createdAtValue is Timestamp) {
+                            updateTime = createdAtValue;
+                          } else if (createdAtValue is DateTime) {
+                            updateTime = Timestamp.fromDate(createdAtValue);
+                          }
+                        }
+                        
+                        if (!latestForms.containsKey(title)) {
+                          latestForms[title] = doc;
+                        } else {
+                          final existingDoc = latestForms[title]!;
+                          final existingData = existingDoc.data() as Map<String, dynamic>;
+                          Timestamp? existingTime;
+                          if (existingData['updatedAt'] != null) {
+                            final existingUpdatedAt = existingData['updatedAt'];
+                            if (existingUpdatedAt is Timestamp) {
+                              existingTime = existingUpdatedAt;
+                            } else if (existingUpdatedAt is DateTime) {
+                              existingTime = Timestamp.fromDate(existingUpdatedAt);
+                            }
+                          } else if (existingData['createdAt'] != null) {
+                            final existingCreatedAt = existingData['createdAt'];
+                            if (existingCreatedAt is Timestamp) {
+                              existingTime = existingCreatedAt;
+                            } else if (existingCreatedAt is DateTime) {
+                              existingTime = Timestamp.fromDate(existingCreatedAt);
+                            }
+                          }
+                          
+                          // Keep the one with the latest timestamp
+                          if (updateTime != null && existingTime != null) {
+                            if (updateTime.compareTo(existingTime) > 0) {
+                              latestForms[title] = doc;
+                            }
+                          } else if (updateTime != null) {
+                            latestForms[title] = doc;
+                          }
+                        }
+                      }
+                      
+                      final forms = latestForms.values.toList();
 
                       if (forms.isEmpty) {
                         return _buildEmptyState();
@@ -902,7 +1021,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     return _buildLoadingState();
                   }
 
-                  final forms = snapshot.data!.docs.where((doc) {
+                  final allForms = snapshot.data!.docs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     final status = data['status'] ?? 'active';
                     if (status != 'active') return false;
@@ -921,6 +1040,70 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     
                     return title.contains(searchQuery);
                   }).toList();
+
+                  // Filter to show only latest version of each form
+                  // Group by title (normalized) and keep only the one with latest updatedAt or createdAt
+                  final Map<String, QueryDocumentSnapshot> latestForms = {};
+                  for (var doc in allForms) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    // Normalize title: trim, lowercase, remove extra spaces
+                    final title = (data['title'] ?? '').toString()
+                        .trim()
+                        .toLowerCase()
+                        .replaceAll(RegExp(r'\s+'), ' ');
+                    
+                    // Get update time (prefer updatedAt, fallback to createdAt)
+                    Timestamp? updateTime;
+                    if (data['updatedAt'] != null) {
+                      final updatedAtValue = data['updatedAt'];
+                      if (updatedAtValue is Timestamp) {
+                        updateTime = updatedAtValue;
+                      } else if (updatedAtValue is DateTime) {
+                        updateTime = Timestamp.fromDate(updatedAtValue);
+                      }
+                    } else if (data['createdAt'] != null) {
+                      final createdAtValue = data['createdAt'];
+                      if (createdAtValue is Timestamp) {
+                        updateTime = createdAtValue;
+                      } else if (createdAtValue is DateTime) {
+                        updateTime = Timestamp.fromDate(createdAtValue);
+                      }
+                    }
+                    
+                    if (!latestForms.containsKey(title)) {
+                      latestForms[title] = doc;
+                    } else {
+                      final existingDoc = latestForms[title]!;
+                      final existingData = existingDoc.data() as Map<String, dynamic>;
+                      Timestamp? existingTime;
+                      if (existingData['updatedAt'] != null) {
+                        final existingUpdatedAt = existingData['updatedAt'];
+                        if (existingUpdatedAt is Timestamp) {
+                          existingTime = existingUpdatedAt;
+                        } else if (existingUpdatedAt is DateTime) {
+                          existingTime = Timestamp.fromDate(existingUpdatedAt);
+                        }
+                      } else if (existingData['createdAt'] != null) {
+                        final existingCreatedAt = existingData['createdAt'];
+                        if (existingCreatedAt is Timestamp) {
+                          existingTime = existingCreatedAt;
+                        } else if (existingCreatedAt is DateTime) {
+                          existingTime = Timestamp.fromDate(existingCreatedAt);
+                        }
+                      }
+                      
+                      // Keep the one with the latest timestamp
+                      if (updateTime != null && existingTime != null) {
+                        if (updateTime.compareTo(existingTime) > 0) {
+                          latestForms[title] = doc;
+                        }
+                      } else if (updateTime != null) {
+                        latestForms[title] = doc;
+                      }
+                    }
+                  }
+                  
+                  final forms = latestForms.values.toList();
 
                   if (forms.isEmpty) {
                     return _buildEmptyState();
@@ -1413,7 +1596,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                               fieldEntry.value['type'] ==
                                                   'dropdown' ||
                                               fieldEntry.value['type'] ==
-                                                  'multi_select')
+                                                  'multi_select' ||
+                                              fieldEntry.value['type'] ==
+                                                  'radio')
                                           ? (fieldEntry.value['options']
                                                   is List)
                                               ? List<String>.from(
@@ -1800,7 +1985,16 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return _buildTextAreaField(controller, hintText, required, label, fieldKey);
     } else if (type == 'date') {
       return _buildDateField(controller, hintText, required, label, fieldKey);
-    } else if (type == 'boolean' || type == 'yes_no' || type == 'radio' || type == 'yesNo') {
+    } else if (type == 'radio') {
+      // Radio buttons: if options exist, render as radio buttons with options
+      // Otherwise, render as boolean (Yes/No)
+      if (options != null && (options is List) && (options as List).isNotEmpty) {
+        return _buildRadioField(controller, options, required, label, fieldKey);
+      } else {
+        // No options provided, treat as boolean Yes/No
+        return _buildBooleanField(controller, label, fieldKey);
+      }
+    } else if (type == 'boolean' || type == 'yes_no' || type == 'yesNo') {
       return _buildBooleanField(controller, label, fieldKey);
     } else if (type == 'number') {
       return _buildNumberField(controller, hintText, required, label, fieldKey);
@@ -2295,6 +2489,81 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRadioField(
+    TextEditingController controller,
+    dynamic options,
+    bool required,
+    String label,
+    String fieldKey,
+  ) {
+    // Parse options from various formats
+    List<String> optionList = [];
+    if (options is List) {
+      optionList = options.map((e) => e.toString()).toList();
+    } else if (options is String) {
+      optionList = options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Hidden TextFormField for validation
+        SizedBox(
+          height: 0,
+          child: TextFormField(
+            controller: controller,
+            validator: required
+                ? (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select an option for $label';
+                    }
+                    return null;
+                  }
+                : null,
+            style: const TextStyle(height: 0),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xffF9FAFB),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xffE5E7EB)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: optionList.map((option) {
+              return RadioListTile<String>(
+                title: Text(
+                  option,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                value: option,
+                groupValue: controller.text.isEmpty ? null : controller.text,
+                onChanged: (value) {
+                  setState(() {
+                    controller.text = value ?? '';
+                    fieldValues[fieldKey] = value;
+                  });
+                },
+                activeColor: const Color(0xff0386FF),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2868,6 +3137,18 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _handleFormSelection(String formId, Map<String, dynamic> formData) async {
+    // #region agent log
+    AppLogger.debug('FormScreen: _handleFormSelection called for formId: $formId');
+    AppLogger.debug('FormScreen: formData keys: ${formData.keys.toList()}');
+    final autoFillRules = formData['autoFillRules'] as List<dynamic>? ?? [];
+    AppLogger.debug('FormScreen: autoFillRules count: ${autoFillRules.length}');
+    for (var rule in autoFillRules) {
+      if (rule is Map<String, dynamic>) {
+        AppLogger.debug('FormScreen: AutoFillRule - fieldId: ${rule['fieldId']}, sourceField: ${rule['sourceField']}');
+      }
+    }
+    // #endregion
+    
     // SECURITY CHECK: Orphan Prevention
     // If this is the Readiness Form but we don't have a shiftId (context),
     // we MUST force the user to select which class they are reporting for.
@@ -2902,8 +3183,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
     // Fetch shift data if shiftId is provided (for auto-fill)
     Map<String, dynamic>? shiftData;
+    // #region agent log
+    AppLogger.debug('FormScreen: widget.shiftId = ${widget.shiftId}');
+    // #endregion
     if (widget.shiftId != null) {
       try {
+        // #region agent log
+        AppLogger.debug('FormScreen: Fetching shift data for shiftId: ${widget.shiftId}');
+        // #endregion
         final shiftDoc = await FirebaseFirestore.instance
             .collection('teaching_shifts')
             .doc(widget.shiftId)
@@ -2911,9 +3198,58 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         if (shiftDoc.exists) {
           shiftData = shiftDoc.data();
           debugPrint('✅ Shift data loaded for auto-fill: ${shiftData?.keys}');
+          // #region agent log
+          AppLogger.debug('FormScreen: Shift data keys: ${shiftData?.keys.toList()}');
+          AppLogger.debug('FormScreen: student_names field: ${shiftData?['student_names']}');
+          AppLogger.debug('FormScreen: studentNames field: ${shiftData?['studentNames']}');
+          AppLogger.debug('FormScreen: students field: ${shiftData?['students']}');
+          AppLogger.debug('FormScreen: student_ids field: ${shiftData?['student_ids']}');
+          // #endregion
+          
+          // If student_names is missing but student_ids exists, fetch student names
+          if ((shiftData?['student_names'] == null || 
+               (shiftData?['student_names'] as List).isEmpty) &&
+              shiftData?['student_ids'] != null) {
+            final studentIds = shiftData!['student_ids'] as List<dynamic>?;
+            if (studentIds != null && studentIds.isNotEmpty) {
+              // #region agent log
+              AppLogger.debug('FormScreen: Fetching student names from IDs: $studentIds');
+              // #endregion
+              final studentNames = <String>[];
+              for (var studentId in studentIds) {
+                try {
+                  final studentDoc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(studentId.toString())
+                      .get();
+                  if (studentDoc.exists) {
+                    final studentData = studentDoc.data() as Map<String, dynamic>;
+                    final firstName = studentData['first_name'] ?? studentData['firstName'] ?? '';
+                    final lastName = studentData['last_name'] ?? studentData['lastName'] ?? '';
+                    if (firstName.isNotEmpty || lastName.isNotEmpty) {
+                      studentNames.add('$firstName $lastName'.trim());
+                    }
+                  }
+                } catch (e) {
+                  // #region agent log
+                  AppLogger.error('FormScreen: Error fetching student $studentId: $e');
+                  // #endregion
+                }
+              }
+              if (studentNames.isNotEmpty) {
+                shiftData!['student_names'] = studentNames;
+                // #region agent log
+                AppLogger.debug('FormScreen: Fetched student names: $studentNames');
+                // #endregion
+              }
+            }
+          }
         }
       } catch (e) {
         debugPrint('⚠️ Error fetching shift data for auto-fill: $e');
+        // #region agent log
+        AppLogger.error('FormScreen: Error fetching shift data: $e');
+        // #endregion
       }
     }
 
@@ -2931,11 +3267,25 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
         // Get autoFillRules if present
         final autoFillRules = formData['autoFillRules'] as List<dynamic>? ?? [];
+        
+        // #region agent log
+        AppLogger.debug('FormScreen: Processing ${autoFillRules.length} autoFillRules');
+        AppLogger.debug('FormScreen: shiftData is ${shiftData != null ? "available" : "null"}');
+        if (shiftData != null) {
+          AppLogger.debug('FormScreen: shiftData keys: ${shiftData.keys.toList()}');
+        }
+        for (var rule in autoFillRules) {
+          if (rule is Map<String, dynamic>) {
+            AppLogger.debug('FormScreen: AutoFillRule - fieldId: ${rule['fieldId']}, sourceField: ${rule['sourceField']}, editable: ${rule['editable']}');
+          }
+        }
+        // #endregion
 
         // Create new controllers for form fields with auto-fill support
         final fields = formData['fields'] as Map<String, dynamic>?;
         if (fields != null) {
           AppLogger.debug('FormScreen: Creating controllers for ${fields.length} fields');
+          AppLogger.debug('FormScreen: Field IDs: ${fields.keys.toList()}');
           fields.forEach((fieldId, fieldData) {
             AppLogger.debug(
                 'FormScreen: Creating controller for field: $fieldId (type: ${fieldId.runtimeType})');
@@ -2947,10 +3297,21 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 final sourceField = rule['sourceField'] as String?;
                 final editable = rule['editable'] as bool? ?? false;
                 
+                // #region agent log
+                AppLogger.debug('FormScreen: Found autoFillRule for field $fieldId: sourceField="$sourceField", editable=$editable');
+                // #endregion
+                
                 // Apply auto-fill from shift data if available
                 if (shiftData != null && sourceField != null) {
                   autoFilledValue = _getAutoFillValue(shiftData, sourceField);
                   debugPrint('✅ Auto-filled $fieldId = $autoFilledValue (editable: $editable)');
+                  // #region agent log
+                  AppLogger.debug('FormScreen: Auto-filled value for $fieldId: "$autoFilledValue"');
+                  // #endregion
+                } else {
+                  // #region agent log
+                  AppLogger.debug('FormScreen: No auto-fill - shiftData=${shiftData != null}, sourceField=$sourceField');
+                  // #endregion
                 }
                 break;
               }
@@ -2994,8 +3355,35 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     }
   }
   
+  /// Get day of week string from DateTime (e.g., "Mon/Lundi", "Tue/Mardi")
+  String _getDayOfWeekString(DateTime date) {
+    final weekday = date.weekday; // 1 = Monday, 7 = Sunday
+    switch (weekday) {
+      case 1:
+        return 'Mon/Lundi';
+      case 2:
+        return 'Tue/Mardi';
+      case 3:
+        return 'Wed/Mercredi';
+      case 4:
+        return 'Thu/Jeudi';
+      case 5:
+        return 'Fri/Vendredi';
+      case 6:
+        return 'Sat/Samedi';
+      case 7:
+        return 'Sun/Dimanche';
+      default:
+        return 'Unknown';
+    }
+  }
+
   /// Get auto-fill value from shift data based on sourceField
   String? _getAutoFillValue(Map<String, dynamic> shiftData, String sourceField) {
+    // #region agent log
+    AppLogger.debug('FormScreen: _getAutoFillValue called with sourceField: "$sourceField"');
+    // #endregion
+    
     switch (sourceField) {
       case 'shiftId':
         return widget.shiftId;
@@ -3004,8 +3392,35 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         return shiftData['subject'] as String?;
       case 'shift.studentNames':
       case 'students':
-        final students = shiftData['students'] as List<dynamic>?;
-        return students?.join(', ');
+      case 'studentName':
+      case 'student':
+      case 'shift.students':
+        // Try multiple field names to find student names
+        // Firestore uses 'student_names' (snake_case), but also check camelCase variants
+        final students = shiftData['student_names'] as List<dynamic>? ??
+                        shiftData['studentNames'] as List<dynamic>? ??
+                        shiftData['students'] as List<dynamic>?;
+        
+        // #region agent log
+        AppLogger.debug('FormScreen: _getAutoFillValue for students - found: ${students?.length ?? 0} students');
+        if (students != null && students.isNotEmpty) {
+          // Convert to strings and join
+          final studentNamesList = students.map((s) => s.toString()).toList();
+          AppLogger.debug('FormScreen: Student names list: $studentNamesList');
+          final joined = studentNamesList.join(', ');
+          AppLogger.debug('FormScreen: Joined student names: "$joined"');
+          return joined;
+        } else {
+          AppLogger.debug('FormScreen: No student names found in shift data');
+          AppLogger.debug('FormScreen: Available keys: ${shiftData.keys.toList()}');
+          // Try to get from subject_display_name or other fields as fallback
+          if (shiftData.containsKey('subject_display_name')) {
+            AppLogger.debug('FormScreen: Found subject_display_name: ${shiftData['subject_display_name']}');
+          }
+        }
+        // #endregion
+        
+        return students?.map((s) => s.toString()).join(', ');
       case 'shift.duration':
       case 'duration':
         final start = (shiftData['shift_start'] as Timestamp?)?.toDate();
@@ -3032,9 +3447,29 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             : null;
       case 'teacherEmail':
         return FirebaseAuth.instance.currentUser?.email;
+      case 'shift.dayOfWeek':
+      case 'dayOfWeek':
+      case 'classDay':
+      case 'class_day':
+      case 'day':
+        // Extract day of week from shift_start date
+        final shiftStart = (shiftData['shift_start'] as Timestamp?)?.toDate();
+        if (shiftStart != null) {
+          return _getDayOfWeekString(shiftStart);
+        }
+        return null;
       default:
         // For unknown fields, try direct lookup in shift data
-        return shiftData[sourceField]?.toString();
+        // #region agent log
+        AppLogger.debug('FormScreen: _getAutoFillValue default case for sourceField: "$sourceField"');
+        AppLogger.debug('FormScreen: Direct lookup result: ${shiftData[sourceField]}');
+        // #endregion
+        final value = shiftData[sourceField];
+        if (value is List) {
+          // If it's a list, join it
+          return value.map((v) => v.toString()).join(', ');
+        }
+        return value?.toString();
     }
   }
 
@@ -3048,19 +3483,344 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     );
 
     try {
-      // Fetch pending forms
-      final pendingShifts = await ShiftFormService.getPendingFormsForTeacher();
+      // Get all eligible shifts (completed/missed, not future) with form status
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (mounted) Navigator.pop(context);
+        return null;
+      }
+
+      final now = DateTime.now();
+      final allShifts = await ShiftService.getShiftsForTeacher(user.uid);
+      
+      // #region agent log
+      try {
+        final logEntry = {
+          'location': 'form_screen.dart:3408',
+          'message': 'Shift selection dialog - total shifts loaded',
+          'data': {
+            'totalShifts': allShifts.length,
+            'userId': user.uid,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run1',
+          'hypothesisId': 'A',
+        };
+        final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+        file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+      } catch (e) {
+        // Silently fail
+      }
+      // #endregion
+      
+      AppLogger.debug('FormScreen: Total shifts loaded: ${allShifts.length}');
+      
+      // Filter: only completed or missed shifts that have ended (not future)
+      // Strictly exclude any shifts that haven't started yet, haven't ended yet, or are scheduled
+      final eligibleShifts = allShifts.where((shift) {
+        final status = shift.status;
+        final shiftStart = shift.shiftStart.toLocal();
+        final shiftEnd = shift.shiftEnd.toLocal();
+        
+        // #region agent log
+        try {
+          final logEntry = {
+            'location': 'form_screen.dart:3420',
+            'message': 'Evaluating shift for eligibility',
+            'data': {
+              'shiftId': shift.id,
+              'status': status.toString(),
+              'statusName': status.name,
+              'shiftStart': shiftStart.toIso8601String(),
+              'shiftEnd': shiftEnd.toIso8601String(),
+              'now': now.toIso8601String(),
+              'hasStarted': shiftStart.isBefore(now),
+              'hasEnded': shiftEnd.isBefore(now),
+              'isScheduled': status == ShiftStatus.scheduled,
+              'isActive': status == ShiftStatus.active,
+              'isCancelled': status == ShiftStatus.cancelled,
+            },
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A',
+          };
+          final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+          file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+        } catch (e) {
+          // Silently fail
+        }
+        // #endregion
+        
+        // FIRST CHECK: Explicitly exclude scheduled, active, cancelled - return immediately
+        if (status == ShiftStatus.scheduled) {
+          // #region agent log
+          try {
+            final logEntry = {
+              'location': 'form_screen.dart:3440',
+              'message': 'EXCLUDED: Scheduled shift',
+              'data': {
+                'shiftId': shift.id,
+                'status': status.toString(),
+                'statusName': status.name,
+              },
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'sessionId': 'debug-session',
+              'runId': 'run1',
+              'hypothesisId': 'A',
+            };
+            final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+            file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+          } catch (e) {
+            // Silently fail
+          }
+          // #endregion
+          AppLogger.debug('FormScreen: Excluding SCHEDULED shift ${shift.id}');
+          return false;
+        }
+        if (status == ShiftStatus.active) {
+          AppLogger.debug('FormScreen: Excluding ACTIVE shift ${shift.id}');
+          return false;
+        }
+        if (status == ShiftStatus.cancelled) {
+          AppLogger.debug('FormScreen: Excluding CANCELLED shift ${shift.id}');
+          return false;
+        }
+        
+        // SECOND CHECK: Must be in a completed/missed state
+        final isCompletedOrMissed = status == ShiftStatus.completed || 
+                                    status == ShiftStatus.fullyCompleted ||
+                                    status == ShiftStatus.partiallyCompleted ||
+                                    status == ShiftStatus.missed;
+        
+        if (!isCompletedOrMissed) {
+          // #region agent log
+          try {
+            final logEntry = {
+              'location': 'form_screen.dart:3465',
+              'message': 'EXCLUDED: Not completed/missed',
+              'data': {
+                'shiftId': shift.id,
+                'status': status.toString(),
+                'statusName': status.name,
+                'isCompletedOrMissed': isCompletedOrMissed,
+              },
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'sessionId': 'debug-session',
+              'runId': 'run1',
+              'hypothesisId': 'B',
+            };
+            final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+            file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+          } catch (e) {
+            // Silently fail
+          }
+          // #endregion
+          AppLogger.debug('FormScreen: Excluding shift ${shift.id} - not completed/missed, status=$status');
+          return false;
+        }
+        
+        // THIRD CHECK: Must have started AND ended (both must be in the past)
+        // Shift must have started (start time is in the past)
+        if (!shiftStart.isBefore(now)) {
+          // #region agent log
+          try {
+            final logEntry = {
+              'location': 'form_screen.dart:3485',
+              'message': 'EXCLUDED: Has not started',
+              'data': {
+                'shiftId': shift.id,
+                'shiftStart': shiftStart.toIso8601String(),
+                'now': now.toIso8601String(),
+              },
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'sessionId': 'debug-session',
+              'runId': 'run1',
+              'hypothesisId': 'C',
+            };
+            final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+            file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+          } catch (e) {
+            // Silently fail
+          }
+          // #endregion
+          AppLogger.debug('FormScreen: Excluding shift ${shift.id} - has not started yet (start=$shiftStart, now=$now)');
+          return false;
+        }
+        
+        // Shift must have ended (end time is in the past, at least 1 second ago)
+        final timeSinceEnd = now.difference(shiftEnd);
+        if (timeSinceEnd.inSeconds <= 0) {
+          // #region agent log
+          try {
+            final logEntry = {
+              'location': 'form_screen.dart:3505',
+              'message': 'EXCLUDED: Has not ended',
+              'data': {
+                'shiftId': shift.id,
+                'shiftEnd': shiftEnd.toIso8601String(),
+                'now': now.toIso8601String(),
+                'timeSinceEndSeconds': timeSinceEnd.inSeconds,
+              },
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'sessionId': 'debug-session',
+              'runId': 'run1',
+              'hypothesisId': 'C',
+            };
+            final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+            file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+          } catch (e) {
+            // Silently fail
+          }
+          // #endregion
+          AppLogger.debug('FormScreen: Excluding shift ${shift.id} - has not ended yet (end=$shiftEnd, now=$now, diff=${timeSinceEnd.inSeconds}s)');
+          return false;
+        }
+        
+        // All checks passed
+        // #region agent log
+        try {
+          final logEntry = {
+            'location': 'form_screen.dart:3525',
+            'message': 'INCLUDED: Eligible shift',
+            'data': {
+              'shiftId': shift.id,
+              'status': status.toString(),
+              'statusName': status.name,
+              'timeSinceEndSeconds': timeSinceEnd.inSeconds,
+            },
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'D',
+          };
+          final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+          file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+        } catch (e) {
+          // Silently fail
+        }
+        // #endregion
+        AppLogger.debug('FormScreen: Including eligible shift ${shift.id}: status=$status, ended ${timeSinceEnd.inSeconds}s ago');
+        return true;
+      }).toList();
+      
+      // #region agent log
+      try {
+        final logEntry = {
+          'location': 'form_screen.dart:3545',
+          'message': 'Shift filtering complete',
+          'data': {
+            'totalShifts': allShifts.length,
+            'eligibleShifts': eligibleShifts.length,
+            'excludedCount': allShifts.length - eligibleShifts.length,
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run1',
+          'hypothesisId': 'E',
+        };
+        final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+        file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+      } catch (e) {
+        // Silently fail
+      }
+      // #endregion
+      
+      AppLogger.debug('FormScreen: Eligible shifts after filtering: ${eligibleShifts.length}');
+
+      // Sort by date (most recent first)
+      eligibleShifts.sort((a, b) => b.shiftEnd.compareTo(a.shiftEnd));
+
+      // Build shift list with form status
+      final shiftsWithStatus = <Map<String, dynamic>>[];
+      for (final shift in eligibleShifts) {
+        final formResponseId = await ShiftFormService.getFormResponseForShift(shift.id);
+        final hasForm = formResponseId != null;
+        
+        // Get timesheet if exists
+        final timesheetQuery = await FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .where('shift_id', isEqualTo: shift.id)
+            .where('teacher_id', isEqualTo: user.uid)
+            .limit(1)
+            .get();
+        
+        final timesheetId = timesheetQuery.docs.isNotEmpty ? timesheetQuery.docs.first.id : null;
+        
+        final shiftData = {
+          'shiftId': shift.id,
+          'timesheetId': timesheetId,
+          'shiftTitle': shift.displayName,
+          'shiftStart': shift.shiftStart,
+          'shiftEnd': shift.shiftEnd,
+          'type': shift.status == ShiftStatus.missed ? 'missed' : 'completed',
+          'hasForm': hasForm,
+          'formResponseId': formResponseId,
+        };
+        
+        // #region agent log
+        try {
+          final logEntry = {
+            'location': 'form_screen.dart:3570',
+            'message': 'Adding shift to display list',
+            'data': {
+              'shiftId': shift.id,
+              'shiftTitle': shift.displayName,
+              'status': shift.status.toString(),
+              'statusName': shift.status.name,
+              'shiftStart': shift.shiftStart.toIso8601String(),
+              'shiftEnd': shift.shiftEnd.toIso8601String(),
+              'hasForm': hasForm,
+            },
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'E',
+          };
+          final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+          file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+        } catch (e) {
+          // Silently fail
+        }
+        // #endregion
+        
+        shiftsWithStatus.add(shiftData);
+      }
+      
+      // #region agent log
+      try {
+        final logEntry = {
+          'location': 'form_screen.dart:3595',
+          'message': 'Final shifts list for dialog',
+          'data': {
+            'totalShiftsInDialog': shiftsWithStatus.length,
+            'shiftIds': shiftsWithStatus.map((s) => s['shiftId']).toList(),
+            'shiftTitles': shiftsWithStatus.map((s) => s['shiftTitle']).toList(),
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run1',
+          'hypothesisId': 'E',
+        };
+        final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+        await file.writeAsString('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+      } catch (e) {
+        // Silently fail
+      }
+      // #endregion
       
       if (!mounted) return null;
       Navigator.pop(context); // Close loading
 
-      if (pendingShifts.isEmpty) {
+      if (shiftsWithStatus.isEmpty) {
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('No Pending Classes'),
+            title: const Text('No Classes Available'),
             content: const Text(
-              'You have no recent classes that are missing reports.\n\n'
+              'You have no completed or missed classes available for reporting.\n\n'
               'If you are trying to submit a report for an older class, please contact your admin.',
             ),
             actions: [
@@ -3093,27 +3853,61 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    itemCount: pendingShifts.length,
+                    itemCount: shiftsWithStatus.length,
                     separatorBuilder: (context, index) => const Divider(),
                     itemBuilder: (context, index) {
-                      final shift = pendingShifts[index];
+                      final shift = shiftsWithStatus[index];
                       final title = shift['shiftTitle'] ?? 'Unknown Class';
                       final type = shift['type'] == 'missed' ? 'Missed Clock-in' : 'Completed';
-                      final date = shift['shiftStart'] ?? shift['clockInTime'];
-                      String dateStr = '';
-                      if (date != null) {
-                        if (date is Timestamp) {
-                          dateStr = DateFormat('MMM d, h:mm a').format(date.toDate());
-                        } else if (date is DateTime) {
-                          dateStr = DateFormat('MMM d, h:mm a').format(date);
-                        }
-                      }
+                      final date = shift['shiftStart'] as DateTime;
+                      final dateStr = DateFormat('MMM d, h:mm a').format(date);
+                      final hasForm = shift['hasForm'] as bool;
+                      final formResponseId = shift['formResponseId'] as String?;
 
                       return ListTile(
                         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text('$dateStr • $type'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () => Navigator.pop(context, shift),
+                        trailing: hasForm
+                            ? IconButton(
+                                icon: const Icon(Icons.visibility, color: Color(0xff10B981)),
+                                tooltip: 'View Form',
+                                onPressed: () async {
+                                  // Load form details and show modal
+                                  try {
+                                    final formDoc = await FirebaseFirestore.instance
+                                        .collection('form_responses')
+                                        .doc(formResponseId!)
+                                        .get();
+                                    
+                                    if (formDoc.exists && mounted) {
+                                      final data = formDoc.data() ?? {};
+                                      final responses = data['responses'] as Map<String, dynamic>? ?? {};
+                                      
+                                      Navigator.pop(context, null); // Close shift selection
+                                      
+                                      FormDetailsModal.show(
+                                        context,
+                                        formId: formResponseId!,
+                                        shiftId: shift['shiftId'] as String,
+                                        responses: responses,
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error loading form: ${e.toString()}'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              )
+                            : const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: hasForm
+                            ? null // Disable tap if form exists (use eye icon)
+                            : () => Navigator.pop(context, shift),
                       );
                     },
                   ),
@@ -3131,7 +3925,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       );
     } catch (e) {
       if (mounted) Navigator.pop(context); // Close loading if error
-      AppLogger.error('Error fetching pending shifts: $e');
+      AppLogger.error('Error fetching shifts: $e');
       return null;
     }
   }

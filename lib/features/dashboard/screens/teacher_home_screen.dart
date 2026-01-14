@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,6 +27,10 @@ import '../../../core/services/shift_form_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/services/form_template_service.dart';
+import '../../../core/models/form_template.dart';
+import '../../forms/widgets/form_details_modal.dart';
+import '../widgets/pending_form_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
@@ -1000,22 +1006,55 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                         final shiftTitle = shift['shiftTitle'] ?? 
                                          shift['displayName'] ?? 
                                          'Unknown Shift';
-                        final shiftDate = shift['shiftDate'] as DateTime? ?? 
-                                         (shift['shiftStart'] as Timestamp?)?.toDate();
-                        final shiftEnd = shift['shiftEnd'] as DateTime? ?? 
-                                        (shift['shiftEnd'] as Timestamp?)?.toDate();
+                        
+                        // Safely handle shiftDate - can be DateTime, Timestamp, or null
+                        // Check multiple possible field names: shiftDate, shiftStart, clockInTime
+                        // Note: getPendingFormsForTeacher already converts Timestamps to DateTime
+                        DateTime? shiftDate;
+                        final shiftDateValue = shift['shiftDate'] ?? 
+                                              shift['shiftStart'] ?? 
+                                              shift['clockInTime'];
+                        if (shiftDateValue != null) {
+                          if (shiftDateValue is DateTime) {
+                            shiftDate = shiftDateValue;
+                          } else if (shiftDateValue is Timestamp) {
+                            shiftDate = shiftDateValue.toDate();
+                          }
+                        }
+                        
+                        // Safely handle shiftEnd - can be DateTime, Timestamp, or null
+                        // Check multiple possible field names: shiftEnd, clockOutTime
+                        // Note: getPendingFormsForTeacher already converts Timestamps to DateTime
+                        DateTime? shiftEnd;
+                        final shiftEndValue = shift['shiftEnd'] ?? shift['clockOutTime'];
+                        if (shiftEndValue != null) {
+                          if (shiftEndValue is DateTime) {
+                            shiftEnd = shiftEndValue;
+                          } else if (shiftEndValue is Timestamp) {
+                            shiftEnd = shiftEndValue.toDate();
+                          }
+                        }
+                        
                         final subject = shift['subject'] as String? ?? '';
-                        final studentNames = shift['studentNames'] as List<dynamic>? ?? [];
+                        final studentNamesRaw = shift['studentNames'];
+                        List<String> studentNames = [];
+                        if (studentNamesRaw != null) {
+                          if (studentNamesRaw is List) {
+                            studentNames = studentNamesRaw
+                                .map((e) => e?.toString() ?? '')
+                                .where((e) => e.isNotEmpty)
+                                .toList()
+                                .cast<String>();
+                          }
+                        }
                         final studentDisplay = studentNames.isNotEmpty 
                             ? studentNames.join(', ') 
                             : 'Student';
                         final missedReason = shift['missedReason'] as String?;
+                        final currentShiftId = shift['shiftId'] as String?;
                         
                         return InkWell(
-                          onTap: () {
-                            Navigator.pop(context); // Close the bottom sheet
-                            _navigateToFormForShift(shift);
-                          },
+                          onTap: null, // Disable tap on row, button handles action
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                             decoration: isMissed ? BoxDecoration(
@@ -1127,28 +1166,22 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                // Fill Form button
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0386FF),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.edit_document, size: 16, color: Colors.white),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Fill',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                // Fill Form or View Form button (check if form exists)
+                                PendingFormButton(
+                                  shiftId: currentShiftId ?? '',
+                                  onFill: () {
+                                    Navigator.pop(context);
+                                    _navigateToFormForShift(shift);
+                                  },
+                                  onView: (formId, responses) {
+                                    Navigator.pop(context);
+                                    FormDetailsModal.show(
+                                      context,
+                                      formId: formId,
+                                      shiftId: currentShiftId ?? '',
+                                      responses: responses,
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -1165,6 +1198,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   /// Navigate to FormScreen for a specific shift
   /// Handles both completed shifts (with timesheet) and missed shifts (without timesheet)
+  /// FIXED: Now fetches template directly (like Quick Access) instead of passing ID
   Future<void> _navigateToFormForShift(Map<String, dynamic> shift) async {
     final timesheetId = shift['timesheetId'] as String?;
     final shiftId = shift['shiftId'] as String?;
@@ -1185,24 +1219,122 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     debugPrint('   - Type: ${shiftType ?? "unknown"}');
     debugPrint('   - TimesheetId: $timesheetId');
     
-    // Get the form ID from config (async)
-    final readinessFormId = await ShiftFormService.getReadinessFormId();
-    
-    if (!mounted) return;
-    
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FormScreen(
-          timesheetId: timesheetId, // Can be null for missed shifts
-          shiftId: shiftId, // Always required
-          autoSelectFormId: readinessFormId,
+    // FIXED: Use same approach as Quick Access - get ALL templates and filter to latest version
+    // This ensures we get the latest version even if config points to an old template ID
+    try {
+      // Get all templates (same as Quick Access)
+      final allTemplates = await FormTemplateService.getAllTemplates(forceRefresh: true);
+      
+      // Filter to keep only the latest version of each template by name (same logic as Quick Access)
+      final Map<String, FormTemplate> latestTemplatesByName = {};
+      for (var template in allTemplates) {
+        if (!template.isActive) continue;
+        
+        // Normalize template name for comparison
+        final normalizedName = template.name
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'\s+'), ' ');
+        
+        if (!latestTemplatesByName.containsKey(normalizedName)) {
+          latestTemplatesByName[normalizedName] = template;
+        } else {
+          final existing = latestTemplatesByName[normalizedName]!;
+          // Keep the one with higher version, or if same version, keep the one with later updatedAt
+          if (template.version > existing.version) {
+            latestTemplatesByName[normalizedName] = template;
+          } else if (template.version == existing.version) {
+            if (template.updatedAt.isAfter(existing.updatedAt)) {
+              latestTemplatesByName[normalizedName] = template;
+            }
+          }
+        }
+      }
+      
+      // Find the daily class report template (same as Quick Access)
+      FormTemplate? template;
+      for (var t in latestTemplatesByName.values) {
+        if (t.frequency == FormFrequency.perSession &&
+            t.name.toLowerCase().contains('daily') &&
+            (t.name.toLowerCase().contains('class') || t.name.toLowerCase().contains('report'))) {
+          template = t;
+          break;
+        }
+      }
+      
+      // If not found, use first perSession template
+      if (template == null) {
+        template = latestTemplatesByName.values.firstWhere(
+          (t) => t.frequency == FormFrequency.perSession,
+          orElse: () => latestTemplatesByName.values.first,
+        );
+      }
+      
+      // #region agent log
+      try {
+        final logEntry = {
+          'location': 'teacher_home_screen.dart:1230',
+          'message': 'Template selected using Quick Access method',
+          'data': {
+            'templateId': template?.id,
+            'templateName': template?.name,
+            'templateVersion': template?.version,
+            'allTemplatesCount': allTemplates.length,
+            'latestTemplatesCount': latestTemplatesByName.length,
+            'timesheetId': timesheetId,
+            'shiftId': shiftId,
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run1',
+          'hypothesisId': 'FIX2',
+        };
+        final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+        await file.writeAsString('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+      } catch (e) {
+        // Silently fail
+      }
+      // #endregion
+      
+      if (template == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Could not load form template. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      if (!mounted) return;
+      
+      // Pass template directly (same as Quick Access) - ensures latest version
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FormScreen(
+            timesheetId: timesheetId, // Can be null for missed shifts
+            shiftId: shiftId, // Always required
+            template: template, // Pass template directly - uses latest version
+          ),
         ),
-      ),
-    ).then((_) {
-      // Refresh data after returning from form
-      _loadData();
-    });
+      ).then((_) {
+        // Refresh data after returning from form
+        _loadData();
+      });
+    } catch (e) {
+      debugPrint('Error fetching template: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading form: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildActiveSessionCard() {
@@ -1721,6 +1853,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
     
     // If in programming window (1 minute before shift) - show Program button
+    // This programs automatic clock-in when shift starts
     if (isInProgramWindow) {
       return SizedBox(
         width: double.infinity,
@@ -1786,14 +1919,16 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
     final shiftHasStarted = !now.isBefore(shiftStart);
     
-    if (isInProgramWindow && !shiftHasStarted) {
-      _startProgrammedClockIn(shift);
-    } else if (shiftHasStarted) {
+    // Only allow clock-in if shift has started (not during programming window)
+    if (shiftHasStarted) {
       await _performClockIn(shift);
+    } else if (isInProgramWindow) {
+      // During programming window, use program function instead
+      _startProgrammedClockIn(shift);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Too early to clock in. Please wait for the programming window.'),
+          content: Text('Too early to clock in. Please wait for the programming window (1 minute before shift).'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2092,6 +2227,20 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           child: Row(
             children: [
               _buildCompactQuickAccessCard(
+                icon: Icons.article_outlined,
+                label: 'Forms',
+                color: const Color(0xFFEC4899),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherFormsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              _buildCompactQuickAccessCard(
                 icon: Icons.assignment_outlined,
                 label: 'Assignments',
                 color: const Color(0xFF8B5CF6),
@@ -2114,20 +2263,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MySubmissionsScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              _buildCompactQuickAccessCard(
-                icon: Icons.article_outlined,
-                label: 'Forms',
-                color: const Color(0xFFEC4899),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherFormsScreen(),
                     ),
                   );
                 },

@@ -256,6 +256,7 @@ class FormTemplate {
   final String? createdBy;
   final String? subjectId; // Optional: link to specific subject/class
   final List<String>? allowedRoles; // NEW: Restrict who can fill the form
+  final String? themeColor; // NEW: Theme color for UI display
 
   const FormTemplate({
     required this.id,
@@ -272,6 +273,7 @@ class FormTemplate {
     this.createdBy,
     this.subjectId,
     this.allowedRoles,
+    this.themeColor,
   });
 
   /// Total field count (excluding auto-filled hidden fields)
@@ -297,6 +299,7 @@ class FormTemplate {
         'createdBy': createdBy,
         'subjectId': subjectId,
         if (allowedRoles != null) 'allowedRoles': allowedRoles,
+        if (themeColor != null) 'themeColor': themeColor,
       };
 
   factory FormTemplate.fromFirestore(DocumentSnapshot doc) {
@@ -348,6 +351,7 @@ class FormTemplate {
       createdBy: data['createdBy'] as String?,
       subjectId: data['subjectId'] as String?,
       allowedRoles: (data['allowedRoles'] as List<dynamic>?)?.cast<String>(),
+      themeColor: data['themeColor'] as String?,
     );
   }
 
@@ -366,6 +370,7 @@ class FormTemplate {
     String? createdBy,
     String? subjectId,
     List<String>? allowedRoles,
+    String? themeColor,
   }) =>
       FormTemplate(
         id: id ?? this.id,
@@ -382,6 +387,7 @@ class FormTemplate {
         createdBy: createdBy ?? this.createdBy,
         subjectId: subjectId ?? this.subjectId,
         allowedRoles: allowedRoles ?? this.allowedRoles,
+        themeColor: themeColor ?? this.themeColor,
       );
 }
 

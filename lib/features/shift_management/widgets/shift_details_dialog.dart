@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teaching_shift.dart';
+import '../../../core/models/form_template.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/form_template_service.dart';
 import '../../../form_screen.dart';
+import '../../forms/widgets/form_details_modal.dart';
 import 'quick_edit_shift_popup.dart';
 
-class ShiftDetailsDialog extends StatelessWidget {
+class ShiftDetailsDialog extends StatefulWidget {
   final TeachingShift shift;
   final VoidCallback? onPublishShift;
   final VoidCallback? onUnpublishShift;
@@ -28,6 +32,71 @@ class ShiftDetailsDialog extends StatelessWidget {
     this.onFillForm,
     this.onEditShift,
   });
+
+  @override
+  State<ShiftDetailsDialog> createState() => _ShiftDetailsDialogState();
+}
+
+class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
+  String? _formResponseId;
+  bool _isCheckingForm = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFormStatus();
+  }
+
+  Future<void> _checkFormStatus() async {
+    if (widget.shift.status == ShiftStatus.completed || 
+        widget.shift.status == ShiftStatus.fullyCompleted ||
+        widget.shift.status == ShiftStatus.partiallyCompleted ||
+        widget.shift.status == ShiftStatus.missed) {
+      final formId = await ShiftFormService.getFormResponseForShift(widget.shift.id);
+      if (mounted) {
+        setState(() {
+          _formResponseId = formId;
+          _isCheckingForm = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isCheckingForm = false;
+      });
+    }
+  }
+
+  Future<void> _showFormDetails() async {
+    if (_formResponseId == null) return;
+    
+    try {
+      final formDoc = await FirebaseFirestore.instance
+          .collection('form_responses')
+          .doc(_formResponseId!)
+          .get();
+      
+      if (formDoc.exists && mounted) {
+        final data = formDoc.data() ?? {};
+        final responses = data['responses'] as Map<String, dynamic>? ?? {};
+        
+        FormDetailsModal.show(
+          context,
+          formId: _formResponseId!,
+          shiftId: widget.shift.id,
+          responses: responses,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading form details: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +122,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                     _buildParticipantsInfo(),
                     const SizedBox(height: 24),
                     _buildStatusInfo(),
-                    if (shift.notes != null) ...[
+                    if (widget.shift.notes != null) ...[
                       const SizedBox(height: 24),
                       _buildNotesInfo(),
                     ],
@@ -94,7 +163,7 @@ class ShiftDetailsDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  shift.displayName,
+                  widget.shift.displayName,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -110,7 +179,7 @@ class ShiftDetailsDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    shift.status.name.toUpperCase(),
+                    widget.shift.status.name.toUpperCase(),
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -131,14 +200,14 @@ class ShiftDetailsDialog extends StatelessWidget {
       'Basic Information',
       Icons.info_outline,
       [
-        _buildInfoRow('Subject', shift.effectiveSubjectDisplayName),
-        _buildInfoRow('Teacher', shift.teacherName),
+        _buildInfoRow('Subject', widget.shift.effectiveSubjectDisplayName),
+        _buildInfoRow('Teacher', widget.shift.teacherName),
         _buildInfoRow(
-            'Duration', '${shift.shiftDurationHours.toStringAsFixed(1)} hours'),
+            'Duration', '${widget.shift.shiftDurationHours.toStringAsFixed(1)} hours'),
         _buildInfoRow(
-            'Hourly Rate', '\$${shift.hourlyRate.toStringAsFixed(2)}'),
+            'Hourly Rate', '\$${widget.shift.hourlyRate.toStringAsFixed(2)}'),
         _buildInfoRow(
-            'Total Payment', '\$${shift.totalPayment.toStringAsFixed(2)}'),
+            'Total Payment', '\$${widget.shift.totalPayment.toStringAsFixed(2)}'),
       ],
     );
   }
@@ -148,16 +217,16 @@ class ShiftDetailsDialog extends StatelessWidget {
       'Schedule',
       Icons.schedule,
       [
-        _buildInfoRow('Date', _formatDate(shift.shiftStart)),
-        _buildInfoRow('Start Time', _formatTime(shift.shiftStart)),
-        _buildInfoRow('End Time', _formatTime(shift.shiftEnd)),
-        _buildInfoRow('Admin Timezone', shift.adminTimezone),
-        _buildInfoRow('Teacher Timezone', shift.teacherTimezone),
-        if (shift.recurrence != RecurrencePattern.none) ...[
+        _buildInfoRow('Date', _formatDate(widget.shift.shiftStart)),
+        _buildInfoRow('Start Time', _formatTime(widget.shift.shiftStart)),
+        _buildInfoRow('End Time', _formatTime(widget.shift.shiftEnd)),
+        _buildInfoRow('Admin Timezone', widget.shift.adminTimezone),
+        _buildInfoRow('Teacher Timezone', widget.shift.teacherTimezone),
+        if (widget.shift.recurrence != RecurrencePattern.none) ...[
           _buildInfoRow('Recurrence', _getRecurrenceText()),
-          if (shift.recurrenceEndDate != null)
+          if (widget.shift.recurrenceEndDate != null)
             _buildInfoRow(
-                'Recurrence End', _formatDate(shift.recurrenceEndDate!)),
+                'Recurrence End', _formatDate(widget.shift.recurrenceEndDate!)),
         ],
       ],
     );
@@ -168,11 +237,11 @@ class ShiftDetailsDialog extends StatelessWidget {
       'Participants',
       Icons.people,
       [
-        _buildInfoRow('Teacher', shift.teacherName),
+        _buildInfoRow('Teacher', widget.shift.teacherName),
         _buildInfoRow(
-          'Students (${shift.studentNames.length})',
-          shift.studentNames.isNotEmpty
-              ? shift.studentNames.join(', ')
+          'Students (${widget.shift.studentNames.length})',
+          widget.shift.studentNames.isNotEmpty
+              ? widget.shift.studentNames.join(', ')
               : 'No students assigned',
         ),
       ],
@@ -184,14 +253,14 @@ class ShiftDetailsDialog extends StatelessWidget {
       'Status & Timing',
       Icons.access_time,
       [
-        _buildInfoRow('Current Status', shift.status.name.toUpperCase()),
-        _buildInfoRow('Can Clock In', shift.canClockIn ? 'Yes' : 'No'),
+        _buildInfoRow('Current Status', widget.shift.status.name.toUpperCase()),
+        _buildInfoRow('Can Clock In', widget.shift.canClockIn ? 'Yes' : 'No'),
         _buildInfoRow(
-            'Currently Active', shift.isCurrentlyActive ? 'Yes' : 'No'),
-        _buildInfoRow('Has Expired', shift.hasExpired ? 'Yes' : 'No'),
-        _buildInfoRow('Created', _formatDateTime(shift.createdAt)),
-        if (shift.lastModified != null)
-          _buildInfoRow('Last Modified', _formatDateTime(shift.lastModified!)),
+            'Currently Active', widget.shift.isCurrentlyActive ? 'Yes' : 'No'),
+        _buildInfoRow('Has Expired', widget.shift.hasExpired ? 'Yes' : 'No'),
+        _buildInfoRow('Created', _formatDateTime(widget.shift.createdAt)),
+        if (widget.shift.lastModified != null)
+          _buildInfoRow('Last Modified', _formatDateTime(widget.shift.lastModified!)),
       ],
     );
   }
@@ -210,7 +279,7 @@ class ShiftDetailsDialog extends StatelessWidget {
             border: Border.all(color: const Color(0xffE2E8F0)),
           ),
           child: Text(
-            shift.notes!,
+            widget.shift.notes!,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xff374151),
@@ -300,15 +369,15 @@ class ShiftDetailsDialog extends StatelessWidget {
 
   Widget _buildActions(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final isMyShift = currentUser?.uid == shift.teacherId;
+    final isMyShift = currentUser?.uid == widget.shift.teacherId;
     final canPublish =
-        isMyShift && shift.status == ShiftStatus.scheduled && !shift.hasExpired;
-    final isPublished = shift.isPublished;
+        isMyShift && widget.shift.status == ShiftStatus.scheduled && !widget.shift.hasExpired;
+    final isPublished = widget.shift.isPublished;
 
     // Check if shift is marked as missed but hasn't actually started yet
     final now = DateTime.now();
     final isMissedBeforeStart =
-        shift.status == ShiftStatus.missed && now.isBefore(shift.shiftStart);
+        widget.shift.status == ShiftStatus.missed && now.isBefore(widget.shift.shiftStart);
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -322,12 +391,12 @@ class ShiftDetailsDialog extends StatelessWidget {
           Row(
             children: [
               // Correct Status button for prematurely missed shifts
-              if (isMissedBeforeStart && onCorrectStatus != null)
+              if (isMissedBeforeStart && widget.onCorrectStatus != null)
                 ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    onCorrectStatus!(ShiftStatus.scheduled);
-                    onRefresh?.call();
+                    widget.onCorrectStatus!(ShiftStatus.scheduled);
+                    widget.onRefresh?.call();
                   },
                   icon: const Icon(Icons.refresh, size: 18),
                   label: Text(
@@ -346,15 +415,15 @@ class ShiftDetailsDialog extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (isMissedBeforeStart && onCorrectStatus != null)
+              if (isMissedBeforeStart && widget.onCorrectStatus != null)
                 const SizedBox(width: 12),
               // Publish/Unpublish button for shift owner
-              if (canPublish && onPublishShift != null && !isPublished)
+              if (canPublish && widget.onPublishShift != null && !isPublished)
                 ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    onPublishShift!();
-                    onRefresh?.call();
+                    widget.onPublishShift!();
+                    widget.onRefresh?.call();
                   },
                   icon: const Icon(Icons.publish, size: 18),
                   label: Text(
@@ -373,12 +442,12 @@ class ShiftDetailsDialog extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (canPublish && onUnpublishShift != null && isPublished)
+              if (canPublish && widget.onUnpublishShift != null && isPublished)
                 OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    onUnpublishShift!();
-                    onRefresh?.call();
+                    widget.onUnpublishShift!();
+                    widget.onRefresh?.call();
                   },
                   icon: const Icon(Icons.unpublished, size: 18),
                   label: Text(
@@ -399,12 +468,12 @@ class ShiftDetailsDialog extends StatelessWidget {
                 ),
 
               // Claim button for other teachers viewing published shifts
-              if (!isMyShift && isPublished && onClaimShift != null)
+              if (!isMyShift && isPublished && widget.onClaimShift != null)
                 ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    onClaimShift!();
-                    onRefresh?.call();
+                    widget.onClaimShift!();
+                    widget.onRefresh?.call();
                   },
                   icon: const Icon(Icons.add_task, size: 18),
                   label: Text(
@@ -424,16 +493,20 @@ class ShiftDetailsDialog extends StatelessWidget {
                   ),
                 ),
               
-              // Fill Form button for shift owner (completed or missed shifts)
+              // Fill Form or View Form button for shift owner (completed or missed shifts)
               if (isMyShift && 
-                  (shift.status == ShiftStatus.completed || 
-                   shift.status == ShiftStatus.fullyCompleted ||
-                   shift.status == ShiftStatus.partiallyCompleted ||
-                   shift.status == ShiftStatus.missed))
-                _buildFillFormButton(context),
+                  (widget.shift.status == ShiftStatus.completed || 
+                   widget.shift.status == ShiftStatus.fullyCompleted ||
+                   widget.shift.status == ShiftStatus.partiallyCompleted ||
+                   widget.shift.status == ShiftStatus.missed))
+                _isCheckingForm 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : _formResponseId != null
+                    ? _buildViewFormButton(context)
+                    : _buildFillFormButton(context),
               
               // Edit Shift button for shift owner (scheduled shifts only)
-              if (isMyShift && shift.status == ShiftStatus.scheduled && !shift.hasExpired)
+              if (isMyShift && widget.shift.status == ShiftStatus.scheduled && !widget.shift.hasExpired)
                 _buildEditShiftButton(context),
             ],
           ),
@@ -442,7 +515,7 @@ class ShiftDetailsDialog extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              onRefresh?.call();
+              widget.onRefresh?.call();
             },
             child: Text(
               'Close',
@@ -467,16 +540,16 @@ class ShiftDetailsDialog extends StatelessWidget {
           showDialog(
             context: context,
             builder: (ctx) => QuickEditShiftPopup(
-              shift: shift,
+              shift: widget.shift,
               onSaved: () {
-                onRefresh?.call();
+                widget.onRefresh?.call();
               },
               onDeleted: () {
-                onRefresh?.call();
+                widget.onRefresh?.call();
               },
               onOpenFullEditor: () {
                 // For teachers, just close - they can only do quick edit
-                onRefresh?.call();
+                widget.onRefresh?.call();
               },
             ),
           );
@@ -501,31 +574,141 @@ class ShiftDetailsDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildViewFormButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12),
+      child: ElevatedButton.icon(
+        onPressed: _showFormDetails,
+        icon: const Icon(Icons.visibility, size: 18),
+        label: Text(
+          'View Form',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xff10B981),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFillFormButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 12),
       child: ElevatedButton.icon(
         onPressed: () async {
-          Navigator.pop(context);
-          
-          // Get the form ID from config
-          final readinessFormId = await ShiftFormService.getReadinessFormId();
-          
-          // Navigate to form screen with shift context
-          if (context.mounted) {
-            Navigator.push(
-              context,
+          try {
+            // Get root navigator before closing dialog
+            final rootNavigator = Navigator.of(context, rootNavigator: true);
+            
+            // FIXED: Use same approach as Quick Access - get ALL templates and filter to latest version
+            // This ensures we get the latest version even if config points to an old template ID
+            final allTemplates = await FormTemplateService.getAllTemplates(forceRefresh: true);
+            
+            // Filter to keep only the latest version of each template by name (same logic as Quick Access)
+            final Map<String, FormTemplate> latestTemplatesByName = {};
+            for (var template in allTemplates) {
+              if (!template.isActive) continue;
+              
+              // Normalize template name for comparison
+              final normalizedName = template.name
+                  .trim()
+                  .toLowerCase()
+                  .replaceAll(RegExp(r'\s+'), ' ');
+              
+              if (!latestTemplatesByName.containsKey(normalizedName)) {
+                latestTemplatesByName[normalizedName] = template;
+              } else {
+                final existing = latestTemplatesByName[normalizedName]!;
+                // Keep the one with higher version, or if same version, keep the one with later updatedAt
+                if (template.version > existing.version) {
+                  latestTemplatesByName[normalizedName] = template;
+                } else if (template.version == existing.version) {
+                  if (template.updatedAt.isAfter(existing.updatedAt)) {
+                    latestTemplatesByName[normalizedName] = template;
+                  }
+                }
+              }
+            }
+            
+            // Find the daily class report template (same as Quick Access)
+            FormTemplate? template;
+            for (var t in latestTemplatesByName.values) {
+              if (t.frequency == FormFrequency.perSession &&
+                  t.name.toLowerCase().contains('daily') &&
+                  (t.name.toLowerCase().contains('class') || t.name.toLowerCase().contains('report'))) {
+                template = t;
+                break;
+              }
+            }
+            
+            // If not found, use first perSession template
+            if (template == null) {
+              template = latestTemplatesByName.values.firstWhere(
+                (t) => t.frequency == FormFrequency.perSession,
+                orElse: () => latestTemplatesByName.values.first,
+              );
+            }
+            
+            // Close the dialog
+            if (context.mounted) {
+              Navigator.pop(context);
+            }
+            
+            if (template != null) {
+              // Navigate to form screen with template directly (NEW FORMAT)
+              // This ensures we use the latest version (same as Quick Access)
+              await rootNavigator.push(
+                MaterialPageRoute(
+                  builder: (context) => FormScreen(
+                    shiftId: widget.shift.id,
+                    template: template, // Pass template directly - uses latest version
+                  ),
+                ),
+              );
+              
+              // Call refresh callback if provided
+              widget.onRefresh?.call();
+              return;
+            }
+            
+            // Fallback: try with autoSelectFormId if template not found
+            final readinessFormId = await ShiftFormService.getReadinessFormId();
+            
+            await rootNavigator.push(
               MaterialPageRoute(
                 builder: (context) => FormScreen(
-                  timesheetId: null, // timesheet not available in shift details; linkage enforced via shiftId
-                  shiftId: shift.id,
+                  shiftId: widget.shift.id,
                   autoSelectFormId: readinessFormId,
                 ),
               ),
-            ).then((_) {
-              // Call refresh callback if provided
-              onRefresh?.call();
-            });
+            );
+            
+            widget.onRefresh?.call();
+          } catch (e) {
+            debugPrint('Error loading form: $e');
+            // Try to show error using root navigator
+            try {
+              final rootNavigator = Navigator.of(context, rootNavigator: true);
+              if (rootNavigator.context.mounted) {
+                ScaffoldMessenger.of(rootNavigator.context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error loading form: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            } catch (_) {
+              // If we can't show snackbar, just log
+              debugPrint('Could not show error snackbar');
+            }
           }
         },
         icon: const Icon(Icons.assignment_outlined, size: 18),
@@ -549,7 +732,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   }
 
   Color _getStatusColor() {
-    switch (shift.status) {
+    switch (widget.shift.status) {
       case ShiftStatus.scheduled:
         return const Color(0xff0386FF);
       case ShiftStatus.active:
@@ -568,7 +751,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   }
 
   IconData _getStatusIcon() {
-    switch (shift.status) {
+    switch (widget.shift.status) {
       case ShiftStatus.scheduled:
         return Icons.schedule;
       case ShiftStatus.active:
@@ -599,7 +782,7 @@ class ShiftDetailsDialog extends StatelessWidget {
   }
 
   String _getRecurrenceText() {
-    switch (shift.recurrence) {
+    switch (widget.shift.recurrence) {
       case RecurrencePattern.none:
         return 'No Recurrence';
       case RecurrencePattern.daily:

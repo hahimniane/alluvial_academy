@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
+import '../core/models/form_template.dart';
+import '../core/services/form_template_service.dart';
 
 // --- MODELS ---
 enum QuestionType {
@@ -177,6 +179,18 @@ class _FormBuilderState extends State<FormBuilder> {
   final TextEditingController _descriptionController = TextEditingController();
   List<FormQuestion> _questions = [];
   String _selectedThemeColor = '#673AB7';
+  
+  // New Fields for Template System
+  FormFrequency _frequency = FormFrequency.onDemand;
+  FormCategory _category = FormCategory.other;
+  final Map<String, bool> _allowedRoles = {
+    'teacher': true,
+    'admin': false,
+    'coach': false,
+    'student': false,
+    'parent': false,
+  };
+
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
   
@@ -209,14 +223,63 @@ class _FormBuilderState extends State<FormBuilder> {
 
   void _loadExistingForm() {
     final data = widget.editFormData!;
-    _titleController.text = data['title'] ?? 'Untitled Form';
+    _titleController.text = data['title'] ?? data['name'] ?? 'Untitled Form'; // Support both keys
     _descriptionController.text = data['description'] ?? '';
     _selectedThemeColor = data['themeColor'] ?? '#673AB7';
     
-    final fields = data['fields'] as Map<String, dynamic>? ?? {};
-    _questions = fields.entries.map((e) => 
-      FormQuestion.fromFirestore(e.key, e.value as Map<String, dynamic>)
-    ).toList();
+    // Load new fields if available
+    if (data['frequency'] != null) {
+      try {
+        _frequency = FormFrequency.values.firstWhere(
+          (e) => e.name == data['frequency'],
+          orElse: () => FormFrequency.onDemand,
+        );
+      } catch (_) {}
+    }
+    
+    if (data['category'] != null) {
+      try {
+        _category = FormCategory.values.firstWhere(
+          (e) => e.name == data['category'],
+          orElse: () => FormCategory.other,
+        );
+      } catch (_) {}
+    }
+    
+    if (data['allowedRoles'] != null) {
+      final roles = List<String>.from(data['allowedRoles']);
+      for (var role in _allowedRoles.keys) {
+        _allowedRoles[role] = roles.contains(role);
+      }
+    }
+    
+    // Handle fields loading (support both map and list formats)
+    if (data['fields'] is List) {
+      // New format (List of FormFieldDefinition)
+      final fieldsList = data['fields'] as List;
+      _questions = fieldsList.map((f) {
+        final fieldData = f is Map ? f : (f as FormFieldDefinition).toMap();
+        // Convert FormFieldDefinition to FormQuestion
+        // This is a rough mapping
+        return FormQuestion(
+          id: fieldData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          type: QuestionTypeExtension.fromFirestore(fieldData['type'] ?? 'text'),
+          title: fieldData['label'] ?? '',
+          required: fieldData['required'] ?? false,
+          options: (fieldData['options'] as List?)?.cast<String>() ?? ['Option 1'],
+          scaleMin: fieldData['validation']?['min'] ?? 1,
+          scaleMax: fieldData['validation']?['max'] ?? 5,
+          order: fieldData['order'] ?? 0,
+        );
+      }).toList();
+    } else {
+      // Old format (Map<String, dynamic>)
+      final fields = data['fields'] as Map<String, dynamic>? ?? {};
+      _questions = fields.entries.map((e) => 
+        FormQuestion.fromFirestore(e.key, e.value as Map<String, dynamic>)
+      ).toList();
+    }
+    
     _questions.sort((a, b) => a.order.compareTo(b.order));
     
     if (_questions.isEmpty) {
@@ -398,7 +461,7 @@ class _FormBuilderState extends State<FormBuilder> {
       child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.transparent),
         boxShadow: [
           BoxShadow(
@@ -446,6 +509,109 @@ class _FormBuilderState extends State<FormBuilder> {
                       isDense: true,
                     ),
                     onTap: () => setState(() => _focusedQuestionIndex = null),
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  
+                  // SETTINGS SECTION
+                  Text('Form Settings', style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[700])),
+                  const SizedBox(height: 16),
+                  
+                  // Frequency & Category Row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Frequency', style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<FormFrequency>(
+                                  value: _frequency,
+                                  isExpanded: true,
+                                  items: FormFrequency.values.map((f) => DropdownMenuItem(
+                                    value: f,
+                                    child: Text(f.name.substring(0, 1).toUpperCase() + f.name.substring(1)),
+                                  )).toList(),
+                                  onChanged: (v) {
+                                    if (v != null) setState(() {
+                                      _frequency = v;
+                                      _hasUnsavedChanges = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Category', style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<FormCategory>(
+                                  value: _category,
+                                  isExpanded: true,
+                                  items: FormCategory.values.map((c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c.name.substring(0, 1).toUpperCase() + c.name.substring(1)),
+                                  )).toList(),
+                                  onChanged: (v) {
+                                    if (v != null) setState(() {
+                                      _category = v;
+                                      _hasUnsavedChanges = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  Text('Target Audience (Allowed Roles)', style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: _allowedRoles.entries.map((entry) {
+                      return FilterChip(
+                        label: Text(entry.key.substring(0, 1).toUpperCase() + entry.key.substring(1)),
+                        selected: entry.value,
+                        selectedColor: themeColor.withOpacity(0.2),
+                        checkmarkColor: themeColor,
+                        labelStyle: TextStyle(
+                          color: entry.value ? themeColor : Colors.black87,
+                          fontWeight: entry.value ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        onSelected: (selected) => setState(() {
+                          _allowedRoles[entry.key] = selected;
+                          _hasUnsavedChanges = true;
+                        }),
+                      );
+                    }).toList(),
                   ),
                 ],
                       ),
@@ -637,35 +803,65 @@ class _FormBuilderState extends State<FormBuilder> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not logged in');
 
-      // Build fields map
-      final fields = <String, dynamic>{};
+      // 1. Build List<FormFieldDefinition> for the new system
+      final fieldsList = <FormFieldDefinition>[];
       for (var i = 0; i < _questions.length; i++) {
         final q = _questions[i];
-        fields[q.id] = q.toFirestore(i);
+        
+        // Map UI type to Firestore type string
+        String typeString = q.type.firestoreType;
+        
+        // Build validation map
+        Map<String, dynamic>? validation;
+        if (q.type == QuestionType.linearScale || q.type == QuestionType.number) {
+          validation = {'min': q.scaleMin, 'max': q.scaleMax};
+        }
+        
+        fieldsList.add(FormFieldDefinition(
+          id: q.id,
+          label: q.title,
+          type: typeString,
+          required: q.required,
+          order: i + 1, // 1-based order
+          options: (q.type == QuestionType.multipleChoice || 
+                   q.type == QuestionType.checkboxes || 
+                   q.type == QuestionType.dropdown) ? q.options : null,
+          validation: validation,
+          placeholder: q.title, // Use label as placeholder for now
+        ));
       }
 
-      final formData = {
-          'title': _titleController.text.trim(),
-          'description': _descriptionController.text.trim(),
-        'themeColor': _selectedThemeColor,
-        'fields': fields,
-        'status': 'active',
-          'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user.uid,
-      };
-
-      if (widget.editFormId != null) {
-        // Update existing form
-        await FirebaseFirestore.instance
-            .collection('form')
-            .doc(widget.editFormId)
-            .update(formData);
-      } else {
-        // Create new form
-        formData['createdAt'] = FieldValue.serverTimestamp();
-        formData['createdBy'] = user.uid;
-        await FirebaseFirestore.instance.collection('form').add(formData);
+      // 2. Collect allowed roles
+      final activeRoles = _allowedRoles.entries
+          .where((e) => e.value)
+          .map((e) => e.key)
+          .toList();
+          
+      if (activeRoles.isEmpty) {
+        // Default to teacher if none selected
+        activeRoles.add('teacher');
       }
+
+      // 3. Create FormTemplate object
+      final template = FormTemplate(
+        id: widget.editFormId ?? '', // Empty ID means new form creation (or handled by versioning)
+        name: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        frequency: _frequency,
+        category: _category,
+        version: 1, // Will be overwritten by versioning logic
+        allowedRoles: activeRoles,
+        fields: fieldsList,
+        autoFillRules: [], // No autofill builder in UI yet
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        themeColor: _selectedThemeColor, // Custom field, added to FormTemplate or extra map
+      );
+
+      // 4. Save using FormTemplateService with Versioning
+      // This disables all old versions with the same name and creates a new active version
+      await FormTemplateService.saveTemplateWithVersioning(template);
 
       setState(() {
         _isSaving = false;
@@ -675,7 +871,7 @@ class _FormBuilderState extends State<FormBuilder> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Form saved successfully!'),
+            content: Text('Form saved successfully! Previous versions deactivated.'),
             backgroundColor: Colors.green,
           ),
         );

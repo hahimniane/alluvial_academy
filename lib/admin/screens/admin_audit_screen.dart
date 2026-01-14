@@ -3512,6 +3512,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
   List<_ShiftItem>? _cachedOrphanShifts;
   List<_FormItem>? _cachedUnlinkedForms;
   double? _cachedPenaltyPerMissing;
+  bool _isLoadingDayData = true;
   
   @override
   void initState() {
@@ -3519,7 +3520,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     // Preload all form labels in background for instant display
     _preloadFormLabels();
     // Pre-compute grouped data once
-    _computeGroupedData();
+    _computeGroupedData(); // Fire and forget - async operation
   }
 
   void _preloadFormLabels() {
@@ -3534,8 +3535,17 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
   }
   
   /// **OPTIMIZATION: Compute grouped data once and cache it**
-  void _computeGroupedData() {
-    if (_cachedDayItems != null) return; // Already computed
+  Future<void> _computeGroupedData() async {
+    if (_cachedDayItems != null) {
+      _isLoadingDayData = false;
+      return; // Already computed
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isLoadingDayData = true;
+      });
+    }
     
     // Build lookup maps for O(1) access
     final shiftFormMap = <String, String>{}; // shiftId -> formId
@@ -3600,8 +3610,8 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       final submittedAt = (form['submittedAt'] as Timestamp?)?.toDate();
       final responses = form['responses'] as Map<String, dynamic>? ?? {};
       
-      // Extract day of week from form responses
-      final dayOfWeek = _extractDayOfWeekFromForm(responses);
+      // Extract day of week from form responses, or derive from shift if available
+      final dayOfWeek = await _extractDayOfWeekFromForm(responses, shiftId, form);
       
       // Determine date - use shift end if linked, otherwise submission date
       DateTime? formDate;
@@ -3661,9 +3671,14 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     dayItems.sort((a, b) => a.date.compareTo(b.date));
     
     // Cache results
+    if (mounted) {
+      setState(() {
     _cachedDayItems = dayItems;
     _cachedOrphanShifts = orphanShifts;
     _cachedUnlinkedForms = unlinkedForms;
+        _isLoadingDayData = false;
+      });
+    }
   }
   
   String _extractStudentNameFromTitle(String title) {
@@ -3678,11 +3693,17 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     return title;
   }
   
-  String? _extractDayOfWeekFromForm(Map<String, dynamic> responses) {
-    // Look for Class Day field (ID: 1754406288023)
+  Future<String?> _extractDayOfWeekFromForm(Map<String, dynamic> responses, String? shiftId, Map<String, dynamic> formData) async {
+    // Method 1: Look for Class Day field (ID: 1754406288023) in old forms
     var dayValue = responses['1754406288023'];
-    if (dayValue == null) {
-      // Search for any field containing day names
+    if (dayValue != null) {
+      if (dayValue is List && dayValue.isNotEmpty) {
+        return dayValue.first.toString();
+      }
+      return dayValue.toString();
+    }
+    
+    // Method 2: Search for any field containing day names in responses
       for (var value in responses.values) {
         if (value is String || (value is List && value.isNotEmpty)) {
           final str = value is List ? value.first.toString() : value.toString();
@@ -3691,13 +3712,93 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
           }
         }
       }
+    
+    // Method 3: For new template forms, derive day from shift date
+    if (shiftId != null && shiftId.isNotEmpty) {
+      try {
+        final shiftDoc = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(shiftId)
+            .get();
+        
+        if (shiftDoc.exists) {
+          final shiftData = shiftDoc.data();
+          final shiftStart = shiftData?['shift_start'] as Timestamp?;
+          if (shiftStart != null) {
+            final shiftDate = shiftStart.toDate();
+            return _getDayOfWeekFromDate(shiftDate);
+          }
+        }
+      } catch (e) {
+        // If shift fetch fails, continue to next method
+        debugPrint('Error fetching shift for day extraction: $e');
+      }
+    }
+    
+    // Method 4: Try to get from timesheet if shiftId not available
+    final timesheetId = formData['timesheetId'] as String?;
+    if (timesheetId != null && timesheetId.isNotEmpty) {
+      try {
+        final timesheetDoc = await FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .doc(timesheetId)
+            .get();
+        
+        if (timesheetDoc.exists) {
+          final timesheetData = timesheetDoc.data();
+          final shiftIdFromTimesheet = timesheetData?['shift_id'] as String?;
+          if (shiftIdFromTimesheet != null) {
+            final shiftDoc = await FirebaseFirestore.instance
+                .collection('teaching_shifts')
+                .doc(shiftIdFromTimesheet)
+                .get();
+            
+            if (shiftDoc.exists) {
+              final shiftData = shiftDoc.data();
+              final shiftStart = shiftData?['shift_start'] as Timestamp?;
+              if (shiftStart != null) {
+                final shiftDate = shiftStart.toDate();
+                return _getDayOfWeekFromDate(shiftDate);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // If timesheet/shift fetch fails, continue to next method
+        debugPrint('Error fetching timesheet/shift for day extraction: $e');
+      }
+    }
+    
+    // Method 5: Fallback to submission date (less accurate but better than N/A)
+    final submittedAt = formData['submittedAt'] as Timestamp?;
+    if (submittedAt != null) {
+      return _getDayOfWeekFromDate(submittedAt.toDate());
+    }
+    
       return null;
     }
     
-    if (dayValue is List && dayValue.isNotEmpty) {
-      return dayValue.first.toString();
+  /// Get day of week string from DateTime (e.g., "Mon/Lundi", "Tue/Mardi")
+  String _getDayOfWeekFromDate(DateTime date) {
+    final weekday = date.weekday; // 1 = Monday, 7 = Sunday
+    switch (weekday) {
+      case 1:
+        return 'Mon/Lundi';
+      case 2:
+        return 'Tue/Mardi';
+      case 3:
+        return 'Wed/Mercredi';
+      case 4:
+        return 'Thu/Jeudi';
+      case 5:
+        return 'Fri/Vendredi';
+      case 6:
+        return 'Sat/Samedi';
+      case 7:
+        return 'Sun/Dimanche';
+      default:
+        return 'Unknown';
     }
-    return dayValue.toString();
   }
   
   bool _isDayOfWeekString(String value) {
@@ -3812,6 +3913,9 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
             controller: widget.scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
+              // ============================================================
+              // SECTION 1: ALL STATS FIRST
+              // ============================================================
               // **SUMMARY SECTION FIRST** - Schedule, Punctuality, and Form Compliance
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3888,6 +3992,18 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                       ],
                     ),
                   )),
+              const SizedBox(height: 24),
+              
+              // ============================================================
+              // SECTION 2: EDIT CONTROLS
+              // ============================================================
+              // **NEW: Forms Compliance Summary with Penalty** (moved before Individual Shift Payouts)
+              _FormsComplianceSummary(
+                audit: widget.audit,
+                orphanShifts: _cachedOrphanShifts ?? [],
+                unlinkedForms: _cachedUnlinkedForms ?? [],
+                onApplyPenalty: _applyFormPenalty,
+              ),
               const SizedBox(height: 12),
               
               // **NEW: Individual Shift Payouts with Adjustment**
@@ -3897,21 +4013,21 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                 audit: widget.audit,
                 onUpdatePayment: _updateShiftPayment,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
               
-              // **NEW: Forms Compliance Summary with Penalty**
-              _FormsComplianceSummary(
-                audit: widget.audit,
-                orphanShifts: _cachedOrphanShifts ?? [],
-                unlinkedForms: _cachedUnlinkedForms ?? [],
-                onApplyPenalty: _applyFormPenalty,
-              ),
-              const SizedBox(height: 12),
-              // **NEW: Shifts & Forms by Day (Unified View)**
-              if (_cachedDayItems != null && _cachedDayItems!.isNotEmpty) ...[
-                const SizedBox(height: 10),
+              // ============================================================
+              // SECTION 3: FORMS LIST (Shifts & Forms by Day)
+              // ============================================================
                 _buildSectionHeader('Shifts & Forms by Day'),
                 const SizedBox(height: 12),
+              if (_isLoadingDayData) ...[
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ] else if (_cachedDayItems != null && _cachedDayItems!.isNotEmpty) ...[
                 ..._cachedDayItems!.map((dayItem) => _DaySection(
                   dayItem: dayItem,
                   orphanShifts: _cachedOrphanShifts ?? [],
@@ -3919,6 +4035,22 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                   onLinkFormToShift: _linkFormToShift,
                   parentContext: context,
                 )),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'No shifts or forms found for this month',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ],
               if (widget.audit.issues.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -4048,8 +4180,9 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
           _cachedDayItems = null;
           _cachedOrphanShifts = null;
           _cachedUnlinkedForms = null;
+          _isLoadingDayData = true;
         });
-        _computeGroupedData();
+        _computeGroupedData(); // Fire and forget - async operation
       } else if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -5325,11 +5458,53 @@ class _FormDetailsContent extends StatefulWidget {
 class _FormDetailsContentState extends State<_FormDetailsContent> {
   Map<String, String>? _fieldLabels;
   bool _isLoadingLabels = true;
+  TeachingShift? _shift;
+  bool _isLoadingShift = true;
 
   @override
   void initState() {
     super.initState();
     _loadFieldLabels();
+    _loadShiftData();
+  }
+  
+  Future<void> _loadShiftData() async {
+    if (widget.shiftId == 'N/A' || widget.shiftId.isEmpty) {
+      setState(() {
+        _isLoadingShift = false;
+      });
+      return;
+    }
+    
+    try {
+      final shiftDoc = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(widget.shiftId)
+          .get();
+
+      if (shiftDoc.exists) {
+        final shift = TeachingShift.fromFirestore(shiftDoc);
+        if (mounted) {
+          setState(() {
+            _shift = shift;
+            _isLoadingShift = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingShift = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading shift data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingShift = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadFieldLabels() async {
@@ -5428,28 +5603,77 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Minimal header with view shift button
-          if (widget.shiftId != 'N/A' && widget.shiftId.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
+          // Shift Information Section (Autofilled Data)
+          if (widget.shiftId != 'N/A' && widget.shiftId.isNotEmpty) ...[
+            if (_isLoadingShift)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Loading shift information...',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_shift != null) ...[
+              // Display all shift information
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Shift Information (Autofilled)',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                        InkWell(
                 onTap: _navigateToShift,
-                borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue.shade200),
-                    borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.blue.shade300),
+                              borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.open_in_new, size: 14, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
+                                Icon(Icons.open_in_new, size: 12, color: Colors.blue.shade700),
+                                const SizedBox(width: 4),
                       Text(
                         'View Shift',
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                                    fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: Colors.blue.shade700,
                         ),
@@ -5458,7 +5682,61 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                   ),
                 ),
               ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Student Names
+                    if (_shift!.studentNames.isNotEmpty)
+                      _buildShiftInfoRow(
+                        'Students',
+                        _shift!.studentNames.join(', '),
+                      ),
+                    // Subject
+                    if (_shift!.subjectDisplayName != null && _shift!.subjectDisplayName!.isNotEmpty)
+                      _buildShiftInfoRow(
+                        'Subject',
+                        _shift!.subjectDisplayName!,
+                      ),
+                    // Schedule Time
+                    _buildShiftInfoRow(
+                      'Schedule',
+                      '${DateFormat('MMM d, yyyy').format(_shift!.shiftStart)} • ${DateFormat('HH:mm').format(_shift!.shiftStart)} - ${DateFormat('HH:mm').format(_shift!.shiftEnd)}',
+                    ),
+                    // Duration
+                    Builder(
+                      builder: (context) {
+                        final duration = _shift!.shiftEnd.difference(_shift!.shiftStart);
+                        final hours = duration.inHours;
+                        final minutes = duration.inMinutes % 60;
+                        return _buildShiftInfoRow(
+                          'Duration',
+                          hours > 0 
+                            ? '$hours ${hours == 1 ? 'hour' : 'hours'}${minutes > 0 ? ' $minutes min' : ''}'
+                            : '$minutes min',
+                        );
+                      },
+                    ),
+                    // Teacher
+                    _buildShiftInfoRow(
+                      'Teacher',
+                      _shift!.teacherName,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
+          // Form Responses Section
+          Text(
+            'Form Responses',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade900,
             ),
+          ),
+          const SizedBox(height: 8),
           // Responses - Modern minimal design
           if (_isLoadingLabels)
             const Padding(
@@ -5512,6 +5790,37 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                 ),
               );
             }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: Colors.grey.shade900,
+              ),
+            ),
+          ),
         ],
       ),
     );

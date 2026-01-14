@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,8 +11,10 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/shift_form_service.dart';
 import '../../../form_screen.dart';
 import '../../../core/utils/app_logger.dart';
+import '../widgets/form_details_modal.dart';
 import '../screens/my_submissions_screen.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
@@ -67,18 +71,70 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     if (mounted) setState(() => _userRole = role);
   }
 
-  Future<void> _loadTemplates() async {
+  Future<void> _loadTemplates({bool forceRefresh = true}) async {
     setState(() => _isLoading = true);
     
     try {
       // Load templates from Firestore form_templates collection
-      final allTemplates = await FormTemplateService.getAllTemplates();
+      // Force refresh from server to ensure latest version (bypasses cache)
+      final allTemplates = await FormTemplateService.getAllTemplates(forceRefresh: forceRefresh);
+      
+      // #region agent log
+      AppLogger.debug('TeacherFormsScreen: Loaded ${allTemplates.length} templates');
+      for (var template in allTemplates) {
+        AppLogger.debug('Template: id=${template.id}, name="${template.name}", version=${template.version}, isActive=${template.isActive}');
+      }
+      // #endregion
+      
+      // Filter to keep only the latest version of each template by name
+      // Normalize names (trim, lowercase, remove extra spaces) to catch duplicates
+      final Map<String, FormTemplate> latestTemplatesByName = {};
+      for (var template in allTemplates) {
+        if (!template.isActive) continue;
+        
+        // Normalize template name for comparison
+        final normalizedName = template.name
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'\s+'), ' ');
+        
+        if (!latestTemplatesByName.containsKey(normalizedName)) {
+          latestTemplatesByName[normalizedName] = template;
+        } else {
+          final existing = latestTemplatesByName[normalizedName]!;
+          // Keep the one with higher version, or if same version, keep the one with later updatedAt
+          if (template.version > existing.version) {
+            latestTemplatesByName[normalizedName] = template;
+          } else if (template.version == existing.version) {
+            // If same version, prefer the one with later updatedAt
+            if (template.updatedAt.isAfter(existing.updatedAt)) {
+              latestTemplatesByName[normalizedName] = template;
+            }
+          }
+        }
+      }
+      
+      // #region agent log
+      AppLogger.debug('TeacherFormsScreen: After deduplication, ${latestTemplatesByName.length} unique templates');
+      latestTemplatesByName.forEach((name, template) {
+        AppLogger.debug('Unique template: name="$name", id=${template.id}, version=${template.version}');
+      });
+      // #endregion
       
       // Organize templates by category
       _templatesByCategory = {};
       
-      for (var template in allTemplates) {
-        if (!template.isActive) continue;
+      for (var template in latestTemplatesByName.values) {
+        
+        // Map category: if frequency is perSession/weekly/monthly, treat as teaching category
+        // This fixes templates in Firestore with category "other" but frequency "perSession"
+        FormCategory displayCategory = template.category;
+        if ((template.frequency == FormFrequency.perSession || 
+             template.frequency == FormFrequency.weekly || 
+             template.frequency == FormFrequency.monthly) &&
+            template.category == FormCategory.other) {
+          displayCategory = FormCategory.teaching;
+        }
         
         // Check role access - strict filtering for teachers
         if (_userRole != null) {
@@ -91,6 +147,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
             // Teachers can only see forms that:
             // 1. Have allowedRoles that explicitly include "teacher"
             // 2. Have no allowedRoles AND are in teaching/feedback/administrative categories (default teacher forms)
+            // 3. Have frequency perSession/weekly/monthly (teaching reports)
             final hasAllowedRoles = template.allowedRoles != null && template.allowedRoles!.isNotEmpty;
             
             if (hasAllowedRoles) {
@@ -99,12 +156,15 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                 continue; // Skip this form - it's not for teachers
               }
             } else {
-              // If no allowedRoles, only show if it's a teacher-relevant category
+              // If no allowedRoles, only show if it's a teacher-relevant category OR teaching frequency
               // Teaching, feedback, and administrative forms are for teachers
-              // Student assessment and other forms without roles are hidden from teachers
-              final isTeacherCategory = template.category == FormCategory.teaching ||
-                  template.category == FormCategory.feedback ||
-                  template.category == FormCategory.administrative;
+              // Daily/weekly/monthly reports are always for teachers
+              final isTeacherCategory = displayCategory == FormCategory.teaching ||
+                  displayCategory == FormCategory.feedback ||
+                  displayCategory == FormCategory.administrative ||
+                  template.frequency == FormFrequency.perSession ||
+                  template.frequency == FormFrequency.weekly ||
+                  template.frequency == FormFrequency.monthly;
               
               if (!isTeacherCategory) {
                 continue; // Skip forms in other categories without explicit teacher access
@@ -124,9 +184,21 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           }
         }
         
-        _templatesByCategory.putIfAbsent(template.category, () => []);
-        _templatesByCategory[template.category]!.add(template);
+        // Use displayCategory (may be mapped from "other" to "teaching")
+        _templatesByCategory.putIfAbsent(displayCategory, () => []);
+        _templatesByCategory[displayCategory]!.add(template);
+        
+        // #region agent log
+        AppLogger.debug('TeacherFormsScreen: Added template "${template.name}" (id=${template.id}) to category ${displayCategory.name}, count now: ${_templatesByCategory[displayCategory]!.length}');
+        // #endregion
       }
+      
+      // #region agent log
+      _templatesByCategory.forEach((category, templates) {
+        final names = templates.map((t) => t.name).toList();
+        AppLogger.debug('TeacherFormsScreen: Category ${category.name} has ${templates.length} templates: ${names.join(", ")}');
+      });
+      // #endregion
       
       // Add default templates if none found for teaching category
       if (!_templatesByCategory.containsKey(FormCategory.teaching) ||
@@ -1186,19 +1258,45 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
   }
 
-  void _navigateToForm(FormTemplate template, {String? shiftId}) {
-    // Navigate to form screen with the template directly (NEW FORMAT)
+  Future<void> _navigateToForm(FormTemplate template, {String? shiftId}) async {
+    // For weekly and monthly forms, fetch the latest version (same as daily forms)
+    // This ensures users always get the latest version, not a cached old one
+    FormTemplate? latestTemplate = template;
+    
+    if (template.frequency == FormFrequency.weekly) {
+      // Fetch latest weekly template
+      latestTemplate = await FormTemplateService.getActiveWeeklyTemplate(forceRefresh: true);
+      if (latestTemplate == null) {
+        // Fallback to the template we have if fetch fails
+        latestTemplate = template;
+      }
+    } else if (template.frequency == FormFrequency.monthly) {
+      // Fetch latest monthly template
+      latestTemplate = await FormTemplateService.getActiveMonthlyTemplate(forceRefresh: true);
+      if (latestTemplate == null) {
+        // Fallback to the template we have if fetch fails
+        latestTemplate = template;
+      }
+    }
+    // For daily (perSession) and onDemand forms, use the template directly
+    // (daily forms already fetch latest in _handleShiftSelection via getActiveDailyTemplate)
+    
+    if (!mounted) return;
+    
+    // Navigate to form screen with the latest template
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FormScreen(
-          template: template, // Pass template directly - uses NEW template system
+          template: latestTemplate, // Use latest version for weekly/monthly
           shiftId: shiftId, 
         ),
       ),
     ).then((_) {
       // Refresh submission status when returning
-      _loadSubmissionStatus();
+      if (mounted) {
+        _loadSubmissionStatus();
+      }
     });
   }
 
@@ -1227,46 +1325,228 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       // Filter and sort in memory (matches pattern used in ShiftService.getTeacherShifts)
       final allShifts = shiftsSnapshot.docs.map((doc) {
         final data = doc.data();
-        final shiftStart = (data['shift_start'] as Timestamp?)?.toDate();
+        DateTime? shiftStart;
+        final shiftStartValue = data['shift_start'];
+        if (shiftStartValue is Timestamp) {
+          shiftStart = shiftStartValue.toDate();
+        } else if (shiftStartValue is DateTime) {
+          shiftStart = shiftStartValue;
+        }
         return {
           'doc': doc,
           'shiftStart': shiftStart,
         };
       }).toList();
       
-      // Filter to last 7 days and sort by shift_start descending
+      // Filter: only completed or missed shifts that have ended (not future, not scheduled)
+      
+      // #region agent log
+      try {
+        final logEntry = {
+          'location': 'teacher_forms_screen.dart:1312',
+          'message': 'Teacher forms shift selection - filtering shifts',
+          'data': {
+            'totalShiftsFromFirestore': allShifts.length,
+            'userId': user.uid,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run1',
+          'hypothesisId': 'F',
+        };
+        final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+        file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+      } catch (e) {
+        // Silently fail
+      }
+      // #endregion
+      
       final recentShifts = allShifts
           .where((item) {
+            final doc = item['doc'] as QueryDocumentSnapshot;
+            final data = doc.data() as Map<String, dynamic>;
             final shiftStart = item['shiftStart'] as DateTime?;
-            return shiftStart != null && shiftStart.isAfter(lastWeek);
+            final shiftId = doc.id;
+            
+            if (shiftStart == null) return false;
+            
+            // Get shift end time
+            DateTime? shiftEnd;
+            final endValue = data['shift_end'];
+            if (endValue is Timestamp) {
+              shiftEnd = endValue.toDate();
+            } else if (endValue is DateTime) {
+              shiftEnd = endValue;
+            }
+            
+            if (shiftEnd == null) return false;
+            
+            // Convert to local time for comparison
+            final startLocal = shiftStart.toLocal();
+            final endLocal = shiftEnd.toLocal();
+            
+            // Get status from Firestore
+            final statusStr = data['status'] as String? ?? 'scheduled';
+            
+            // #region agent log
+            try {
+              final logEntry = {
+                'location': 'teacher_forms_screen.dart:1345',
+                'message': 'Evaluating shift for teacher forms selection',
+                'data': {
+                  'shiftId': shiftId,
+                  'status': statusStr,
+                  'shiftStart': startLocal.toIso8601String(),
+                  'shiftEnd': endLocal.toIso8601String(),
+                  'now': now.toIso8601String(),
+                  'hasStarted': startLocal.isBefore(now),
+                  'hasEnded': endLocal.isBefore(now),
+                  'isScheduled': statusStr == 'scheduled',
+                },
+                'timestamp': DateTime.now().millisecondsSinceEpoch,
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'F',
+              };
+              final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+              file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+            } catch (e) {
+              // Silently fail
+            }
+            // #endregion
+            
+            // FIRST CHECK: Explicitly exclude scheduled, active, cancelled
+            if (statusStr == 'scheduled' || statusStr == 'active' || statusStr == 'cancelled') {
+              // #region agent log
+              try {
+                final logEntry = {
+                  'location': 'teacher_forms_screen.dart:1370',
+                  'message': 'EXCLUDED: Scheduled/active/cancelled shift',
+                  'data': {
+                    'shiftId': shiftId,
+                    'status': statusStr,
+                  },
+                  'timestamp': DateTime.now().millisecondsSinceEpoch,
+                  'sessionId': 'debug-session',
+                  'runId': 'run1',
+                  'hypothesisId': 'F',
+                };
+                final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+                file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+              } catch (e) {
+                // Silently fail
+              }
+              // #endregion
+              return false;
+            }
+            
+            // SECOND CHECK: Must be in a completed/missed state
+            final isCompletedOrMissed = statusStr == 'completed' || 
+                                       statusStr == 'fullyCompleted' ||
+                                       statusStr == 'partiallyCompleted' ||
+                                       statusStr == 'missed';
+            
+            if (!isCompletedOrMissed) {
+              return false;
+            }
+            
+            // THIRD CHECK: Must have started AND ended (both must be in the past)
+            if (!startLocal.isBefore(now)) {
+              return false; // Has not started yet
+            }
+            
+            // Shift must have ended (end time is in the past, at least 1 second ago)
+            final timeSinceEnd = now.difference(endLocal);
+            if (timeSinceEnd.inSeconds <= 0) {
+              return false; // Has not ended yet
+            }
+            
+            // All checks passed - include this shift
+            // #region agent log
+            try {
+              final logEntry = {
+                'location': 'teacher_forms_screen.dart:1405',
+                'message': 'INCLUDED: Eligible shift for teacher forms',
+                'data': {
+                  'shiftId': shiftId,
+                  'status': statusStr,
+                  'timeSinceEndSeconds': timeSinceEnd.inSeconds,
+                },
+                'timestamp': DateTime.now().millisecondsSinceEpoch,
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'F',
+              };
+              final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+              file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+            } catch (e) {
+              // Silently fail
+            }
+            // #endregion
+            return true;
           })
           .toList()
-        ..sort((a, b) {
-          final aStart = a['shiftStart'] as DateTime?;
-          final bStart = b['shiftStart'] as DateTime?;
-          if (aStart == null && bStart == null) return 0;
-          if (aStart == null) return 1;
-          if (bStart == null) return -1;
-          return bStart.compareTo(aStart); // Descending
-        });
+          ..sort((a, b) {
+            final aStart = a['shiftStart'] as DateTime?;
+            final bStart = b['shiftStart'] as DateTime?;
+            if (aStart == null && bStart == null) return 0;
+            if (aStart == null) return 1;
+            if (bStart == null) return -1;
+            return bStart.compareTo(aStart); // Descending (most recent first)
+          });
       
       // Limit to 20 most recent
       final shiftsToShow = recentShifts.take(20).map((item) => item['doc'] as QueryDocumentSnapshot).toList();
+      
+      // #region agent log
+      try {
+        final logEntry = {
+          'location': 'teacher_forms_screen.dart:1475',
+          'message': 'Teacher forms shift filtering complete',
+          'data': {
+            'totalShiftsFromFirestore': allShifts.length,
+            'eligibleShifts': recentShifts.length,
+            'shiftsToShow': shiftsToShow.length,
+            'shiftIds': shiftsToShow.map((doc) => doc.id).toList(),
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run1',
+          'hypothesisId': 'F',
+        };
+        final file = File(r'd:\alluvial_academy\.cursor\debug.log');
+        file.writeAsStringSync('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+      } catch (e) {
+        // Silently fail
+      }
+      // #endregion
+
+      // Check for existing forms for each shift
+      final shiftsWithFormStatus = <Map<String, dynamic>>[];
+      for (final doc in shiftsToShow) {
+        final shiftId = doc.id;
+        final formResponseId = await ShiftFormService.getFormResponseForShift(shiftId);
+        final hasForm = formResponseId != null;
+        
+        shiftsWithFormStatus.add({
+          'doc': doc,
+          'shiftId': shiftId,
+          'hasForm': hasForm,
+          'formResponseId': formResponseId,
+        });
+      }
 
       if (!mounted) return;
       Navigator.pop(context); // Close loading
 
-      if (shiftsToShow.isEmpty) {
+      if (shiftsWithFormStatus.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No recent shifts found to report on.')),
         );
         return;
       }
-
-      // Filter out shifts that already have a daily report
-      // Ideally this should be done by checking form_responses, but for now let's just show the list
-      // and let the user pick. The form screen will handle linking.
       
       if (!mounted) return;
       
@@ -1310,15 +1590,49 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                   child: ListView.separated(
                     controller: scrollController,
                     physics: const BouncingScrollPhysics(),
-                    itemCount: shiftsToShow.length,
+                    itemCount: shiftsWithFormStatus.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final shiftData = shiftsToShow[index].data() as Map<String, dynamic>;
-                      final shiftId = shiftsToShow[index].id;
-                      final startTime = (shiftData['shift_start'] as Timestamp).toDate();
-                      final endTime = (shiftData['shift_end'] as Timestamp).toDate();
-                      final subject = shiftData['subject'] ?? 'Unknown Subject';
+                      final shiftInfo = shiftsWithFormStatus[index];
+                      final doc = shiftInfo['doc'] as QueryDocumentSnapshot;
+                      final shiftData = doc.data() as Map<String, dynamic>;
+                      final shiftId = shiftInfo['shiftId'] as String;
+                      final hasForm = shiftInfo['hasForm'] as bool;
+                      final formResponseId = shiftInfo['formResponseId'] as String?;
+                      
+                      // Handle both Timestamp and DateTime types
+                      DateTime startTime;
+                      final startValue = shiftData['shift_start'];
+                      if (startValue is Timestamp) {
+                        startTime = startValue.toDate();
+                      } else if (startValue is DateTime) {
+                        startTime = startValue;
+                      } else {
+                        startTime = DateTime.now(); // Fallback
+                      }
+                      
+                      DateTime endTime;
+                      final endValue = shiftData['shift_end'];
+                      if (endValue is Timestamp) {
+                        endTime = endValue.toDate();
+                      } else if (endValue is DateTime) {
+                        endTime = endValue;
+                      } else {
+                        endTime = DateTime.now(); // Fallback
+                      }
+                      
                       final status = shiftData['status'] ?? 'scheduled';
+                      
+                      // Get student names - prefer student_names array, fallback to studentNames
+                      final studentNamesList = shiftData['student_names'] ?? shiftData['studentNames'] ?? [];
+                      final studentNames = studentNamesList is List
+                          ? (studentNamesList as List).map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+                          : [];
+                      
+                      // Display student names, or subject if no student names available
+                      final displayName = studentNames.isNotEmpty
+                          ? studentNames.join(', ')
+                          : (shiftData['subject']?.toString() ?? 'Unknown Subject');
                       
                       Color statusColor = Colors.grey;
                       if (status == 'completed' || status == 'fullyCompleted') statusColor = Colors.green;
@@ -1338,7 +1652,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      subject,
+                                      displayName,
                                       style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
                                     ),
                                   ),
@@ -1364,33 +1678,73 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                                 '${DateFormat('MMM d').format(startTime)} • ${DateFormat('h:mm a').format(startTime)} - ${DateFormat('h:mm a').format(endTime)}',
                                 style: GoogleFonts.inter(fontSize: 13),
                               ),
-                              onTap: () async {
-                                Navigator.pop(context);
-                                await _handleShiftSelection(template, shiftId);
-                              },
+                              onTap: hasForm
+                                  ? null // Disable tap if form exists (use eye icon)
+                                  : () async {
+                                      Navigator.pop(context);
+                                      await _handleShiftSelection(template, shiftId);
+                                    },
+                              trailing: hasForm
+                                  ? IconButton(
+                                      icon: const Icon(Icons.visibility, color: Color(0xff10B981)),
+                                      tooltip: 'View Form',
+                                      onPressed: () async {
+                                        try {
+                                          final formDoc = await FirebaseFirestore.instance
+                                              .collection('form_responses')
+                                              .doc(formResponseId!)
+                                              .get();
+                                          
+                                          if (formDoc.exists && mounted) {
+                                            final data = formDoc.data() ?? {};
+                                            final responses = data['responses'] as Map<String, dynamic>? ?? {};
+                                            
+                                            Navigator.pop(context); // Close shift selection
+                                            
+                                            FormDetailsModal.show(
+                                              context,
+                                              formId: formResponseId!,
+                                              shiftId: shiftId,
+                                              responses: responses,
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error loading form: ${e.toString()}'),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    )
+                                  : null,
                             ),
                             // Action buttons row
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                               child: Row(
                                 children: [
-                                  // View Form button
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        Navigator.pop(context);
-                                        await _handleShiftSelection(template, shiftId);
-                                      },
-                                      icon: const Icon(Icons.description_outlined, size: 16),
-                                      label: Text('Form', style: GoogleFonts.inter(fontSize: 12)),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
-                                        side: BorderSide(color: Colors.blue.shade300),
-                                        foregroundColor: Colors.blue,
+                                  // View Form button (only show if form doesn't exist)
+                                  if (!hasForm)
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          Navigator.pop(context);
+                                          await _handleShiftSelection(template, shiftId);
+                                        },
+                                        icon: const Icon(Icons.description_outlined, size: 16),
+                                        label: Text('Form', style: GoogleFonts.inter(fontSize: 12)),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          side: BorderSide(color: Colors.blue.shade300),
+                                          foregroundColor: Colors.blue,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
+                                  if (!hasForm) const SizedBox(width: 8),
                                   // Timesheet button
                                   Expanded(
                                     child: OutlinedButton.icon(
@@ -1496,6 +1850,37 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
   void _showShiftDetails(String shiftId, Map<String, dynamic> shiftData) {
     // Convert to TeachingShift model
     try {
+      // Handle both Timestamp and DateTime types for shift times
+      DateTime shiftStart;
+      final startValue = shiftData['shift_start'];
+      if (startValue is Timestamp) {
+        shiftStart = startValue.toDate();
+      } else if (startValue is DateTime) {
+        shiftStart = startValue;
+      } else {
+        shiftStart = DateTime.now(); // Fallback
+      }
+      
+      DateTime shiftEnd;
+      final endValue = shiftData['shift_end'];
+      if (endValue is Timestamp) {
+        shiftEnd = endValue.toDate();
+      } else if (endValue is DateTime) {
+        shiftEnd = endValue;
+      } else {
+        shiftEnd = DateTime.now(); // Fallback
+      }
+      
+      DateTime createdAt;
+      final createdAtValue = shiftData['created_at'];
+      if (createdAtValue is Timestamp) {
+        createdAt = createdAtValue.toDate();
+      } else if (createdAtValue is DateTime) {
+        createdAt = createdAtValue;
+      } else {
+        createdAt = DateTime.now(); // Fallback
+      }
+      
       // Create a fake DocumentSnapshot-like structure for TeachingShift.fromFirestore
       final shift = TeachingShift(
         id: shiftId,
@@ -1503,12 +1888,12 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         teacherName: shiftData['teacher_name'] ?? 'Unknown',
         studentIds: List<String>.from(shiftData['student_ids'] ?? []),
         studentNames: List<String>.from(shiftData['student_names'] ?? []),
-        shiftStart: (shiftData['shift_start'] as Timestamp).toDate(),
-        shiftEnd: (shiftData['shift_end'] as Timestamp).toDate(),
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
         status: _parseShiftStatus(shiftData['status']),
         subject: shiftData['subject'],
         hourlyRate: (shiftData['hourly_rate'] as num?)?.toDouble() ?? 0.0,
-        createdAt: (shiftData['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: createdAt,
         notes: shiftData['notes'],
         adminTimezone: shiftData['admin_timezone'] ?? 'UTC',
         teacherTimezone: shiftData['teacher_timezone'] ?? 'UTC',

@@ -18,6 +18,7 @@ import 'core/utils/app_logger.dart';
 import 'shared/widgets/role_switcher.dart';
 import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
+import 'admin/forms_list_screen.dart';
 import 'test_role_system.dart';
 import 'firestore_debug_screen.dart';
 import 'features/tasks/screens/quick_tasks_screen.dart';
@@ -116,7 +117,7 @@ class _DashboardPageState extends State<DashboardPage> {
         const AdminTimesheetReview(),
         const FormScreen(),
         FormResponsesScreen(key: ValueKey(_refreshTrigger)),
-        const FormBuilder(),
+        const FormsListScreen(), // Changed from FormBuilder to FormsListScreen - allows selecting and editing forms
         const QuickTasksScreen(),
         // Zoom screen - show admin version for admin users
         _userRole == 'admin' || _userRole == 'super_admin'
