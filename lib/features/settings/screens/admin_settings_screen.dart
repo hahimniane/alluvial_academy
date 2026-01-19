@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-
 import '../../../core/constants/build_info.dart';
 import '../../../core/services/user_role_service.dart';
 
@@ -21,12 +19,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasAccess = true;
-  late final Future<PackageInfo> _packageInfoFuture;
 
   @override
   void initState() {
     super.initState();
-    _packageInfoFuture = PackageInfo.fromPlatform();
     _checkAccessAndLoad();
   }
 
@@ -269,52 +265,33 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Widget _buildVersionCard() {
-    return FutureBuilder<PackageInfo>(
-      future: _packageInfoFuture,
-      builder: (context, snapshot) {
-        final textStyle = GoogleFonts.inter(
-          fontSize: 13,
-          color: const Color(0xff374151),
-        );
+    final textStyle = GoogleFonts.inter(
+      fontSize: 13,
+      color: const Color(0xff374151),
+    );
 
-        final labelStyle = GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xff111827),
-        );
+    final labelStyle = GoogleFonts.inter(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xff111827),
+    );
 
-        String appVersionText = 'Loading...';
-        if (snapshot.hasError) {
-          appVersionText = 'Unknown';
-        } else if (snapshot.hasData) {
-          final info = snapshot.data!;
-          appVersionText = '${info.version}+${info.buildNumber}';
-        }
+    final webVersion = BuildInfo.webBuildVersion.trim();
+    final versionText = webVersion.isEmpty ? 'Not set' : webVersion;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xffF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xffE2E8F0)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildVersionRow('App Version', appVersionText, labelStyle, textStyle),
-              if (BuildInfo.hasWebBuildVersion) ...[
-                const SizedBox(height: 8),
-                _buildVersionRow(
-                  'Web Build',
-                  BuildInfo.webBuildVersion,
-                  labelStyle,
-                  textStyle,
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildVersionRow('New version', versionText, labelStyle, textStyle),
+        ],
+      ),
     );
   }
 

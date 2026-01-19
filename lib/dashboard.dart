@@ -28,7 +28,14 @@ import 'features/notifications/screens/send_notification_screen.dart';
 import 'features/enrollment_management/screens/enrollment_management_screen.dart';
 import 'features/teacher_applications/screens/teacher_application_management_screen.dart';
 import 'features/settings/screens/admin_settings_screen.dart';
+import 'features/settings/screens/role_settings_screen.dart';
 import 'features/quran/screens/quran_screen.dart';
+import 'admin/screens/audit_dashboard_screen.dart';
+import 'admin/screens/admin_audit_screen.dart';
+import 'admin/screens/subject_rates_screen.dart';
+import 'admin/screens/test_audit_generation.dart';
+import 'features/audit/screens/teacher_audit_screen.dart';
+import 'features/forms/screens/teacher_forms_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
 
@@ -53,7 +60,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String? _userRole;
   Map<String, dynamic>? _userData;
   int _refreshTrigger = 0;
-  static const int _screenCount = 20;
+  static const int _screenCount = 26;
 
   @override
   void initState() {
@@ -108,11 +115,11 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     if (lower == 'teacher') {
-      return <int>{0, 4, 5, 6, 8, 11, 12, 19};
+      return <int>{0, 4, 5, 6, 8, 11, 12, 19, 25};
     }
 
     if (lower == 'student' || lower == 'parent') {
-      return <int>{0, 5, 11, 12, 19};
+      return <int>{0, 5, 11, 12, 19, 25};
     }
 
     return <int>{0};
@@ -164,7 +171,20 @@ class _DashboardPageState extends State<DashboardPage> {
       case 18:
         return const AdminSettingsScreen();
       case 19:
+        return const AdminAuditScreen();
+      case 20:
+        return const SubjectRatesScreen();
+      case 21:
+        return const TeacherAuditScreen();
+      case 22:
+        return const TestAuditGenerationScreen();
+      case 23:
+        return const TeacherFormsScreen();
+      case 24:
         return const QuranScreen();
+      case 25:
+        final roleLabel = UserRoleService.getRoleDisplayName(_userRole);
+        return RoleSettingsScreen(title: '$roleLabel Settings');
       default:
         return const _AccessDeniedScreen();
     }

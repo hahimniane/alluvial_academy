@@ -35,16 +35,17 @@ class UserRoleService {
       if (userData == null) return [];
 
       // Determine available roles
-      final primaryRole = userData['user_type'] as String?;
+      final primaryRole =
+          (userData['user_type'] as String?)?.trim().toLowerCase();
       final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
 
       final Set<String> roles = <String>{};
-      if (primaryRole != null) {
+      if (primaryRole != null && primaryRole.isNotEmpty) {
         roles.add(primaryRole);
       }
 
       // Business rule: Any admin can switch to teacher mode
-      if (primaryRole == 'admin') {
+      if (primaryRole == 'admin' || primaryRole == 'super_admin') {
         roles.add('teacher');
       }
 
@@ -166,16 +167,28 @@ class UserRoleService {
       if (userDocByUid.exists) {
         userData = userDocByUid.data() as Map<String, dynamic>;
       } else {
+        // Fallback 1: Some deployments store user documents keyed by email.
+        final email = currentUser.email?.toLowerCase();
+        if (email != null && email.isNotEmpty) {
+          final userDocByEmailId =
+              await _firestore.collection('users').doc(email).get();
+          if (userDocByEmailId.exists) {
+            userData = userDocByEmailId.data() as Map<String, dynamic>;
+          }
+        }
+
         // Fallback: Query by email
-        final QuerySnapshot userQuery = await _firestore
-            .collection('users')
-            .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
-            .limit(1)
-            .get();
+        if (userData == null) {
+          final QuerySnapshot userQuery = await _firestore
+              .collection('users')
+              .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
+              .limit(1)
+              .get();
 
-        if (userQuery.docs.isEmpty) return null;
+          if (userQuery.docs.isEmpty) return null;
 
-        userData = userQuery.docs.first.data() as Map<String, dynamic>;
+          userData = userQuery.docs.first.data() as Map<String, dynamic>;
+        }
       }
 
       // Cache the result (use UID as cache key)
@@ -198,7 +211,8 @@ class UserRoleService {
   /// Check if user has admin privileges
   static Future<bool> isAdmin() async {
     final role = await getCurrentUserRole();
-    return role?.toLowerCase() == 'admin';
+    final lower = role?.toLowerCase();
+    return lower == 'admin' || lower == 'super_admin';
   }
 
   /// Check if user has teacher privileges
@@ -243,6 +257,8 @@ class UserRoleService {
     switch (role?.toLowerCase()) {
       case 'admin':
         return 'Administrator';
+      case 'super_admin':
+        return 'Super Administrator';
       case 'teacher':
         return 'Teacher';
       case 'student':
@@ -258,6 +274,7 @@ class UserRoleService {
   static List<String> getAvailableFeatures(String? role) {
     switch (role?.toLowerCase()) {
       case 'admin':
+      case 'super_admin':
         return [
           'dashboard',
           'user_management',
@@ -381,25 +398,37 @@ class UserRoleService {
   /// Deactivate a user account
   static Future<bool> deactivateUser(String userEmail) async {
     try {
+      final actor = _auth.currentUser;
+      if (actor == null) {
+        AppLogger.debug('UserRoleService: No authenticated user found');
+        return false;
+      }
+
+      final normalizedEmail = userEmail.trim().toLowerCase();
       final QuerySnapshot userQuery = await _firestore
           .collection('users')
-          .where('e-mail', isEqualTo: userEmail.toLowerCase())
+          .where('e-mail', isEqualTo: normalizedEmail)
           .limit(1)
           .get();
 
       if (userQuery.docs.isEmpty) {
-        AppLogger.debug('User not found: $userEmail');
+        AppLogger.debug('User not found: $normalizedEmail');
         return false;
       }
 
       final docRef = userQuery.docs.first.reference;
-      await docRef.update({
+      final updates = <String, dynamic>{
         'is_active': false,
         'deactivated_at': FieldValue.serverTimestamp(),
+        'deactivated_by_uid': actor.uid,
+        'deactivated_by_email': actor.email?.toLowerCase(),
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      };
+      updates.removeWhere((_, value) => value == null);
+      await docRef.update(updates);
 
-      AppLogger.error('Successfully deactivated user: $userEmail');
+      AppLogger.info(
+          'Successfully deactivated user: $normalizedEmail (by uid=${actor.uid})');
       return true;
     } catch (e) {
       AppLogger.error('Error deactivating user: $e');
@@ -477,26 +506,46 @@ class UserRoleService {
     }
   }
 
-  /// Permanently delete a user account from both Firebase Auth and Firestore using Cloud Function
-  static Future<bool> deleteUser(String userEmail) async {
+  /// Permanently delete a user account from both Firebase Auth and Firestore using Cloud Function.
+  ///
+  /// If `deleteClasses` is true and the user is a teacher or student, the backend will also
+  /// delete/detach the user's classes (teaching shifts) safely.
+  static Future<bool> deleteUser(String userEmail, {bool deleteClasses = false}) async {
     try {
       AppLogger.debug(
           'UserRoleService: Calling cloud function to delete user: $userEmail');
 
       // Get current user's email for admin verification
       final currentUser = _auth.currentUser;
-      if (currentUser == null || currentUser.email == null) {
+      if (currentUser == null) {
         AppLogger.debug('UserRoleService: No authenticated user found');
         throw Exception('You must be logged in to delete users');
       }
 
+      String? idToken;
+      // Ensure the callable request is sent with a fresh token (helps on web when tokens stale).
+      try {
+        idToken = await currentUser.getIdToken(true);
+      } catch (e) {
+        AppLogger.debug('UserRoleService: Failed to refresh ID token before deleteUser: $e');
+      }
+
       // Call the cloud function to handle deletion
       final callable =
-          FirebaseFunctions.instance.httpsCallable('deleteUserAccount');
-      final result = await callable.call({
-        'email': userEmail,
-        'adminEmail': currentUser.email,
-      });
+          FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('deleteUserAccount');
+      final payload = <String, dynamic>{
+        'email': userEmail.trim(),
+        'deleteClasses': deleteClasses,
+      };
+      if (idToken != null && idToken.isNotEmpty) {
+        payload['authToken'] = idToken;
+      }
+      final adminEmail = currentUser.email?.trim();
+      if (adminEmail != null && adminEmail.isNotEmpty) {
+        // Backward compatibility: some older function versions expected this field.
+        payload['adminEmail'] = adminEmail;
+      }
+      final result = await callable.call(payload);
 
       final data = result.data;
       if (data['success'] == true) {
@@ -509,6 +558,23 @@ class UserRoleService {
       } else {
         AppLogger.error('UserRoleService: Cloud function returned unsuccessful result');
         return false;
+      }
+    } on FirebaseFunctionsException catch (e) {
+      AppLogger.error(
+        'UserRoleService: deleteUserAccount failed (code=${e.code}, message=${e.message}, details=${e.details})',
+      );
+
+      switch (e.code) {
+        case 'failed-precondition':
+          throw Exception('User must be archived before permanent deletion');
+        case 'unauthenticated':
+          throw Exception(e.message ?? 'You must be logged in to delete users');
+        case 'permission-denied':
+          throw Exception(e.message ?? 'Only administrators can delete users');
+        case 'not-found':
+          throw Exception(e.message ?? 'User not found in the system');
+        default:
+          throw Exception(e.message ?? 'Failed to delete user (code=${e.code})');
       }
     } catch (e) {
       AppLogger.error('UserRoleService: Error calling delete user cloud function: $e');

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
+import '../../../core/services/user_role_service.dart';
 
 class MobileUserManagementScreen extends StatefulWidget {
   const MobileUserManagementScreen({super.key});
@@ -48,6 +50,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
           kioskCode: data['kiosk_code'] ?? '',
           dateAdded: data['date_added']?.toString() ?? '',
           lastLogin: data['last_login']?.toString() ?? '',
+          isAdminTeacher: data['is_admin_teacher'] as bool? ?? false,
           isActive: data['is_active'] ?? true,
         );
       }).toList();
@@ -72,6 +75,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
   void _filterUsers() {
     setState(() {
       _filteredUsers = _users.where((user) {
+        final userType = user.userType.toLowerCase();
+        final roleFilter = _selectedRoleFilter?.toLowerCase();
         // Search query filter
         final matchesSearch = _searchQuery.isEmpty ||
             user.firstName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -79,7 +84,9 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             user.email.toLowerCase().contains(_searchQuery.toLowerCase());
 
         // Role filter
-        final matchesRole = _selectedRoleFilter == null || user.userType == _selectedRoleFilter;
+        final matchesRole = roleFilter == null ||
+            userType == roleFilter ||
+            (roleFilter == 'admin' && userType == 'super_admin');
 
         // Active status filter
         final matchesActive = _activeFilter == null || user.isActive == _activeFilter;
@@ -811,15 +818,46 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
 
   Future<void> _toggleUserStatus(Employee user) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.documentId)
-          .update({'is_active': !user.isActive});
+      final email = user.email.trim();
+
+      // Prefer using the shared role service so deactivations are audited consistently.
+      if (email.isNotEmpty) {
+        final success = user.isActive
+            ? await UserRoleService.deactivateUser(email)
+            : await UserRoleService.activateUser(email);
+
+        if (!success) {
+          throw Exception('Failed to update user status');
+        }
+      } else {
+        // Fallback: update by documentId (best-effort) with audit fields when archiving.
+        final actor = FirebaseAuth.instance.currentUser;
+        final updates = <String, dynamic>{
+          'is_active': !user.isActive,
+          'updated_at': FieldValue.serverTimestamp(),
+        };
+
+        if (user.isActive) {
+          updates['deactivated_at'] = FieldValue.serverTimestamp();
+          updates['deactivated_by_uid'] = actor?.uid;
+          updates['deactivated_by_email'] = actor?.email?.toLowerCase();
+        } else {
+          updates['activated_at'] = FieldValue.serverTimestamp();
+          updates['deactivated_at'] = FieldValue.delete();
+        }
+
+        updates.removeWhere((_, value) => value == null);
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.documentId)
+            .update(updates);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(user.isActive ? 'User deactivated' : 'User activated'),
+            content: Text(user.isActive ? 'User archived' : 'User restored'),
             backgroundColor: Colors.green,
           ),
         );
@@ -887,41 +925,113 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
   }
 
   Future<void> _deleteUser(Employee user) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      final currentEmail = currentUser.email?.trim().toLowerCase();
+      final targetEmail = user.email.trim().toLowerCase();
+      if ((currentEmail != null && currentEmail.isNotEmpty && currentEmail == targetEmail) ||
+          currentUser.uid == user.documentId) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You cannot delete your own account.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final userType = user.userType.trim().toLowerCase();
+    final canDeleteClasses = userType == 'teacher' || userType == 'student';
+    var deleteClasses = false;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete User'),
-        content: Text('Are you sure you want to permanently delete ${user.firstName} ${user.lastName}? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            user.isActive ? 'Archive & Permanently Delete' : 'Permanently Delete User',
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.isActive
+                    ? 'This user is currently active. They will be archived first, then permanently deleted. This action cannot be undone.'
+                    : 'Are you sure you want to permanently delete ${user.firstName} ${user.lastName}? This action cannot be undone.',
+              ),
+              if (canDeleteClasses) ...[
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: deleteClasses,
+                  onChanged: (value) =>
+                      setDialogState(() => deleteClasses = value ?? false),
+                  title: Text(
+                    userType == 'teacher'
+                        ? 'Also delete this teacher\'s classes'
+                        : 'Also delete this student\'s classes',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: userType == 'student'
+                      ? const Text('Group classes will remain for other students.')
+                      : null,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+            ],
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(
+                user.isActive ? 'Archive & Delete' : 'Delete',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
 
     if (confirmed == true) {
       try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.documentId)
-            .delete();
+        final email = user.email.trim();
+        if (email.isEmpty) {
+          throw Exception('Cannot delete this user because no email is set on their profile.');
+        }
+
+        // The backend delete function requires the user to be archived first.
+        if (user.isActive) {
+          final archived = await UserRoleService.deactivateUser(email);
+          if (!archived) {
+            throw Exception('Failed to archive user before deletion.');
+          }
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        final success = await UserRoleService.deleteUser(
+          email,
+          deleteClasses: deleteClasses,
+        );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('User deleted successfully'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: Text(success ? 'User deleted successfully' : 'Failed to delete user.'),
+              backgroundColor: success ? Colors.green : Colors.red,
             ),
           );
         }
-        _loadUsers();
+        if (success) _loadUsers();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -6,6 +6,8 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
+    "deploy:dev": "firebase deploy --only functions --project alluwal-dev",
+    "deploy:prod": "firebase deploy --only functions --project alluwal-academy",
     "logs": "firebase functions:log",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",

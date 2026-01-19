@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/user_role_service.dart';
-import 'core/services/version_service.dart';
 import 'dashboard.dart';
 import 'features/parent/screens/parent_dashboard_layout.dart';
 
@@ -299,7 +298,7 @@ class TeacherDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _DashboardVersionOverlay(child: DashboardPage());
+    return const DashboardPage();
   }
 }
 
@@ -312,7 +311,7 @@ class StudentDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     AppLogger.debug('=== StudentDashboard.build() with userId: $userId ===');
 
-    return const _DashboardVersionOverlay(child: DashboardPage());
+    return const DashboardPage();
   }
 }
 
@@ -321,76 +320,6 @@ class ParentDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _DashboardVersionOverlay(child: ParentDashboardLayout());
-  }
-}
-
-class _DashboardVersionOverlay extends StatelessWidget {
-  final Widget child;
-
-  const _DashboardVersionOverlay({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        child,
-        Positioned.fill(
-          child: SafeArea(
-            child: Align(
-              alignment: Alignment.bottomRight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: IgnorePointer(
-                  child: const _AppVersionPill(),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AppVersionPill extends StatefulWidget {
-  const _AppVersionPill();
-
-  @override
-  State<_AppVersionPill> createState() => _AppVersionPillState();
-}
-
-class _AppVersionPillState extends State<_AppVersionPill> {
-  late final Future<String> _versionFuture = VersionService.getFullVersionInfo();
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _versionFuture,
-      builder: (context, snapshot) {
-        final version = snapshot.data?.trim();
-        if (version == null || version.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xA6000000),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Text(
-              'v$version',
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    return const ParentDashboardLayout();
   }
 }

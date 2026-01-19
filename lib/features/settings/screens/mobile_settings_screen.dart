@@ -554,7 +554,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   _buildSettingsTile(
                     icon: Icons.info_outline,
                     title: 'About',
-                    subtitle: 'Version 1.0.0',
+                    subtitle: 'About this app',
                     onTap: () {
                       // Show about dialog
                     },
@@ -661,4 +661,3 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
     );
   }
 }
-

@@ -24,6 +24,17 @@ class AuthService {
       User? user = result.user;
 
       if (user != null) {
+        // Web: make sure the freshly-signed-in user's token is ready before any Firestore calls.
+        // This avoids rare timing issues where early Firestore reads can run unauthenticated.
+        if (kIsWeb) {
+          try {
+            await user.getIdToken(true);
+            AppLogger.debug('AuthService: refreshed ID token after login (web)');
+          } catch (e) {
+            AppLogger.error('AuthService: failed to refresh ID token after login: $e');
+          }
+        }
+
         // Check if the user is active before proceeding
         final isActive = await UserRoleService.isUserActive(user.email!);
         if (!isActive) {
@@ -183,6 +194,20 @@ class AuthService {
       // Legacy: lookup by email (some projects store user docs by email key).
       final email = user.email?.toLowerCase();
       if (email == null) return;
+
+      // Prefer updating the email-id document if it exists (legacy schema).
+      try {
+        final emailDoc = await users.doc(email).get();
+        if (emailDoc.exists) {
+          await emailDoc.reference.update({
+            'last_login': FieldValue.serverTimestamp(),
+          });
+          AppLogger.debug('AuthService: Last login time updated for ${user.email}');
+          return;
+        }
+      } catch (_) {
+        // Ignore and fallback to query-by-field below.
+      }
 
       final QuerySnapshot userQuery =
           await users.where('e-mail', isEqualTo: email).limit(1).get();

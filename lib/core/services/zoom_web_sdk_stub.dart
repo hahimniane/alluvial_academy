@@ -55,7 +55,6 @@ class ZoomWebSdkService {
     required String displayName,
     String? password,
     String? email,
-    String? sdkKey,
   }) async => false;
 
   Future<bool> leaveMeeting() async => false;

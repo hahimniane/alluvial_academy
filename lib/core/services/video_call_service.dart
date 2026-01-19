@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/teaching_shift.dart';
@@ -7,6 +8,7 @@ import '../utils/app_logger.dart';
 import 'user_role_service.dart';
 import 'zoom_service.dart';
 import 'livekit_service.dart';
+import 'join_link_service.dart';
 
 /// Unified video call service that routes to the appropriate provider
 ///
@@ -127,5 +129,26 @@ class VideoCallService {
       // Zoom requires a pre-created meeting
       return shift.hasZoomMeeting;
     }
+  }
+
+  /// Build a shareable join link for a shift.
+  static Uri buildJoinLink(TeachingShift shift) {
+    return JoinLinkService.buildGuestJoinUri(shift.id);
+  }
+
+  /// Copy the join link to clipboard and notify the user.
+  static Future<void> copyJoinLink(
+    BuildContext context,
+    TeachingShift shift,
+  ) async {
+    final uri = buildJoinLink(shift);
+    await Clipboard.setData(ClipboardData(text: uri.toString()));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Guest class link copied.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }

@@ -552,4 +552,3 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 }
-

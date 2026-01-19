@@ -427,7 +427,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
             context,
             MaterialPageRoute(
               settings: const RouteSettings(name: '/login'),
-              builder: (context) => const AuthenticationWrapper(showLogin: true),
+              builder: (context) => const AuthenticationWrapper(),
             ),
           ),
         ),
@@ -439,7 +439,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
             context,
             MaterialPageRoute(
               settings: const RouteSettings(name: '/signup'),
-              builder: (context) => const AuthenticationWrapper(showLogin: true),
+              builder: (context) => const AuthenticationWrapper(),
             ),
           ),
         ),
@@ -590,7 +590,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                         context,
                         MaterialPageRoute(
                           settings: const RouteSettings(name: '/login'),
-                          builder: (context) => const AuthenticationWrapper(showLogin: true),
+                          builder: (context) => const AuthenticationWrapper(),
                         ),
                       );
                     },
@@ -605,7 +605,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                         context,
                         MaterialPageRoute(
                           settings: const RouteSettings(name: '/signup'),
-                          builder: (context) => const AuthenticationWrapper(showLogin: true),
+                          builder: (context) => const AuthenticationWrapper(),
                         ),
                       );
                     },

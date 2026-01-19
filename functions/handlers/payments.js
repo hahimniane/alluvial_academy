@@ -427,7 +427,8 @@ const handlePayoneerWebhook = async (req, res) => {
 };
 
 const generateInvoicesForPeriod = onSchedule(
-  {schedule: 'every month 1 00:00', timeZone: 'UTC'},
+  // Cloud Scheduler accepts cron syntax; this runs at 00:00 UTC on day 1 of every month.
+  {schedule: '0 0 1 * *', timeZone: 'Etc/UTC'},
   async () => {
     if (process.env.ENABLE_INVOICE_GENERATION !== 'true') {
       console.log('Invoice generation is disabled. Set ENABLE_INVOICE_GENERATION=true to enable.');
@@ -448,4 +449,3 @@ module.exports = {
   getPaymentHistory,
   generateInvoicesForPeriod,
 };
-

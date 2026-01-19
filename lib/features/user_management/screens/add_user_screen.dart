@@ -389,6 +389,10 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
           'title': userData['title'],
           'kioskCode': userData['kiosk_code'],
           'timezone': userData['timezone'],
+          // Student-specific (used when bulk-creating student accounts)
+          'isAdultStudent': userData['is_adult_student'],
+          'guardianId': userData['guardian_id'],
+          'guardianIds': userData['guardian_ids'],
         };
       }).toList();
 

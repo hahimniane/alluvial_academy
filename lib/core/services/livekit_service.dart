@@ -1,19 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 
 import '../../features/quran/widgets/quran_reader.dart';
 import '../models/teaching_shift.dart';
+import 'livekit_session_service.dart';
 import '../utils/app_logger.dart';
+import '../utils/environment_utils.dart';
 import '../utils/picture_in_picture.dart'
     if (dart.library.io) '../utils/picture_in_picture_stub.dart' as pip;
 
@@ -25,6 +29,7 @@ class LiveKitJoinResult {
   final String? roomName;
   final String? userRole;
   final String? displayName;
+  final String? shiftName;
   final int? expiresInSeconds;
   final bool roomLocked;
   final String? error;
@@ -36,6 +41,7 @@ class LiveKitJoinResult {
     this.roomName,
     this.userRole,
     this.displayName,
+    this.shiftName,
     this.expiresInSeconds,
     this.roomLocked = false,
     this.error,
@@ -49,6 +55,7 @@ class LiveKitJoinResult {
       roomName: data['roomName']?.toString(),
       userRole: data['userRole']?.toString(),
       displayName: data['displayName']?.toString(),
+      shiftName: data['shiftName']?.toString(),
       expiresInSeconds: data['expiresInSeconds'] as int?,
       roomLocked: data['roomLocked'] == true,
     );
@@ -148,8 +155,32 @@ class LiveKitRoomPresenceResult {
   }
 }
 
+class _ScreenShareCaptureOptionsWithCursor extends ScreenShareCaptureOptions {
+  final String? cursor;
+
+  const _ScreenShareCaptureOptionsWithCursor({
+    this.cursor,
+    super.useiOSBroadcastExtension = false,
+    super.captureScreenAudio = false,
+    super.preferCurrentTab = false,
+    super.selfBrowserSurface,
+    super.sourceId,
+    super.maxFrameRate,
+    super.params = VideoParametersPresets.screenShareH1080FPS15,
+  });
+
+  @override
+  Map<String, dynamic> toMediaConstraintsMap() {
+    final constraints = super.toMediaConstraintsMap();
+    if (kIsWeb && cursor != null && cursor!.isNotEmpty) {
+      constraints['cursor'] = cursor;
+    }
+    return constraints;
+  }
+}
+
 /// Service for managing LiveKit video calls within the app
-///
+/// 
 /// This is a beta video provider alternative to Zoom.
 /// Shifts with `videoProvider == livekit` will use this service.
 class LiveKitService {
@@ -170,7 +201,7 @@ class LiveKitService {
       final micStatus = await Permission.microphone.request();
 
       // On Android, also request Bluetooth for headset support
-      if (!kIsWeb && Platform.isAndroid) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         await Permission.bluetooth.request();
         await Permission.bluetoothConnect.request();
       }
@@ -241,6 +272,60 @@ class LiveKitService {
       AppLogger.error('LiveKitService: Error getting join token: $e');
       return LiveKitJoinResult.error('Failed to connect to class');
     }
+  }
+
+  /// Get LiveKit join token for a guest (no-auth) flow.
+  static Future<LiveKitJoinResult> getGuestJoinToken(
+    String shiftId, {
+    String? displayName,
+  }) async {
+    try {
+      final uri = _buildGuestJoinUri(shiftId, displayName: displayName);
+      final response = await http.get(uri);
+      dynamic raw;
+      if (response.body.isNotEmpty) {
+        try {
+          raw = jsonDecode(response.body);
+        } catch (_) {
+          raw = response.body;
+        }
+      }
+      if (response.statusCode != 200) {
+        if (raw is Map && raw['error'] != null) {
+          return LiveKitJoinResult.error(raw['error'].toString());
+        }
+        final fallback =
+            response.body.isNotEmpty ? response.body : 'Failed to join class';
+        return LiveKitJoinResult.error(fallback);
+      }
+
+      if (raw is! Map) {
+        return LiveKitJoinResult.error('Unexpected response from server');
+      }
+
+      return LiveKitJoinResult.fromMap(Map<String, dynamic>.from(raw));
+    } catch (e) {
+      AppLogger.error('LiveKitService: Error getting guest join token: $e');
+      return LiveKitJoinResult.error('Failed to connect to class');
+    }
+  }
+
+  static Uri _buildGuestJoinUri(
+    String shiftId, {
+    String? displayName,
+  }) {
+    final projectId = EnvironmentUtils.projectId ??
+        (EnvironmentUtils.isDevelopment ? 'alluwal-dev' : 'alluwal-academy');
+    final params = <String, String>{'shiftId': shiftId};
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      params['name'] = displayName.trim();
+    }
+
+    return Uri.https(
+      'us-central1-$projectId.cloudfunctions.net',
+      'getLiveKitGuestJoin',
+      params,
+    );
   }
 
   /// Fetch current LiveKit room participants for a shift (presence preview)
@@ -521,9 +606,31 @@ class LiveKitCallScreen extends StatefulWidget {
 
 class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   static const String _hostControlTopic = 'alluwal_host_control';
+  static const Duration _pointerSendThrottle = Duration(milliseconds: 50);
+  static const Duration _pointerHideDelay = Duration(milliseconds: 1200);
+  static const int _maxReconnectAttempts = 2;
+
+  final LiveKitSessionService _sessionService = LiveKitSessionService();
   Room? _room;
   LocalParticipant? _localParticipant;
   EventsListener<RoomEvent>? _listener;
+
+  late String _currentToken;
+  late String _currentLivekitUrl;
+  bool _manualDisconnect = false;
+  bool _reconnecting = false;
+  int _reconnectAttempts = 0;
+
+  DateTime? _lastPointerSentAt;
+  Timer? _pointerSendTimer;
+  Offset? _pendingPointerPosition;
+  bool _pendingPointerVisible = false;
+  Offset? _lastPointerPosition;
+
+  Offset? _remotePointerPosition;
+  bool _remotePointerVisible = false;
+  String? _remotePointerIdentity;
+  Timer? _remotePointerHideTimer;
 
   bool _connecting = true;
   bool _micEnabled = true;
@@ -553,6 +660,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   @override
   void initState() {
     super.initState();
+    _currentToken = widget.token;
+    _currentLivekitUrl = widget.livekitUrl;
     _roomLocked = widget.initialRoomLocked;
     _connectToRoom();
   }
@@ -602,6 +711,201 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     });
   }
 
+  bool _shouldAttemptReconnect(DisconnectReason? reason) {
+    if (_manualDisconnect) return false;
+    switch (reason) {
+      case DisconnectReason.clientInitiated:
+      case DisconnectReason.participantRemoved:
+      case DisconnectReason.roomDeleted:
+      case DisconnectReason.duplicateIdentity:
+      case DisconnectReason.joinFailure:
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  Future<void> _disposeRoom() async {
+    try {
+      _listener?.dispose();
+      _listener = null;
+      await _room?.disconnect();
+      await _room?.dispose();
+    } catch (e) {
+      AppLogger.error('LiveKit: Error disposing room: $e');
+    } finally {
+      _room = null;
+      _localParticipant = null;
+    }
+  }
+
+  Future<void> _attemptReconnect(DisconnectReason? reason) async {
+    if (_reconnecting || _manualDisconnect) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      if (mounted) {
+        setState(() {
+          _reconnecting = false;
+          _connecting = false;
+          _error = 'Connection lost. Please rejoin the class.';
+        });
+      }
+      return;
+    }
+
+    _reconnectAttempts += 1;
+    if (mounted) {
+      setState(() {
+        _reconnecting = true;
+        _connecting = true;
+        _error = null;
+      });
+    }
+
+    await _disposeRoom();
+
+    try {
+      final joinResult = await LiveKitService.getJoinToken(widget.shiftId);
+      if (!joinResult.success ||
+          joinResult.token == null ||
+          joinResult.livekitUrl == null) {
+        if (mounted) {
+          setState(() {
+            _reconnecting = false;
+            _connecting = false;
+            _error =
+                joinResult.error ?? 'Failed to reconnect to the class.';
+          });
+        }
+        return;
+      }
+
+      _currentToken = joinResult.token!;
+      _currentLivekitUrl = joinResult.livekitUrl!;
+      _roomLocked = joinResult.roomLocked;
+      if (!mounted) return;
+      await _connectToRoom();
+    } catch (e) {
+      AppLogger.error('LiveKit: Reconnect attempt failed: $e');
+      if (mounted) {
+        setState(() {
+          _reconnecting = false;
+          _connecting = false;
+          _error = 'Failed to reconnect: $e';
+        });
+      }
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _reconnecting = false);
+      }
+    }
+  }
+
+  void _queuePointerUpdate({
+    Offset? position,
+    required bool visible,
+  }) {
+    if (!widget.isTeacher) return;
+    if (_localParticipant == null) return;
+
+    if (position != null) {
+      _pendingPointerPosition = position;
+      _lastPointerPosition = position;
+    }
+    _pendingPointerVisible = visible;
+
+    final now = DateTime.now();
+    final lastSent = _lastPointerSentAt;
+    if (lastSent == null ||
+        now.difference(lastSent) >= _pointerSendThrottle) {
+      _sendPointerUpdate(
+        position: _pendingPointerPosition,
+        visible: _pendingPointerVisible,
+      );
+      _pendingPointerPosition = null;
+      _pointerSendTimer?.cancel();
+      _pointerSendTimer = null;
+      return;
+    }
+
+    if (_pointerSendTimer != null) return;
+    final delay = _pointerSendThrottle - now.difference(lastSent);
+    _pointerSendTimer = Timer(delay, () {
+      final position = _pendingPointerPosition;
+      final visible = _pendingPointerVisible;
+      _pendingPointerPosition = null;
+      _pointerSendTimer = null;
+      _sendPointerUpdate(position: position, visible: visible);
+    });
+  }
+
+  void _sendPointerUpdate({
+    Offset? position,
+    required bool visible,
+  }) {
+    final local = _localParticipant;
+    if (local == null) return;
+
+    final payload = <String, dynamic>{
+      'type': 'screen_pointer',
+      'visible': visible,
+    };
+    final effectivePosition = position ?? _lastPointerPosition;
+    if (effectivePosition != null) {
+      payload['x'] = effectivePosition.dx;
+      payload['y'] = effectivePosition.dy;
+    }
+
+    _lastPointerSentAt = DateTime.now();
+    local
+        .publishData(
+          utf8.encode(jsonEncode(payload)),
+          reliable: false,
+          topic: _hostControlTopic,
+        )
+        .catchError((e) {
+      AppLogger.debug('LiveKit: Failed to send pointer update: $e');
+    });
+  }
+
+  void _handleScreenSharePointerEvent(PointerEvent event, Size size) {
+    if (!widget.isTeacher || !_screenShareEnabled) return;
+    if (event.kind != PointerDeviceKind.mouse) return;
+    if (size.width <= 0 || size.height <= 0) return;
+
+    final dx = (event.localPosition.dx / size.width).clamp(0.0, 1.0);
+    final dy = (event.localPosition.dy / size.height).clamp(0.0, 1.0);
+    _queuePointerUpdate(position: Offset(dx, dy), visible: true);
+  }
+
+  void _handleScreenSharePointerExit() {
+    if (!widget.isTeacher) return;
+    _queuePointerUpdate(visible: false);
+  }
+
+  void _scheduleRemotePointerHide() {
+    _remotePointerHideTimer?.cancel();
+    _remotePointerHideTimer = Timer(_pointerHideDelay, () {
+      if (!mounted) return;
+      setState(() => _remotePointerVisible = false);
+    });
+  }
+
+  void _clearRemotePointer({bool notify = true}) {
+    _remotePointerHideTimer?.cancel();
+    if (notify && mounted) {
+      setState(() {
+        _remotePointerVisible = false;
+        _remotePointerPosition = null;
+        _remotePointerIdentity = null;
+      });
+    } else {
+      _remotePointerVisible = false;
+      _remotePointerPosition = null;
+      _remotePointerIdentity = null;
+    }
+  }
+
   Future<void> _connectToRoom() async {
     try {
       setState(() {
@@ -613,9 +917,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       final roomOptions = RoomOptions(
         adaptiveStream: true,
         dynacast: true,
+        // Use conservative defaults to reduce bandwidth spikes in larger rooms.
         defaultCameraCaptureOptions: const CameraCaptureOptions(
-          maxFrameRate: 30,
-          params: VideoParametersPresets.h720_169,
+          maxFrameRate: 24,
+          params: VideoParametersPresets.h540_169,
         ),
         defaultAudioCaptureOptions: const AudioCaptureOptions(
           echoCancellation: true,
@@ -624,6 +929,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         ),
         defaultVideoPublishOptions: const VideoPublishOptions(
           simulcast: true,
+          degradationPreference: DegradationPreference.maintainFramerate,
           // Use multi-codec publishing to support Safari/iOS (H264) and Chrome/Android (VP8).
           // Dynacast ensures unused layers/codecs are paused to reduce bandwidth/CPU.
           videoCodec: 'vp8',
@@ -635,10 +941,13 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         ),
         defaultAudioPublishOptions: const AudioPublishOptions(
           dtx: true,
+          audioBitrate: AudioPreset.speech,
         ),
-        defaultScreenShareCaptureOptions: const ScreenShareCaptureOptions(
+        defaultScreenShareCaptureOptions:
+            const _ScreenShareCaptureOptionsWithCursor(
           useiOSBroadcastExtension: true,
-          params: VideoParametersPresets.screenShareH1080FPS15,
+          params: VideoParametersPresets.screenShareH720FPS15,
+          cursor: 'always',
         ),
       );
 
@@ -650,11 +959,11 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       _setupRoomListeners(_listener!);
 
       // Debug: Log connection details
-      AppLogger.debug('LiveKit: Connecting to ${widget.livekitUrl}');
+      AppLogger.debug('LiveKit: Connecting to $_currentLivekitUrl');
       AppLogger.debug('LiveKit: Room: ${widget.roomName}');
-      AppLogger.debug('LiveKit: Token length: ${widget.token.length}');
+      AppLogger.debug('LiveKit: Token length: ${_currentToken.length}');
       AppLogger.debug(
-          'LiveKit: Token preview: ${widget.token.substring(0, widget.token.length > 50 ? 50 : widget.token.length)}...');
+          'LiveKit: Token preview: ${_currentToken.substring(0, _currentToken.length > 50 ? 50 : _currentToken.length)}...');
 
       // Connect to the room
       // Try without fastConnectOptions first to see if that's the issue
@@ -662,8 +971,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         AppLogger.debug(
             'LiveKit: Attempting connection without fastConnectOptions...');
         await room.connect(
-          widget.livekitUrl,
-          widget.token,
+          _currentLivekitUrl,
+          _currentToken,
         );
         AppLogger.info(
             'LiveKit: Connected successfully without fastConnectOptions');
@@ -696,6 +1005,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         _connecting = false;
       });
 
+      _reconnectAttempts = 0;
       _syncLocalMediaState();
       AppLogger.info('LiveKit: Connected to room ${widget.roomName}');
     } catch (e) {
@@ -709,9 +1019,54 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   void _setupRoomListeners(EventsListener<RoomEvent> listener) {
     listener
-      ..on<RoomDisconnectedEvent>((event) {
+      ..on<RoomConnectedEvent>((event) {
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserId == null) {
+          AppLogger.warning('LiveKit: Skipping session join tracking (no user)');
+          return;
+        }
+
+        final role = widget.isTeacher ? 'teacher' : 'student';
+        _sessionService.recordParticipantJoin(
+          shiftId: widget.shiftId,
+          userId: currentUserId,
+          role: role,
+        );
+      })
+      ..on<RoomReconnectingEvent>((event) {
+        AppLogger.warning('LiveKit: Reconnecting to room...');
+        if (mounted) {
+          setState(() => _reconnecting = true);
+        }
+      })
+      ..on<RoomReconnectedEvent>((event) {
+        AppLogger.info('LiveKit: Reconnected to room');
+        if (mounted) {
+          setState(() => _reconnecting = false);
+        }
+      })
+      ..on<RoomDisconnectedEvent>((event) async {
         AppLogger.info(
             'LiveKit: Disconnected from room. Reason: ${event.reason}');
+
+        if (_manualDisconnect) {
+          return;
+        }
+
+        if (_shouldAttemptReconnect(event.reason)) {
+          await _attemptReconnect(event.reason);
+          return;
+        }
+
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserId != null) {
+          _sessionService.recordParticipantLeave(
+            shiftId: widget.shiftId,
+            userId: currentUserId,
+            disconnectReason: event.reason?.toString(),
+          );
+        }
+
         if (mounted) {
           Navigator.of(context).pop();
         }
@@ -831,6 +1186,32 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           backgroundColor: Colors.green,
         );
       }
+      return;
+    }
+
+    if (type == 'screen_pointer') {
+      final activeShare = _getActiveScreenShare();
+      final senderIdentity = event.participant?.identity;
+      if (activeShare == null || senderIdentity == null) return;
+      if (activeShare.participant.identity != senderIdentity) return;
+
+      final visible = decoded['visible'] != false;
+      if (!visible) {
+        _clearRemotePointer();
+        return;
+      }
+
+      final x = (decoded['x'] as num?)?.toDouble();
+      final y = (decoded['y'] as num?)?.toDouble();
+      if (x == null || y == null) return;
+
+      if (!mounted) return;
+      setState(() {
+        _remotePointerPosition = Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+        _remotePointerVisible = true;
+        _remotePointerIdentity = senderIdentity;
+      });
+      _scheduleRemotePointerHide();
       return;
     }
 
@@ -974,6 +1355,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       await local.setScreenShareEnabled(enable);
       _syncLocalMediaState();
 
+      if (!enable) {
+        _queuePointerUpdate(visible: false);
+      }
+
       if (mounted && enable) {
         setState(() => _showParticipantsOverlay = true);
       }
@@ -1040,6 +1425,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     );
 
     if (shouldLeave == true) {
+      _manualDisconnect = true;
       await _disconnect();
       if (mounted) {
         Navigator.of(context).pop();
@@ -1049,9 +1435,22 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   Future<void> _disconnect() async {
     try {
+      _manualDisconnect = true;
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId != null) {
+        await _sessionService.recordParticipantLeave(
+          shiftId: widget.shiftId,
+          userId: currentUserId,
+          disconnectReason: 'manual_disconnect',
+        );
+      }
+
       _listener?.dispose();
+      _listener = null;
       await _room?.disconnect();
       await _room?.dispose();
+      _room = null;
+      _localParticipant = null;
     } catch (e) {
       AppLogger.error('LiveKit: Error disconnecting: $e');
     }
@@ -1074,6 +1473,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _screenShareUiHideTimer?.cancel();
     _screenShareTransformController.dispose();
     _disposePictureInPictureResources();
+    _pointerSendTimer?.cancel();
+    _remotePointerHideTimer?.cancel();
     _disconnect();
     super.dispose();
   }
@@ -1361,6 +1762,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Widget _buildZoomableScreenShare(
     VideoTrack track, {
     required bool enableTapToToggleUi,
+    bool enablePointerCapture = false,
   }) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1373,9 +1775,68 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         maxScale: 4.0,
         panEnabled: true,
         scaleEnabled: true,
-        child: VideoTrackRenderer(
-          track,
-          fit: _screenShareFit,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final height = constraints.maxHeight;
+            final canShowPointer = _remotePointerVisible &&
+                _remotePointerPosition != null &&
+                _remotePointerIdentity != null &&
+                _remotePointerIdentity == _activeScreenShareIdentity &&
+                width.isFinite &&
+                height.isFinite;
+
+            Widget content = Stack(
+              children: [
+                Positioned.fill(
+                  child: VideoTrackRenderer(
+                    track,
+                    fit: _screenShareFit,
+                  ),
+                ),
+                if (canShowPointer)
+                  Builder(
+                    builder: (context) {
+                      const pointerSize = 16.0;
+                      final position = _remotePointerPosition!;
+                      var left = position.dx * width - pointerSize / 2;
+                      var top = position.dy * height - pointerSize / 2;
+                      left = left.clamp(
+                        0.0,
+                        math.max(0.0, width - pointerSize),
+                      );
+                      top = top.clamp(
+                        0.0,
+                        math.max(0.0, height - pointerSize),
+                      );
+
+                      return Positioned(
+                        left: left,
+                        top: top,
+                        child: const IgnorePointer(child: _RemotePointer()),
+                      );
+                    },
+                  ),
+              ],
+            );
+
+            if (enablePointerCapture) {
+              content = MouseRegion(
+                onExit: (_) => _handleScreenSharePointerExit(),
+                child: Listener(
+                  onPointerHover: (event) =>
+                      _handleScreenSharePointerEvent(event, constraints.biggest),
+                  onPointerMove: (event) =>
+                      _handleScreenSharePointerEvent(event, constraints.biggest),
+                  onPointerDown: (event) =>
+                      _handleScreenSharePointerEvent(event, constraints.biggest),
+                  child: content,
+                ),
+              );
+            }
+
+            return content;
+          },
         ),
       ),
     );
@@ -1983,7 +2444,10 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _connectToRoom,
+              onPressed: () {
+                _reconnectAttempts = 0;
+                _attemptReconnect(null);
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),
@@ -2021,6 +2485,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       _overlayAutoHiddenForShare = false;
       _resetScreenShareTransform();
     }
+    _clearRemotePointer(notify: false);
 
     return _buildParticipantGrid();
   }
@@ -2037,6 +2502,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           _activeScreenShareIdentity = shareIdentity;
           _overlayAutoHiddenForShare = false;
           _resetScreenShareTransform();
+          _clearRemotePointer(notify: false);
         }
 
         final maxOverlayWidth = math.max(0.0, constraints.maxWidth - 24);
@@ -2082,6 +2548,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                     : _buildZoomableScreenShare(
                         screenShareTrack,
                         enableTapToToggleUi: false,
+                        enablePointerCapture: true,
                       ),
               ),
             ),
@@ -2132,6 +2599,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           _activeScreenShareIdentity = shareIdentity;
           _overlayAutoHiddenForShare = false;
           _resetScreenShareTransform();
+          _clearRemotePointer(notify: false);
         }
 
         final isNarrow = constraints.maxWidth < 700;
@@ -2253,6 +2721,9 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             child: _buildZoomableScreenShare(
               activeShare.track,
               enableTapToToggleUi: true,
+              enablePointerCapture: widget.isTeacher &&
+                  _screenShareEnabled &&
+                  _localParticipant?.identity == activeShare.participant.identity,
             ),
           ),
         ),
@@ -2920,6 +3391,30 @@ class _ParticipantsOverlayWindow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RemotePointer extends StatelessWidget {
+  const _RemotePointer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: Colors.redAccent,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
     );
   }

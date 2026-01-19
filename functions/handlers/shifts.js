@@ -114,6 +114,26 @@ const scheduleShiftLifecycle = onCall(async (request) => {
     const scheduledStart = ensureFutureDate(new Date(shiftStart));
     const scheduledEnd = ensureFutureDate(new Date(shiftEnd));
 
+    // Cloud Tasks cannot schedule tasks more than ~30 days (720h) in the future.
+    // Recurring series can create shifts far ahead, so we must skip scheduling
+    // until the shift falls within the allowed window. A separate scheduled job
+    // takes care of scheduling tasks for near-term shifts.
+    const maxFutureMs = 720 * 60 * 60 * 1000; // 30 days
+    const maxScheduleTimeMs = Date.now() + maxFutureMs;
+    if (scheduledStart.getTime() > maxScheduleTimeMs || scheduledEnd.getTime() > maxScheduleTimeMs) {
+      console.log(
+        `[INFO] Shift ${shiftId}: start/end is beyond Cloud Tasks scheduling window; skipping lifecycle tasks for now.`,
+      );
+      return {
+        success: true,
+        results: {
+          skippedTooFar: true,
+          scheduledStart: scheduledStart.toISOString(),
+          scheduledEnd: scheduledEnd.toISOString(),
+        },
+      };
+    }
+
     const startTaskName = taskName(shiftId, 'start', Math.floor(scheduledStart.getTime() / 1000));
     const endTaskName = taskName(shiftId, 'end', Math.floor(scheduledEnd.getTime() / 1000));
 
@@ -811,6 +831,121 @@ const sendScheduledShiftReminders = onSchedule('every 5 minutes', async () => {
 });
 
 /**
+ * Scheduled function that (re)schedules lifecycle tasks for upcoming shifts.
+ *
+ * Why: Cloud Tasks only supports scheduling ~30 days into the future. We create
+ * recurring shifts far ahead, so we need a periodic job that schedules tasks
+ * once shifts enter the allowed window.
+ *
+ * This is idempotent thanks to unique task names (based on schedule epoch seconds):
+ * `createTask` will return ALREADY_EXISTS and we treat it as a no-op.
+ */
+const scheduleUpcomingShiftLifecycleTasks = onSchedule('every 6 hours', async () => {
+  const horizonDays = 29; // Keep within Cloud Tasks 30-day limit.
+  const now = admin.firestore.Timestamp.now();
+  const horizon = admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() + horizonDays * 24 * 60 * 60 * 1000),
+  );
+
+  try {
+    await ensureTasksConfig();
+
+    const db = admin.firestore();
+    const queue = queuePath();
+
+    const shiftsSnapshot = await db
+      .collection('teaching_shifts')
+      .where('status', '==', 'scheduled')
+      .where('shift_start', '>', now)
+      .where('shift_start', '<=', horizon)
+      .get();
+
+    if (shiftsSnapshot.empty) {
+      console.log('[LifecycleScheduler] No upcoming scheduled shifts to process.');
+      return;
+    }
+
+    console.log(`[LifecycleScheduler] Processing ${shiftsSnapshot.size} shift(s)…`);
+
+    const serviceAccountEmail = await getTasksServiceAccount();
+
+    let created = 0;
+    let alreadyExists = 0;
+    let skippedInvalid = 0;
+
+    for (const shiftDoc of shiftsSnapshot.docs) {
+      const shiftId = shiftDoc.id;
+      const shiftData = shiftDoc.data() || {};
+      const shiftStart = toDate(shiftData.shift_start);
+      const shiftEnd = toDate(shiftData.shift_end);
+
+      if (!shiftStart || !shiftEnd || Number.isNaN(shiftStart.getTime()) || Number.isNaN(shiftEnd.getTime())) {
+        skippedInvalid += 1;
+        continue;
+      }
+
+      const scheduledStart = ensureFutureDate(new Date(shiftStart));
+      const scheduledEnd = ensureFutureDate(new Date(shiftEnd));
+
+      const startTaskName = taskName(shiftId, 'start', Math.floor(scheduledStart.getTime() / 1000));
+      const endTaskName = taskName(shiftId, 'end', Math.floor(scheduledEnd.getTime() / 1000));
+
+      const payload = {
+        shiftId,
+        shiftStart: shiftStart.toISOString(),
+        shiftEnd: shiftEnd.toISOString(),
+      };
+
+      const startTask = {
+        httpRequest: {
+          httpMethod: 'POST',
+          url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftStartTask`,
+          oidcToken: {serviceAccountEmail},
+          headers: {'Content-Type': 'application/json'},
+          body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+        },
+        scheduleTime: {seconds: Math.floor(scheduledStart.getTime() / 1000)},
+        name: startTaskName,
+      };
+
+      const endTask = {
+        httpRequest: {
+          httpMethod: 'POST',
+          url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftEndTask`,
+          oidcToken: {serviceAccountEmail},
+          headers: {'Content-Type': 'application/json'},
+          body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+        },
+        scheduleTime: {seconds: Math.floor(scheduledEnd.getTime() / 1000)},
+        name: endTaskName,
+      };
+
+      try {
+        await tasksClient.createTask({parent: queue, task: startTask});
+        created += 1;
+      } catch (error) {
+        if (error.code === 6) alreadyExists += 1;
+        else throw error;
+      }
+
+      try {
+        await tasksClient.createTask({parent: queue, task: endTask});
+        created += 1;
+      } catch (error) {
+        if (error.code === 6) alreadyExists += 1;
+        else throw error;
+      }
+    }
+
+    console.log(
+      `[LifecycleScheduler] Done. created=${created}, alreadyExists=${alreadyExists}, skippedInvalid=${skippedInvalid}`,
+    );
+  } catch (error) {
+    console.error('[LifecycleScheduler] Error while scheduling upcoming tasks:', error);
+  }
+});
+
+/**
  * Scheduled function that runs every 30 minutes to fix shifts that are still marked as "active"
  * but should be completed. Also handles missing clock-outs for timesheet entries.
  * 
@@ -1335,6 +1470,7 @@ module.exports = {
   onShiftCancelled,
   onShiftDeleted,
   sendScheduledShiftReminders,
+  scheduleUpcomingShiftLifecycleTasks,
   fixActiveShiftsStatus,
   fixTimesheetsPayAndStatus,
 };

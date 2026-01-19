@@ -60,6 +60,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   final _notesController = TextEditingController();
 
   bool _isLoading = false;
+  bool _timeFieldsDirty = false;
   bool _useCustomName = false;
 
   // Form fields
@@ -760,18 +761,24 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     if (widget.shift != null) {
       final shift = widget.shift!;
       // Note: We'll resolve teacher/student IDs after loading users.
-      _shiftDate = DateTime(
-        shift.shiftStart.year,
-        shift.shiftStart.month,
-        shift.shiftStart.day,
+      //
+      // Shifts are stored in UTC. When editing we MUST render the form in the
+      // scheduling timezone (shift.adminTimezone) so that saving does not
+      // accidentally shift times (e.g., re-interpreting UTC components as local).
+      final shiftTimezone = TimezoneUtils.normalizeTimezone(
+        shift.adminTimezone,
+        fallback: _adminTimezone,
       );
-      _startTime = TimeOfDay.fromDateTime(shift.shiftStart);
-      _endTime = TimeOfDay.fromDateTime(shift.shiftEnd);
+      _selectedTimezone = shiftTimezone;
 
-      // Set timezone from shift if available, otherwise default to admin's
-      // Note: Shifts are stored in UTC, so we might want to convert back to the original timezone if we stored it
-      // For now, we'll default to admin timezone or try to infer from teacher
-      _selectedTimezone = _adminTimezone;
+      final localStart =
+          TimezoneUtils.convertToTimezone(shift.shiftStart, shiftTimezone);
+      final localEnd =
+          TimezoneUtils.convertToTimezone(shift.shiftEnd, shiftTimezone);
+
+      _shiftDate = DateTime(localStart.year, localStart.month, localStart.day);
+      _startTime = TimeOfDay(hour: localStart.hour, minute: localStart.minute);
+      _endTime = TimeOfDay(hour: localEnd.hour, minute: localEnd.minute);
 
       // NEW: Load category and leader role from existing shift
       _selectedCategory = shift.category;
@@ -2095,6 +2102,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             setState(() {
               _timezoneSelectionVersion++;
               _selectedTimezone = timezone;
+              _timeFieldsDirty = true;
             });
           },
         ),
@@ -2132,6 +2140,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       setState(() {
                         _timezoneSelectionVersion++;
                         _selectedTimezone = _teacherTimezone!;
+                        _timeFieldsDirty = true;
                       });
                     },
                     style: TextButton.styleFrom(
@@ -2262,6 +2271,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             if (date != null) {
               setState(() {
                 _shiftDate = date;
+                _timeFieldsDirty = true;
               });
             }
           },
@@ -2559,6 +2569,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       int endMinute = time.minute;
 
                       _endTime = TimeOfDay(hour: endHour, minute: endMinute);
+                      _timeFieldsDirty = true;
                     });
                   }
                 },
@@ -2620,6 +2631,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     // Timezone conversion will handle the actual date calculation
                     setState(() {
                       _endTime = time;
+                      _timeFieldsDirty = true;
                     });
                   }
                 },
@@ -2950,10 +2962,11 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     final startMinutes = _startTime.hour * 60 + _startTime.minute;
     final endMinutes = _endTime.hour * 60 + _endTime.minute;
 
-    if (endMinutes <= startMinutes) {
+    // Cross-midnight shifts are allowed (end < start). Disallow only zero-length.
+    if (endMinutes == startMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Shift end time must be after start time'),
+          content: Text('Shift end time must be different from start time'),
           backgroundColor: Colors.red,
         ),
       );
@@ -3045,6 +3058,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       // This properly interprets the naive DateTime as being in the selected timezone
       shiftStart = TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
       shiftEnd = TimezoneUtils.convertToUtc(naiveEnd, _selectedTimezone);
+
+      // When editing an existing shift, do not alter its start/end unless the
+      // admin explicitly changed date/time/timezone fields. This prevents
+      // accidental schedule shifts due to UI prefills/regressions.
+      if (widget.shift != null && !_timeFieldsDirty) {
+        shiftStart = widget.shift!.shiftStart.toUtc();
+        shiftEnd = widget.shift!.shiftEnd.toUtc();
+      }
 
       AppLogger.debug('CreateShiftDialog: Final shift start: $shiftStart');
       AppLogger.debug('CreateShiftDialog: Final shift end: $shiftEnd');
@@ -3247,6 +3268,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               _selectedCategory == ShiftCategory.teaching ? studentNames : [],
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,
+          adminTimezone: _selectedTimezone,
           subject: _mapSubjectToEnum(selectedSubject?.name ?? 'quran_studies'),
           subjectId: _selectedSubjectId,
           subjectDisplayName: selectedSubject?.displayName,

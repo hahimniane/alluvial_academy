@@ -30,17 +30,24 @@ service cloud.firestore {
 
       return data != null && (
 
-        data.role == 'admin' ||
+        // Normalize string roles to avoid case mismatches ("Admin", "SUPER_ADMIN", etc.)
+        ((data.role is string) && (data.role.lower() == 'admin' || data.role.lower() == 'super_admin')) ||
 
-        data.user_type == 'admin' ||
+        ((data.user_type is string) &&
+          (data.user_type.lower() == 'admin' || data.user_type.lower() == 'super_admin')) ||
 
-        data.userType == 'admin' ||
+        ((data.userType is string) &&
+          (data.userType.lower() == 'admin' || data.userType.lower() == 'super_admin')) ||
 
         data.is_admin == true ||
 
         data.isAdmin == true ||
 
-        data.is_admin_teacher == true
+        data.is_admin_teacher == true ||
+
+        data.is_super_admin == true ||
+
+        data.isSuperAdmin == true
 
       );
 
@@ -55,7 +62,15 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && isAdminRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data)) ||
-        request.auth.token.role == 'admin' ||
+        // Support deployments where the user document id is the user's email.
+        ((request.auth.token.email is string) &&
+          exists(/databases/$(database)/documents/users/$(request.auth.token.email.lower())) &&
+          isAdminRole(get(/databases/$(database)/documents/users/$(request.auth.token.email.lower())).data)) ||
+        ((request.auth.token.email is string) &&
+          exists(/databases/$(database)/documents/users/$(request.auth.token.email)) &&
+          isAdminRole(get(/databases/$(database)/documents/users/$(request.auth.token.email)).data)) ||
+        ((request.auth.token.role is string) &&
+          (request.auth.token.role.lower() == 'admin' || request.auth.token.role.lower() == 'super_admin')) ||
         request.auth.token.isAdmin == true ||
         request.auth.token.is_admin == true
       );
@@ -67,24 +82,13 @@ service cloud.firestore {
 
     function authEmail() {
 
-      return request.auth != null && request.auth.token.email != null
-
-        ? request.auth.token.email
-
-        : null;
+      return request.auth != null && (request.auth.token.email is string)
+        ? request.auth.token.email.lower()
+        : '';
 
     }
 
     
-
-    // Helper to determine if a user document belongs to the signed-in user (read context)
-    function isUserDocOwner(userId) {
-      return isSignedIn() && (
-        request.auth.uid == userId ||
-        (resource.data.uid != null && resource.data.uid == request.auth.uid) ||
-        (resource.data['e-mail'] != null && authEmail() != null && resource.data['e-mail'] == authEmail())
-      );
-    }
 
     // Helper to determine if a user document belongs to the signed-in user (write context)
 
@@ -96,7 +100,7 @@ service cloud.firestore {
 
         (request.resource.data.uid != null && request.resource.data.uid == request.auth.uid) ||
 
-        (request.resource.data['e-mail'] != null && authEmail() != null && request.resource.data['e-mail'] == authEmail())
+        ((request.resource.data['e-mail'] is string) && authEmail() != '' && request.resource.data['e-mail'].lower() == authEmail())
 
       );
 
@@ -219,11 +223,17 @@ service cloud.firestore {
 
         fieldUnchanged('created_by_admin') &&
 
-        fieldUnchanged('password_reset_required') &&
+	        fieldUnchanged('password_reset_required') &&
 
-        fieldUnchanged('e-mail')
+	        fieldUnchanged('e-mail') &&
 
-      ) || (
+	        fieldUnchanged('deactivated_at') &&
+
+	        fieldUnchanged('deactivated_by_uid') &&
+
+	        fieldUnchanged('deactivated_by_email')
+
+	      ) || (
 
         isUserDocOwnerAfterWrite(userId) && isFcmTokenOnlyUpdate()
 
@@ -351,6 +361,13 @@ service cloud.firestore {
 
       allow delete: if isSignedIn() && isAdmin();
 
+    }
+
+    // LiveKit session tracking - authenticated users can read and write join/leave events
+    match /livekit_sessions/{sessionId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn() && isAdmin();
     }
 
     

@@ -7,6 +7,7 @@ const userHandlers = require('./handlers/users');
 const studentHandlers = require('./handlers/students');
 const taskHandlers = require('./handlers/tasks');
 const shiftHandlers = require('./handlers/shifts');
+const shiftTemplateHandlers = require('./handlers/shift_templates');
 const timezoneHandlers = require('./handlers/timezone');
 const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
@@ -60,6 +61,14 @@ exports.onShiftUpdated = shiftHandlers.onShiftUpdated;
 exports.onShiftCancelled = shiftHandlers.onShiftCancelled;
 exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
+exports.scheduleUpcomingShiftLifecycleTasks =
+  shiftHandlers.scheduleUpcomingShiftLifecycleTasks;
+
+// Dev-only template-based shift generation (rolling window)
+exports.generateDailyShifts = shiftTemplateHandlers.generateDailyShifts;
+exports.createShiftTemplate = shiftTemplateHandlers.createShiftTemplate;
+exports.generateShiftsForTemplate = shiftTemplateHandlers.generateShiftsForTemplateCallable;
+exports.onTeacherDeleted = shiftTemplateHandlers.onTeacherDeleted;
 exports.joinZoomMeeting = zoomHandlers.joinZoomMeeting;
 exports.getZoomJoinUrl = zoomHandlers.getZoomJoinUrl;
 exports.getZoomMeetingSdkJoinPayload = zoomHandlers.getZoomMeetingSdkJoinPayload;
@@ -309,6 +318,7 @@ exports.muteLiveKitParticipant = livekitHandlers.muteLiveKitParticipant;
 exports.muteAllLiveKitParticipants = livekitHandlers.muteAllLiveKitParticipants;
 exports.kickLiveKitParticipant = livekitHandlers.kickLiveKitParticipant;
 exports.setLiveKitRoomLock = livekitHandlers.setLiveKitRoomLock;
+exports.getLiveKitGuestJoin = livekitHandlers.getLiveKitGuestJoin;
 
 // LiveKit Test Function (for development/testing)
 exports.testLiveKit = testLivekitHandlers.testLiveKit;

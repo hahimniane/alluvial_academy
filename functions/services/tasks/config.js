@@ -2,12 +2,24 @@ const https = require('https');
 const functions = require('firebase-functions');
 const {CloudTasksClient} = require('@google-cloud/tasks');
 
-const PROJECT_ID = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || process.env.PROJECT_ID;
+const PROJECT_ID =
+  process.env.GCP_PROJECT ||
+  process.env.GCLOUD_PROJECT ||
+  process.env.GOOGLE_CLOUD_PROJECT ||
+  process.env.PROJECT_ID;
 const TASKS_LOCATION = process.env.TASKS_LOCATION || 'northamerica-northeast1';
 const FUNCTION_REGION = process.env.FUNCTION_REGION || 'us-central1';
 const SHIFT_TASK_QUEUE = process.env.SHIFT_TASK_QUEUE || 'shift-lifecycle-queue';
-let cachedProjectNumber = process.env.GCP_PROJECT_NUMBER || process.env.PROJECT_NUMBER || null;
+let cachedProjectNumber =
+  process.env.GCP_PROJECT_NUMBER ||
+  process.env.GOOGLE_CLOUD_PROJECT_NUMBER ||
+  process.env.PROJECT_NUMBER ||
+  null;
 let cachedTasksServiceAccount = null;
+const TASKS_SERVICE_ACCOUNT_EMAIL =
+  process.env.TASKS_SERVICE_ACCOUNT_EMAIL || process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL || null;
+const PREFER_APPSPOT_TASKS_SA =
+  String(process.env.TASKS_SERVICE_ACCOUNT_PREFERENCE || '').trim().toLowerCase() === 'appspot';
 
 const tasksClient = new CloudTasksClient();
 
@@ -56,11 +68,44 @@ const getTasksServiceAccount = async () => {
     return cachedTasksServiceAccount;
   }
 
-  // Hardcoded for reliability in the current environment where metadata server is unreachable.
-  const serviceAccount = '554077757249-compute@developer.gserviceaccount.com';
-  console.log(`[DEBUG] Using hardcoded service account for Cloud Tasks: ${serviceAccount}`);
-  cachedTasksServiceAccount = serviceAccount;
-  return serviceAccount;
+  const explicit = String(TASKS_SERVICE_ACCOUNT_EMAIL || '').trim();
+  if (explicit) {
+    console.log(`[DEBUG] Using configured Cloud Tasks service account: ${explicit}`);
+    cachedTasksServiceAccount = explicit;
+    return explicit;
+  }
+
+  if (!PREFER_APPSPOT_TASKS_SA) {
+    // Prefer project number from environment; otherwise attempt metadata server (Cloud Run / Functions).
+    const projectNumber = cachedProjectNumber || (await getProjectNumber());
+    if (projectNumber) {
+      const computed = `${projectNumber}-compute@developer.gserviceaccount.com`;
+      console.log(`[DEBUG] Using computed Cloud Tasks service account: ${computed}`);
+      cachedTasksServiceAccount = computed;
+      return computed;
+    }
+  }
+
+  // Fallback: App Engine default service account (requires App Engine enabled).
+  if (PROJECT_ID) {
+    const appspot = `${PROJECT_ID}@appspot.gserviceaccount.com`;
+    console.log(`[WARN] Using App Engine service account for Cloud Tasks: ${appspot}`);
+    cachedTasksServiceAccount = appspot;
+    return appspot;
+  }
+
+  if (PREFER_APPSPOT_TASKS_SA) {
+    // Last-resort fallback if project ID is missing but project number is available.
+    const projectNumber = cachedProjectNumber || (await getProjectNumber());
+    if (projectNumber) {
+      const computed = `${projectNumber}-compute@developer.gserviceaccount.com`;
+      console.log(`[WARN] Falling back to computed Cloud Tasks service account: ${computed}`);
+      cachedTasksServiceAccount = computed;
+      return computed;
+    }
+  }
+
+  throw new Error('Unable to determine a service account email for Cloud Tasks OIDC token');
 };
 
 const queuePath = () => tasksClient.queuePath(PROJECT_ID, TASKS_LOCATION, SHIFT_TASK_QUEUE);

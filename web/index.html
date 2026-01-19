@@ -72,7 +72,7 @@
   <link type="text/css" rel="stylesheet" href="https://source.zoom.us/5.0.0/css/react-select.css" />
 
   <title>Alluwal Education Hub - Islamic Education Management System</title>
-  <link rel="manifest" href="manifest.json?v=48">
+  <link rel="manifest" href="manifest.json?v=55">
 </head>
 <body>
   <!-- Zoom Web SDK Scripts -->
@@ -85,82 +85,10 @@
   <!-- Zoom SDK Integration for Flutter -->
   <script src="zoom_integration.js"></script>
 
-  <!--
-    TEMPORARY (remove after 1–2 days / after confirming rollout):
-    Existing users may have an old Flutter service worker registered (PWA caching),
-    which can cause them to stay on a stale release until they manually clear cache.
-
-    This snippet runs once per browser, unregisters any service workers for this origin,
-    clears Cache Storage, then reloads the page to ensure the newest release is loaded.
-  -->
-  <script>
-    (function () {
-      var CLEANUP_KEY = 'flutter_sw_cleanup_done_2025_12_27';
-      try {
-        if (window.localStorage && localStorage.getItem(CLEANUP_KEY) === '1') return;
-      } catch (_) {
-        // Ignore storage failures (private mode, disabled storage, etc.)
-      }
-
-      var hasServiceWorker = 'serviceWorker' in navigator;
-      var hasCaches = typeof caches !== 'undefined' && typeof caches.keys === 'function';
-
-      if (!hasServiceWorker && !hasCaches) return;
-
-      Promise.resolve()
-        .then(function () {
-          if (!hasServiceWorker || typeof navigator.serviceWorker.getRegistrations !== 'function') {
-            return [];
-          }
-          return navigator.serviceWorker.getRegistrations();
-        })
-        .then(function (registrations) {
-          registrations = registrations || [];
-          return Promise.all(
-            registrations.map(function (reg) {
-              try {
-                return reg.unregister();
-              } catch (_) {
-                return false;
-              }
-            })
-          ).then(function () {
-            return registrations.length;
-          });
-        })
-        .then(function (unregisteredCount) {
-          if (!hasCaches) return { unregisteredCount: unregisteredCount, deletedCacheCount: 0 };
-          return caches.keys().then(function (keys) {
-            keys = keys || [];
-            return Promise.all(keys.map(function (k) { return caches.delete(k); })).then(function () {
-              return { unregisteredCount: unregisteredCount, deletedCacheCount: keys.length };
-            });
-          });
-        })
-        .then(function (result) {
-          try {
-            if (window.localStorage) localStorage.setItem(CLEANUP_KEY, '1');
-          } catch (_) {}
-
-          var shouldReload =
-            (result && result.unregisteredCount > 0) ||
-            (result && result.deletedCacheCount > 0);
-
-          if (shouldReload) {
-            // Reload once so the page is no longer controlled by the old service worker.
-            window.location.reload();
-          }
-        })
-        .catch(function (_) {
-          // Don't block app load if cleanup fails.
-        });
-    })();
-  </script>
-
   <!-- Version check: Force reload if cached version is outdated -->
   <script>
     (function() {
-      var CURRENT_VERSION = 48; // This will be updated by increment_version.sh
+      var CURRENT_VERSION = 55; // This will be updated by increment_version.sh
       var VERSION_KEY = 'flutter_web_version';
       
       try {
@@ -168,12 +96,9 @@
         if (cachedVersion && parseInt(cachedVersion) < CURRENT_VERSION) {
           // Clear all caches and reload
           console.log('New version detected (' + CURRENT_VERSION + ' vs ' + cachedVersion + '). Clearing cache...');
-          
-          // Clear localStorage
-          localStorage.clear();
-          
-          // Clear sessionStorage
-          sessionStorage.clear();
+          // IMPORTANT: Do NOT clear localStorage/sessionStorage here.
+          // Clearing storage can sign users out (Firebase Auth persistence) and create "login bounce" loops.
+          localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
           
           // Clear caches if available
           if ('caches' in window) {
@@ -194,7 +119,7 @@
           }
           
           // Force reload
-          window.location.reload(true);
+          window.location.reload();
           return;
         }
         
@@ -207,6 +132,6 @@
     })();
   </script>
   
-  <script src="flutter_bootstrap.js?v=48" async></script>
+  <script src="flutter_bootstrap.js?v=55" async></script>
 </body>
 </html>

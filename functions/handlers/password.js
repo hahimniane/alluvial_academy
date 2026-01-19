@@ -3,6 +3,103 @@ const admin = require('firebase-admin');
 const { generateRandomPassword } = require('../utils/password');
 const { sendStudentNotificationEmail } = require('../services/email/senders');
 
+const normalizeStudentCodePart = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .substring(0, 10);
+
+const generateBaseStudentCode = (firstName, lastName) => {
+  const first = normalizeStudentCodePart(firstName) || 'student';
+  const last = normalizeStudentCodePart(lastName) || 'user';
+  return `${first}.${last}`;
+};
+
+const buildStudentAliasEmail = (studentCode) =>
+  `${String(studentCode || '').toLowerCase()}@alluwaleducationhub.org`;
+
+const ensureStudentCode = async ({ studentId, studentData, callerUid }) => {
+  const existing = String(studentData.student_code || '').trim();
+  if (existing) return existing;
+
+  const usersRef = admin.firestore().collection('users');
+  const base = generateBaseStudentCode(studentData.first_name, studentData.last_name);
+
+  const maxAttempts = 15;
+  let selected = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const candidate = attempt === 0 ? base : `${attempt}${base}`;
+
+    const existingQuery = await usersRef.where('student_code', '==', candidate).limit(1).get();
+    if (!existingQuery.empty) continue;
+
+    const aliasEmail = buildStudentAliasEmail(candidate);
+    try {
+      const byEmail = await admin.auth().getUserByEmail(aliasEmail);
+      if (byEmail && byEmail.uid && byEmail.uid !== studentId) {
+        continue;
+      }
+    } catch (authError) {
+      if (authError && authError.code === 'auth/user-not-found') {
+        // Email is available.
+      } else {
+        console.error('Error checking student alias email availability:', authError);
+        throw new HttpsError(
+          'internal',
+          `Failed to validate student login email availability: ${authError?.message || authError}`
+        );
+      }
+    }
+
+    selected = candidate;
+    break;
+  }
+
+  if (!selected) {
+    throw new HttpsError(
+      'internal',
+      'Failed to generate a unique Student ID after multiple attempts'
+    );
+  }
+
+  console.log(`Generated missing student_code for UID ${studentId}: ${selected}`);
+
+  await usersRef.doc(studentId).update({
+    student_code: selected,
+    student_code_generated_at: admin.firestore.FieldValue.serverTimestamp(),
+    student_code_generated_by: callerUid,
+  });
+
+  // Best-effort: ensure the students/{uid} doc exists for downstream tooling.
+  try {
+    await admin
+      .firestore()
+      .collection('students')
+      .doc(studentId)
+      .set(
+        {
+          student_code: selected,
+          auth_user_id: studentId,
+          first_name: String(studentData.first_name || '').trim(),
+          last_name: String(studentData.last_name || '').trim(),
+          is_adult_student: !!studentData.is_adult_student,
+          guardian_ids: Array.isArray(studentData.guardian_ids) ? studentData.guardian_ids : [],
+          phone_number: String(studentData.phone_number || ''),
+          email: String(studentData.email || studentData['e-mail'] || '').trim(),
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+  } catch (e) {
+    console.error(`Failed to upsert students/${studentId} while generating student_code:`, e);
+  }
+
+  // Keep in-memory data consistent for the rest of this function execution.
+  studentData.student_code = selected;
+  return selected;
+};
+
 /**
  * Reset a student's password
  * - Uses provided custom password (optional) or generates a new random password
@@ -110,15 +207,22 @@ exports.resetStudentPassword = onCall(async (request) => {
     }
 
     // Get the alias email for this student (must match login format - lowercase)
-    const studentCode = studentData.student_code;
-    const aliasEmail = `${studentCode.toLowerCase()}@alluwaleducationhub.org`;
+    const studentCode = await ensureStudentCode({
+      studentId,
+      studentData,
+      callerUid: request.auth.uid,
+    });
+    const aliasEmail = buildStudentAliasEmail(studentCode);
     
     console.log(`Resetting password for student ${studentCode} (UID: ${studentId}, Email: ${aliasEmail})`);
 
+    const normalizedAliasEmail = aliasEmail.toLowerCase();
+
     // Check if Firebase Auth user exists, create if it doesn't
     let authUserExists = false;
+    let authUser = null;
     try {
-      await admin.auth().getUser(studentId);
+      authUser = await admin.auth().getUser(studentId);
       authUserExists = true;
       console.log(`Firebase Auth user exists for UID ${studentId}`);
     } catch (authError) {
@@ -131,13 +235,51 @@ exports.resetStudentPassword = onCall(async (request) => {
       }
     }
 
+    // Best-effort: keep the Auth email aligned with the student alias email.
+    // Some legacy student records were created with a real email (often a parent email),
+    // which breaks Student ID login since the app always signs in with `{student_code}@alluwaleducationhub.org`.
+    if (authUserExists) {
+      const currentAuthEmail = (authUser && authUser.email ? String(authUser.email) : '').toLowerCase();
+      if (currentAuthEmail && currentAuthEmail !== normalizedAliasEmail) {
+        console.log(
+          `Student auth email mismatch for UID ${studentId}: ${currentAuthEmail} -> ${normalizedAliasEmail}. Updating...`
+        );
+        try {
+          await admin.auth().updateUser(studentId, {email: normalizedAliasEmail});
+          authUser = await admin.auth().getUser(studentId);
+          console.log(`✅ Updated Firebase Auth email for student UID ${studentId}`);
+        } catch (emailUpdateError) {
+          // If the alias email is already taken by another account, we can't safely proceed.
+          if (emailUpdateError.code === 'auth/email-already-exists') {
+            let conflictUid = null;
+            try {
+              const conflictUser = await admin.auth().getUserByEmail(normalizedAliasEmail);
+              conflictUid = conflictUser.uid;
+            } catch (_) {
+              conflictUid = null;
+            }
+            throw new HttpsError(
+              'failed-precondition',
+              `Student login email (${normalizedAliasEmail}) is already used by another account${conflictUid ? ` (UID: ${conflictUid})` : ''}. ` +
+                'Cannot reset password safely; please contact an administrator.'
+            );
+          }
+          console.error(`Error updating Firebase Auth email for UID ${studentId}:`, emailUpdateError);
+          throw new HttpsError(
+            'internal',
+            `Failed to update student login email: ${emailUpdateError.message || emailUpdateError}`
+          );
+        }
+      }
+    }
+
     // Create or update Firebase Auth user
     if (!authUserExists) {
       // Create new Firebase Auth user
       try {
         const userRecord = await admin.auth().createUser({
           uid: studentId, // Use the Firestore document ID as the UID
-          email: aliasEmail.toLowerCase(),
+          email: normalizedAliasEmail,
           password: newPassword,
           displayName: `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim(),
           emailVerified: false,
@@ -148,19 +290,18 @@ exports.resetStudentPassword = onCall(async (request) => {
         
         // If email already exists, try to get user by email and update password
         if (createError.code === 'auth/email-already-exists' || createError.message?.includes('email')) {
+          let conflictUid = null;
           try {
-            const userByEmail = await admin.auth().getUserByEmail(aliasEmail.toLowerCase());
-            console.log(`Found existing Firebase Auth user by email with UID ${userByEmail.uid} (different from Firestore UID ${studentId})`);
-            // Update the existing user's password
-            await admin.auth().updateUser(userByEmail.uid, {
-              password: newPassword,
-            });
-            console.log(`Updated password for existing Firebase Auth user ${userByEmail.uid}`);
-            // Note: UID mismatch between Firestore and Firebase Auth exists, but password reset will still work
-          } catch (emailError) {
-            console.error(`Error getting user by email: ${emailError}`);
-            throw new HttpsError('internal', `Failed to create or find Firebase Auth user: ${createError.message}`);
+            const userByEmail = await admin.auth().getUserByEmail(normalizedAliasEmail);
+            conflictUid = userByEmail.uid;
+          } catch (_) {
+            conflictUid = null;
           }
+          throw new HttpsError(
+            'failed-precondition',
+            `Student login email (${normalizedAliasEmail}) is already used by another account${conflictUid ? ` (UID: ${conflictUid})` : ''}. ` +
+              'Cannot create the student auth account; please contact an administrator.'
+          );
         } else if (createError.code === 'auth/uid-already-exists') {
           // UID exists but getUser failed earlier - try update instead
           console.log(`UID ${studentId} already exists in Firebase Auth, updating password...`);
@@ -190,14 +331,27 @@ exports.resetStudentPassword = onCall(async (request) => {
     }
 
     // Update Firestore
+    const existingFirestoreEmail = (studentData['e-mail'] || '').toString().trim();
+    const firestoreUpdates = {
+      temp_password: newPassword,
+      password_reset_at: admin.firestore.FieldValue.serverTimestamp(),
+      password_reset_by: request.auth.uid,
+      'e-mail': normalizedAliasEmail,
+    };
+
+    // Preserve legacy email if we are migrating from a real email to the alias.
+    if (
+      existingFirestoreEmail &&
+      existingFirestoreEmail.toLowerCase() !== normalizedAliasEmail &&
+      !studentData.legacy_email
+    ) {
+      firestoreUpdates.legacy_email = existingFirestoreEmail;
+    }
+
     await admin.firestore()
       .collection('users')
       .doc(studentId)
-      .update({
-        temp_password: newPassword,
-        password_reset_at: admin.firestore.FieldValue.serverTimestamp(),
-        password_reset_by: request.auth.uid,
-      });
+      .update(firestoreUpdates);
 
     console.log(`Password reset completed for student ${studentData.student_code} by ${request.auth.uid}`);
 

@@ -1248,48 +1248,61 @@ class _ZoomShiftCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              onPressed: canJoin
-                  ? () => VideoCallService.joinClass(
-                        context,
-                        shift,
-                        isTeacher: isTeacher,
-                      )
-                  : (!hasVideoCall && withinJoinWindow && !hasEnded)
-                      ? () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'This class does not have a meeting configured yet.',
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Copy class link',
+                onPressed: () => VideoCallService.copyJoinLink(context, shift),
+                icon: const Icon(Icons.link),
+                color: const Color(0xFF0E72ED),
+              ),
+              const SizedBox(width: 4),
+              SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  onPressed: canJoin
+                      ? () => VideoCallService.joinClass(
+                            context,
+                            shift,
+                            isTeacher: isTeacher,
+                          )
+                      : (!hasVideoCall && withinJoinWindow && !hasEnded)
+                          ? () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'This class does not have a meeting configured yet.',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
                                 ),
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      : null,
-              icon: Icon(
-                VideoCallService.getProviderIcon(shift.videoProvider),
-                size: 18,
-              ),
-              label: Text(
-                buttonLabel,
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    canJoin ? const Color(0xFF0E72ED) : const Color(0xFF94A3B8),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                              );
+                            }
+                          : null,
+                  icon: Icon(
+                    VideoCallService.getProviderIcon(shift.videoProvider),
+                    size: 18,
+                  ),
+                  label: Text(
+                    buttonLabel,
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canJoin
+                        ? const Color(0xFF0E72ED)
+                        : const Color(0xFF94A3B8),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),

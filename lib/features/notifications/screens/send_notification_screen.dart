@@ -45,6 +45,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
   }
 
   Future<void> _loadUsers() async {
+    if (!mounted) return;
     setState(() => _isLoadingUsers = true);
     
     try {
@@ -74,18 +75,18 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       
       users.sort((a, b) => '${a.firstName} ${a.lastName}'.compareTo('${b.firstName} ${b.lastName}'));
       
+      if (!mounted) return;
       setState(() {
         _allUsers = users;
         _filteredUsers = users;
         _isLoadingUsers = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoadingUsers = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading users: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading users: $e')),
+      );
     }
   }
 
@@ -127,6 +128,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       return;
     }
     
+    if (!mounted) return;
     setState(() => _isSending = true);
     
     try {
@@ -255,7 +257,9 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
         );
       }
     } finally {
-      setState(() => _isSending = false);
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 

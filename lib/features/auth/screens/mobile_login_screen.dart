@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../role_based_dashboard.dart';
+import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
 /// Beautiful mobile-optimized login screen
 class MobileLoginScreen extends StatefulWidget {
@@ -71,16 +71,16 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
         password,
       );
 
-      if (user != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const RoleBasedDashboard(),
-          ),
-        );
+      if (user != null) {
+        AppLogger.info('AuthService login succeeded for uid=${user.uid}');
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
+        case 'user-deactivated':
+          errorMessage =
+              'Your account has been archived. Please contact an administrator for assistance.';
+          break;
         case 'user-not-found':
           errorMessage = 'No account found with this ${_useStudentIdLogin ? "Student ID" : "email"}.';
           break;
@@ -505,4 +505,3 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
     );
   }
 }
-

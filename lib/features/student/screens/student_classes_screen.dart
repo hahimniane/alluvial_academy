@@ -114,9 +114,9 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
           .where((shift) => shift.studentIds.contains(userId))
           .toList();
 
-      // Load upcoming classes (next 7 days, excluding today)
+      // Load upcoming classes (all future shifts, excluding today)
       final upcomingClasses =
-          (await ShiftService.getUpcomingShiftsForStudent(userId))
+          (await ShiftService.getUpcomingShiftsForStudent(userId, daysAhead: null))
               .where((shift) => shift.studentIds.contains(userId))
               .toList();
 
@@ -720,30 +720,48 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
               (isToday && timeUntil != null && timeUntil.inMinutes <= 30))
             Container(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: canJoin ? () => _joinClass(shift) : null,
-                  icon: Icon(
-                    canJoin ? Icons.video_call_rounded : Icons.schedule_rounded,
+              child: ElevatedButton.icon(
+                onPressed: canJoin ? () => _joinClass(shift) : null,
+                icon: Icon(
+                  canJoin ? Icons.video_call_rounded : Icons.schedule_rounded,
+                ),
+                label: Text(
+                  canJoin ? 'Join Class Now' : 'Opens Soon',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: canJoin
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFE5E7EB),
+                  foregroundColor:
+                      canJoin ? Colors.white : const Color(0xFF9CA3AF),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: canJoin ? 2 : 0,
+                ),
+              ),
+            ),
+          if (VideoCallService.hasVideoCall(shift))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      VideoCallService.copyJoinLink(context, shift),
+                  icon: const Icon(Icons.link),
                   label: Text(
-                    canJoin ? 'Join Class Now' : 'Opens Soon',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    'Copy class link',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: canJoin
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFE5E7EB),
-                    foregroundColor:
-                        canJoin ? Colors.white : const Color(0xFF9CA3AF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: canJoin ? 2 : 0,
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF0E72ED),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
               ),

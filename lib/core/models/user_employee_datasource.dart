@@ -119,6 +119,14 @@ class UserEmployeeDataSource extends DataGridSource {
                     tooltip: 'Restore User',
                   ),
                 // Permanent delete button - only for inactive users
+                if (employee.isActive)
+                  _buildActionButton(
+                    icon: Icons.delete_outline,
+                    color: Colors.red,
+                    onTap: () => onDeleteUser(employee),
+                    tooltip: 'Archive & Permanently Delete',
+                    isDestructive: true,
+                  ),
                 if (!employee.isActive)
                   _buildActionButton(
                     icon: Icons.delete_forever,

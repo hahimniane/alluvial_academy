@@ -206,10 +206,16 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     // Start with the full list from the snapshot (including archived users)
     List<Employee> allUsersFromSnapshot = List.from(_snapshotEmployees);
     List<Employee> regularUsers = allUsersFromSnapshot
-        .where((emp) => emp.userType != 'admin' && !emp.isAdminTeacher)
+        .where((emp) {
+          final type = emp.userType.toLowerCase();
+          return type != 'admin' && type != 'super_admin' && !emp.isAdminTeacher;
+        })
         .toList();
     List<Employee> adminUsers = allUsersFromSnapshot
-        .where((emp) => emp.userType == 'admin' || emp.isAdminTeacher)
+        .where((emp) {
+          final type = emp.userType.toLowerCase();
+          return type == 'admin' || type == 'super_admin' || emp.isAdminTeacher;
+        })
         .toList();
 
     // Apply user type filter (only affects the 'Users' tab)
@@ -414,9 +420,16 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       }
 
       final data = doc.data()!;
-      final studentCode = data['student_code'] ?? 'Not set';
-      final tempPassword = data['temp_password'] ?? 'Password not stored';
-      final aliasEmail = '$studentCode@alluwaleducationhub.org';
+      final rawStudentCode = (data['student_code'] ?? '').toString().trim();
+      final hasStudentCode = rawStudentCode.isNotEmpty;
+      final studentCode = hasStudentCode ? rawStudentCode : 'Not set';
+
+      final rawTempPassword = (data['temp_password'] ?? '').toString();
+      final tempPassword =
+          rawTempPassword.trim().isNotEmpty ? rawTempPassword : 'Password not stored';
+
+      final aliasEmail =
+          hasStudentCode ? '$rawStudentCode@alluwaleducationhub.org' : 'Not available';
 
       if (!mounted) return;
 
@@ -470,8 +483,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Students login using their Student ID and password. '
-                          'Share these credentials with the student or their parent.',
+                          hasStudentCode
+                              ? 'Students login using their Student ID and password. '
+                                  'Share these credentials with the student or their parent.'
+                              : 'This student does not have a Student ID yet (likely created via bulk import or an older flow). '
+                                  'Use “Reset Password” to generate a Student ID and new login credentials.',
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: Colors.amber.shade800,
@@ -770,11 +786,43 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
   /// Delete user permanently
   Future<void> _deleteUser(Employee employee) async {
-    final confirmed = await _showDeleteConfirmationDialog(employee);
-    if (!confirmed) return;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      final currentEmail = currentUser.email?.trim().toLowerCase();
+      final targetEmail = employee.email.trim().toLowerCase();
+      if ((currentEmail != null && currentEmail.isNotEmpty && currentEmail == targetEmail) ||
+          currentUser.uid == employee.documentId) {
+        _showErrorSnackBar('You cannot delete your own account.');
+        return;
+      }
+    }
+
+    final result = await _showDeleteConfirmationDialog(employee);
+    if (result == null || result.confirmed != true) return;
+    final deleteClasses = result.deleteClasses;
 
     try {
-      final success = await UserRoleService.deleteUser(employee.email);
+      if (employee.email.trim().isEmpty) {
+        _showErrorSnackBar(
+            'Cannot delete this user because no email is set on their profile.');
+        return;
+      }
+
+      // The backend delete function requires the user to be archived first.
+      if (employee.isActive) {
+        final archived = await UserRoleService.deactivateUser(employee.email);
+        if (!archived) {
+          _showErrorSnackBar('Failed to archive user before deletion.');
+          return;
+        }
+        // Give Firestore a moment to reflect the archive flag before calling the function.
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      final success = await UserRoleService.deleteUser(
+        employee.email,
+        deleteClasses: deleteClasses,
+      );
 
       if (success) {
         _showSuccessSnackBar(
@@ -788,57 +836,93 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     }
   }
 
-  Future<bool> _showDeleteConfirmationDialog(Employee employee) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.delete_forever, color: Colors.red, size: 28),
-                const SizedBox(width: 12),
-                Text(
-                  'Permanently Delete User',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red,
-                  ),
+  Future<({bool confirmed, bool deleteClasses})?> _showDeleteConfirmationDialog(
+      Employee employee) async {
+    final userType = employee.userType.trim().toLowerCase();
+    final canDeleteClasses = userType == 'teacher' || userType == 'student';
+    var deleteClasses = false;
+
+    return await showDialog<({bool confirmed, bool deleteClasses})>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.delete_forever, color: Colors.red, size: 28),
+              const SizedBox(width: 12),
+              Text(
+                employee.isActive
+                    ? 'Archive & Permanently Delete'
+                    : 'Permanently Delete User',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
                 ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'This action cannot be undone!',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                          ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This action cannot be undone!',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Are you sure you want to permanently delete this user?',
-                  style: GoogleFonts.inter(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                employee.isActive
+                    ? 'This user is currently active. They will be archived first, then permanently deleted.'
+                    : 'Are you sure you want to permanently delete this user?',
+                style: GoogleFonts.inter(fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xffE2E8F0)),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'User Details:',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Name: ${employee.firstName} ${employee.lastName}'),
+                    Text('Email: ${employee.email}'),
+                    Text('Role: ${employee.userType}'),
+                  ],
+                ),
+              ),
+              if (canDeleteClasses) ...[
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -847,59 +931,71 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xffE2E8F0)),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'User Details:',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: deleteClasses,
+                    onChanged: (value) =>
+                        setDialogState(() => deleteClasses = value ?? false),
+                    title: Text(
+                      userType == 'teacher'
+                          ? 'Also delete this teacher\'s classes'
+                          : 'Also delete this student\'s classes',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 4),
-                      Text('Name: ${employee.firstName} ${employee.lastName}'),
-                      Text('Email: ${employee.email}'),
-                      Text('Role: ${employee.userType}'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'All associated data including timesheets, forms, and other records will be permanently removed.',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: const Color(0xff6B7280),
+                    ),
+                    subtitle: userType == 'student'
+                        ? Text(
+                            'Group classes will remain for other students.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xff6B7280),
+                            ),
+                          )
+                        : null,
+                    controlAffinity: ListTileControlAffinity.leading,
                   ),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  'Cancel',
-                  style: GoogleFonts.inter(
-                    color: const Color(0xff6B7280),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(
-                  'Delete Permanently',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              const SizedBox(height: 16),
+              Text(
+                'All associated data including timesheets, forms, and other records will be permanently removed.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xff6B7280),
                 ),
               ),
             ],
           ),
-        ) ??
-        false;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context)
+                  .pop((confirmed: false, deleteClasses: false)),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: const Color(0xff6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context)
+                  .pop((confirmed: true, deleteClasses: deleteClasses)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                employee.isActive ? 'Archive & Delete' : 'Delete Permanently',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<bool> _showPromotionDialog(Employee employee) async {
@@ -1283,6 +1379,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         ),
         GridColumn(
           columnName: 'Actions',
+          width: 220,
           label: Container(
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
@@ -1962,6 +2059,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                             ),
                                             GridColumn(
                                               columnName: 'Actions',
+                                              width: 220,
                                               label: Container(
                                                 padding:
                                                     const EdgeInsets.all(8.0),

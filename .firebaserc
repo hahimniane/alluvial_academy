@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "alluwal-academy"
+    "default": "alluwal-dev",
+    "prod": "alluwal-academy",
+    "dev": "alluwal-dev"
   }
 }

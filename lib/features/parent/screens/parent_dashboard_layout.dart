@@ -12,6 +12,7 @@ import 'parent_dashboard_screen.dart';
 import 'parent_invoices_screen.dart';
 import 'payment_history_screen.dart';
 import 'parent_profile_screen.dart';
+import '../../settings/screens/role_settings_screen.dart';
 
 /// Parent Dashboard Layout with sidebar navigation
 class ParentDashboardLayout extends StatefulWidget {
@@ -26,7 +27,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
   bool _isSideMenuCollapsed = false;
   int _selectedIndex = 0;
   String? _userRole;
-  static const int _screenCount = 5; // Dashboard, Invoices, Payments, Forms, Profile
+  static const int _screenCount = 6; // Dashboard, Invoices, Payments, Forms, Profile, Settings
 
   @override
   void initState() {
@@ -85,6 +86,8 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         return const FormScreen();
       case 4:
         return const ParentProfileScreen();
+      case 5:
+        return const RoleSettingsScreen(title: 'Parent Settings');
       default:
         return const _AccessDeniedScreen();
     }
@@ -352,4 +355,3 @@ class _AccessDeniedScreen extends StatelessWidget {
     );
   }
 }
-

@@ -8,6 +8,30 @@ class SidebarItem {
   final int screenIndex; // Index in the DashboardPage's _screens list
   final int? colorValue; // Color value (0xAARRGGBB)
 
+  static final Map<int, IconData> _knownMaterialIconsByCodePoint = {
+    Icons.assignment_ind.codePoint: Icons.assignment_ind,
+    Icons.bug_report.codePoint: Icons.bug_report,
+    Icons.build.codePoint: Icons.build,
+    Icons.chat.codePoint: Icons.chat,
+    Icons.dashboard.codePoint: Icons.dashboard,
+    Icons.description.codePoint: Icons.description,
+    Icons.list_alt.codePoint: Icons.list_alt,
+    Icons.menu_book.codePoint: Icons.menu_book,
+    Icons.notifications.codePoint: Icons.notifications,
+    Icons.payments.codePoint: Icons.payments,
+    Icons.people.codePoint: Icons.people,
+    Icons.person.codePoint: Icons.person,
+    Icons.receipt_long.codePoint: Icons.receipt_long,
+    Icons.schedule.codePoint: Icons.schedule,
+    Icons.school.codePoint: Icons.school,
+    Icons.security.codePoint: Icons.security,
+    Icons.settings.codePoint: Icons.settings,
+    Icons.task_alt.codePoint: Icons.task_alt,
+    Icons.timer.codePoint: Icons.timer,
+    Icons.videocam.codePoint: Icons.videocam,
+    Icons.web.codePoint: Icons.web,
+  };
+
   const SidebarItem({
     required this.id,
     required this.label,
@@ -25,10 +49,17 @@ class SidebarItem {
       };
 
   factory SidebarItem.fromJson(Map<String, dynamic> json) {
+    final rawIconCode = json['iconCode'];
+    final iconCode = rawIconCode is int ? rawIconCode : int.tryParse('$rawIconCode');
+
     return SidebarItem(
       id: json['id'],
       label: json['label'],
-      icon: IconData(json['iconCode'], fontFamily: 'MaterialIcons'),
+      // Avoid dynamic IconData construction because it breaks icon tree shaking
+      // on web release builds. We only support icons used by SidebarConfig.
+      icon: iconCode != null
+          ? (_knownMaterialIconsByCodePoint[iconCode] ?? Icons.help_outline)
+          : Icons.help_outline,
       screenIndex: json['screenIndex'],
       colorValue: json['colorValue'],
     );

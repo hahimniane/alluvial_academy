@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {generateRandomPassword} = require('../utils/password');
 const {sendWelcomeEmail} = require('../services/email/senders');
+const studentHandlers = require('./students');
 
 const createUserWithEmail = async (data) => {
   console.log('--- NEW INVOCATION (v4) ---');
@@ -136,7 +137,69 @@ const createMultipleUsers = async (data) => {
           userType,
           title,
           kioskCode,
+          isAdultStudent,
+          guardianIds,
+          guardianId,
+          guardian_id,
         } = userData;
+
+        const normalizedUserType = (userType || '').toString().trim().toLowerCase();
+        if (normalizedUserType === 'student') {
+          const hasEmail = typeof email === 'string' && email.trim().length > 0;
+          const resolvedIsAdult =
+            typeof isAdultStudent === 'boolean'
+              ? isAdultStudent
+              : (typeof isAdultStudent === 'string'
+                  ? ['true', '1', 'yes', 'y'].includes(isAdultStudent.trim().toLowerCase())
+                  : hasEmail);
+
+          let resolvedGuardianIds = Array.isArray(guardianIds)
+            ? guardianIds.filter(Boolean)
+            : [];
+          const singleGuardian = guardianId || guardian_id;
+          if (
+            resolvedGuardianIds.length === 0 &&
+            typeof singleGuardian === 'string' &&
+            singleGuardian.trim().length > 0
+          ) {
+            resolvedGuardianIds = [singleGuardian.trim()];
+          }
+
+          // Best-effort: if a kiosk code is provided, try to resolve a parent by it.
+          if (resolvedGuardianIds.length === 0 && typeof kioskCode === 'string' && kioskCode.trim().length > 0) {
+            const code = kioskCode.trim();
+            const usersRef = admin.firestore().collection('users');
+            let parentSnap = await usersRef.where('kiosk_code', '==', code).limit(1).get();
+            if (parentSnap.empty) {
+              parentSnap = await usersRef.where('kiosque_code', '==', code).limit(1).get();
+            }
+            if (!parentSnap.empty) {
+              const parentDoc = parentSnap.docs[0];
+              const parentData = parentDoc.data() || {};
+              if ((parentData.user_type || '').toString().toLowerCase() === 'parent') {
+                resolvedGuardianIds = [parentDoc.id];
+              }
+            }
+          }
+
+          const studentPayload = {
+            firstName,
+            lastName,
+            phoneNumber,
+            isAdultStudent: resolvedIsAdult,
+          };
+          if (hasEmail) studentPayload.email = email;
+          if (resolvedGuardianIds.length > 0) studentPayload.guardianIds = resolvedGuardianIds;
+
+          const studentResult = await studentHandlers.createStudentAccount(studentPayload);
+          results.push({
+            email: studentResult.aliasEmail || studentResult.studentCode || email || 'student',
+            success: true,
+            result: studentResult,
+          });
+          console.log(`Student ${i + 1} created successfully (student_code=${studentResult.studentCode})`);
+          continue;
+        }
 
         const missingFields = [];
         if (!email || email.trim() === '') missingFields.push('email');
@@ -219,23 +282,27 @@ const createMultipleUsers = async (data) => {
 };
 
 const createUser = async (data) => {
-  console.log('received data:', data);
+  // Support both callable shapes:
+  // - v1: (data, context) where `data` is the payload
+  // - v2-style wrapper sometimes passed through as `{ data: payload }`
+  const requestData = (data && data.data) || data || {};
+  console.log('received data:', requestData);
   try {
     console.log('Received data:', {
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      hasPassword: !!data.password,
+      email: requestData.email,
+      firstName: requestData.firstName,
+      lastName: requestData.lastName,
+      hasPassword: !!requestData.password,
     });
 
-    if (!data || typeof data !== 'object') {
+    if (!requestData || typeof requestData !== 'object') {
       throw new functions.https.HttpsError('invalid-argument', 'Data must be an object');
     }
 
-    const email = String(data.email || '').trim();
-    const password = String(data.password || '');
-    const firstName = String(data.firstName || '').trim();
-    const lastName = String(data.lastName || '').trim();
+    const email = String(requestData.email || '').trim();
+    const password = String(requestData.password || '');
+    const firstName = String(requestData.firstName || '').trim();
+    const lastName = String(requestData.lastName || '').trim();
 
     const validationResults = {
       hasEmail: !!email,
@@ -281,18 +348,19 @@ const createUser = async (data) => {
     }
 
     const firestoreData = {
-      country_code: String(data.countryCode || '+1'),
-      date_added: String(data.dateAdded || new Date().toISOString()),
+      country_code: String(requestData.countryCode || '+1'),
+      date_added: admin.firestore.FieldValue.serverTimestamp(),
       'e-mail': email,
-      employment_start_date: String(data.employmentStartDate || new Date().toISOString()),
+      employment_start_date: admin.firestore.FieldValue.serverTimestamp(),
       first_name: firstName,
-      kiosk_code: String(data.kioskCode || '123'),
+      kiosk_code: String(requestData.kioskCode || '123'),
       last_login: null,
       last_name: lastName,
-      phone_number: String(data.phoneNumber || ''),
-      title: String(data.title || 'Teacher'),
-      user_type: String(data.userType || 'teacher'),
+      phone_number: String(requestData.phoneNumber || ''),
+      title: String(requestData.title || 'Teacher'),
+      user_type: String(requestData.userType || 'teacher'),
       uid: userRecord.uid,
+      is_active: true,
     };
 
     try {
@@ -550,9 +618,9 @@ const _cleanupTeachingShiftsForDeletedUser = async ({
 const deleteUserAccount = async (data, context) => {
   console.log('Raw data received - type:', typeof data);
   const requestData = (data && data.data) || data || {};
-  console.log('Using requestData:', requestData);
 
   const {email, adminEmail} = requestData;
+  const authToken = requestData.authToken || requestData.idToken;
   const deleteClasses =
     requestData.deleteClasses === true ||
     requestData.delete_classes === true ||
@@ -560,19 +628,31 @@ const deleteUserAccount = async (data, context) => {
 
   console.log('Extracted email:', email);
   console.log('Extracted adminEmail:', adminEmail);
+  console.log('Delete classes flag:', deleteClasses);
 
   if (!email) {
     console.log('No email provided in request');
     throw new functions.https.HttpsError('invalid-argument', 'Email is required');
   }
 
-  if (!context || !context.auth) {
+  let callerAuth = context && context.auth ? context.auth : null;
+  if (!callerAuth && authToken) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(String(authToken));
+      callerAuth = { uid: decoded.uid, token: decoded };
+      console.log(`Verified auth token for uid=${decoded.uid}`);
+    } catch (e) {
+      console.log('Failed to verify auth token:', e.message);
+    }
+  }
+
+  if (!callerAuth) {
     console.log('Unauthenticated request to deleteUserAccount');
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
-  const callerUid = context.auth.uid;
-  const token = context.auth.token || {};
+  const callerUid = callerAuth.uid;
+  const token = callerAuth.token || {};
   const tokenEmail = token.email ? String(token.email).toLowerCase() : null;
   const tokenRole = _normalizeRole(token.role || token.user_type || token.userType);
   const tokenIsAdmin =

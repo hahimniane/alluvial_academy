@@ -101,12 +101,13 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
       if (userData == null) return;
 
       final isAdminTeacher = userData['is_admin_teacher'] as bool? ?? false;
-      final userType = userData['user_type'] as String?;
+      final userType = (userData['user_type'] as String?)?.trim().toLowerCase();
 
       // Check if dual role status changed
       // Any admin has dual modes (admin + teacher). Teachers with is_admin_teacher also have dual roles.
       final newHasDualRoles =
-          (userType == 'admin') || (isAdminTeacher && userType == 'teacher');
+          (userType == 'admin' || userType == 'super_admin') ||
+          (isAdminTeacher && userType == 'teacher');
 
       if (newHasDualRoles != _hasDualRoles) {
         AppLogger.debug(

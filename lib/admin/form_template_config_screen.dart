@@ -84,6 +84,9 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
           case FormFrequency.monthly:
             _activeMonthlyId = templateId;
             break;
+          case FormFrequency.onDemand:
+            // On-demand forms don't have a single active template
+            break;
         }
       });
 
@@ -186,6 +189,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       FormFrequency.perSession => _activeDailyId,
       FormFrequency.weekly => _activeWeeklyId,
       FormFrequency.monthly => _activeMonthlyId,
+      FormFrequency.onDemand => null,
     };
 
     if (templates.isEmpty) {
@@ -492,6 +496,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       FormFrequency.perSession => Icons.event_note,
       FormFrequency.weekly => Icons.date_range,
       FormFrequency.monthly => Icons.calendar_month,
+      FormFrequency.onDemand => Icons.touch_app,
     };
   }
 
@@ -676,6 +681,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       FormFrequency.perSession => 'Daily (per session)',
       FormFrequency.weekly => 'Weekly',
       FormFrequency.monthly => 'Monthly',
+      FormFrequency.onDemand => 'On Demand',
     };
   }
 }

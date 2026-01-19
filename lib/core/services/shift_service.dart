@@ -10,6 +10,7 @@ import '../models/enhanced_recurrence.dart';
 import 'wage_management_service.dart';
 import '../enums/shift_enums.dart';
 import '../utils/timezone_utils.dart';
+import '../utils/environment_utils.dart';
 import '../utils/performance_logger.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -45,6 +46,18 @@ class ShiftService {
   // Collection reference
   static CollectionReference get _shiftsCollection =>
       _firestore.collection('teaching_shifts');
+
+  /// Fetch a single shift by ID.
+  static Future<TeachingShift?> getShiftById(String shiftId) async {
+    try {
+      final doc = await _shiftsCollection.doc(shiftId).get();
+      if (!doc.exists) return null;
+      return TeachingShift.fromFirestore(doc);
+    } catch (e) {
+      AppLogger.error('ShiftService: Failed to load shift $shiftId: $e');
+      return null;
+    }
+  }
 
   /// Check if a shift overlaps with any existing shift for the same teacher.
   ///
@@ -1002,20 +1015,42 @@ class ShiftService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) throw Exception('User not authenticated');
 
+      final normalizedAdminTimezone =
+          TimezoneUtils.normalizeTimezone(adminTimezone, fallback: 'UTC');
+
+      // Only treat `originalLocalStart/End` as "naive local times" when they are
+      // actually local (non-UTC). If a caller accidentally passes UTC values here,
+      // converting them again will shift the schedule (classic double-conversion bug).
+      DateTime? safeOriginalLocalStart = originalLocalStart;
+      DateTime? safeOriginalLocalEnd = originalLocalEnd;
+      if (safeOriginalLocalStart != null && safeOriginalLocalStart.isUtc) {
+        AppLogger.warning(
+          'ShiftService.createShift: Ignoring originalLocalStart because it is UTC (likely already converted).',
+        );
+        safeOriginalLocalStart = null;
+        safeOriginalLocalEnd = null;
+      }
+      if (safeOriginalLocalEnd != null && safeOriginalLocalEnd.isUtc) {
+        AppLogger.warning(
+          'ShiftService.createShift: Ignoring originalLocalEnd because it is UTC (likely already converted).',
+        );
+        safeOriginalLocalStart = null;
+        safeOriginalLocalEnd = null;
+      }
+
       // Safety net: always derive the stored UTC times from the original local
       // inputs (when available). This prevents timezone regressions where UI
       // accidentally passes local times through without conversion.
       var effectiveShiftStart = shiftStart;
       var effectiveShiftEnd = shiftEnd;
-      if (originalLocalStart != null && originalLocalEnd != null) {
-        final schedulingTimezone =
-            TimezoneUtils.normalizeTimezone(adminTimezone, fallback: 'UTC');
+      if (safeOriginalLocalStart != null && safeOriginalLocalEnd != null) {
+        final schedulingTimezone = normalizedAdminTimezone;
         final recalculatedStart =
-            TimezoneUtils.convertToUtc(originalLocalStart, schedulingTimezone);
+            TimezoneUtils.convertToUtc(safeOriginalLocalStart, schedulingTimezone);
         final correctedOriginalEnd =
-            originalLocalEnd.isBefore(originalLocalStart)
-                ? originalLocalEnd.add(const Duration(days: 1))
-                : originalLocalEnd;
+            safeOriginalLocalEnd.isBefore(safeOriginalLocalStart)
+                ? safeOriginalLocalEnd.add(const Duration(days: 1))
+                : safeOriginalLocalEnd;
         final recalculatedEnd = TimezoneUtils.convertToUtc(
             correctedOriginalEnd, schedulingTimezone);
 
@@ -1136,7 +1171,7 @@ class ShiftService {
         studentNames: finalStudentNames,
         shiftStart: effectiveShiftStart,
         shiftEnd: effectiveShiftEnd,
-        adminTimezone: adminTimezone,
+        adminTimezone: normalizedAdminTimezone,
         teacherTimezone: teacherTimezone,
         subject: subject,
         subjectId: subjectId,
@@ -1193,8 +1228,13 @@ class ShiftService {
         final endDate = effectiveRecurrence.endDate ??
             recurrenceEndDate ??
             DateTime.now().add(const Duration(days: 365));
-        await _createRecurringShifts(
-            shift, endDate, originalLocalStart, originalLocalEnd);
+        if (EnvironmentUtils.isDevelopment) {
+          await _createShiftTemplate(
+              shift, endDate, safeOriginalLocalStart, safeOriginalLocalEnd);
+        } else {
+          await _createRecurringShifts(
+              shift, endDate, safeOriginalLocalStart, safeOriginalLocalEnd);
+        }
       }
 
       AppLogger.error('Shift created successfully: ${shift.displayName}');
@@ -1477,6 +1517,157 @@ class ShiftService {
     }
   }
 
+  static String _formatTimeHHmm(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  static String _formatDateYYYYMMDD(DateTime dateTime) {
+    return '${dateTime.year.toString().padLeft(4, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+  }
+
+  static Map<String, dynamic> _buildTemplateRecurrencePayload(
+    TeachingShift baseShift,
+    DateTime resolvedEndDate,
+  ) {
+    final enhanced = baseShift.enhancedRecurrence;
+    if (enhanced.type != EnhancedRecurrenceType.none) {
+      return {
+        'type': enhanced.type.name,
+        // Dates are treated as calendar days in the admin timezone; keep them date-only
+        // to avoid accidental day shifts from UTC conversion.
+        'endDate': _formatDateYYYYMMDD(enhanced.endDate ?? resolvedEndDate),
+        'excludedDates': enhanced.excludedDates.map(_formatDateYYYYMMDD).toList(),
+        'excludedWeekdays': enhanced.excludedWeekdays.map((d) => d.value).toList(),
+        'selectedWeekdays': enhanced.selectedWeekdays.map((d) => d.value).toList(),
+        'selectedMonthDays': enhanced.selectedMonthDays,
+        'selectedMonths': enhanced.selectedMonths,
+      };
+    }
+
+    final baseLocalStart = TimezoneUtils.convertToTimezone(
+      baseShift.shiftStart,
+      baseShift.adminTimezone,
+    );
+
+    switch (baseShift.recurrence) {
+      case RecurrencePattern.daily:
+        return {
+          'type': EnhancedRecurrenceType.daily.name,
+          'endDate': _formatDateYYYYMMDD(resolvedEndDate),
+          'excludedDates': <String>[],
+          'excludedWeekdays': <int>[],
+          'selectedWeekdays': <int>[],
+          'selectedMonthDays': <int>[],
+          'selectedMonths': <int>[],
+        };
+      case RecurrencePattern.weekly:
+        return {
+          'type': EnhancedRecurrenceType.weekly.name,
+          'endDate': _formatDateYYYYMMDD(resolvedEndDate),
+          'excludedDates': <String>[],
+          'excludedWeekdays': <int>[],
+          'selectedWeekdays': <int>[baseLocalStart.weekday],
+          'selectedMonthDays': <int>[],
+          'selectedMonths': <int>[],
+        };
+      case RecurrencePattern.monthly:
+        return {
+          'type': EnhancedRecurrenceType.monthly.name,
+          'endDate': _formatDateYYYYMMDD(resolvedEndDate),
+          'excludedDates': <String>[],
+          'excludedWeekdays': <int>[],
+          'selectedWeekdays': <int>[],
+          'selectedMonthDays': <int>[baseLocalStart.day],
+          'selectedMonths': <int>[],
+        };
+      case RecurrencePattern.none:
+        return {
+          'type': EnhancedRecurrenceType.none.name,
+          'endDate': null,
+          'excludedDates': <String>[],
+          'excludedWeekdays': <int>[],
+          'selectedWeekdays': <int>[],
+          'selectedMonthDays': <int>[],
+          'selectedMonths': <int>[],
+        };
+    }
+  }
+
+  static Future<void> _createShiftTemplate(
+    TeachingShift baseShift,
+    DateTime resolvedEndDate,
+    DateTime? originalLocalStart,
+    DateTime? originalLocalEnd,
+  ) async {
+    try {
+      final adminTimezone = baseShift.adminTimezone;
+
+      DateTime localStartTime;
+      DateTime localEndTime;
+
+      if (originalLocalStart != null && originalLocalEnd != null) {
+        localStartTime = originalLocalStart;
+        localEndTime = originalLocalEnd;
+      } else {
+        localStartTime =
+            TimezoneUtils.convertToTimezone(baseShift.shiftStart, adminTimezone);
+        localEndTime =
+            TimezoneUtils.convertToTimezone(baseShift.shiftEnd, adminTimezone);
+      }
+
+      final effectiveOriginalEnd = localEndTime.isBefore(localStartTime)
+          ? localEndTime.add(const Duration(days: 1))
+          : localEndTime;
+      final durationMinutes =
+          effectiveOriginalEnd.difference(localStartTime).inMinutes;
+
+      final startTime = _formatTimeHHmm(localStartTime);
+      final endTime = _formatTimeHHmm(localEndTime);
+
+      final payload = <String, dynamic>{
+        'teacher_id': baseShift.teacherId,
+        'teacher_name': baseShift.teacherName,
+        'student_ids': baseShift.studentIds,
+        'student_names': baseShift.studentNames,
+        'start_time': startTime,
+        'end_time': endTime,
+        'duration_minutes': durationMinutes,
+        'admin_timezone': baseShift.adminTimezone,
+        'teacher_timezone': baseShift.teacherTimezone,
+        'enhanced_recurrence':
+            _buildTemplateRecurrencePayload(baseShift, resolvedEndDate),
+        'recurrence': baseShift.recurrence.name,
+        'recurrence_series_id': baseShift.recurrenceSeriesId,
+        'series_created_at':
+            baseShift.seriesCreatedAt?.toUtc().toIso8601String(),
+        'recurrence_end_date': _formatDateYYYYMMDD(resolvedEndDate),
+        'recurrence_settings': baseShift.recurrenceSettings,
+        'subject': baseShift.subject.name,
+        'subject_id': baseShift.subjectId,
+        'subject_display_name': baseShift.subjectDisplayName,
+        'hourly_rate': baseShift.hourlyRate,
+        'auto_generated_name': baseShift.autoGeneratedName,
+        'custom_name': baseShift.customName,
+        'notes': baseShift.notes,
+        'category': baseShift.category.name,
+        'leader_role': baseShift.leaderRole,
+        'video_provider': baseShift.videoProvider.name,
+        'created_by_admin_id': baseShift.createdByAdminId,
+        'base_shift_id': baseShift.id,
+        'base_shift_start': baseShift.shiftStart.toUtc().toIso8601String(),
+        'base_shift_end': baseShift.shiftEnd.toUtc().toIso8601String(),
+        'max_days_ahead': 10,
+      };
+
+      final callable = _functions.httpsCallable('createShiftTemplate');
+      await callable.call(payload);
+      AppLogger.debug(
+          'ShiftService: Created dev shift template for base shift ${baseShift.id}');
+    } catch (e) {
+      AppLogger.error('ShiftService: Error creating shift template: $e');
+    }
+  }
+
   /// Get shifts for a specific teacher
   static Stream<List<TeachingShift>> getTeacherShifts(String teacherId) {
     return _shiftsCollection
@@ -1634,20 +1825,29 @@ class ShiftService {
     });
   }
 
-  /// Get upcoming shifts for a student (for the next 7 days)
+  /// Get upcoming shifts for a student.
+  ///
+  /// By default, returns the next 7 days. Pass `daysAhead: null` to fetch all
+  /// upcoming shifts (no upper bound).
   static Future<List<TeachingShift>> getUpcomingShiftsForStudent(
-    String studentId,
-  ) async {
+    String studentId, {
+    int? daysAhead = 7,
+  }) async {
     try {
       final now = DateTime.now();
-      final futureLimit = now.add(const Duration(days: 7));
+      final DateTime? futureLimit =
+          daysAhead == null ? null : now.add(Duration(days: daysAhead));
 
       // Query shifts where student is assigned
-      final snapshot = await _shiftsCollection
+      Query query = _shiftsCollection
           .where('student_ids', arrayContains: studentId)
-          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
-          .where('shift_start', isLessThan: Timestamp.fromDate(futureLimit))
-          .get();
+          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(now));
+
+      if (futureLimit != null) {
+        query = query.where('shift_start', isLessThan: Timestamp.fromDate(futureLimit));
+      }
+
+      final snapshot = await query.get();
 
       final shifts =
           snapshot.docs.map((doc) => TeachingShift.fromFirestore(doc)).toList();
@@ -1656,6 +1856,41 @@ class ShiftService {
       shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
 
       return shifts;
+    } on FirebaseException catch (firestoreError) {
+      final missingIndex = firestoreError.code == 'failed-precondition' &&
+          (firestoreError.message?.contains('index') ?? false);
+      if (!missingIndex) {
+        AppLogger.error('Error getting upcoming shifts for student: $firestoreError');
+        return [];
+      }
+
+      // Fallback (no composite index available): fetch all shifts for student,
+      // then filter by date range in-memory.
+      try {
+        final now = DateTime.now();
+        final DateTime? futureLimit =
+            daysAhead == null ? null : now.add(Duration(days: daysAhead));
+
+        final snapshot = await _shiftsCollection
+            .where('student_ids', arrayContains: studentId)
+            .get();
+
+        final shifts = snapshot.docs
+            .map((doc) => TeachingShift.fromFirestore(doc))
+            .where((shift) {
+          if (shift.shiftStart.isBefore(now)) return false;
+          if (futureLimit != null && !shift.shiftStart.isBefore(futureLimit)) {
+            return false;
+          }
+          return true;
+        }).toList();
+
+        shifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        return shifts;
+      } catch (e) {
+        AppLogger.error('Error (fallback) getting upcoming shifts for student: $e');
+        return [];
+      }
     } catch (e) {
       AppLogger.error('Error getting upcoming shifts for student: $e');
       return [];
@@ -1987,8 +2222,14 @@ class ShiftService {
 
   /// Update shift details
   static Future<void> updateShift(TeachingShift shift) async {
+    final normalizedTimezone =
+        TimezoneUtils.normalizeTimezone(shift.adminTimezone, fallback: 'UTC');
+    final normalizedShift = normalizedTimezone == shift.adminTimezone
+        ? shift
+        : shift.copyWith(adminTimezone: normalizedTimezone);
+
     try {
-      await _shiftsCollection.doc(shift.id).update(shift.toFirestore());
+      await _shiftsCollection.doc(shift.id).update(normalizedShift.toFirestore());
       AppLogger.info('Shift updated successfully in Firestore');
     } catch (e) {
       AppLogger.error('Error updating shift in Firestore: $e');
@@ -1998,8 +2239,8 @@ class ShiftService {
     // Best-effort: reschedule lifecycle tasks. This should not block shift edits,
     // since task scheduling can fail transiently (e.g., Cloud Tasks de-dup).
     try {
-      final shouldCancel = shift.status == ShiftStatus.cancelled;
-      await _scheduleShiftLifecycleTasks(shift, cancel: shouldCancel);
+      final shouldCancel = normalizedShift.status == ShiftStatus.cancelled;
+      await _scheduleShiftLifecycleTasks(normalizedShift, cancel: shouldCancel);
       AppLogger.info(
           'ShiftService: Lifecycle tasks rescheduled successfully for shift ${shift.id}');
     } catch (e) {
@@ -2503,6 +2744,13 @@ class ShiftService {
           .where('is_active', isEqualTo: true)
           .get();
 
+      // Query for super admins
+      final superAdminSnapshot = await _firestore
+          .collection('users')
+          .where('user_type', isEqualTo: 'super_admin')
+          .where('is_active', isEqualTo: true)
+          .get();
+
       // Query for admin-teachers
       final adminTeacherSnapshot = await _firestore
           .collection('users')
@@ -2512,7 +2760,11 @@ class ShiftService {
           .get();
 
       // Combine admin and admin-teacher snapshots
-      final allDocs = [...adminSnapshot.docs, ...adminTeacherSnapshot.docs];
+      final allDocs = [
+        ...adminSnapshot.docs,
+        ...superAdminSnapshot.docs,
+        ...adminTeacherSnapshot.docs,
+      ];
 
       // Use the same mapping method as getAvailableTeachers
       final leaders = allDocs.map((doc) {

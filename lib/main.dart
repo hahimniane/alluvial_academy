@@ -14,10 +14,12 @@ import 'package:device_preview/device_preview.dart';
 import 'package:provider/provider.dart';
 
 import 'role_based_dashboard.dart';
-import 'firebase_options.dart';
+import 'firebase_options.dart' as prod_firebase;
+import 'firebase_options_dev.dart' as dev_firebase;
 import 'core/constants/app_constants.dart';
 import 'screens/landing_page.dart';
 import 'core/utils/timezone_utils.dart';
+import 'core/utils/auth_debug_logger.dart';
 import 'features/auth/screens/mobile_login_screen.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/theme_service.dart';
@@ -26,10 +28,31 @@ import 'core/theme/app_theme.dart';
 import 'core/services/version_service.dart';
 import 'core/widgets/version_check_wrapper.dart';
 import 'core/utils/app_logger.dart';
+import 'core/services/join_link_service.dart';
+import 'core/services/shift_service.dart';
+import 'core/services/video_call_service.dart';
+import 'features/livekit/screens/guest_join_screen.dart';
 
 // NOTE: The legacy shift wage migration has been permanently disabled.
 // If you ever need to run it manually, trigger ShiftWageMigration.runMigration()
 // from a separate maintenance script instead of during app startup.
+
+// const String _firebaseEnv =
+//     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
+
+    const String _firebaseEnv = 'prod'; // change to 'dev' to switch projects
+
+
+bool get _useProdFirebase {
+  final env = _firebaseEnv.trim().toLowerCase();
+  if (env == 'prod') return true;
+  if (env == 'dev') return false;
+  return kReleaseMode;
+}
+
+FirebaseOptions get _firebaseOptions => _useProdFirebase
+    ? prod_firebase.DefaultFirebaseOptions.currentPlatform
+    : dev_firebase.DevFirebaseOptions.currentPlatform;
 
 /// Save FCM token if user is already logged in (non-blocking)
 void _saveFCMTokenIfLoggedIn() {
@@ -70,6 +93,12 @@ Future<void> main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
+  if (kIsWeb) {
+    JoinLinkService.initFromUri(Uri.base);
+  }
+
+  AppLogger.info('Firebase env: ${_useProdFirebase ? 'prod' : 'dev'}');
+
   // Lock orientation to portrait only (mobile apps only)
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([
@@ -79,9 +108,36 @@ Future<void> main() async {
   }
 
   // Initialize Firebase before running the app (required for web and all platforms)
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  final selectedFirebaseOptions = _firebaseOptions;
+  final firebaseApp = await Firebase.initializeApp(
+    options: selectedFirebaseOptions,
   );
+  final actualProjectId = firebaseApp.options.projectId;
+  final expectedProjectId = selectedFirebaseOptions.projectId;
+  if (kDebugMode) {
+    AppLogger.info('Firebase projectId: $actualProjectId');
+  }
+  if (actualProjectId != expectedProjectId) {
+    AppLogger.error(
+      'Firebase project mismatch. expected=$expectedProjectId actual=$actualProjectId',
+    );
+  }
+
+  // Web auth persistence:
+  // Ensure auth survives reloads/navigation (e.g. cache-busting or SW updates).
+  if (kIsWeb) {
+    try {
+      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+      AppLogger.debug('FirebaseAuth: web persistence set to LOCAL');
+    } catch (e) {
+      AppLogger.error('FirebaseAuth: failed to set web persistence: $e');
+    }
+  }
+
+  // Debug visibility into unexpected sign-outs / token changes (especially on web).
+  if (kDebugMode) {
+    AuthDebugLogger.start();
+  }
 
   // Firestore web SDK stability:
   // Disable IndexedDB persistence on web to avoid rare internal assertion crashes
@@ -220,6 +276,16 @@ class MyApp extends StatelessWidget {
   Widget get _initialScreen {
     AppLogger.debug('=== MyApp._initialScreen: kIsWeb = $kIsWeb ===');
 
+    if (kIsWeb && JoinLinkService.hasPendingGuestJoin) {
+      AppLogger.debug('=== Guest join link detected ===');
+      return const GuestJoinScreen();
+    }
+
+    if (kIsWeb && JoinLinkService.hasPendingJoin) {
+      AppLogger.debug('=== Join link detected: routing to AuthenticationWrapper ===');
+      return const AuthenticationWrapper();
+    }
+
     if (!kIsWeb) {
       final platform = defaultTargetPlatform;
       final isMobilePlatform =
@@ -246,7 +312,26 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           // DevicePreview configuration
           locale: DevicePreview.locale(context),
-          builder: DevicePreview.appBuilder,
+          builder: (context, child) {
+            final built = DevicePreview.appBuilder(context, child);
+            if (kReleaseMode) return built;
+
+            final label = _useProdFirebase ? 'PROD' : 'DEV';
+            final color =
+                _useProdFirebase ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+
+            return Banner(
+              message: label,
+              location: BannerLocation.topStart,
+              color: color,
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+              child: built,
+            );
+          },
           debugShowCheckedModeBanner: false,
           scrollBehavior: AppScrollBehavior(),
 
@@ -299,7 +384,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       }
 
       await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+        options: _firebaseOptions,
       );
 
       // Additional delay for web Firebase services to fully initialize
@@ -447,6 +532,8 @@ class AuthenticationWrapper extends StatefulWidget {
 
 class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   bool _isCheckingConnection = true;
+  bool _handledJoinLink = false;
+  bool _joiningFromLink = false;
 
   @override
   void initState() {
@@ -464,6 +551,45 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
     if (!hasInternet && mounted) {
       ConnectivityService.showNoInternetDialog(context);
+    }
+  }
+
+  void _triggerJoinLinkHandling() {
+    if (_handledJoinLink) return;
+    _handledJoinLink = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeJoinFromLink());
+  }
+
+  Future<void> _maybeJoinFromLink() async {
+    if (!mounted || _joiningFromLink) return;
+    final shiftId = JoinLinkService.consumePendingShiftId();
+    if (shiftId == null) return;
+
+    _joiningFromLink = true;
+    try {
+      final shift = await ShiftService.getShiftById(shiftId);
+      if (!mounted) return;
+      if (shift == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This class link is no longer valid.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      await VideoCallService.joinClass(context, shift);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open class link: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      _joiningFromLink = false;
     }
   }
 
@@ -625,6 +751,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
 
         // If the snapshot has user data, then they're already signed in
         if (snapshot.hasData && snapshot.data != null) {
+          _triggerJoinLinkHandling();
           // Use the unified role-based dashboard across platforms.
           // DashboardPage adapts layout responsively (drawer on small screens).
           return const RoleBasedDashboard();
@@ -810,13 +937,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
         password,
       );
 
-      if (user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const RoleBasedDashboard(),
-          ),
-        );
+      if (user != null) {
+        AppLogger.info('AuthService login succeeded for uid=${user.uid}');
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
