@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
@@ -19,9 +20,15 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/enums/task_enums.dart';
 import '../../../core/services/shift_service.dart';
+import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/shift_form_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/profile_picture_service.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/services/form_template_service.dart';
+import '../../../core/models/form_template.dart';
+import '../../forms/widgets/form_details_modal.dart';
+import '../widgets/pending_form_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
@@ -60,17 +67,34 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   StreamSubscription? _shiftsSubscription;
   StreamSubscription? _timesheetSubscription;
 
+  // Programmed clock-in state (for early clock-in countdown)
+  String? _programmedShiftId;
+  Timer? _programTimer;
+  String _timeUntilAutoStart = "";
+  Timer? _uiRefreshTimer;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _setupRealtimeListeners();
+    
+    // Refresh UI every second to update countdown and time-based buttons
+    _uiRefreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          // Just trigger rebuild for time-based UI updates
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _shiftsSubscription?.cancel();
     _timesheetSubscription?.cancel();
+    _programTimer?.cancel();
+    _uiRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -980,22 +1004,55 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                         final shiftTitle = shift['shiftTitle'] ?? 
                                          shift['displayName'] ?? 
                                          'Unknown Shift';
-                        final shiftDate = shift['shiftDate'] as DateTime? ?? 
-                                         (shift['shiftStart'] as Timestamp?)?.toDate();
-                        final shiftEnd = shift['shiftEnd'] as DateTime? ?? 
-                                        (shift['shiftEnd'] as Timestamp?)?.toDate();
+                        
+                        // Safely handle shiftDate - can be DateTime, Timestamp, or null
+                        // Check multiple possible field names: shiftDate, shiftStart, clockInTime
+                        // Note: getPendingFormsForTeacher already converts Timestamps to DateTime
+                        DateTime? shiftDate;
+                        final shiftDateValue = shift['shiftDate'] ?? 
+                                              shift['shiftStart'] ?? 
+                                              shift['clockInTime'];
+                        if (shiftDateValue != null) {
+                          if (shiftDateValue is DateTime) {
+                            shiftDate = shiftDateValue;
+                          } else if (shiftDateValue is Timestamp) {
+                            shiftDate = shiftDateValue.toDate();
+                          }
+                        }
+                        
+                        // Safely handle shiftEnd - can be DateTime, Timestamp, or null
+                        // Check multiple possible field names: shiftEnd, clockOutTime
+                        // Note: getPendingFormsForTeacher already converts Timestamps to DateTime
+                        DateTime? shiftEnd;
+                        final shiftEndValue = shift['shiftEnd'] ?? shift['clockOutTime'];
+                        if (shiftEndValue != null) {
+                          if (shiftEndValue is DateTime) {
+                            shiftEnd = shiftEndValue;
+                          } else if (shiftEndValue is Timestamp) {
+                            shiftEnd = shiftEndValue.toDate();
+                          }
+                        }
+                        
                         final subject = shift['subject'] as String? ?? '';
-                        final studentNames = shift['studentNames'] as List<dynamic>? ?? [];
+                        final studentNamesRaw = shift['studentNames'];
+                        List<String> studentNames = [];
+                        if (studentNamesRaw != null) {
+                          if (studentNamesRaw is List) {
+                            studentNames = studentNamesRaw
+                                .map((e) => e?.toString() ?? '')
+                                .where((e) => e.isNotEmpty)
+                                .toList()
+                                .cast<String>();
+                          }
+                        }
                         final studentDisplay = studentNames.isNotEmpty 
                             ? studentNames.join(', ') 
                             : 'Student';
                         final missedReason = shift['missedReason'] as String?;
+                        final currentShiftId = shift['shiftId'] as String?;
                         
                         return InkWell(
-                          onTap: () {
-                            Navigator.pop(context); // Close the bottom sheet
-                            _navigateToFormForShift(shift);
-                          },
+                          onTap: null, // Disable tap on row, button handles action
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                             decoration: isMissed ? BoxDecoration(
@@ -1107,28 +1164,22 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                // Fill Form button
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0386FF),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.edit_document, size: 16, color: Colors.white),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Fill',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                // Fill Form or View Form button (check if form exists)
+                                PendingFormButton(
+                                  shiftId: currentShiftId ?? '',
+                                  onFill: () {
+                                    Navigator.pop(context);
+                                    _navigateToFormForShift(shift);
+                                  },
+                                  onView: (formId, responses) {
+                                    Navigator.pop(context);
+                                    FormDetailsModal.show(
+                                      context,
+                                      formId: formId,
+                                      shiftId: currentShiftId ?? '',
+                                      responses: responses,
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -1145,6 +1196,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   /// Navigate to FormScreen for a specific shift
   /// Handles both completed shifts (with timesheet) and missed shifts (without timesheet)
+  /// FIXED: Now fetches template directly (like Quick Access) instead of passing ID
   Future<void> _navigateToFormForShift(Map<String, dynamic> shift) async {
     final timesheetId = shift['timesheetId'] as String?;
     final shiftId = shift['shiftId'] as String?;
@@ -1165,24 +1217,97 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     debugPrint('   - Type: ${shiftType ?? "unknown"}');
     debugPrint('   - TimesheetId: $timesheetId');
     
-    // Get the form ID from config (async)
-    final readinessFormId = await ShiftFormService.getReadinessFormId();
-    
-    if (!mounted) return;
-    
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FormScreen(
-          timesheetId: timesheetId, // Can be null for missed shifts
-          shiftId: shiftId, // Always required
-          autoSelectFormId: readinessFormId,
+    // FIXED: Use same approach as Quick Access - get ALL templates and filter to latest version
+    // This ensures we get the latest version even if config points to an old template ID
+    try {
+      // Get all templates (same as Quick Access)
+      final allTemplates = await FormTemplateService.getAllTemplates(forceRefresh: true);
+      
+      // Filter to keep only the latest version of each template by name (same logic as Quick Access)
+      final Map<String, FormTemplate> latestTemplatesByName = {};
+      for (var template in allTemplates) {
+        if (!template.isActive) continue;
+        
+        // Normalize template name for comparison
+        final normalizedName = template.name
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'\s+'), ' ');
+        
+        if (!latestTemplatesByName.containsKey(normalizedName)) {
+          latestTemplatesByName[normalizedName] = template;
+        } else {
+          final existing = latestTemplatesByName[normalizedName]!;
+          // Keep the one with higher version, or if same version, keep the one with later updatedAt
+          if (template.version > existing.version) {
+            latestTemplatesByName[normalizedName] = template;
+          } else if (template.version == existing.version) {
+            if (template.updatedAt.isAfter(existing.updatedAt)) {
+              latestTemplatesByName[normalizedName] = template;
+            }
+          }
+        }
+      }
+      
+      // Find the daily class report template (same as Quick Access)
+      FormTemplate? template;
+      for (var t in latestTemplatesByName.values) {
+        if (t.frequency == FormFrequency.perSession &&
+            t.name.toLowerCase().contains('daily') &&
+            (t.name.toLowerCase().contains('class') || t.name.toLowerCase().contains('report'))) {
+          template = t;
+          break;
+        }
+      }
+      
+      // If not found, use first perSession template
+      if (template == null) {
+        template = latestTemplatesByName.values.firstWhere(
+          (t) => t.frequency == FormFrequency.perSession,
+          orElse: () => latestTemplatesByName.values.first,
+        );
+      }
+      
+      
+      if (template == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Could not load form template. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      if (!mounted) return;
+      
+      // Pass template directly (same as Quick Access) - ensures latest version
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FormScreen(
+            timesheetId: timesheetId, // Can be null for missed shifts
+            shiftId: shiftId, // Always required
+            template: template, // Pass template directly - uses latest version
+          ),
         ),
-      ),
-    ).then((_) {
-      // Refresh data after returning from form
-      _loadData();
-    });
+      ).then((_) {
+        // Refresh data after returning from form
+        _loadData();
+      });
+    } catch (e) {
+      debugPrint('Error fetching template: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading form: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildActiveSessionCard() {
@@ -1505,99 +1630,516 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isToday 
-                    ? const Color(0xFF0386FF).withOpacity(0.1)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('d').format(shift.shiftStart),
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
-                    ),
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isToday 
+                        ? const Color(0xFF0386FF).withOpacity(0.1)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    DateFormat('MMM').format(shift.shiftStart).toUpperCase(),
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: isToday ? const Color(0xFF0386FF) : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Text(
-                          shift.displayName,
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF1E293B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isToday 
-                              ? const Color(0xFF0386FF).withOpacity(0.1)
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          dateLabel,
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
-                      const SizedBox(width: 4),
                       Text(
-                        '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
+                        DateFormat('d').format(shift.shiftStart),
                         style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: const Color(0xFF64748B),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        DateFormat('MMM').format(shift.shiftStart).toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: isToday ? const Color(0xFF0386FF) : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              shift.displayName,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1E293B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isToday 
+                                  ? const Color(0xFF0386FF).withOpacity(0.1)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              dateLabel,
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isToday ? const Color(0xFF0386FF) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${DateFormat('h:mm a').format(shift.shiftStart)} - ${DateFormat('h:mm a').format(shift.shiftEnd)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+              ],
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+            // Clock-in action buttons based on time
+            const SizedBox(height: 12),
+            _buildClockInActionButtons(shift),
           ],
         ),
       ),
     );
+  }
+
+  /// Build clock-in action buttons based on current time and shift state
+  Widget _buildClockInActionButtons(TeachingShift shift) {
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final shiftEnd = shift.shiftEnd;
+    
+    // Programming window: 1 minute before shift start
+    final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
+    
+    // Check states
+    final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
+    final shiftHasStarted = now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart);
+    final shiftHasEnded = now.isAfter(shiftEnd);
+    final isThisShiftProgrammed = _programmedShiftId == shift.id;
+    
+    // If shift has ended, don't show any buttons
+    if (shiftHasEnded) {
+      return const SizedBox.shrink();
+    }
+    
+    // If this shift is programmed - show countdown and cancel button
+    if (isThisShiftProgrammed) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _timeUntilAutoStart.isNotEmpty ? _timeUntilAutoStart : 'Programmed...',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _cancelProgrammedClockIn,
+                icon: const Icon(Icons.close, size: 16),
+                label: Text('Cancel Programming', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF64748B),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // If shift has started but not ended - show Clock In button
+    if (shiftHasStarted && !shiftHasEnded) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _handleClockIn(shift),
+          icon: const Icon(Icons.login, size: 18),
+          label: Text('Clock In Now', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+        ),
+      );
+    }
+    
+    // If in programming window (1 minute before shift) - show Program button
+    // This programs automatic clock-in when shift starts
+    if (isInProgramWindow) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _startProgrammedClockIn(shift),
+          icon: const Icon(Icons.schedule, size: 18),
+          label: Text('Program Clock-In', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF3B82F6),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+        ),
+      );
+    }
+    
+    // Otherwise, just show the time until clock-in is available
+    final timeUntilProgramWindow = programmingWindowStart.difference(now);
+    if (timeUntilProgramWindow.inMinutes > 0) {
+      final mins = timeUntilProgramWindow.inMinutes;
+      final hrs = timeUntilProgramWindow.inHours;
+      String timeText;
+      if (hrs > 0) {
+        timeText = 'Clock-in available in ${hrs}h ${mins % 60}m';
+      } else {
+        timeText = 'Clock-in available in ${mins}m';
+      }
+      
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.access_time, size: 16, color: Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Text(
+              timeText,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
+
+  /// Handle clock-in button press
+  Future<void> _handleClockIn(TeachingShift shift) async {
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
+    
+    final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
+    final shiftHasStarted = !now.isBefore(shiftStart);
+    
+    // Only allow clock-in if shift has started (not during programming window)
+    if (shiftHasStarted) {
+      await _performClockIn(shift);
+    } else if (isInProgramWindow) {
+      // During programming window, use program function instead
+      _startProgrammedClockIn(shift);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Too early to clock in. Please wait for the programming window (1 minute before shift).'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  /// Start programmed clock-in
+  void _startProgrammedClockIn(TeachingShift shift) async {
+    debugPrint('🕐 Home: Starting programmed clock-in for shift ${shift.id}');
+    
+    final nowUtc = DateTime.now().toUtc();
+    final shiftStartUtc = shift.shiftStart.toUtc();
+    
+    // If shift has already started, clock in immediately
+    if (!nowUtc.isBefore(shiftStartUtc)) {
+      debugPrint('🕐 Home: Shift already started - clocking in immediately');
+      await _performClockIn(shift, isAutoStart: true);
+      return;
+    }
+    
+    // Calculate initial countdown
+    final timeLeft = shiftStartUtc.difference(nowUtc);
+    final initialSeconds = timeLeft.inSeconds;
+    final initialMinutes = timeLeft.inMinutes;
+    final remainingSeconds = initialSeconds % 60;
+    
+    // Persist programmed state
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('programmed_start_${shift.id}', true);
+    } catch (e) {
+      debugPrint('❌ Home: Failed to save programmed state: $e');
+    }
+    
+    if (!mounted) return;
+    
+    // Format countdown
+    final countdownText = initialMinutes > 0 
+        ? 'Starting in ${initialMinutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
+        : 'Starting in ${initialSeconds}s';
+    
+    setState(() {
+      _programmedShiftId = shift.id;
+      _timeUntilAutoStart = countdownText;
+    });
+    
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Clock-in programmed for ${DateFormat('HH:mm').format(shift.shiftStart)}'),
+        backgroundColor: const Color(0xFF3B82F6),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    
+    // Cancel any existing timer
+    _programTimer?.cancel();
+    
+    // Start countdown timer
+    _programTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      final nowUtc = DateTime.now().toUtc();
+      final shiftStartUtc = shift.shiftStart.toUtc();
+      
+      if (!nowUtc.isBefore(shiftStartUtc)) {
+        // Time to clock in!
+        debugPrint('🕐 Home: Auto-start time reached! Clocking in...');
+        timer.cancel();
+        
+        // Clear persisted state
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.remove('programmed_start_${shift.id}');
+        });
+        
+        if (mounted) {
+          setState(() {
+            _timeUntilAutoStart = "Clocking In...";
+          });
+          _performClockIn(shift, isAutoStart: true);
+        }
+        return;
+      }
+      
+      final timeLeft = shiftStartUtc.difference(nowUtc);
+      final seconds = timeLeft.inSeconds;
+      final minutes = timeLeft.inMinutes;
+      final remainingSeconds = seconds % 60;
+      
+      final countdownText = minutes > 0 
+          ? 'Starting in ${minutes}m ${remainingSeconds.toString().padLeft(2, '0')}s'
+          : 'Starting in ${seconds}s';
+      
+      if (mounted) {
+        setState(() {
+          _timeUntilAutoStart = countdownText;
+        });
+      }
+    });
+  }
+
+  /// Cancel programmed clock-in
+  void _cancelProgrammedClockIn() async {
+    debugPrint('🕐 Home: Cancelling programmed clock-in');
+    _programTimer?.cancel();
+    _programTimer = null;
+    
+    // Clear persisted state
+    if (_programmedShiftId != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('programmed_start_$_programmedShiftId');
+      } catch (e) {
+        debugPrint('❌ Home: Failed to clear programmed state: $e');
+      }
+    }
+    
+    if (mounted) {
+      setState(() {
+        _programmedShiftId = null;
+        _timeUntilAutoStart = "";
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Programming cancelled'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Perform the actual clock-in
+  Future<void> _performClockIn(TeachingShift shift, {bool isAutoStart = false}) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not authenticated'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // Get location with timeout
+      LocationData? location;
+      try {
+        final timeoutDuration = Duration(seconds: isAutoStart ? 5 : 15);
+        location = await LocationService.getCurrentLocation().timeout(timeoutDuration);
+      } catch (e) {
+        debugPrint('❌ Home: Location error: $e');
+        if (isAutoStart) {
+          // For auto-start, use fallback location
+          location = LocationData(
+            latitude: 0.0,
+            longitude: 0.0,
+            address: 'Auto clock-in - location unavailable',
+            neighborhood: 'Programmed start',
+          );
+        }
+      }
+      
+      // Check location - if null and not auto-start, return early
+      if (location == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to get location. Please enable location services.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // At this point, location is guaranteed to be non-null
+      final locationData = location!;
+
+      // Perform clock-in via service (user is already checked at the beginning of the method)
+      final result = await ShiftTimesheetService.clockInToShift(
+        user.uid,
+        shift.id,
+        location: locationData,
+        platform: 'mobile',
+      );
+
+      if (result['success'] == true) {
+        // Clear programmed state on success
+        if (mounted) {
+          setState(() {
+            _programmedShiftId = null;
+            _timeUntilAutoStart = "";
+          });
+        }
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isAutoStart ? 'Auto clock-in successful!' : 'Clocked in successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh data
+        _loadData();
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Failed to clock in'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        
+        // Clear programmed state on failure too
+        if (mounted) {
+          setState(() {
+            _programmedShiftId = null;
+            _timeUntilAutoStart = "";
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Home: Error clocking in: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+      
+      // Clear programmed state on error
+      if (mounted) {
+        setState(() {
+          _programmedShiftId = null;
+          _timeUntilAutoStart = "";
+        });
+      }
+    }
   }
 
   Widget _buildEmptyUpcoming() {
@@ -1658,6 +2200,20 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           child: Row(
             children: [
               _buildCompactQuickAccessCard(
+                icon: Icons.article_outlined,
+                label: 'Forms',
+                color: const Color(0xFFEC4899),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherFormsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              _buildCompactQuickAccessCard(
                 icon: Icons.assignment_outlined,
                 label: 'Assignments',
                 color: const Color(0xFF8B5CF6),
@@ -1680,20 +2236,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MySubmissionsScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              _buildCompactQuickAccessCard(
-                icon: Icons.article_outlined,
-                label: 'Forms',
-                color: const Color(0xFFEC4899),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherFormsScreen(),
                     ),
                   );
                 },

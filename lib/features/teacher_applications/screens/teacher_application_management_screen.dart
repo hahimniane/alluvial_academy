@@ -319,14 +319,14 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Teacher Applications',
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff111827),
-                  ),
+              Text(
+                'Teacher Applicants',
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff111827),
                 ),
+              ),
                 Text(
                   '${_allApplications.length} total applications',
                   style: GoogleFonts.inter(

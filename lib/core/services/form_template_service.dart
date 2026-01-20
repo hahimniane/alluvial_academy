@@ -900,42 +900,120 @@ class FormTemplateService {
   // ============================================================
 
   /// Get all form templates
-  static Future<List<FormTemplate>> getAllTemplates() async {
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  static Future<List<FormTemplate>> getAllTemplates({bool forceRefresh = false}) async {
     try {
-      final snapshot = await _firestore
-          .collection(_templatesCollection)
-          .orderBy('createdAt', descending: true)
-          .get();
+      final getOptions = forceRefresh 
+          ? const GetOptions(source: Source.server)
+          : const GetOptions(source: Source.cache);
+      
+      // Try to order by updatedAt first (most recently updated), fallback to createdAt
+      try {
+        final snapshot = await _firestore
+            .collection(_templatesCollection)
+            .orderBy('updatedAt', descending: true)
+            .get(getOptions);
 
-      return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+        final templates = snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+        
+        AppLogger.debug('FormTemplateService: getAllTemplates loaded ${templates.length} templates');
+        // Also sort by version as secondary sort to ensure latest version is first
+        templates.sort((a, b) {
+          // First by updatedAt (most recent first)
+          final dateCompare = b.updatedAt.compareTo(a.updatedAt);
+          if (dateCompare != 0) return dateCompare;
+          // Then by version (highest first)
+          return b.version.compareTo(a.version);
+        });
+        return templates;
+      } catch (e) {
+        // If updatedAt index doesn't exist, fallback to createdAt
+        AppLogger.debug('FormTemplateService: updatedAt index not available, using createdAt: $e');
+        final snapshot = await _firestore
+            .collection(_templatesCollection)
+            .orderBy('createdAt', descending: true)
+            .get(getOptions);
+
+        final templates = snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+        // Sort by version as secondary sort
+        templates.sort((a, b) {
+          // First by createdAt (most recent first)
+          final dateCompare = b.createdAt.compareTo(a.createdAt);
+          if (dateCompare != 0) return dateCompare;
+          // Then by version (highest first)
+          return b.version.compareTo(a.version);
+        });
+        return templates;
+      }
     } catch (e) {
       AppLogger.error('FormTemplateService: Error fetching templates: $e');
+      // If cache fails, try server
+      if (!forceRefresh) {
+        try {
+          final snapshot = await _firestore
+              .collection(_templatesCollection)
+              .orderBy('createdAt', descending: true)
+              .get(const GetOptions(source: Source.server));
+          return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+        } catch (e2) {
+          AppLogger.error('FormTemplateService: Error fetching from server: $e2');
+          return [];
+        }
+      }
       return [];
     }
   }
 
   /// Get active templates by frequency
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache
   static Future<List<FormTemplate>> getTemplatesByFrequency(
-      FormFrequency frequency) async {
+      FormFrequency frequency, {bool forceRefresh = false}) async {
     try {
+      final getOptions = forceRefresh 
+          ? const GetOptions(source: Source.server)
+          : const GetOptions(source: Source.cache);
+      
       final snapshot = await _firestore
           .collection(_templatesCollection)
           .where('frequency', isEqualTo: frequency.name)
           .where('isActive', isEqualTo: true)
-          .get();
+          .get(getOptions);
 
       return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
     } catch (e) {
       AppLogger.error('FormTemplateService: Error fetching templates by frequency: $e');
+      // If cache fails, try server
+      if (!forceRefresh) {
+        try {
+          final snapshot = await _firestore
+              .collection(_templatesCollection)
+              .where('frequency', isEqualTo: frequency.name)
+              .where('isActive', isEqualTo: true)
+              .get(const GetOptions(source: Source.server));
+          return snapshot.docs.map((doc) => FormTemplate.fromFirestore(doc)).toList();
+        } catch (e2) {
+          AppLogger.error('FormTemplateService: Error fetching from server: $e2');
+          return [];
+        }
+      }
       return [];
     }
   }
 
   /// Get template by ID
-  static Future<FormTemplate?> getTemplate(String templateId) async {
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  static Future<FormTemplate?> getTemplate(String templateId, {bool forceRefresh = true}) async {
     try {
-      final doc =
-          await _firestore.collection(_templatesCollection).doc(templateId).get();
+      // Always use server source to ensure latest version
+      final getOptions = forceRefresh 
+          ? const GetOptions(source: Source.server)
+          : const GetOptions(source: Source.serverAndCache);
+      
+      final doc = await _firestore
+          .collection(_templatesCollection)
+          .doc(templateId)
+          .get(getOptions);
+      
       if (doc.exists) {
         return FormTemplate.fromFirestore(doc);
       }
@@ -947,23 +1025,84 @@ class FormTemplateService {
   }
 
   /// Get the currently active daily class report template
-  static Future<FormTemplate?> getActiveDailyTemplate() async {
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  static Future<FormTemplate?> getActiveDailyTemplate({bool forceRefresh = true}) async {
     try {
+      // Always use server source to ensure latest version
+      final getOptions = forceRefresh 
+          ? const GetOptions(source: Source.server)
+          : const GetOptions(source: Source.serverAndCache);
+      
       // First check config for specified template
-      final configDoc =
-          await _firestore.collection(_configCollection).doc(_configDoc).get();
+      final configDoc = await _firestore
+          .collection(_configCollection)
+          .doc(_configDoc)
+          .get(getOptions);
+      
       if (configDoc.exists) {
         final dailyTemplateId = configDoc.data()?['dailyTemplateId'] as String?;
         if (dailyTemplateId != null) {
-          final template = await getTemplate(dailyTemplateId);
+          final template = await getTemplate(dailyTemplateId, forceRefresh: forceRefresh);
           if (template != null) return template;
         }
       }
 
-      // Fallback: get any active daily template
-      final templates = await getTemplatesByFrequency(FormFrequency.perSession);
-      if (templates.isNotEmpty) {
-        return templates.first;
+      // Fallback: get any active daily template (force refresh to get latest)
+      final allTemplates = await getTemplatesByFrequency(
+        FormFrequency.perSession, 
+        forceRefresh: forceRefresh,
+      );
+
+      AppLogger.debug('FormTemplateService: getActiveDailyTemplate - Found ${allTemplates.length} perSession templates');
+      
+      if (allTemplates.isNotEmpty) {
+        // Filter to keep only latest version of each template by normalized name
+        final Map<String, FormTemplate> latestTemplatesByName = {};
+        for (var template in allTemplates) {
+          if (!template.isActive) continue;
+          
+          // Normalize template name for comparison
+          final normalizedName = template.name
+              .trim()
+              .toLowerCase()
+              .replaceAll(RegExp(r'\s+'), ' ');
+          
+          if (!latestTemplatesByName.containsKey(normalizedName)) {
+            latestTemplatesByName[normalizedName] = template;
+          } else {
+            final existing = latestTemplatesByName[normalizedName]!;
+            // Keep the one with higher version, or if same version, keep the one with later updatedAt
+            if (template.version > existing.version) {
+              latestTemplatesByName[normalizedName] = template;
+            } else if (template.version == existing.version) {
+              if (template.updatedAt.isAfter(existing.updatedAt)) {
+                latestTemplatesByName[normalizedName] = template;
+              }
+            }
+          }
+        }
+        
+        final templates = latestTemplatesByName.values.toList();
+
+        AppLogger.debug('FormTemplateService: After deduplication, ${templates.length} unique perSession templates');
+        
+        // Sort by version (highest first) and updatedAt (most recent first) to get latest
+        templates.sort((a, b) {
+          final versionCompare = b.version.compareTo(a.version);
+          if (versionCompare != 0) return versionCompare;
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+        
+        // Prefer template named "Daily Class Report" if it exists, otherwise use first (latest version)
+        final dailyReport = templates.firstWhere(
+          (t) => t.name.toLowerCase().contains('daily') && 
+                 (t.name.toLowerCase().contains('class') || t.name.toLowerCase().contains('report')),
+          orElse: () => templates.first, // Returns the template with highest version
+        );
+
+        AppLogger.debug('FormTemplateService: Selected daily template: ${dailyReport.name} (Version: ${dailyReport.version}, ID: ${dailyReport.id})');
+        
+        return dailyReport;
       }
 
       // Last resort: return default
@@ -971,6 +1110,179 @@ class FormTemplateService {
     } catch (e) {
       AppLogger.error('FormTemplateService: Error getting active daily template: $e');
       return defaultDailyClassReport;
+    }
+  }
+
+  /// Get the currently active weekly template
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  static Future<FormTemplate?> getActiveWeeklyTemplate({bool forceRefresh = true}) async {
+    try {
+      // Always use server source to ensure latest version
+      final getOptions = forceRefresh 
+          ? const GetOptions(source: Source.server)
+          : const GetOptions(source: Source.serverAndCache);
+      
+      // First check config for specified template
+      final configDoc = await _firestore
+          .collection(_configCollection)
+          .doc(_configDoc)
+          .get(getOptions);
+      
+      if (configDoc.exists) {
+        final weeklyTemplateId = configDoc.data()?['weeklyTemplateId'] as String?;
+        if (weeklyTemplateId != null) {
+          final template = await getTemplate(weeklyTemplateId, forceRefresh: forceRefresh);
+          if (template != null) return template;
+        }
+      }
+
+      // Fallback: get any active weekly template (force refresh to get latest)
+      final allTemplates = await getTemplatesByFrequency(
+        FormFrequency.weekly, 
+        forceRefresh: forceRefresh,
+      );
+      
+      if (allTemplates.isNotEmpty) {
+        // Filter to keep only latest version of each template by normalized name
+        final Map<String, FormTemplate> latestTemplatesByName = {};
+        for (var template in allTemplates) {
+          if (!template.isActive) continue;
+          
+          // Normalize template name for comparison
+          final normalizedName = template.name
+              .trim()
+              .toLowerCase()
+              .replaceAll(RegExp(r'\s+'), ' ');
+          
+          if (!latestTemplatesByName.containsKey(normalizedName)) {
+            latestTemplatesByName[normalizedName] = template;
+          } else {
+            final existing = latestTemplatesByName[normalizedName]!;
+            // Keep the one with higher version, or if same version, keep the one with later updatedAt
+            if (template.version > existing.version) {
+              latestTemplatesByName[normalizedName] = template;
+            } else if (template.version == existing.version) {
+              if (template.updatedAt.isAfter(existing.updatedAt)) {
+                latestTemplatesByName[normalizedName] = template;
+              }
+            }
+          }
+        }
+        
+        final templates = latestTemplatesByName.values.toList();
+        
+        // Sort by version (highest first) and updatedAt (most recent first) to get latest
+        templates.sort((a, b) {
+          final versionCompare = b.version.compareTo(a.version);
+          if (versionCompare != 0) return versionCompare;
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+        
+        // Prefer "Weekly Summary" if it exists (after deduplication, this will be the latest version)
+        // Otherwise, use the first template (highest version overall)
+        final weeklyReport = templates.firstWhere(
+          (t) {
+            final nameLower = t.name.toLowerCase();
+            return nameLower.contains('weekly summary') || 
+                   (nameLower.contains('weekly') && nameLower.contains('summary'));
+          },
+          orElse: () => templates.first, // Returns the template with highest version
+        );
+        
+        AppLogger.debug('FormTemplateService: Selected weekly template: ${weeklyReport.name} (Version: ${weeklyReport.version}, ID: ${weeklyReport.id})');
+        AppLogger.debug('FormTemplateService: Available weekly templates after dedup: ${templates.map((t) => '${t.name} v${t.version}').join(", ")}');
+        
+        return weeklyReport;
+      }
+
+      // Last resort: return default
+      return defaultWeeklySummary;
+    } catch (e) {
+      AppLogger.error('FormTemplateService: Error getting active weekly template: $e');
+      return defaultWeeklySummary;
+    }
+  }
+
+  /// Get the currently active monthly template
+  /// [forceRefresh] - If true, forces reload from server, bypassing cache
+  static Future<FormTemplate?> getActiveMonthlyTemplate({bool forceRefresh = true}) async {
+    try {
+      // Always use server source to ensure latest version
+      final getOptions = forceRefresh 
+          ? const GetOptions(source: Source.server)
+          : const GetOptions(source: Source.serverAndCache);
+      
+      // First check config for specified template
+      final configDoc = await _firestore
+          .collection(_configCollection)
+          .doc(_configDoc)
+          .get(getOptions);
+      
+      if (configDoc.exists) {
+        final monthlyTemplateId = configDoc.data()?['monthlyTemplateId'] as String?;
+        if (monthlyTemplateId != null) {
+          final template = await getTemplate(monthlyTemplateId, forceRefresh: forceRefresh);
+          if (template != null) return template;
+        }
+      }
+
+      // Fallback: get any active monthly template (force refresh to get latest)
+      final allTemplates = await getTemplatesByFrequency(
+        FormFrequency.monthly, 
+        forceRefresh: forceRefresh,
+      );
+      
+      if (allTemplates.isNotEmpty) {
+        // Filter to keep only latest version of each template by normalized name
+        final Map<String, FormTemplate> latestTemplatesByName = {};
+        for (var template in allTemplates) {
+          if (!template.isActive) continue;
+          
+          // Normalize template name for comparison
+          final normalizedName = template.name
+              .trim()
+              .toLowerCase()
+              .replaceAll(RegExp(r'\s+'), ' ');
+          
+          if (!latestTemplatesByName.containsKey(normalizedName)) {
+            latestTemplatesByName[normalizedName] = template;
+          } else {
+            final existing = latestTemplatesByName[normalizedName]!;
+            // Keep the one with higher version, or if same version, keep the one with later updatedAt
+            if (template.version > existing.version) {
+              latestTemplatesByName[normalizedName] = template;
+            } else if (template.version == existing.version) {
+              if (template.updatedAt.isAfter(existing.updatedAt)) {
+                latestTemplatesByName[normalizedName] = template;
+              }
+            }
+          }
+        }
+        
+        final templates = latestTemplatesByName.values.toList();
+        
+        // Sort by version (highest first) and updatedAt (most recent first) to get latest
+        templates.sort((a, b) {
+          final versionCompare = b.version.compareTo(a.version);
+          if (versionCompare != 0) return versionCompare;
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+        
+        // After deduplication and sorting, the first template is the latest version
+        // This ensures we always get the highest version number
+        final monthlyReport = templates.first;
+        
+        AppLogger.debug('FormTemplateService: Selected monthly template: ${monthlyReport.name} (Version: ${monthlyReport.version}, ID: ${monthlyReport.id})');
+        AppLogger.debug('FormTemplateService: Available monthly templates: ${templates.map((t) => '${t.name} v${t.version}').join(", ")}');
+        
+        return monthlyReport;
+      }
+
+      // Last resort: return default
+      return defaultMonthlyReview;
+    } catch (e) {
+      AppLogger.error('FormTemplateService: Error getting active monthly template: $e');
+      return defaultMonthlyReview;
     }
   }
 
@@ -987,6 +1299,7 @@ class FormTemplateService {
         data['createdBy'] = user?.uid;
         final docRef = await _firestore.collection(_templatesCollection).add(data);
         AppLogger.info('FormTemplateService: Created template ${docRef.id}');
+        AppLogger.debug('FormTemplateService: Created NEW template - name: ${template.name}, id: ${docRef.id}');
         return docRef.id;
       } else {
         // Update existing template (increment version)
@@ -996,10 +1309,78 @@ class FormTemplateService {
               SetOptions(merge: true),
             );
         AppLogger.info('FormTemplateService: Updated template ${template.id}');
+        AppLogger.debug('FormTemplateService: UPDATED existing template - name: ${template.name}, id: ${template.id}');
         return template.id;
       }
     } catch (e) {
       AppLogger.error('FormTemplateService: Error saving template: $e');
+      rethrow;
+    }
+  }
+
+  /// Save a template with explicit versioning logic
+  /// - Finds all existing templates with the same name
+  /// - Deactivates them (isActive = false)
+  /// - Creates a NEW document for the new version with incremented version number
+  /// - Ensures only this new version is active
+  static Future<String> saveTemplateWithVersioning(FormTemplate template) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      
+      // 1. Find all existing templates with the same name (case-insensitive)
+      // We read ALL templates because we need to check names and find max version
+      // This might be expensive if there are thousands, but for form templates it's fine
+      final snapshot = await _firestore.collection(_templatesCollection).get();
+      
+      final normalizedName = template.name.trim().toLowerCase();
+      int maxVersion = 0;
+      final batch = _firestore.batch();
+      bool foundMatch = false;
+      
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final docName = (data['name'] as String? ?? '').trim().toLowerCase();
+        
+        if (docName == normalizedName) {
+          foundMatch = true;
+          // Track max version
+          final version = data['version'] as int? ?? 0;
+          if (version > maxVersion) maxVersion = version;
+          
+          // Deactivate if currently active
+          if (data['isActive'] == true) {
+            batch.update(doc.reference, {'isActive': false});
+          }
+        }
+      }
+      
+      // 2. Create new template as a NEW document
+      final newVersion = maxVersion + 1;
+      
+      final newTemplateData = template.toMap();
+      newTemplateData['version'] = newVersion;
+      newTemplateData['isActive'] = true;
+      newTemplateData['createdAt'] = FieldValue.serverTimestamp();
+      newTemplateData['updatedAt'] = FieldValue.serverTimestamp();
+      newTemplateData['createdBy'] = user?.uid;
+      
+      // Ensure we don't reuse an old ID if one was passed by mistake
+      // We want a fresh document ID for the new version
+      newTemplateData.remove('id'); 
+      
+      final newDocRef = _firestore.collection(_templatesCollection).doc();
+      batch.set(newDocRef, newTemplateData);
+      
+      await batch.commit();
+      
+      AppLogger.info('FormTemplateService: Saved new version ($newVersion) of "${template.name}" and deactivated others.');
+      
+      AppLogger.debug('FormTemplateService: Versioning Save - Name: ${template.name}, New Version: $newVersion, New ID: ${newDocRef.id}');
+      
+      return newDocRef.id;
+      
+    } catch (e) {
+      AppLogger.error('FormTemplateService: Error saving template with versioning: $e');
       rethrow;
     }
   }
@@ -1201,4 +1582,3 @@ class FormTemplateService {
     return autoFilledValues;
   }
 }
-

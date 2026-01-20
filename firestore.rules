@@ -591,6 +591,20 @@ service cloud.firestore {
     match /zoom_hosts/{hostId} {
       allow read, write: if isAdmin();
     }
+
+    // Audit Metrics - teachers can read their own, admins can read/write all
+    match /audit_metrics/{metricId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Pilot Audit Metrics - teachers can read their own, admins can read/write all
+    match /pilot_audit_metrics/{metricId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
     // Debug logs - users can read/write their own debug logs
     match /debug_logs/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;

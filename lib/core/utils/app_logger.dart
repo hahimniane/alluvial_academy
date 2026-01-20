@@ -1,5 +1,11 @@
 import 'package:logger/logger.dart';
-import 'package:flutter/foundation.dart';
+
+class _ErrorOnlyFilter extends LogFilter {
+  @override
+  bool shouldLog(LogEvent event) {
+    return event.level.index >= Level.error.index;
+  }
+}
 
 /// Centralized logger for the application with throttling support.
 /// 
@@ -32,8 +38,7 @@ class AppLogger {
       printEmojis: true, // Print an emoji for each log message
       dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
     ),
-    // Only show logs in debug mode
-    filter: kDebugMode ? DevelopmentFilter() : ProductionFilter(),
+    filter: _ErrorOnlyFilter(),
   );
 
   /// Throttle mechanism to prevent log spam
@@ -50,6 +55,7 @@ class AppLogger {
 
   /// Enable/disable debug logging globally
   static bool enableVerboseDebug = false;
+  static bool enableNonErrorLogs = false;
 
   /// Check if a log should be throttled
   static bool _shouldThrottle(String key) {
@@ -80,6 +86,7 @@ class AppLogger {
   /// Use for detailed debugging information that helps during development
   /// Note: Some services have their debug logs suppressed by default
   static void debug(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (!enableNonErrorLogs) return;
     final msgStr = message.toString();
     
     // Suppress verbose debug from certain services unless explicitly enabled
@@ -93,6 +100,7 @@ class AppLogger {
   /// Log a debug message with throttling (prevents spam)
   /// Use for debug messages that might be called frequently
   static void debugThrottled(String key, dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (!enableNonErrorLogs) return;
     if (_shouldThrottle(key)) return;
     debug(message, error: error, stackTrace: stackTrace);
   }
@@ -100,11 +108,13 @@ class AppLogger {
   /// Log an info message (general information)
   /// Use for general informational messages about app state
   static void info(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (!enableNonErrorLogs) return;
     _logger.i(message, error: error, stackTrace: stackTrace);
   }
 
   /// Log an info message with throttling
   static void infoThrottled(String key, dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (!enableNonErrorLogs) return;
     if (_shouldThrottle(key)) return;
     info(message, error: error, stackTrace: stackTrace);
   }
@@ -112,6 +122,7 @@ class AppLogger {
   /// Log a warning message (potential issues)
   /// Use for situations that might cause problems but aren't errors yet
   static void warning(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (!enableNonErrorLogs) return;
     _logger.w(message, error: error, stackTrace: stackTrace);
   }
 
@@ -130,17 +141,20 @@ class AppLogger {
   /// Log a trace message (very detailed debugging)
   /// Use for extremely verbose debugging when you need to trace execution
   static void trace(dynamic message, {dynamic error, StackTrace? stackTrace}) {
+    if (!enableNonErrorLogs) return;
     _logger.t(message, error: error, stackTrace: stackTrace);
   }
 
   /// Enable verbose debug logging for all services
   static void enableVerbose() {
     enableVerboseDebug = true;
+    enableNonErrorLogs = true;
   }
 
   /// Disable verbose debug logging (default state)
   static void disableVerbose() {
     enableVerboseDebug = false;
+    enableNonErrorLogs = false;
   }
 
   /// Clear the throttle cache (useful for testing)

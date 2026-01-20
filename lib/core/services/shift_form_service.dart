@@ -25,7 +25,7 @@ class ShiftFormService {
   static Future<String> getReadinessFormId() async {
     // Check if current user is in pilot mode
     final isPilot = await PilotFlagService.isCurrentUserPilot();
-    
+
     if (isPilot) {
       AppLogger.debug('ShiftFormService: Pilot user - using new template system');
       // Try to get the active daily template ID
@@ -41,7 +41,8 @@ class ShiftFormService {
     }
     
     // Fallback to old config-based form ID
-    return await FormConfigService.getReadinessFormId();
+    final fallbackId = await FormConfigService.getReadinessFormId();
+    return fallbackId;
   }
   
   /// Synchronous getter for backward compatibility - uses cached value or fallback
@@ -180,17 +181,53 @@ class ShiftFormService {
           .where('created_at', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
+      // Track processed shiftIds to prevent duplicates
+      final processedShiftIds = <String>{};
+      
       for (final doc in timesheetQuery.docs) {
         final data = doc.data();
         final formCompleted = data['form_completed'] ?? false;
         
         if (!formCompleted) {
+          final shiftId = data['shift_id'] ?? data['shiftId'];
+          if (shiftId == null || processedShiftIds.contains(shiftId)) {
+            continue; // Skip if no shiftId or already processed
+          }
+          processedShiftIds.add(shiftId);
+          
+          // Convert Timestamp to DateTime to avoid type cast errors
+          final clockInTime = _asDateTime(data['clock_in_time'] ?? data['clock_in_timestamp']);
+          final clockOutTime = _asDateTime(data['clock_out_time'] ?? data['clock_out_timestamp']);
+          
+          // Fetch shift data to get student names and subject
+          List<String> studentNames = [];
+          String? subject;
+          try {
+            if (shiftId != null) {
+              final shiftDoc = await _firestore.collection('teaching_shifts').doc(shiftId).get();
+              if (shiftDoc.exists) {
+                final shiftData = shiftDoc.data() ?? {};
+                studentNames = (shiftData['student_names'] as List<dynamic>?)
+                    ?.map((e) => e.toString())
+                    .where((e) => e.isNotEmpty)
+                    .toList() ?? [];
+                subject = shiftData['auto_generated_name'] ?? 
+                         shiftData['custom_name'] ?? 
+                         shiftData['subject_display_name'] as String?;
+              }
+            }
+          } catch (e) {
+            AppLogger.error('ShiftFormService: Error fetching shift data for $shiftId: $e');
+          }
+          
           pendingForms.add({
             'timesheetId': doc.id,
-            'shiftId': data['shift_id'] ?? data['shiftId'],
-            'shiftTitle': data['shift_title'] ?? 'Unknown Shift',
-            'clockInTime': data['clock_in_time'],
-            'clockOutTime': data['clock_out_time'],
+            'shiftId': shiftId,
+            'shiftTitle': data['shift_title'] ?? subject ?? 'Unknown Shift',
+            'clockInTime': clockInTime,
+            'clockOutTime': clockOutTime,
+            'studentNames': studentNames,
+            'subject': subject,
             'type': 'completed', // Has timesheet entry
           });
         }
@@ -229,9 +266,24 @@ class ShiftFormService {
           continue; // Has timesheet, already handled above
         }
 
+        // Skip if already processed (duplicate prevention)
+        if (processedShiftIds.contains(shiftId)) {
+          continue;
+        }
+        processedShiftIds.add(shiftId);
+        
         // This is a missed shift without timesheet - needs form
         final shiftStart = _asDateTime(shiftData['shift_start']);
         final shiftEnd = _asDateTime(shiftData['shift_end']);
+        
+        // Get student names from shift data
+        final studentNames = (shiftData['student_names'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList() ?? [];
+        final subject = shiftData['auto_generated_name'] ?? 
+                       shiftData['custom_name'] ?? 
+                       shiftData['subject_display_name'] as String?;
         
         pendingForms.add({
           'shiftId': shiftId,
@@ -240,6 +292,8 @@ class ShiftFormService {
                        'Unknown Shift',
           'shiftStart': shiftStart,
           'shiftEnd': shiftEnd,
+          'studentNames': studentNames,
+          'subject': subject,
           'missedReason': shiftData['missed_reason'] ?? 'Teacher did not clock in',
           'type': 'missed', // No timesheet entry
         });

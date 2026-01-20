@@ -236,18 +236,18 @@ class PerformanceLogger {
       ),
     );
 
+    final hasError = safeMetadata.containsKey('error');
+    if (hasError) {
+      AppLogger.error(message);
+      return;
+    }
+
     if (forceDebug) {
       AppLogger.debug(message);
       return;
     }
 
-    if (duration >= slowThreshold) {
-      AppLogger.error(message);
-    } else if (duration >= moderateThreshold) {
-      AppLogger.warning(message);
-    } else {
-      AppLogger.debug(message);
-    }
+    AppLogger.debug(message);
   }
 
   static String _labelText(PerfLogLabel label) {

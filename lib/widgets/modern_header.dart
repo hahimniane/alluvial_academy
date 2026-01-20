@@ -70,7 +70,7 @@ class _ModernHeaderState extends State<ModernHeader> {
 
             // 3. Auth & Actions (Desktop)
             if (isDesktop) ...[
-              _buildNavLink('How to enroll', () {
+              _buildNavLink('Sign up for new class', () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const ProgramSelectionPage()),
@@ -94,7 +94,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.app_registration_rounded, color: Color(0xff3B82F6)),
-                    tooltip: 'Enroll',
+                    tooltip: 'Sign up for new class',
                     onPressed: () => Navigator.push(
                       context, 
                       MaterialPageRoute(

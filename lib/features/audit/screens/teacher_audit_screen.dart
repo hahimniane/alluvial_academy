@@ -45,6 +45,17 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
     super.dispose();
   }
 
+  Future<QuerySnapshot<Map<String, dynamic>>> _fetchMetricsMonths({
+    required String collection,
+    required String userId,
+  }) {
+    return FirebaseFirestore.instance
+        .collection(collection)
+        .where('userId', isEqualTo: userId)
+        .orderBy('yearMonth', descending: true)
+        .get();
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
@@ -62,12 +73,32 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
       _isPilot = await PilotFlagService.isCurrentUserPilot();
 
       // Get available months
-      final collection = _isPilot ? 'pilot_audit_metrics' : 'audit_metrics';
-      final snapshot = await FirebaseFirestore.instance
-          .collection(collection)
-          .where('userId', isEqualTo: user.uid)
-          .orderBy('yearMonth', descending: true)
-          .get();
+      QuerySnapshot<Map<String, dynamic>> snapshot;
+      try {
+        final collection = _isPilot ? 'pilot_audit_metrics' : 'audit_metrics';
+        snapshot =
+            await _fetchMetricsMonths(collection: collection, userId: user.uid);
+        if (_isPilot && snapshot.docs.isEmpty) {
+          final fallback = await _fetchMetricsMonths(
+            collection: 'audit_metrics',
+            userId: user.uid,
+          );
+          if (fallback.docs.isNotEmpty) {
+            _isPilot = false;
+            snapshot = fallback;
+          }
+        }
+      } on FirebaseException catch (e) {
+        if (_isPilot && e.code == 'permission-denied') {
+          _isPilot = false;
+          snapshot = await _fetchMetricsMonths(
+            collection: 'audit_metrics',
+            userId: user.uid,
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       _availableMonths = snapshot.docs
           .map((doc) => doc.data()['yearMonth'] as String?)
@@ -992,4 +1023,3 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
     return value.toString();
   }
 }
-

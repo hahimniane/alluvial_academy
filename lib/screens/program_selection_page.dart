@@ -24,6 +24,41 @@ class _TimeRange {
   });
 }
 
+// Helper class for student input (multi-student support with individual program)
+class _StudentInput {
+  final TextEditingController nameController;
+  final TextEditingController ageController;
+  String? gender;
+  
+  // Individual program details for each student
+  String? subject;
+  String? specificLanguage;
+  String? level;
+  String? classType;
+  String? sessionDuration;
+  String? timeOfDayPreference;
+  List<String> selectedDays;
+  List<String> selectedTimeSlots;
+  
+  _StudentInput() 
+    : nameController = TextEditingController(),
+      ageController = TextEditingController(),
+      gender = null,
+      subject = null,
+      specificLanguage = null,
+      level = null,
+      classType = null,
+      sessionDuration = null,
+      timeOfDayPreference = null,
+      selectedDays = [],
+      selectedTimeSlots = [];
+  
+  void dispose() {
+    nameController.dispose();
+    ageController.dispose();
+  }
+}
+
 class ProgramSelectionPage extends StatefulWidget {
   final String? initialSubject;
   final bool isLanguageSelection;
@@ -77,43 +112,65 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   String? _preferredLanguage;
   String _whatsAppNumber = '';
   String? _gender;
-  bool? _knowsZoom;
+  // Removed: bool? _knowsZoom; (Zoom question removed)
   String? _classType;
   String? _sessionDuration;
   String? _timeOfDayPreference;
+  String? _selectedLevel; // For program level (Beginner/Intermediate/Advanced or After School levels)
+  
+  // Multi-student support
+  final List<_StudentInput> _students = [];
   
   // Available options
   final List<String> _subjects = [
-    'Islamic Studies',
-    'English',
-    'French',
-    'Maths',
-    'Programming',
-    'Quran',
-    'Arabic',
-    'Science'
+    'Islamic Program (Arabic, Quran, etc...)',
+    'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)',
+    'Entrepreneurship',
+    'Coding',
+    'After School Tutoring (Math, Science, Physics, etc...)',
+    'Adult Literacy (Reading and Writing English & French, etc...)',
   ];
 
   final List<String> _otherAfricanLanguages = [
+    'Pular',
+    'Mandingo',
     'Swahili',
-    'Yoruba',
-    'Amharic',
     'Wolof',
     'Hausa',
-    'Mandinka',
-    'Fulani',
-    'Igbo',
-    'Zulu',
-    'Xhosa',
+    'Yoruba',
+    'Other'
   ];
 
   final List<String> _grades = [
-    'Elementary school',
-    'Middle school',
-    'High school / Sixth form',
+    'Elementary School',
+    'Middle School',
+    'High School',
     'University',
     'Adult Professionals'
   ];
+
+  // Program level options (for non-After School programs)
+  final List<String> _programLevelOptions = [
+    'Beginner',
+    'Intermediate',
+    'Advanced',
+  ];
+
+  // After School level options
+  final List<String> _afterSchoolLevelOptions = [
+    'Elementary School',
+    'Middle School',
+    'High School',
+    'University',
+  ];
+
+  // Get current level options based on selected subject
+  List<String> get _currentLevels {
+    if (_selectedSubject == 'After School Tutoring (Math, Science, Physics, etc...)') {
+      return _afterSchoolLevelOptions;
+    }
+    return _programLevelOptions;
+  }
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   final List<String> _selectedDays = [];
@@ -152,10 +209,14 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
   
   int? _parseDurationToMinutes(String duration) {
-    if (duration.contains('30')) return 30;
-    if (duration.contains('45')) return 45;
-    if (duration.contains('60')) return 60;
-    if (duration.contains('90')) return 90;
+    // Handle new duration format - check longer/more specific durations first
+    if (duration.contains('1 hr 30')) return 90; // Must check before '30 mins' and '1 hr'
+    if (duration.contains('2 hr 30')) return 150; // Must check before '30 mins' and '2 hrs'
+    if (duration.contains('30 mins')) return 30;
+    if (duration.contains('1 hr')) return 60; // Must check after '1 hr 30' to avoid partial match
+    if (duration.contains('2 hrs')) return 120; // Must check after '2 hr 30' to avoid partial match
+    if (duration.contains('3 hrs')) return 180;
+    if (duration.contains('4 hrs')) return 240;
     return null;
   }
   
@@ -190,13 +251,16 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   
   final List<String> _roles = ['Student', 'Parent', 'Guardian'];
   final List<String> _languages = ['English', 'French', 'Arabic', 'Other'];
-  final List<String> _genders = ['Male', 'Female', 'Prefer not to say'];
+  final List<String> _genders = ['Male', 'Female']; // Removed "Prefer not to say"
   final List<String> _classTypes = ['One-on-One', 'Group', 'Both'];
   final List<String> _sessionDurations = [
-    '30 minutes',
-    '45 minutes',
-    '60 minutes',
-    '90 minutes'
+    '30 mins',
+    '1 hr',
+    '1 hr 30 mins',
+    '2 hrs',
+    '2 hr 30 mins',
+    '3 hrs',
+    '4 hrs',
   ];
   final List<String> _timeOfDayOptions = [
     'Morning',
@@ -346,6 +410,10 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     _studentNameController.dispose();
     _studentAgeController.dispose();
     _parentIdentityController.dispose();
+    // Dispose additional student controllers
+    for (final student in _students) {
+      student.dispose();
+    }
     super.dispose();
   }
 
@@ -377,58 +445,81 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   bool _validateCurrentStep() {
     switch (_currentStep) {
-      case 0: // Student Info
-        return _validateStudentInfoStep();
-      case 1: // Program
-        return _validateProgramStep();
-      case 2: // Schedule
-        return _validateScheduleStep();
-      case 3: // Contact
+      case 0: // Contact/Role
         return _validateContactStep();
+      case 1: // Student Info
+        return _validateStudentInfoStep();
+      case 2: // Program
+        return _validateProgramStep();
+      case 3: // Schedule
+        return _validateScheduleStep();
       default:
         return true;
     }
   }
 
   bool _validateStudentInfoStep() {
-    print('🔍 Validating student info step - _isAdult: $_isAdult, _role: $_role, studentName: "${_studentNameController.text.trim()}"');
-
-    // Role is always required
-    if (_role == null || _role!.isEmpty) {
-      print('❌ Validation failed: Role not selected');
-      _showSnackBar('Please select who you are (Student, Parent, or Guardian)', isError: true);
-      return false;
-    }
-
-    // Student name is always required
+    // First student name is always required
     final studentName = _studentNameController.text.trim();
     if (studentName.isEmpty) {
-      print('❌ Validation failed: Student name is empty');
       _showSnackBar('Please enter the student name', isError: true);
       return false;
     }
+    
+    // Validate additional students (for Parent/Guardian role)
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    if (isParentOrGuardian) {
+      for (int i = 0; i < _students.length; i++) {
+        final student = _students[i];
+        if (student.nameController.text.trim().isEmpty) {
+          _showSnackBar('Please enter name for Student ${i + 2}', isError: true);
+          return false;
+        }
+      }
+    }
 
-    print('✅ Student info validation passed');
     return true;
   }
 
   bool _validateProgramStep() {
+    // Validate first student's program
     if (_selectedSubject == null || _selectedSubject!.isEmpty) {
-      _showSnackBar('Please select a subject', isError: true);
+      _showSnackBar('Please select a program for Student 1', isError: true);
       return false;
     }
-
-    if (_selectedSubject == 'African Languages (Other)' &&
+    if (_selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)' &&
         (_selectedAfricanLanguage == null || _selectedAfricanLanguage!.isEmpty)) {
-      _showSnackBar('Please select a specific African language', isError: true);
+      _showSnackBar('Please select a specific language for Student 1', isError: true);
       return false;
     }
-
-    if (_selectedGrade == null || _selectedGrade!.isEmpty) {
-      _showSnackBar('Please select a grade level', isError: true);
+    if (_selectedLevel == null || _selectedLevel!.isEmpty) {
+      _showSnackBar('Please select a level for Student 1', isError: true);
       return false;
     }
-
+    
+    // Validate additional students' programs (for Parent/Guardian with multiple students)
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    if (isParentOrGuardian && _students.isNotEmpty) {
+      for (int i = 0; i < _students.length; i++) {
+        final student = _students[i];
+        final studentNum = i + 2;
+        
+        if (student.subject == null || student.subject!.isEmpty) {
+          _showSnackBar('Please select a program for Student $studentNum', isError: true);
+          return false;
+        }
+        if (student.subject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)' &&
+            (student.specificLanguage == null || student.specificLanguage!.isEmpty)) {
+          _showSnackBar('Please select a specific language for Student $studentNum', isError: true);
+          return false;
+        }
+        if (student.level == null || student.level!.isEmpty) {
+          _showSnackBar('Please select a level for Student $studentNum', isError: true);
+          return false;
+        }
+      }
+    }
+    
     return true;
   }
 
@@ -447,14 +538,21 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   bool _validateContactStep() {
+    // Role is required
+    if (_role == null || _role!.isEmpty) {
+      _showSnackBar('Please select who you are (Student, Parent, or Guardian)', isError: true);
+      return false;
+    }
+
     // Validate form fields using FormKey
     if (!_formKey.currentState!.validate()) {
       _showSnackBar('Please fill in all required fields', isError: true);
       return false;
     }
 
-    // For minor students, either parent identity must be linked OR parent name must be provided
-    if (!_isAdult) {
+    // For Parent/Guardian role, parent name is required (unless linked)
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    if (isParentOrGuardian) {
       final hasLinkedParent = _linkedParentData != null;
       final hasParentName = _parentNameController.text.trim().isNotEmpty;
 
@@ -590,7 +688,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                           borderRadius: BorderRadius.circular(100),
                         ),
                   child: Text(
-                          'FREE TRIAL',
+                          'CLASS SIGN UP',
                     style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -604,7 +702,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                     FadeInSlide(
                       delay: 0.15,
                       child: Text(
-                        'Begin Your\nLearning Journey',
+                        'Class Sign Up',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 38,
                       fontWeight: FontWeight.w800,
@@ -642,10 +740,10 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   Widget _buildStepIndicator() {
     final steps = [
+      {'title': 'Contact', 'icon': Icons.mail_outline},
       {'title': 'Student', 'icon': Icons.person_outline},
       {'title': 'Program', 'icon': Icons.auto_stories_outlined},
       {'title': 'Schedule', 'icon': Icons.calendar_today_outlined},
-      {'title': 'Contact', 'icon': Icons.mail_outline},
     ];
 
     return Column(
@@ -779,17 +877,17 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
             child: Column(
           mainAxisSize: MainAxisSize.min,
               children: [
-            // Only show parent lookup on Contact step
-            if (_currentStep == 3) _buildParentLookup(),
+            // Only show parent lookup on Contact step (Step 0)
+            if (_currentStep == 0) _buildParentLookup(),
             Expanded(
               child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
+                  _buildStep0Contact(),
                   _buildStep1StudentInfo(),
                   _buildStep2Program(),
                   _buildStep3Schedule(),
-                  _buildStep4Contact(),
                 ],
               ),
             ),
@@ -1109,10 +1207,12 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   bool get _isAdult {
-    // Check if grade is Adult/University OR Age >= 18
+    // Check if level is University (adult) OR Age >= 18
     // Note: 'Student' role does NOT automatically mean adult.
-    if (_selectedGrade == 'Adult Professionals' ||
-        _selectedGrade == 'University') return true;
+    // Updated to use new level system while maintaining backward compatibility
+    if (_selectedLevel == 'University' ||
+        _selectedGrade == 'University' ||
+        _selectedGrade == 'Adult Professionals') return true;
 
     final age = int.tryParse(_studentAgeController.text) ?? 0;
     if (age >= 18) return true;
@@ -1182,188 +1282,463 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   Widget _buildStep1StudentInfo() {
-    return _buildStepCard(
-      title: 'Student Information',
-      children: [
-        _buildModernDropdown(
-          'I am the',
-          _roles,
-          _role,
-          (v) => setState(() => _role = v),
-          Icons.account_circle_outlined,
-        ),
-        const SizedBox(height: 20),
-        _buildModernTextField(
-          'Student Name',
-          _studentNameController,
-          Icons.person_outline_rounded,
-          hint: 'Enter full name',
-        ),
-        const SizedBox(height: 20),
-        Row(
-                    children: [
-                      Expanded(
-              child: _buildModernTextField(
-                'Age',
-                _studentAgeController,
-                Icons.cake_outlined,
-                isNumber: true,
-                hint: 'Years',
-              ),
-            ),
-            const SizedBox(width: 16),
-                      Expanded(
-              flex: 2,
-              child: _buildModernDropdown(
-                'Gender',
-                _genders,
-                _gender,
-                (v) => setState(() => _gender = v),
-                Icons.people_outline_rounded,
-                        ),
-                      ),
-                    ],
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    
+    // For adult students (role == 'Student'), use single student fields
+    if (!isParentOrGuardian) {
+      return _buildStepCard(
+        title: 'Your Information',
+        children: [
+          _buildModernTextField(
+            'Full Name',
+            _studentNameController,
+            Icons.person_outline_rounded,
+            hint: 'Enter your full name',
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildModernTextField(
+                  'Age',
+                  _studentAgeController,
+                  Icons.cake_outlined,
+                  isNumber: true,
+                  hint: 'Years',
                 ),
-                const SizedBox(height: 24),
-        _buildModernLabel('Technical Experience'),
-        const SizedBox(height: 12),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: _buildModernDropdown(
+                  'Gender',
+                  _genders,
+                  _gender,
+                  (v) => setState(() => _gender = v),
+                  Icons.people_outline_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+    
+    // For Parent/Guardian: show multi-student support
+    return _buildStepCard(
+      title: 'Student(s) Information',
+      children: [
+        // Info banner for multi-student
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xffF8FAFC),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xffE2E8F0)),
+            color: const Color(0xff3B82F6).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.3)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Text(
-                'Does the student know how to use Zoom?',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff374151),
+              const Icon(Icons.info_outline, color: Color(0xff3B82F6), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'You can add multiple students in one submission',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xff3B82F6),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildZoomOption(true, 'Yes, they do'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildZoomOption(false, 'No, needs help'),
-                  ),
-                ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        
+        // First student (always visible, uses main controllers)
+        _buildStudentCard(
+          index: 0,
+          nameController: _studentNameController,
+          ageController: _studentAgeController,
+          gender: _gender,
+          onGenderChanged: (v) => setState(() => _gender = v),
+          isRemovable: false,
+        ),
+        
+        // Additional students from _students list
+        ...List.generate(_students.length, (index) {
+          final student = _students[index];
+          return Column(
+            children: [
+              const SizedBox(height: 16),
+              _buildStudentCard(
+                index: index + 1,
+                nameController: student.nameController,
+                ageController: student.ageController,
+                gender: student.gender,
+                onGenderChanged: (v) => setState(() => student.gender = v),
+                isRemovable: true,
+                onRemove: () => _removeStudent(index),
               ),
             ],
+          );
+        }),
+        
+        const SizedBox(height: 20),
+        
+        // Add Student Button
+        OutlinedButton.icon(
+          onPressed: _addStudent,
+          icon: const Icon(Icons.add_rounded, size: 20),
+          label: Text(
+            'Add Another Student',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xff3B82F6),
+            side: const BorderSide(color: Color(0xff3B82F6), width: 1.5),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ],
     );
   }
-
-  Widget _buildZoomOption(bool value, String label) {
-    final isSelected = _knowsZoom == value;
-    return InkWell(
-      onTap: () => setState(() => _knowsZoom = value),
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xff3B82F6).withOpacity(0.1)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xff3B82F6)
-                : const Color(0xffE2E8F0),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected
-                  ? const Color(0xff3B82F6)
-                  : const Color(0xff94A3B8),
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-                    style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? const Color(0xff3B82F6)
-                    : const Color(0xff64748B),
+  
+  Widget _buildStudentCard({
+    required int index,
+    required TextEditingController nameController,
+    required TextEditingController ageController,
+    required String? gender,
+    required Function(String?) onGenderChanged,
+    required bool isRemovable,
+    VoidCallback? onRemove,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Student ${index + 1}',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff374151),
+                ),
               ),
-            ),
-          ],
+              if (isRemovable)
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  color: const Color(0xffEF4444),
+                  tooltip: 'Remove student',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildModernTextField(
+            'Student Name',
+            nameController,
+            Icons.person_outline_rounded,
+            hint: 'Enter full name',
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildModernTextField(
+                  'Age',
+                  ageController,
+                  Icons.cake_outlined,
+                  isNumber: true,
+                  hint: 'Years',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: _buildModernDropdown(
+                  'Gender',
+                  _genders,
+                  gender,
+                  onGenderChanged,
+                  Icons.people_outline_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _addStudent() {
+    setState(() {
+      _students.add(_StudentInput());
+    });
+  }
+  
+  void _removeStudent(int index) {
+    setState(() {
+      _students[index].dispose();
+      _students.removeAt(index);
+    });
+  }
+  
+  // Helper method to get levels based on subject
+  List<String> _getLevelsForSubject(String? subject) {
+    if (subject == 'After School Tutoring (Math, Science, Physics, etc...)') {
+      return ['Elementary', 'Middle School', 'High School', 'University'];
+    }
+    return ['Beginner', 'Intermediate', 'Advanced'];
+  }
+  
+  Widget _buildProgramFields({
+    required String? subject,
+    required Function(String?) onSubjectChanged,
+    required String? specificLanguage,
+    required Function(String?) onSpecificLanguageChanged,
+    required String? level,
+    required Function(String?) onLevelChanged,
+    required String? classType,
+    required Function(String?) onClassTypeChanged,
+  }) {
+    return Column(
+      children: [
+        _buildModernDropdown(
+          'Select Program',
+          widget.isLanguageSelection
+              ? ['English', 'French', 'Adlam', 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)']
+              : _subjects,
+          subject,
+          onSubjectChanged,
+          Icons.auto_stories_outlined,
         ),
+        if (subject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') ...[
+          const SizedBox(height: 16),
+          _buildModernDropdown(
+            'Specific Language',
+            _otherAfricanLanguages,
+            specificLanguage,
+            onSpecificLanguageChanged,
+            Icons.language_rounded,
+          ),
+        ],
+        if (subject != null) ...[
+          const SizedBox(height: 16),
+          _buildModernDropdown(
+            subject == 'After School Tutoring (Math, Science, Physics, etc...)' ? 'Grade Level' : 'Proficiency Level',
+            _getLevelsForSubject(subject),
+            level,
+            onLevelChanged,
+            Icons.school_outlined,
+          ),
+        ],
+        const SizedBox(height: 16),
+        _buildModernDropdown(
+          'Class Type',
+          _classTypes,
+          classType,
+          onClassTypeChanged,
+          Icons.groups_outlined,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildStudentProgramCard({
+    required int studentIndex,
+    required String studentName,
+    required String? subject,
+    required Function(String?) onSubjectChanged,
+    required String? specificLanguage,
+    required Function(String?) onSpecificLanguageChanged,
+    required String? level,
+    required Function(String?) onLevelChanged,
+    required String? classType,
+    required Function(String?) onClassTypeChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xff3B82F6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${studentIndex + 1}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  studentName,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff374151),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildProgramFields(
+            subject: subject,
+            onSubjectChanged: onSubjectChanged,
+            specificLanguage: specificLanguage,
+            onSpecificLanguageChanged: onSpecificLanguageChanged,
+            level: level,
+            onLevelChanged: onLevelChanged,
+            classType: classType,
+            onClassTypeChanged: onClassTypeChanged,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStep2Program() {
-    return _buildStepCard(
-      title: 'Program Details',
-      children: [
-        _buildModernDropdown(
-          'Subject',
-          widget.isLanguageSelection
-              ? ['English', 'French', 'Adlam', 'African Languages (Other)']
-              : _subjects,
-          _selectedSubject,
-          (v) {
-                          setState(() {
-              _selectedSubject = v;
-              if (v != 'African Languages (Other)') _selectedAfricanLanguage = null;
-                          });
-                        },
-          Icons.auto_stories_outlined,
-        ),
-        if (_selectedSubject == 'African Languages (Other)') ...[
-          const SizedBox(height: 20),
-          _buildModernDropdown(
-            'Specific Language',
-            _otherAfricanLanguages,
-            _selectedAfricanLanguage,
-            (v) => setState(() => _selectedAfricanLanguage = v),
-            Icons.language_rounded,
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    final totalStudents = isParentOrGuardian ? 1 + _students.length : 1;
+    
+    // For single student (adult) or first student
+    if (!isParentOrGuardian || totalStudents == 1) {
+      return _buildStepCard(
+        title: 'Program Details',
+        children: [
+          _buildProgramFields(
+            subject: _selectedSubject,
+            onSubjectChanged: (v) {
+              setState(() {
+                _selectedSubject = v;
+                if (v != 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') _selectedAfricanLanguage = null;
+                _selectedLevel = null;
+              });
+            },
+            specificLanguage: _selectedAfricanLanguage,
+            onSpecificLanguageChanged: (v) => setState(() => _selectedAfricanLanguage = v),
+            level: _selectedLevel,
+            onLevelChanged: (v) => setState(() => _selectedLevel = v),
+            classType: _classType,
+            onClassTypeChanged: (v) => setState(() => _classType = v),
           ),
         ],
-        const SizedBox(height: 20),
-        _buildModernDropdown(
-          'Grade Level',
-          _grades,
-          _selectedGrade,
-          (v) => setState(() => _selectedGrade = v),
-          Icons.school_outlined,
-          isRequired: false,
+      );
+    }
+    
+    // For Parent/Guardian with multiple students - show program for each
+    return _buildStepCard(
+      title: 'Program Details for Each Student',
+      children: [
+        // Info banner
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xff10B981).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.school_outlined, color: Color(0xff10B981), size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Select a program for each student. Each will be enrolled separately.',
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff10B981), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 20),
+        
+        // First student program
+        _buildStudentProgramCard(
+          studentIndex: 0,
+          studentName: _studentNameController.text.isNotEmpty ? _studentNameController.text : 'Student 1',
+          subject: _selectedSubject,
+          onSubjectChanged: (v) {
+            setState(() {
+              _selectedSubject = v;
+              if (v != 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') _selectedAfricanLanguage = null;
+              _selectedLevel = null;
+            });
+          },
+          specificLanguage: _selectedAfricanLanguage,
+          onSpecificLanguageChanged: (v) => setState(() => _selectedAfricanLanguage = v),
+          level: _selectedLevel,
+          onLevelChanged: (v) => setState(() => _selectedLevel = v),
+          classType: _classType,
+          onClassTypeChanged: (v) => setState(() => _classType = v),
+        ),
+        
+        // Additional students' programs
+        ...List.generate(_students.length, (index) {
+          final student = _students[index];
+          final studentName = student.nameController.text.isNotEmpty 
+              ? student.nameController.text 
+              : 'Student ${index + 2}';
+          return Column(
+            children: [
+              const SizedBox(height: 16),
+              _buildStudentProgramCard(
+                studentIndex: index + 1,
+                studentName: studentName,
+                subject: student.subject,
+                onSubjectChanged: (v) {
+                  setState(() {
+                    student.subject = v;
+                    if (v != 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') student.specificLanguage = null;
+                    student.level = null;
+                  });
+                },
+                specificLanguage: student.specificLanguage,
+                onSpecificLanguageChanged: (v) => setState(() => student.specificLanguage = v),
+                level: student.level,
+                onLevelChanged: (v) => setState(() => student.level = v),
+                classType: student.classType,
+                onClassTypeChanged: (v) => setState(() => student.classType = v),
+              ),
+            ],
+          );
+        }),
         const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
               child: _buildModernDropdown(
-                'Class Type',
-                _classTypes,
-                _classType,
-                (v) => setState(() => _classType = v),
-                Icons.groups_outlined,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildModernDropdown(
-                'Language',
+                'Preferred Language',
                 _languages,
                 _preferredLanguage,
                 (v) => setState(() => _preferredLanguage = v),
@@ -1572,11 +1947,24 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     );
   }
 
-  Widget _buildStep4Contact() {
+  Widget _buildStep0Contact() {
+    // Determine if we should show parent fields based on role
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    
     return _buildStepCard(
       title: 'Contact Information',
       children: [
-        if (!_isAdult) ...[
+        // Role selection first
+        _buildModernDropdown(
+          'I am the',
+          _roles,
+          _role,
+          (v) => setState(() => _role = v),
+          Icons.account_circle_outlined,
+        ),
+        const SizedBox(height: 20),
+        // Parent info first when role is Parent/Guardian
+        if (isParentOrGuardian) ...[
           _buildModernTextField(
             'Parent/Guardian Name',
             _parentNameController,
@@ -1586,7 +1974,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           const SizedBox(height: 20),
         ],
         _buildModernTextField(
-          _isAdult ? 'Your Email Address' : 'Email Address',
+          _role == 'Student' ? 'Your Email Address' : 'Email Address',
           _emailController,
           Icons.email_outlined,
           hint: 'your@email.com',
@@ -1874,39 +2262,97 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
       setState(() => _isSubmitting = true);
       try {
         final isAdultStudent = _isAdult;
-        final request = EnrollmentRequest(
-          subject: _selectedSubject,
-          specificLanguage: _selectedSubject == 'African Languages (Other)'
-              ? _selectedAfricanLanguage
-              : null,
-          gradeLevel: _selectedGrade ?? '',
-          email: _emailController.text.trim(),
-          phoneNumber: _phoneNumber,
-          countryCode: _selectedCountry?.countryCode ?? 'US',
-          countryName: _selectedCountry?.name ?? 'United States',
-          preferredDays: _selectedDays,
-          preferredTimeSlots: _selectedTimeSlots,
-          submittedAt: DateTime.now(),
-          timeZone: _ianaTimeZone, // Using IANA timezone (e.g., 'America/New_York')
-          role: isAdultStudent ? 'Student' : (_role ?? 'Parent'),
-          preferredLanguage: _preferredLanguage,
-          parentName: isAdultStudent
-              ? null
-              : _parentNameController.text.trim(),
-          city: _cityController.text.trim(),
-          whatsAppNumber: _whatsAppNumber,
-          studentName: _studentNameController.text.trim(),
-          studentAge: _studentAgeController.text.trim(),
-          gender: _gender,
-          knowsZoom: _knowsZoom,
-          classType: _classType,
-          sessionDuration: _sessionDuration,
-          timeOfDayPreference: _timeOfDayPreference,
-          guardianId: _guardianId,
-          isAdult: isAdultStudent,
-        );
+        final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+        
+        // For Parent/Guardian with multiple students: create individual enrollments
+        if (isParentOrGuardian && _students.isNotEmpty) {
+          // Build list of all students with their individual program details
+          final allStudents = <StudentInfo>[
+            // First student with main form fields
+            StudentInfo(
+              name: _studentNameController.text.trim(),
+              age: _studentAgeController.text.trim(),
+              gender: _gender,
+              subject: _selectedSubject,
+              specificLanguage: _selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)'
+                  ? _selectedAfricanLanguage
+                  : null,
+              level: _selectedLevel,
+              classType: _classType,
+              sessionDuration: _sessionDuration,
+              timeOfDayPreference: _timeOfDayPreference,
+              preferredDays: _selectedDays,
+              preferredTimeSlots: _selectedTimeSlots,
+            ),
+            // Additional students with their individual program details
+            ..._students.map((s) => StudentInfo(
+              name: s.nameController.text.trim(),
+              age: s.ageController.text.trim(),
+              gender: s.gender,
+              subject: s.subject ?? _selectedSubject,
+              specificLanguage: s.subject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)'
+                  ? s.specificLanguage
+                  : null,
+              level: s.level ?? _selectedLevel,
+              classType: s.classType ?? _classType,
+              sessionDuration: s.sessionDuration ?? _sessionDuration,
+              timeOfDayPreference: s.timeOfDayPreference ?? _timeOfDayPreference,
+              preferredDays: s.selectedDays.isNotEmpty ? s.selectedDays : _selectedDays,
+              preferredTimeSlots: s.selectedTimeSlots.isNotEmpty ? s.selectedTimeSlots : _selectedTimeSlots,
+            )),
+          ];
+          
+          // Submit individual enrollments for each student (all linked to same parent)
+          await EnrollmentService().submitMultipleEnrollments(
+            parentName: _parentNameController.text.trim(),
+            email: _emailController.text.trim(),
+            phoneNumber: _phoneNumber,
+            countryCode: _selectedCountry?.countryCode ?? 'US',
+            countryName: _selectedCountry?.name ?? 'United States',
+            city: _cityController.text.trim(),
+            whatsAppNumber: _whatsAppNumber,
+            timeZone: _ianaTimeZone,
+            preferredLanguage: _preferredLanguage ?? 'English',
+            role: _role ?? 'Parent',
+            guardianId: _guardianId,
+            students: allStudents,
+          );
+        } else {
+          // Single student enrollment (adult student or parent with one child)
+          final request = EnrollmentRequest(
+            subject: _selectedSubject,
+            specificLanguage: _selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)'
+                ? _selectedAfricanLanguage
+                : null,
+            gradeLevel: _selectedLevel ?? _selectedGrade ?? '',
+            email: _emailController.text.trim(),
+            phoneNumber: _phoneNumber,
+            countryCode: _selectedCountry?.countryCode ?? 'US',
+            countryName: _selectedCountry?.name ?? 'United States',
+            preferredDays: _selectedDays,
+            preferredTimeSlots: _selectedTimeSlots,
+            submittedAt: DateTime.now(),
+            timeZone: _ianaTimeZone,
+            role: isAdultStudent ? 'Student' : (_role ?? 'Parent'),
+            preferredLanguage: _preferredLanguage,
+            parentName: isAdultStudent
+                ? null
+                : _parentNameController.text.trim(),
+            city: _cityController.text.trim(),
+            whatsAppNumber: _whatsAppNumber,
+            studentName: _studentNameController.text.trim(),
+            studentAge: _studentAgeController.text.trim(),
+            gender: _gender,
+            knowsZoom: null,
+            classType: _classType,
+            sessionDuration: _sessionDuration,
+            timeOfDayPreference: _timeOfDayPreference,
+            guardianId: _guardianId,
+            isAdult: isAdultStudent,
+          );
 
-        await EnrollmentService().submitEnrollment(request);
+          await EnrollmentService().submitEnrollment(request);
+        }
 
         if (mounted) {
           Navigator.pushReplacement(

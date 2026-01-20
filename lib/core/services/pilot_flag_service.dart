@@ -24,6 +24,12 @@ class PilotFlagService {
     final user = _auth.currentUser;
     if (user == null) return false;
 
+    // TEMPORARY: Enable new form templates for ALL users
+    // TODO: Remove this and use selective pilot mode once templates are stable
+    return true;
+
+    // Original selective pilot code (commented out for now):
+    /*
     // Check cache
     if (_cachedIsPilot != null &&
         _cachedUserId == user.uid &&
@@ -71,6 +77,7 @@ class PilotFlagService {
       // Fallback: check hardcoded pilot user
       return user.uid == pilotUserId;
     }
+    */
   }
 
   /// Create default pilot config with Aliou

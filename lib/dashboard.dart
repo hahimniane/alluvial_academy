@@ -14,9 +14,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'core/services/user_role_service.dart';
 import 'core/constants/app_constants.dart';
+import 'core/utils/app_logger.dart';
 import 'shared/widgets/role_switcher.dart';
 import 'features/user_management/screens/user_management_screen.dart';
 import 'admin/form_builder.dart';
+import 'admin/forms_list_screen.dart';
 import 'test_role_system.dart';
 import 'firestore_debug_screen.dart';
 import 'features/tasks/screens/quick_tasks_screen.dart';
@@ -28,13 +30,10 @@ import 'features/notifications/screens/send_notification_screen.dart';
 import 'features/enrollment_management/screens/enrollment_management_screen.dart';
 import 'features/teacher_applications/screens/teacher_application_management_screen.dart';
 import 'features/settings/screens/admin_settings_screen.dart';
-import 'features/settings/screens/role_settings_screen.dart';
-import 'features/quran/screens/quran_screen.dart';
-import 'admin/screens/audit_dashboard_screen.dart';
 import 'admin/screens/admin_audit_screen.dart';
 import 'admin/screens/subject_rates_screen.dart';
-import 'admin/screens/test_audit_generation.dart';
 import 'features/audit/screens/teacher_audit_screen.dart';
+import 'admin/screens/test_audit_generation.dart';
 import 'features/forms/screens/teacher_forms_screen.dart';
 import 'screens/landing_page.dart';
 import 'role_based_dashboard.dart';
@@ -53,14 +52,12 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   // State variables
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isHovered = false;
   bool _isSideMenuCollapsed = false;
   int _selectedIndex = 0;
   String? _userRole;
   Map<String, dynamic>? _userData;
   int _refreshTrigger = 0;
-  static const int _screenCount = 26;
 
   @override
   void initState() {
@@ -107,97 +104,44 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Set<int> _allowedScreensForRole(String? role) {
-    final lower = role?.toLowerCase();
-
-    if (lower == 'admin' || lower == 'super_admin') {
-      return Set<int>.from(List<int>.generate(_screenCount, (i) => i));
-    }
-
-    if (lower == 'teacher') {
-      return <int>{0, 4, 5, 6, 8, 11, 12, 19, 25};
-    }
-
-    if (lower == 'student' || lower == 'parent') {
-      return <int>{0, 5, 11, 12, 19, 25};
-    }
-
-    return <int>{0};
-  }
-
-  Widget _buildScreenForIndex(int index) {
-    final allowed = _allowedScreensForRole(_userRole).contains(index);
-    if (!allowed) {
-      return const _AccessDeniedScreen();
-    }
-
-    switch (index) {
-      case 0:
-        return AdminDashboard(refreshTrigger: _refreshTrigger);
-      case 1:
-        return const UserManagementScreen();
-      case 2:
-        return const WebsiteManagementScreen();
-      case 3:
-        return const ShiftManagementScreen();
-      case 4:
-        return const TeacherShiftScreen();
-      case 5:
-        return const ChatPage();
-      case 6:
-        return const TimeClockScreen();
-      case 7:
-        return const AdminTimesheetReview();
-      case 8:
-        return const FormScreen();
-      case 9:
-        return FormResponsesScreen(key: ValueKey(_refreshTrigger));
-      case 10:
-        return const FormBuilder();
-      case 11:
-        return const QuickTasksScreen();
-      case 12:
-        return const ZoomScreen();
-      case 13:
-        return const TestRoleSystemScreen();
-      case 14:
-        return const FirestoreDebugScreen();
-      case 15:
-        return const SendNotificationScreen();
-      case 16:
-        return const EnrollmentManagementScreen();
-      case 17:
-        return const TeacherApplicationManagementScreen();
-      case 18:
-        return const AdminSettingsScreen();
-      case 19:
-        return const AdminAuditScreen();
-      case 20:
-        return const SubjectRatesScreen();
-      case 21:
-        return const TeacherAuditScreen();
-      case 22:
-        return const TestAuditGenerationScreen();
-      case 23:
-        return const TeacherFormsScreen();
-      case 24:
-        return const QuranScreen();
-      case 25:
-        final roleLabel = UserRoleService.getRoleDisplayName(_userRole);
-        return RoleSettingsScreen(title: '$roleLabel Settings');
-      default:
-        return const _AccessDeniedScreen();
-    }
-  }
+  // Get screens available in the dashboard (built dynamically to include refresh trigger)
+  List<Widget> get _screens => [
+        AdminDashboard(refreshTrigger: _refreshTrigger),
+        const UserManagementScreen(),
+        const WebsiteManagementScreen(),
+        const ShiftManagementScreen(),
+        const TeacherShiftScreen(),
+        const ChatPage(),
+        const TimeClockScreen(),
+        const AdminTimesheetReview(),
+        const FormScreen(),
+        FormResponsesScreen(key: ValueKey(_refreshTrigger)),
+        const FormsListScreen(), // Changed from FormBuilder to FormsListScreen - allows selecting and editing forms
+        const QuickTasksScreen(),
+        // Classes screen
+        const ZoomScreen(),
+        const TestRoleSystemScreen(),
+        const FirestoreDebugScreen(),
+        const SendNotificationScreen(),
+        const EnrollmentManagementScreen(),
+        const TeacherApplicationManagementScreen(),
+        const AdminSettingsScreen(),
+        // Additional screens for admin and teacher features
+        const AdminAuditScreen(), // Index 19
+        const SubjectRatesScreen(), // Index 20
+        const TeacherAuditScreen(), // Index 21 - My Report
+        const TestAuditGenerationScreen(), // Index 22
+        const TeacherFormsScreen(), // Index 23 - Submit Form
+      ];
 
   /// Updates the selected index when a navigation item is tapped
   void _onItemTapped(int index) {
-    // Close drawer on compact layouts.
-    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
-      Navigator.of(context).pop();
-    }
-
     if (mounted) {
+      // Validate index is within bounds
+      if (index < 0 || index >= _screens.length) {
+        AppLogger.error('Invalid screen index: $index (max: ${_screens.length - 1})');
+        return;
+      }
       setState(() {
         _selectedIndex = index;
         // Trigger refresh for FormResponsesScreen (index 9) when navigated to
@@ -1016,73 +960,30 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isCompactLayout = MediaQuery.of(context).size.width < 900;
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: Colors.grey.shade100,
-      appBar: _buildAppBar(isCompact: isCompactLayout),
-      drawer: isCompactLayout
-          ? Drawer(
-              child: SafeArea(
-                child: _buildSideMenu(forceExpanded: true),
-              ),
-            )
-          : null,
-      body: _buildBody(isCompact: isCompactLayout),
+      appBar: _buildAppBar(),
+      body: _buildBody(),
     );
   }
 
   /// Builds the main body of the dashboard
-  Widget _buildBody({required bool isCompact}) {
-    final content = IndexedStack(
-      index: _selectedIndex,
-      children:
-          List<Widget>.generate(_screenCount, (i) => _buildScreenForIndex(i)),
-    );
-
-    if (isCompact) {
-      return content;
-    }
-
+  Widget _buildBody() {
     return Row(
       children: [
         _buildSideMenu(),
-        Expanded(child: content),
+        Expanded(
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: _screens,
+          ),
+        ),
       ],
     );
   }
 
   /// Builds the app bar with logo, search, and user profile
-  AppBar _buildAppBar({required bool isCompact}) {
-    if (isCompact) {
-      return AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          icon: const Icon(Icons.menu),
-          tooltip: 'Menu',
-        ),
-        title: _buildLogoAndSearch(),
-        actions: [
-          RoleSwitcher(
-            onRoleChanged: (newRole) {
-              _loadUserData();
-              setState(() {
-                _selectedIndex = 0;
-                _refreshTrigger++;
-              });
-            },
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-          ),
-          const SizedBox(width: 8),
-          _buildNotificationIcon(),
-          const SizedBox(width: 8),
-          _buildUserProfile(compact: true),
-          const SizedBox(width: 8),
-        ],
-      );
-    }
-
+  AppBar _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
       title: Padding(
@@ -1154,7 +1055,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   /// Builds the user profile section
-  Widget _buildUserProfile({bool compact = false}) {
+  Widget _buildUserProfile() {
     return PopupMenuButton<String>(
       onSelected: (value) {
         if (value == 'logout') {
@@ -1215,40 +1116,38 @@ class _DashboardPageState extends State<DashboardPage> {
       },
       child: Row(
         children: [
-          if (!compact) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _getUserName(),
-                  style: openSansHebrewTextStyle.copyWith(
-                    color: Colors.blueAccent,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _getUserName(),
+                style: openSansHebrewTextStyle.copyWith(
+                  color: Colors.blueAccent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (_userRole != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _getRoleColor(),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _userRole!.toUpperCase(),
+                    style: openSansHebrewTextStyle.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-                if (_userRole != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _getRoleColor(),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _userRole!.toUpperCase(),
-                      style: openSansHebrewTextStyle.copyWith(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 10),
-          ],
+            ],
+          ),
+          const SizedBox(width: 10),
           CircleAvatar(
             backgroundColor: Colors.teal,
             child: Text(
@@ -1337,40 +1236,18 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   /// Builds the side navigation menu
-  Widget _buildSideMenu({bool forceExpanded = false}) {
+  Widget _buildSideMenu() {
     return CustomSidebar(
       selectedIndex: _selectedIndex,
       onItemSelected: _onItemTapped,
-      isCollapsed: forceExpanded ? false : _isSideMenuCollapsed,
+      isCollapsed: _isSideMenuCollapsed,
       onToggleCollapse: () {
-        if (forceExpanded) return;
         setState(() {
           _isSideMenuCollapsed = !_isSideMenuCollapsed;
         });
         _saveSidebarState();
       },
       userRole: _userRole,
-    );
-  }
-}
-
-class _AccessDeniedScreen extends StatelessWidget {
-  const _AccessDeniedScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xffF8FAFC),
-      child: Center(
-        child: Text(
-          'Access restricted',
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xff6B7280),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
     );
   }
 }

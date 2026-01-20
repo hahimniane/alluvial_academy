@@ -118,7 +118,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Enrollment Pipeline',
+                'Student Applicants',
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -126,7 +126,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
                 ),
               ),
               Text(
-                'Manage student flow from application to enrollment',
+                'Manage student applications and enrollment',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xff6B7280),

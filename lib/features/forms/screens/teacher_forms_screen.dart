@@ -5,9 +5,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/form_template.dart';
+import '../../../core/models/teaching_shift.dart';
+import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/services/shift_form_service.dart';
 import '../../../form_screen.dart';
+import '../../../core/utils/app_logger.dart';
+import '../widgets/form_details_modal.dart';
+import '../screens/my_submissions_screen.dart';
+import '../../shift_management/widgets/shift_details_dialog.dart';
+import '../../time_clock/widgets/edit_timesheet_dialog.dart';
 
 /// New Teacher Forms Screen - Shows all form templates organized by category
 /// Categories: Teaching (daily/weekly/monthly), Feedback, Student Assessment, Administrative
@@ -27,30 +35,33 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
   Map<String, bool> _submittedForms = {};
   String? _errorMessage;
 
-  // Category colors for visual distinction
+  // Palette de couleurs "Soft"
   static const Map<FormCategory, Color> _categoryColors = {
-    FormCategory.teaching: Color(0xFF10B981),
-    FormCategory.studentAssessment: Color(0xFF3B82F6),
-    FormCategory.feedback: Color(0xFF8B5CF6),
-    FormCategory.administrative: Color(0xFFF59E0B),
-    FormCategory.other: Color(0xFF6B7280),
+    FormCategory.teaching: Color(0xFF10B981), // Emerald
+    FormCategory.studentAssessment: Color(0xFF3B82F6), // Blue
+    FormCategory.feedback: Color(0xFF8B5CF6), // Violet
+    FormCategory.administrative: Color(0xFFF59E0B), // Amber
+    FormCategory.other: Color(0xFF64748B), // Slate
   };
 
-  // Category icons
   static const Map<FormCategory, IconData> _categoryIcons = {
-    FormCategory.teaching: Icons.school_outlined,
-    FormCategory.studentAssessment: Icons.assessment_outlined,
-    FormCategory.feedback: Icons.feedback_outlined,
-    FormCategory.administrative: Icons.admin_panel_settings_outlined,
-    FormCategory.other: Icons.description_outlined,
+    FormCategory.teaching: Icons.school_rounded,
+    FormCategory.studentAssessment: Icons.analytics_rounded,
+    FormCategory.feedback: Icons.rate_review_rounded,
+    FormCategory.administrative: Icons.admin_panel_settings_rounded,
+    FormCategory.other: Icons.folder_open_rounded,
   };
 
   @override
   void initState() {
     super.initState();
-    _loadUserRole();
-    _loadTemplates();
-    _loadSubmissionStatus();
+    _loadAllData();
+  }
+
+  Future<void> _loadAllData() async {
+    await _loadUserRole();
+    await _loadTemplates();
+    await _loadSubmissionStatus();
   }
 
   Future<void> _loadUserRole() async {
@@ -58,18 +69,58 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     if (mounted) setState(() => _userRole = role);
   }
 
-  Future<void> _loadTemplates() async {
+  Future<void> _loadTemplates({bool forceRefresh = true}) async {
     setState(() => _isLoading = true);
     
     try {
       // Load templates from Firestore form_templates collection
-      final allTemplates = await FormTemplateService.getAllTemplates();
+      // Force refresh from server to ensure latest version (bypasses cache)
+      final allTemplates = await FormTemplateService.getAllTemplates(forceRefresh: forceRefresh);
+      
+      
+      // Filter to keep only the latest version of each template by name
+      // Normalize names (trim, lowercase, remove extra spaces) to catch duplicates
+      final Map<String, FormTemplate> latestTemplatesByName = {};
+      for (var template in allTemplates) {
+        if (!template.isActive) continue;
+        
+        // Normalize template name for comparison
+        final normalizedName = template.name
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'\s+'), ' ');
+        
+        if (!latestTemplatesByName.containsKey(normalizedName)) {
+          latestTemplatesByName[normalizedName] = template;
+        } else {
+          final existing = latestTemplatesByName[normalizedName]!;
+          // Keep the one with higher version, or if same version, keep the one with later updatedAt
+          if (template.version > existing.version) {
+            latestTemplatesByName[normalizedName] = template;
+          } else if (template.version == existing.version) {
+            // If same version, prefer the one with later updatedAt
+            if (template.updatedAt.isAfter(existing.updatedAt)) {
+              latestTemplatesByName[normalizedName] = template;
+            }
+          }
+        }
+      }
+      
       
       // Organize templates by category
       _templatesByCategory = {};
       
-      for (var template in allTemplates) {
-        if (!template.isActive) continue;
+      for (var template in latestTemplatesByName.values) {
+        
+        // Map category: if frequency is perSession/weekly/monthly, treat as teaching category
+        // This fixes templates in Firestore with category "other" but frequency "perSession"
+        FormCategory displayCategory = template.category;
+        if ((template.frequency == FormFrequency.perSession || 
+             template.frequency == FormFrequency.weekly || 
+             template.frequency == FormFrequency.monthly) &&
+            template.category == FormCategory.other) {
+          displayCategory = FormCategory.teaching;
+        }
         
         // Check role access - strict filtering for teachers
         if (_userRole != null) {
@@ -82,6 +133,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
             // Teachers can only see forms that:
             // 1. Have allowedRoles that explicitly include "teacher"
             // 2. Have no allowedRoles AND are in teaching/feedback/administrative categories (default teacher forms)
+            // 3. Have frequency perSession/weekly/monthly (teaching reports)
             final hasAllowedRoles = template.allowedRoles != null && template.allowedRoles!.isNotEmpty;
             
             if (hasAllowedRoles) {
@@ -90,12 +142,15 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                 continue; // Skip this form - it's not for teachers
               }
             } else {
-              // If no allowedRoles, only show if it's a teacher-relevant category
+              // If no allowedRoles, only show if it's a teacher-relevant category OR teaching frequency
               // Teaching, feedback, and administrative forms are for teachers
-              // Student assessment and other forms without roles are hidden from teachers
-              final isTeacherCategory = template.category == FormCategory.teaching ||
-                  template.category == FormCategory.feedback ||
-                  template.category == FormCategory.administrative;
+              // Daily/weekly/monthly reports are always for teachers
+              final isTeacherCategory = displayCategory == FormCategory.teaching ||
+                  displayCategory == FormCategory.feedback ||
+                  displayCategory == FormCategory.administrative ||
+                  template.frequency == FormFrequency.perSession ||
+                  template.frequency == FormFrequency.weekly ||
+                  template.frequency == FormFrequency.monthly;
               
               if (!isTeacherCategory) {
                 continue; // Skip forms in other categories without explicit teacher access
@@ -115,9 +170,12 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           }
         }
         
-        _templatesByCategory.putIfAbsent(template.category, () => []);
-        _templatesByCategory[template.category]!.add(template);
+        // Use displayCategory (may be mapped from "other" to "teaching")
+        _templatesByCategory.putIfAbsent(displayCategory, () => []);
+        _templatesByCategory[displayCategory]!.add(template);
+        
       }
+      
       
       // Add default templates if none found for teaching category
       if (!_templatesByCategory.containsKey(FormCategory.teaching) ||
@@ -278,223 +336,198 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // On utilise CustomScrollView pour l'effet fluide du header
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState()
-                  : _errorMessage != null
-                      ? _buildErrorState()
-                      : _buildFormsList(),
+      backgroundColor: const Color(0xFFF1F5F9), // Slate-100, très doux
+      body: _isLoading 
+        ? _buildLoadingState() 
+        : RefreshIndicator(
+            onRefresh: _loadAllData,
+            color: const Color(0xFF6366F1),
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                _buildSliverAppBar(),
+                if (_errorMessage != null) 
+                  SliverFillRemaining(child: _buildErrorState())
+                else 
+                  _buildSliverList(),
+                // Padding final pour éviter que le dernier item soit caché par la navigation
+                const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF6366F1),
-            const Color(0xFF8B5CF6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.assignment_outlined,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Forms & Reports',
-                      style: GoogleFonts.inter(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'Submit reports, feedback, and assessments',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.85),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 200.0, // Hauteur étendue
+      floating: false,
+      pinned: true, // L'AppBar reste visible en haut
+      backgroundColor: const Color(0xFF6366F1),
+      elevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      flexibleSpace: FlexibleSpaceBar(
+        collapseMode: CollapseMode.parallax, // Effet parallaxe
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-          const SizedBox(height: 16),
-          // Quick stats for teaching forms
-          Row(
-            children: [
-              _buildQuickStat(
-                'Daily',
-                _submittedForms['daily'] == true ? 'Done' : 'Due',
-                _submittedForms['daily'] == true,
-              ),
-              const SizedBox(width: 12),
-              _buildQuickStat(
-                'Weekly',
-                FormFrequency.weekly.isAvailableToday
-                    ? (_submittedForms['weekly'] == true ? 'Done' : 'Due')
-                    : 'Sun-Tue',
-                _submittedForms['weekly'] == true,
-                isAvailable: FormFrequency.weekly.isAvailableToday,
-              ),
-              const SizedBox(width: 12),
-              _buildQuickStat(
-                'Monthly',
-                FormFrequency.monthly.isAvailableToday
-                    ? (_submittedForms['monthly'] == true ? 'Done' : 'Due')
-                    : 'End/Start',
-                _submittedForms['monthly'] == true,
-                isAvailable: FormFrequency.monthly.isAvailableToday,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStat(String label, String status, bool isComplete, {bool isAvailable = true}) {
-    final Color bgColor;
-    final Color textColor;
-    final IconData icon;
-    
-    if (isComplete) {
-      bgColor = Colors.green.withOpacity(0.2);
-      textColor = Colors.green.shade100;
-      icon = Icons.check_circle;
-    } else if (!isAvailable) {
-      bgColor = Colors.grey.withOpacity(0.2);
-      textColor = Colors.white70;
-      icon = Icons.schedule;
-    } else {
-      bgColor = Colors.orange.withOpacity(0.2);
-      textColor = Colors.orange.shade100;
-      icon = Icons.pending_actions;
-    }
-    
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: textColor, size: 18),
-            const SizedBox(width: 6),
-            Expanded(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 60, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    label,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    'Submit reports & feedback',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
                     ),
                   ),
-                  Text(
-                    status,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: textColor,
+                  const SizedBox(height: 20),
+                  // Stats row dans un SingleChildScrollView pour éviter l'overflow sur petits écrans
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        _buildQuickStatPill(
+                          'Daily', 
+                          _submittedForms['daily'] == true ? 'Done' : 'Due',
+                          _submittedForms['daily'] == true,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildQuickStatPill(
+                          'Weekly',
+                          FormFrequency.weekly.isAvailableToday
+                             ? (_submittedForms['weekly'] == true ? 'Done' : 'Due')
+                             : 'Sun-Tue',
+                          _submittedForms['weekly'] == true,
+                          isAvailable: FormFrequency.weekly.isAvailableToday,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildQuickStatPill(
+                          'Monthly',
+                          FormFrequency.monthly.isAvailableToday
+                             ? (_submittedForms['monthly'] == true ? 'Done' : 'Due')
+                             : 'End/Start',
+                          _submittedForms['monthly'] == true,
+                          isAvailable: FormFrequency.monthly.isAvailableToday,
+                        ),
+                      ],
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
+        title: Text(
+          'Forms & Reports',
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: false,
+      ),
+    );
+  }
+
+  Widget _buildQuickStatPill(String label, String status, bool isComplete, {bool isAvailable = true}) {
+    Color bg = Colors.white.withOpacity(0.15);
+    Color text = Colors.white;
+    IconData icon = Icons.pending_actions_rounded;
+
+    if (isComplete) {
+      bg = Colors.greenAccent.withOpacity(0.2);
+      text = Colors.greenAccent.shade100;
+      icon = Icons.check_circle_rounded;
+    } else if (!isAvailable) {
+      bg = Colors.black.withOpacity(0.2);
+      text = Colors.white54;
+      icon = Icons.lock_clock_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20), // Pill shape
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: text, size: 16),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+              Text(
+                status,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: text,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(Color(0xFF6366F1)),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading forms...',
-            style: GoogleFonts.inter(color: Colors.grey),
-          ),
-        ],
+    return const Center(
+      child: CircularProgressIndicator(
+        color: Color(0xFF6366F1),
       ),
     );
   }
 
   Widget _buildErrorState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage ?? 'An error occurred',
-              style: GoogleFonts.inter(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.cloud_off_rounded, size: 64, color: Colors.blueGrey.shade200),
+          const SizedBox(height: 16),
+          Text(
+            'Oops! Something went wrong',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey.shade700,
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _loadTemplates,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
+          ),
+          TextButton(
+            onPressed: _loadAllData,
+            child: const Text('Try Again'),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFormsList() {
-    // Define category order for display
+  Widget _buildSliverList() {
     const categoryOrder = [
       FormCategory.teaching,
       FormCategory.feedback,
@@ -502,94 +535,66 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       FormCategory.administrative,
       FormCategory.other,
     ];
-    
-    return RefreshIndicator(
-      onRefresh: () async {
-        await _loadTemplates();
-        await _loadSubmissionStatus();
-      },
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          for (var category in categoryOrder)
-            if (_templatesByCategory.containsKey(category) &&
-                _templatesByCategory[category]!.isNotEmpty)
-              ...[
-                _buildCategorySection(category, _templatesByCategory[category]!),
-                const SizedBox(height: 24),
-              ],
-        ],
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index >= categoryOrder.length) return null;
+          final category = categoryOrder[index];
+          final templates = _templatesByCategory[category];
+
+          if (templates == null || templates.isEmpty) return const SizedBox.shrink();
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: _buildCategorySection(category, templates),
+          );
+        },
+        childCount: categoryOrder.length,
       ),
     );
   }
 
   Widget _buildCategorySection(FormCategory category, List<FormTemplate> templates) {
     final color = _categoryColors[category] ?? Colors.grey;
-    final icon = _categoryIcons[category] ?? Icons.description;
     
-    // Sort templates: teaching forms by frequency order, others by name
+    // Sort logic
     if (category == FormCategory.teaching) {
       templates.sort((a, b) {
-        const order = {
-          FormFrequency.perSession: 0,
-          FormFrequency.weekly: 1,
-          FormFrequency.monthly: 2,
-          FormFrequency.onDemand: 3,
-        };
+        const order = {FormFrequency.perSession: 0, FormFrequency.weekly: 1, FormFrequency.monthly: 2};
         return (order[a.frequency] ?? 3).compareTo(order[b.frequency] ?? 3);
       });
     } else {
       templates.sort((a, b) => a.name.compareTo(b.name));
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Category Header
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Row(
+            children: [
+              Text(
+                category.displayName.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: Colors.blueGrey.shade400,
+                ),
               ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    category.displayName,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1F2937),
-                    ),
-                  ),
-                  Text(
-                    '${templates.length} form${templates.length > 1 ? 's' : ''} available',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(child: Divider(color: Colors.blueGrey.shade100, thickness: 1)),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        // Form Cards
         ...templates.map((t) => _buildFormCard(t, color)),
       ],
     );
   }
 
   Widget _buildFormCard(FormTemplate template, Color accentColor) {
-    // Determine form type for submission status
     final formType = switch (template.frequency) {
       FormFrequency.perSession => 'daily',
       FormFrequency.weekly => 'weekly',
@@ -597,53 +602,52 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       FormFrequency.onDemand => 'onDemand',
     };
     
-    final isSubmitted = _submittedForms[formType] == true && 
-        template.category == FormCategory.teaching;
+    final isSubmitted = _submittedForms[formType] == true && template.category == FormCategory.teaching;
     final isAvailable = template.frequency.isAvailableToday;
-    
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16), // Espace entre les cartes
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSubmitted ? Colors.green.shade200 : Colors.grey.shade200,
-        ),
+        borderRadius: BorderRadius.circular(20),
+        // Ombre douce et moderne
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF64748B).withOpacity(0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+            spreadRadius: 0,
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: isAvailable ? () => _openForm(template, formType) : null,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon
+                // Icon Container
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     color: isSubmitted 
                         ? Colors.green.shade50 
                         : (isAvailable ? accentColor.withOpacity(0.1) : Colors.grey.shade100),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    isSubmitted 
-                        ? Icons.check_circle 
-                        : _getFrequencyIcon(template.frequency),
-                    color: isSubmitted 
-                        ? Colors.green 
-                        : (isAvailable ? accentColor : Colors.grey),
-                    size: 24,
+                  child: Center(
+                    child: Icon(
+                      isSubmitted ? Icons.check_rounded : _getFrequencyIcon(template.frequency),
+                      color: isSubmitted 
+                          ? Colors.green 
+                          : (isAvailable ? accentColor : Colors.grey.shade400),
+                      size: 26,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -652,124 +656,69 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      // Header Row with Wrap to prevent overflow
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Expanded(
-                            child: Text(
-                              template.name,
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: isAvailable ? const Color(0xFF1F2937) : Colors.grey,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            template.name,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: isAvailable ? const Color(0xFF1E293B) : Colors.grey.shade400,
+                              height: 1.2,
                             ),
                           ),
                           if (isSubmitted)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Done',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green.shade700,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            _buildStatusBadge('Completed', Colors.green),
                           if (!isAvailable && template.category == FormCategory.teaching)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.lock_outline, size: 12, color: Colors.orange.shade700),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        _getAvailabilityLabel(template.frequency),
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.orange.shade700,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            _buildStatusBadge(
+                              _getAvailabilityLabel(template.frequency),
+                              Colors.orange,
+                              icon: Icons.lock_outline_rounded,
                             ),
                         ],
                       ),
-                      if (template.description != null && template.description!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                      
+                      const SizedBox(height: 6),
+                      
+                      if (template.description != null && template.description!.isNotEmpty)
                         Text(
                           template.description!,
                           style: GoogleFonts.inter(
                             fontSize: 13,
-                            color: Colors.grey.shade600,
+                            color: Colors.blueGrey.shade400,
+                            height: 1.4, // Meilleure lisibilité
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                      const SizedBox(height: 8),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Footer Info
                       Row(
                         children: [
-                          Icon(Icons.list_alt, size: 14, color: Colors.grey.shade400),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              '${template.visibleFieldCount} questions',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                          _buildSmallInfo(Icons.format_list_bulleted_rounded, '${template.visibleFieldCount} items'),
                           const SizedBox(width: 12),
-                          Icon(_getFrequencyIcon(template.frequency), size: 14, color: Colors.grey.shade400),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              _getFrequencyLabel(template.frequency),
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                          _buildSmallInfo(Icons.schedule_rounded, _getFrequencyLabel(template.frequency)),
                         ],
                       ),
                     ],
                   ),
                 ),
-                // Arrow
+                // Arrow (centrée verticalement si possible, ou top)
                 if (isAvailable)
-                  Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey.shade400,
-                  ),
+                   Padding(
+                     padding: const EdgeInsets.only(left: 8, top: 12),
+                     child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 16,
+                      color: Colors.blueGrey.shade200,
+                                     ),
+                   ),
               ],
             ),
           ),
@@ -778,29 +727,72 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
   }
 
+  Widget _buildStatusBadge(String text, MaterialColor color, {IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.shade100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 10, color: color.shade700),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallInfo(IconData icon, String text) {
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.blueGrey.shade300),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: Colors.blueGrey.shade400,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   IconData _getFrequencyIcon(FormFrequency frequency) {
     switch (frequency) {
-      case FormFrequency.perSession:
-        return Icons.today;
-      case FormFrequency.weekly:
-        return Icons.date_range;
-      case FormFrequency.monthly:
-        return Icons.calendar_month;
-      case FormFrequency.onDemand:
-        return Icons.touch_app;
+      case FormFrequency.perSession: return Icons.calendar_today_rounded;
+      case FormFrequency.weekly: return Icons.date_range_rounded;
+      case FormFrequency.monthly: return Icons.calendar_month_rounded;
+      case FormFrequency.onDemand: return Icons.touch_app_rounded;
     }
   }
 
   String _getFrequencyLabel(FormFrequency frequency) {
     switch (frequency) {
-      case FormFrequency.perSession:
-        return 'After each class';
-      case FormFrequency.weekly:
-        return 'Weekly (Sun-Tue)';
-      case FormFrequency.monthly:
-        return 'Monthly';
-      case FormFrequency.onDemand:
-        return 'Anytime';
+      case FormFrequency.perSession: return 'Daily';
+      case FormFrequency.weekly: return 'Weekly';
+      case FormFrequency.monthly: return 'Monthly';
+      case FormFrequency.onDemand: return 'Anytime';
     }
   }
 
@@ -816,32 +808,472 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
   }
 
   void _openForm(FormTemplate template, String formType) {
-    HapticFeedback.lightImpact();
-    
-    // For perSession forms (Daily Class Report), require a shift
+    HapticFeedback.mediumImpact(); // Meilleur feedback tactile
     if (template.frequency == FormFrequency.perSession) {
-      // TODO: Show shift selection dialog or navigate to shift screen
-      // For now, let's try to find the most recent unsubmitted shift
       _showShiftSelectionDialog(template);
       return;
     }
-    
     _navigateToForm(template);
   }
 
-  void _navigateToForm(FormTemplate template, {String? shiftId}) {
-    // Navigate to form screen with the template directly
+  Future<void> _handleShiftSelection(FormTemplate template, String shiftId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Check if ANY form is already submitted for this shift (regardless of template)
+    try {
+      // First check for ANY form response with this shiftId (regardless of template)
+      final anyExistingResponse = await FirebaseFirestore.instance
+          .collection('form_responses')
+          .where('shiftId', isEqualTo: shiftId)
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      if (anyExistingResponse.docs.isNotEmpty) {
+        // Form already submitted - show read-only view with actual data
+        if (!mounted) return;
+        _showOldFormSubmission(anyExistingResponse.docs.first.id, anyExistingResponse.docs.first.data());
+        return;
+      }
+
+      // Also check readiness_responses for old format forms
+      final readinessResponse = await FirebaseFirestore.instance
+          .collection('readiness_responses')
+          .where('shiftId', isEqualTo: shiftId)
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      if (readinessResponse.docs.isNotEmpty) {
+        // Old readiness form found - show it
+        if (!mounted) return;
+        _showOldFormSubmission(readinessResponse.docs.first.id, readinessResponse.docs.first.data(), isReadinessForm: true);
+        return;
+      }
+    } catch (e) {
+      AppLogger.error('Error checking existing submission: $e');
+    }
+
+    // No existing submission - navigate to fill form with new template
+    _navigateToForm(template, shiftId: shiftId);
+  }
+
+  /// Show old format form submission in read-only view
+  void _showOldFormSubmission(String submissionId, Map<String, dynamic> data, {bool isReadinessForm = false}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          final responses = data['responses'] as Map<String, dynamic>? ?? data;
+          final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate() ?? 
+                             (data['submitted_at'] as Timestamp?)?.toDate();
+          final formTitle = data['formTitle'] as String? ?? 
+                           data['formName'] as String? ?? 
+                           (isReadinessForm ? 'Readiness Form' : 'Daily Report');
+          
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    formTitle,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xff1E293B),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xffEFF6FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.visibility_outlined, size: 14, color: Color(0xff0386FF)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isReadinessForm ? 'Old Format' : 'Submitted',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xff0386FF),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              submittedAt != null
+                                  ? 'Submitted on ${DateFormat('MMMM d, yyyy at h:mm a').format(submittedAt)}'
+                                  : 'Submission date unknown',
+                              style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        color: const Color(0xff64748B),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content - show all fields from the submission
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(20),
+                    itemCount: responses.entries.length,
+                    itemBuilder: (context, index) {
+                      final entry = responses.entries.elementAt(index);
+                      final fieldId = entry.key;
+                      final value = entry.value;
+                      
+                      // Skip internal fields
+                      if (fieldId.startsWith('_') || 
+                          fieldId == 'userId' || 
+                          fieldId == 'shiftId' ||
+                          fieldId == 'formId' ||
+                          fieldId == 'formTemplateId' ||
+                          fieldId == 'submittedAt' ||
+                          fieldId == 'submitted_at' ||
+                          fieldId == 'formTitle' ||
+                          fieldId == 'formName' ||
+                          fieldId == 'yearMonth' ||
+                          fieldId == 'formType') {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      // Format field label from camelCase to Title Case
+                      final label = _formatFieldLabel(fieldId);
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xffE2E8F0)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _formatFieldValue(value),
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: const Color(0xff1E293B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatFieldLabel(String fieldId) {
+    // Convert camelCase or snake_case to Title Case
+    final words = fieldId
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
+        .replaceAll('_', ' ')
+        .trim()
+        .split(' ');
+    return words.map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : '').join(' ');
+  }
+
+  String _formatFieldValue(dynamic value) {
+    if (value == null) return 'Not provided';
+    if (value is Timestamp) {
+      return DateFormat('MMMM d, yyyy at h:mm a').format(value.toDate());
+    }
+    if (value is List) {
+      return value.join(', ');
+    }
+    if (value is bool) {
+      return value ? 'Yes' : 'No';
+    }
+    return value.toString();
+  }
+
+  Future<void> _showSubmittedFormView(String submissionId, FormTemplate template) async {
+    // Fetch the submission data and show it directly in read-only view
+    try {
+      final submissionDoc = await FirebaseFirestore.instance
+          .collection('form_responses')
+          .doc(submissionId)
+          .get();
+
+      if (!submissionDoc.exists || !mounted) {
+        return;
+      }
+
+      final submissionData = submissionDoc.data() as Map<String, dynamic>;
+      
+      // Show the submission details directly in a modal bottom sheet using the same pattern as MySubmissionsScreen
+      if (!mounted) return;
+      
+      // Navigate to MySubmissionsScreen - it will handle showing the submission details
+      // For now, we'll create a simple inline view since _SubmissionDetailView is private
+      _showSubmissionDetailSheet(submissionId, template.name, submissionData, template);
+    } catch (e) {
+      AppLogger.error('Error loading submission: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading submission: $e')),
+      );
+    }
+  }
+
+  void _showSubmissionDetailSheet(String submissionId, String formTitle, Map<String, dynamic> data, FormTemplate template) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          final responses = data['responses'] as Map<String, dynamic>? ?? {};
+          final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+          final templateFields = template.fields;
+          
+          // Build field labels from template
+          final fieldLabels = <String, String>{};
+          for (var field in templateFields) {
+            fieldLabels[field.id] = field.label;
+          }
+          
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xffE2E8F0)),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              formTitle,
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xff1E293B),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              submittedAt != null
+                                  ? 'Submitted on ${DateFormat('MMMM d, yyyy at h:mm a').format(submittedAt)}'
+                                  : 'Submission date unknown',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: const Color(0xff64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        color: const Color(0xff64748B),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: responses.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: Color(0xff94A3B8),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No responses found',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  color: const Color(0xff64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(20),
+                          itemCount: responses.length,
+                          itemBuilder: (context, index) {
+                            final entry = responses.entries.elementAt(index);
+                            final fieldId = entry.key;
+                            final value = entry.value;
+                            final label = fieldLabels[fieldId] ?? fieldId;
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xffE2E8F0)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    label,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xff64748B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    value.toString(),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      color: const Color(0xff1E293B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _navigateToForm(FormTemplate template, {String? shiftId}) async {
+    // For weekly and monthly forms, fetch the latest version (same as daily forms)
+    // This ensures users always get the latest version, not a cached old one
+    FormTemplate? latestTemplate = template;
+    
+    if (template.frequency == FormFrequency.weekly) {
+      // Fetch latest weekly template
+      latestTemplate = await FormTemplateService.getActiveWeeklyTemplate(forceRefresh: true);
+      if (latestTemplate == null) {
+        // Fallback to the template we have if fetch fails
+        latestTemplate = template;
+      }
+    } else if (template.frequency == FormFrequency.monthly) {
+      // Fetch latest monthly template
+      latestTemplate = await FormTemplateService.getActiveMonthlyTemplate(forceRefresh: true);
+      if (latestTemplate == null) {
+        // Fallback to the template we have if fetch fails
+        latestTemplate = template;
+      }
+    }
+    // For daily (perSession) and onDemand forms, use the template directly
+    // (daily forms already fetch latest in _handleShiftSelection via getActiveDailyTemplate)
+    
+    if (!mounted) return;
+    
+    // Navigate to form screen with the latest template
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FormScreen(
-          template: template, // Pass template directly instead of ID
+          template: latestTemplate, // Use latest version for weekly/monthly
           shiftId: shiftId, 
         ),
       ),
     ).then((_) {
       // Refresh submission status when returning
-      _loadSubmissionStatus();
+      if (mounted) {
+        _loadSubmissionStatus();
+      }
     });
   }
 
@@ -857,79 +1289,373 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
 
     try {
-      // Fetch recent shifts (last 7 days)
+      // Fetch recent shifts (last 7 days) - show ALL statuses including missed
+      // Use existing index pattern: query by teacher_id only, then filter/sort in memory
       final now = DateTime.now();
       final lastWeek = now.subtract(const Duration(days: 7));
       
       final shiftsSnapshot = await FirebaseFirestore.instance
           .collection('teaching_shifts')
-          .where('teacherId', isEqualTo: user.uid)
-          .where('shift_start', isGreaterThanOrEqualTo: Timestamp.fromDate(lastWeek))
-          .orderBy('shift_start', descending: true)
-          .limit(20)
+          .where('teacher_id', isEqualTo: user.uid)
           .get();
+      
+      // Filter and sort in memory (matches pattern used in ShiftService.getTeacherShifts)
+      final allShifts = shiftsSnapshot.docs.map((doc) {
+        final data = doc.data();
+        DateTime? shiftStart;
+        final shiftStartValue = data['shift_start'];
+        if (shiftStartValue is Timestamp) {
+          shiftStart = shiftStartValue.toDate();
+        } else if (shiftStartValue is DateTime) {
+          shiftStart = shiftStartValue;
+        }
+        return {
+          'doc': doc,
+          'shiftStart': shiftStart,
+        };
+      }).toList();
+      
+      // Filter: only completed or missed shifts that have ended (not future, not scheduled)
+      
+      
+      final recentShifts = allShifts
+          .where((item) {
+            final doc = item['doc'] as QueryDocumentSnapshot;
+            final data = doc.data() as Map<String, dynamic>;
+            final shiftStart = item['shiftStart'] as DateTime?;
+            final shiftId = doc.id;
+            
+            if (shiftStart == null) return false;
+            
+            // Get shift end time
+            DateTime? shiftEnd;
+            final endValue = data['shift_end'];
+            if (endValue is Timestamp) {
+              shiftEnd = endValue.toDate();
+            } else if (endValue is DateTime) {
+              shiftEnd = endValue;
+            }
+            
+            if (shiftEnd == null) return false;
+            
+            // Convert to local time for comparison
+            final startLocal = shiftStart.toLocal();
+            final endLocal = shiftEnd.toLocal();
+            
+            // Get status from Firestore
+            final statusStr = data['status'] as String? ?? 'scheduled';
+            
+            
+            // FIRST CHECK: Explicitly exclude scheduled, active, cancelled
+            if (statusStr == 'scheduled' || statusStr == 'active' || statusStr == 'cancelled') {
+              return false;
+            }
+            
+            // SECOND CHECK: Must be in a completed/missed state
+            final isCompletedOrMissed = statusStr == 'completed' || 
+                                       statusStr == 'fullyCompleted' ||
+                                       statusStr == 'partiallyCompleted' ||
+                                       statusStr == 'missed';
+            
+            if (!isCompletedOrMissed) {
+              return false;
+            }
+            
+            // THIRD CHECK: Must have started AND ended (both must be in the past)
+            if (!startLocal.isBefore(now)) {
+              return false; // Has not started yet
+            }
+            
+            // Shift must have ended (end time is in the past, at least 1 second ago)
+            final timeSinceEnd = now.difference(endLocal);
+            if (timeSinceEnd.inSeconds <= 0) {
+              return false; // Has not ended yet
+            }
+            
+            // All checks passed - include this shift
+            return true;
+          })
+          .toList()
+          ..sort((a, b) {
+            final aStart = a['shiftStart'] as DateTime?;
+            final bStart = b['shiftStart'] as DateTime?;
+            if (aStart == null && bStart == null) return 0;
+            if (aStart == null) return 1;
+            if (bStart == null) return -1;
+            return bStart.compareTo(aStart); // Descending (most recent first)
+          });
+      
+      // Limit to 20 most recent
+      final shiftsToShow = recentShifts.take(20).map((item) => item['doc'] as QueryDocumentSnapshot).toList();
+      
+
+      // Check for existing forms for each shift
+      final shiftsWithFormStatus = <Map<String, dynamic>>[];
+      for (final doc in shiftsToShow) {
+        final shiftId = doc.id;
+        final formResponseId = await ShiftFormService.getFormResponseForShift(shiftId);
+        final hasForm = formResponseId != null;
+        
+        shiftsWithFormStatus.add({
+          'doc': doc,
+          'shiftId': shiftId,
+          'hasForm': hasForm,
+          'formResponseId': formResponseId,
+        });
+      }
 
       if (!mounted) return;
       Navigator.pop(context); // Close loading
 
-      if (shiftsSnapshot.docs.isEmpty) {
+      if (shiftsWithFormStatus.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No recent shifts found to report on.')),
         );
         return;
       }
-
-      // Filter out shifts that already have a daily report
-      // Ideally this should be done by checking form_responses, but for now let's just show the list
-      // and let the user pick. The form screen will handle linking.
       
       if (!mounted) return;
       
       showModalBottomSheet(
         context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Select a Shift',
-                style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent, // Important pour le design
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: shiftsSnapshot.docs.length,
-                  itemBuilder: (context, index) {
-                    final shift = shiftsSnapshot.docs[index].data();
-                    final shiftId = shiftsSnapshot.docs[index].id;
-                    final startTime = (shift['shift_start'] as Timestamp).toDate();
-                    final endTime = (shift['shift_end'] as Timestamp).toDate();
-                    final subject = shift['subject'] ?? 'Unknown Subject';
-                    
-                    return ListTile(
-                      title: Text(subject),
-                      subtitle: Text(
-                        '${DateFormat('MMM d').format(startTime)} • ${DateFormat('h:mm a').format(startTime)} - ${DateFormat('h:mm a').format(endTime)}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.pop(context); // Close sheet
-                        _navigateToForm(template, shiftId: shiftId);
-                      },
-                    );
-                  },
+                Text(
+                  'Select a Shift',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: shiftsWithFormStatus.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final shiftInfo = shiftsWithFormStatus[index];
+                      final doc = shiftInfo['doc'] as QueryDocumentSnapshot;
+                      final shiftData = doc.data() as Map<String, dynamic>;
+                      final shiftId = shiftInfo['shiftId'] as String;
+                      final hasForm = shiftInfo['hasForm'] as bool;
+                      final formResponseId = shiftInfo['formResponseId'] as String?;
+                      
+                      // Handle both Timestamp and DateTime types
+                      DateTime startTime;
+                      final startValue = shiftData['shift_start'];
+                      if (startValue is Timestamp) {
+                        startTime = startValue.toDate();
+                      } else if (startValue is DateTime) {
+                        startTime = startValue;
+                      } else {
+                        startTime = DateTime.now(); // Fallback
+                      }
+                      
+                      DateTime endTime;
+                      final endValue = shiftData['shift_end'];
+                      if (endValue is Timestamp) {
+                        endTime = endValue.toDate();
+                      } else if (endValue is DateTime) {
+                        endTime = endValue;
+                      } else {
+                        endTime = DateTime.now(); // Fallback
+                      }
+                      
+                      final status = shiftData['status'] ?? 'scheduled';
+                      
+                      // Get student names - prefer student_names array, fallback to studentNames
+                      final studentNamesList = shiftData['student_names'] ?? shiftData['studentNames'] ?? [];
+                      final studentNames = studentNamesList is List
+                          ? (studentNamesList as List).map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+                          : [];
+                      
+                      // Display student names, or subject if no student names available
+                      final displayName = studentNames.isNotEmpty
+                          ? studentNames.join(', ')
+                          : (shiftData['subject']?.toString() ?? 'Unknown Subject');
+                      
+                      Color statusColor = Colors.grey;
+                      if (status == 'completed' || status == 'fullyCompleted') statusColor = Colors.green;
+                      else if (status == 'active') statusColor = Colors.blue;
+                      else if (status == 'missed') statusColor = Colors.red;
+                      else if (status == 'partiallyCompleted') statusColor = Colors.orange;
+                      
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            ListTile(
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      displayName,
+                                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: statusColor, width: 1),
+                                    ),
+                                    child: Text(
+                                      status.toUpperCase(),
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: statusColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                '${DateFormat('MMM d').format(startTime)} • ${DateFormat('h:mm a').format(startTime)} - ${DateFormat('h:mm a').format(endTime)}',
+                                style: GoogleFonts.inter(fontSize: 13),
+                              ),
+                              onTap: hasForm
+                                  ? null // Disable tap if form exists (use eye icon)
+                                  : () async {
+                                      Navigator.pop(context);
+                                      await _handleShiftSelection(template, shiftId);
+                                    },
+                              trailing: hasForm
+                                  ? IconButton(
+                                      icon: const Icon(Icons.visibility, color: Color(0xff10B981)),
+                                      tooltip: 'View Form',
+                                      onPressed: () async {
+                                        try {
+                                          final formDoc = await FirebaseFirestore.instance
+                                              .collection('form_responses')
+                                              .doc(formResponseId!)
+                                              .get();
+                                          
+                                          if (formDoc.exists && mounted) {
+                                            final data = formDoc.data() ?? {};
+                                            final responses = data['responses'] as Map<String, dynamic>? ?? {};
+                                            
+                                            Navigator.pop(context); // Close shift selection
+                                            
+                                            FormDetailsModal.show(
+                                              context,
+                                              formId: formResponseId!,
+                                              shiftId: shiftId,
+                                              responses: responses,
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error loading form: ${e.toString()}'),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    )
+                                  : null,
+                            ),
+                            // Action buttons row
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                              child: Row(
+                                children: [
+                                  // View Form button (only show if form doesn't exist)
+                                  if (!hasForm)
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          Navigator.pop(context);
+                                          await _handleShiftSelection(template, shiftId);
+                                        },
+                                        icon: const Icon(Icons.description_outlined, size: 16),
+                                        label: Text('Form', style: GoogleFonts.inter(fontSize: 12)),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          side: BorderSide(color: Colors.blue.shade300),
+                                          foregroundColor: Colors.blue,
+                                        ),
+                                      ),
+                                    ),
+                                  if (!hasForm) const SizedBox(width: 8),
+                                  // Timesheet button
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _showTimesheetForShift(shiftId, shiftData);
+                                      },
+                                      icon: const Icon(Icons.access_time, size: 16),
+                                      label: Text('Timesheet', style: GoogleFonts.inter(fontSize: 12)),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        side: BorderSide(color: Colors.green.shade300),
+                                        foregroundColor: Colors.green,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Shift Details button
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _showShiftDetails(shiftId, shiftData);
+                                      },
+                                      icon: const Icon(Icons.info_outline, size: 16),
+                                      label: Text('Details', style: GoogleFonts.inter(fontSize: 12)),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                        side: BorderSide(color: Colors.orange.shade300),
+                                        foregroundColor: Colors.orange,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -941,6 +1667,135 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           SnackBar(content: Text('Error loading shifts: $e')),
         );
       }
+    }
+  }
+
+  /// Show timesheet for a specific shift
+  Future<void> _showTimesheetForShift(String shiftId, Map<String, dynamic> shiftData) async {
+    try {
+      // Query timesheet for this shift
+      final timesheetSnapshot = await FirebaseFirestore.instance
+          .collection('timesheet_entries')
+          .where('shift_id', isEqualTo: shiftId)
+          .limit(1)
+          .get();
+
+      if (!mounted) return;
+
+      if (timesheetSnapshot.docs.isEmpty) {
+        // No timesheet found - show message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No timesheet found for this shift. Clock in to create one.')),
+        );
+        return;
+      }
+
+      final timesheetDoc = timesheetSnapshot.docs.first;
+      final timesheetData = timesheetDoc.data();
+
+      // Show edit timesheet dialog
+      showDialog(
+        context: context,
+        builder: (context) => EditTimesheetDialog(
+          timesheetId: timesheetDoc.id,
+          timesheetData: timesheetData,
+          onUpdated: () {
+            // Refresh if needed
+          },
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('Error loading timesheet: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading timesheet: $e')),
+      );
+    }
+  }
+
+  /// Show shift details dialog
+  void _showShiftDetails(String shiftId, Map<String, dynamic> shiftData) {
+    // Convert to TeachingShift model
+    try {
+      // Handle both Timestamp and DateTime types for shift times
+      DateTime shiftStart;
+      final startValue = shiftData['shift_start'];
+      if (startValue is Timestamp) {
+        shiftStart = startValue.toDate();
+      } else if (startValue is DateTime) {
+        shiftStart = startValue;
+      } else {
+        shiftStart = DateTime.now(); // Fallback
+      }
+      
+      DateTime shiftEnd;
+      final endValue = shiftData['shift_end'];
+      if (endValue is Timestamp) {
+        shiftEnd = endValue.toDate();
+      } else if (endValue is DateTime) {
+        shiftEnd = endValue;
+      } else {
+        shiftEnd = DateTime.now(); // Fallback
+      }
+      
+      DateTime createdAt;
+      final createdAtValue = shiftData['created_at'];
+      if (createdAtValue is Timestamp) {
+        createdAt = createdAtValue.toDate();
+      } else if (createdAtValue is DateTime) {
+        createdAt = createdAtValue;
+      } else {
+        createdAt = DateTime.now(); // Fallback
+      }
+      
+      // Create a fake DocumentSnapshot-like structure for TeachingShift.fromFirestore
+      final shift = TeachingShift(
+        id: shiftId,
+        teacherId: shiftData['teacher_id'] ?? '',
+        teacherName: shiftData['teacher_name'] ?? 'Unknown',
+        studentIds: List<String>.from(shiftData['student_ids'] ?? []),
+        studentNames: List<String>.from(shiftData['student_names'] ?? []),
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
+        status: _parseShiftStatus(shiftData['status']),
+        subject: shiftData['subject'],
+        hourlyRate: (shiftData['hourly_rate'] as num?)?.toDouble() ?? 0.0,
+        createdAt: createdAt,
+        notes: shiftData['notes'],
+        adminTimezone: shiftData['admin_timezone'] ?? 'UTC',
+        teacherTimezone: shiftData['teacher_timezone'] ?? 'UTC',
+        autoGeneratedName: shiftData['auto_generated_name'] ?? shiftData['subject'] ?? 'Shift',
+        createdByAdminId: shiftData['created_by_admin_id'] ?? shiftData['teacher_id'] ?? '',
+      );
+
+      showDialog(
+        context: context,
+        builder: (context) => ShiftDetailsDialog(
+          shift: shift,
+          onRefresh: () {
+            // Refresh if needed
+          },
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('Error showing shift details: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading shift details: $e')),
+      );
+    }
+  }
+
+  ShiftStatus _parseShiftStatus(String? status) {
+    switch (status) {
+      case 'scheduled': return ShiftStatus.scheduled;
+      case 'active': return ShiftStatus.active;
+      case 'completed': return ShiftStatus.completed;
+      case 'partiallyCompleted': return ShiftStatus.partiallyCompleted;
+      case 'fullyCompleted': return ShiftStatus.fullyCompleted;
+      case 'missed': return ShiftStatus.missed;
+      case 'cancelled': return ShiftStatus.cancelled;
+      default: return ShiftStatus.scheduled;
     }
   }
 }

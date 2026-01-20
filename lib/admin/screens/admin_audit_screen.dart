@@ -547,126 +547,150 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     List<String> teacherIds,
     List<Map<String, dynamic>> allTeachers,
   ) async {
-    // Show smooth progress dialog
-    final progressController = StreamController<double>();
+    // Track dialog for proper closing
+    BuildContext? dialogContext;
+    
+    // Progress tracking
+    final progressController = StreamController<_AuditProgressState>.broadcast();
+    final startTime = DateTime.now();
+    
+    // Fun messages to keep user entertained
+    final funMessages = [
+      '🔍 Analyzing teaching hours...',
+      '📊 Crunching the numbers...',
+      '📝 Checking form submissions...',
+      '⏰ Calculating punctuality scores...',
+      '🎯 Computing performance metrics...',
+      '💰 Processing payment data...',
+      '📈 Building performance reports...',
+      '✨ Almost there, hang tight!',
+      '🚀 Turbo-charging calculations...',
+      '🧮 Running final computations...',
+    ];
+    
+    // Show enhanced progress dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.4),
-      builder: (context) => StreamBuilder<double>(
-        stream: progressController.stream,
-        initialData: 0.0,
-        builder: (context, snapshot) {
-          final progress = snapshot.data ?? 0.0;
-          return Center(
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              margin: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 80,
-                    height: 80,
-                    child: CircularProgressIndicator(
-                      value: progress > 0 ? progress : null,
-                      strokeWidth: 6,
-                      backgroundColor: Colors.grey.shade200,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Generating Audits',
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${(progress * 100).toStringAsFixed(0)}% Complete',
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xff0386FF),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Processing ${teacherIds.length} teachers...',
-                    style: GoogleFonts.inter(
-                      color: Colors.grey.shade600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (ctx) {
+        dialogContext = ctx;
+        return _EnhancedProgressDialog(
+          progressStream: progressController.stream,
+          totalTeachers: teacherIds.length,
+          funMessages: funMessages,
+          startTime: startTime,
+        );
+      },
     );
 
     setState(() => _isGenerating = true);
 
-    // Use the optimized batch processing
+    // Use the optimized batch processing with detailed progress
     final results = await OptimizedAuditGenerator.generateAuditsBatch(
       teacherIds: teacherIds,
       yearMonth: _selectedYearMonth,
       onProgress: (completed, total) {
         if (!progressController.isClosed) {
-          progressController.add(completed / total);
+          // Get current teacher name if available
+          String currentTeacher = '';
+          if (completed < allTeachers.length) {
+            currentTeacher = allTeachers[completed]['name'] ?? 
+                           allTeachers[completed]['fullName'] ?? '';
+          }
+          progressController.add(_AuditProgressState(
+            progress: completed / total,
+            completed: completed,
+            total: total,
+            currentTeacher: currentTeacher,
+            elapsedSeconds: DateTime.now().difference(startTime).inSeconds,
+          ));
         }
       },
     );
     
-    // Close progress dialog first - show 100% then close
+    // Brief delay to show 100% completion
     if (!progressController.isClosed) {
-      progressController.add(1.0); // Show 100%
-      await Future.delayed(const Duration(milliseconds: 300));
-      progressController.close();
+      progressController.add(_AuditProgressState(
+        progress: 1.0,
+        completed: teacherIds.length,
+        total: teacherIds.length,
+        currentTeacher: 'Complete!',
+        elapsedSeconds: DateTime.now().difference(startTime).inSeconds,
+        isComplete: true,
+      ));
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    
+    // Close the dialog safely
+    await progressController.close();
+    
+    // Pop dialog using its own context
+    if (dialogContext != null && Navigator.of(dialogContext!).canPop()) {
+      Navigator.of(dialogContext!).pop();
     }
     
     if (!mounted) {
       setState(() => _isGenerating = false);
       return;
     }
+
+    // Get detailed error messages FIRST (before clearing)
+    final errorDetails = TeacherAuditService.getLastAuditGenerationErrors();
     
-    Navigator.pop(context); // Close progress dialog
-
+    // Calculate counts correctly:
+    // - successCount: teachers with successful audits (results[id] == true)
+    // - actualErrorCount: ONLY actual errors (from errorDetails map), NOT skipped teachers
+    // - skippedCount: teachers with false result but NOT in errorDetails (no data available)
     final successCount = results.values.where((v) => v).length;
-    final errorCount = results.values.where((v) => !v).length;
-    final skippedCount = teacherIds.length - results.length; // Teachers with no data
+    final actualErrorCount = errorDetails.length; // Only real errors, not skipped
+    
+    // Count skipped: teachers with false result but not in errorDetails
+    final skippedTeachers = results.entries
+        .where((e) => !e.value && !errorDetails.containsKey(e.key))
+        .length;
 
-    if (mounted) {
-      setState(() => _isGenerating = false);
-      await _loadAudits();
+    setState(() => _isGenerating = false);
+    await _loadAudits();
 
-      // Build informative message
-      String message = 'Generated $successCount audit(s)';
-      if (skippedCount > 0) {
-        message += '. $skippedCount teacher(s) with no data available';
-      }
-      if (errorCount > 0) {
-        message += '. $errorCount error(s) occurred';
-      }
+    // Build informative message - only show errors if there are actual errors
+    String message = 'Generated $successCount audit(s)';
+    if (skippedTeachers > 0) {
+      message += '. $skippedTeachers teacher(s) with no data';
+    }
+    if (actualErrorCount > 0) {
+      message += '. $actualErrorCount error(s)';
+    }
+    
+    final totalTime = DateTime.now().difference(startTime).inSeconds;
+    message += ' in ${totalTime}s';
 
+    // Show detailed error dialog if there are ACTUAL errors (not skipped)
+    if (actualErrorCount > 0 && errorDetails.isNotEmpty && mounted) {
+      TeacherAuditService.clearLastAuditGenerationErrors();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showErrorDetailsDialog(errorDetails, successCount, skippedTeachers);
+        }
+      });
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: errorCount > 0 ? Colors.orange : (skippedCount > 0 ? Colors.blue : Colors.green),
+          content: Row(
+            children: [
+              Icon(
+                successCount > 0 ? Icons.check_circle : Icons.info,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          backgroundColor: actualErrorCount > 0 ? Colors.orange : (skippedTeachers > 0 ? Colors.blue : Colors.green),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     }
@@ -2443,6 +2467,182 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       ),
     );
   }
+  
+  /// Show detailed error dialog with all error messages
+  void _showErrorDetailsDialog(Map<String, String> errorDetails, int successCount, int skippedCount) {
+    // Build teacher name map from existing audits
+    final teacherNameMap = <String, String>{};
+    for (var audit in _audits) {
+      if (!teacherNameMap.containsKey(audit.oderId)) {
+        teacherNameMap[audit.oderId] = audit.teacherName;
+      }
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red.shade700, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Audit Generation Errors',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Summary
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Summary:',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '✅ $successCount successful\n'
+                      '❌ ${errorDetails.length} errors\n'
+                      '⏭️ $skippedCount skipped (no data)',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Error details
+              Text(
+                'Error Details:',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // Scrollable error list
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: errorDetails.length,
+                  itemBuilder: (context, index) {
+                    final entry = errorDetails.entries.elementAt(index);
+                    final teacherId = entry.key;
+                    final errorMessage = entry.value;
+                    
+                    // Get teacher name from map or use ID
+                    final teacherName = teacherNameMap[teacherId] ?? 
+                                      'Teacher ${teacherId.substring(0, 8)}...';
+                    
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey.shade200,
+                            width: index < errorDetails.length - 1 ? 1 : 0,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.person, size: 16, color: Colors.red.shade700),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  teacherName,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 24),
+                            child: SelectableText(
+                              errorMessage,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Close',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'OK',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Responsive stat tile for summary grid (NO OVERFLOW)
@@ -3312,6 +3512,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
   List<_ShiftItem>? _cachedOrphanShifts;
   List<_FormItem>? _cachedUnlinkedForms;
   double? _cachedPenaltyPerMissing;
+  bool _isLoadingDayData = true;
   
   @override
   void initState() {
@@ -3319,7 +3520,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     // Preload all form labels in background for instant display
     _preloadFormLabels();
     // Pre-compute grouped data once
-    _computeGroupedData();
+    _computeGroupedData(); // Fire and forget - async operation
   }
 
   void _preloadFormLabels() {
@@ -3334,8 +3535,17 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
   }
   
   /// **OPTIMIZATION: Compute grouped data once and cache it**
-  void _computeGroupedData() {
-    if (_cachedDayItems != null) return; // Already computed
+  Future<void> _computeGroupedData() async {
+    if (_cachedDayItems != null) {
+      _isLoadingDayData = false;
+      return; // Already computed
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isLoadingDayData = true;
+      });
+    }
     
     // Build lookup maps for O(1) access
     final shiftFormMap = <String, String>{}; // shiftId -> formId
@@ -3400,8 +3610,8 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       final submittedAt = (form['submittedAt'] as Timestamp?)?.toDate();
       final responses = form['responses'] as Map<String, dynamic>? ?? {};
       
-      // Extract day of week from form responses
-      final dayOfWeek = _extractDayOfWeekFromForm(responses);
+      // Extract day of week from form responses, or derive from shift if available
+      final dayOfWeek = await _extractDayOfWeekFromForm(responses, shiftId, form);
       
       // Determine date - use shift end if linked, otherwise submission date
       DateTime? formDate;
@@ -3461,9 +3671,14 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     dayItems.sort((a, b) => a.date.compareTo(b.date));
     
     // Cache results
+    if (mounted) {
+      setState(() {
     _cachedDayItems = dayItems;
     _cachedOrphanShifts = orphanShifts;
     _cachedUnlinkedForms = unlinkedForms;
+        _isLoadingDayData = false;
+      });
+    }
   }
   
   String _extractStudentNameFromTitle(String title) {
@@ -3478,11 +3693,17 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     return title;
   }
   
-  String? _extractDayOfWeekFromForm(Map<String, dynamic> responses) {
-    // Look for Class Day field (ID: 1754406288023)
+  Future<String?> _extractDayOfWeekFromForm(Map<String, dynamic> responses, String? shiftId, Map<String, dynamic> formData) async {
+    // Method 1: Look for Class Day field (ID: 1754406288023) in old forms
     var dayValue = responses['1754406288023'];
-    if (dayValue == null) {
-      // Search for any field containing day names
+    if (dayValue != null) {
+      if (dayValue is List && dayValue.isNotEmpty) {
+        return dayValue.first.toString();
+      }
+      return dayValue.toString();
+    }
+    
+    // Method 2: Search for any field containing day names in responses
       for (var value in responses.values) {
         if (value is String || (value is List && value.isNotEmpty)) {
           final str = value is List ? value.first.toString() : value.toString();
@@ -3491,13 +3712,93 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
           }
         }
       }
+    
+    // Method 3: For new template forms, derive day from shift date
+    if (shiftId != null && shiftId.isNotEmpty) {
+      try {
+        final shiftDoc = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(shiftId)
+            .get();
+        
+        if (shiftDoc.exists) {
+          final shiftData = shiftDoc.data();
+          final shiftStart = shiftData?['shift_start'] as Timestamp?;
+          if (shiftStart != null) {
+            final shiftDate = shiftStart.toDate();
+            return _getDayOfWeekFromDate(shiftDate);
+          }
+        }
+      } catch (e) {
+        // If shift fetch fails, continue to next method
+        debugPrint('Error fetching shift for day extraction: $e');
+      }
+    }
+    
+    // Method 4: Try to get from timesheet if shiftId not available
+    final timesheetId = formData['timesheetId'] as String?;
+    if (timesheetId != null && timesheetId.isNotEmpty) {
+      try {
+        final timesheetDoc = await FirebaseFirestore.instance
+            .collection('timesheet_entries')
+            .doc(timesheetId)
+            .get();
+        
+        if (timesheetDoc.exists) {
+          final timesheetData = timesheetDoc.data();
+          final shiftIdFromTimesheet = timesheetData?['shift_id'] as String?;
+          if (shiftIdFromTimesheet != null) {
+            final shiftDoc = await FirebaseFirestore.instance
+                .collection('teaching_shifts')
+                .doc(shiftIdFromTimesheet)
+                .get();
+            
+            if (shiftDoc.exists) {
+              final shiftData = shiftDoc.data();
+              final shiftStart = shiftData?['shift_start'] as Timestamp?;
+              if (shiftStart != null) {
+                final shiftDate = shiftStart.toDate();
+                return _getDayOfWeekFromDate(shiftDate);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // If timesheet/shift fetch fails, continue to next method
+        debugPrint('Error fetching timesheet/shift for day extraction: $e');
+      }
+    }
+    
+    // Method 5: Fallback to submission date (less accurate but better than N/A)
+    final submittedAt = formData['submittedAt'] as Timestamp?;
+    if (submittedAt != null) {
+      return _getDayOfWeekFromDate(submittedAt.toDate());
+    }
+    
       return null;
     }
     
-    if (dayValue is List && dayValue.isNotEmpty) {
-      return dayValue.first.toString();
+  /// Get day of week string from DateTime (e.g., "Mon/Lundi", "Tue/Mardi")
+  String _getDayOfWeekFromDate(DateTime date) {
+    final weekday = date.weekday; // 1 = Monday, 7 = Sunday
+    switch (weekday) {
+      case 1:
+        return 'Mon/Lundi';
+      case 2:
+        return 'Tue/Mardi';
+      case 3:
+        return 'Wed/Mercredi';
+      case 4:
+        return 'Thu/Jeudi';
+      case 5:
+        return 'Fri/Vendredi';
+      case 6:
+        return 'Sat/Samedi';
+      case 7:
+        return 'Sun/Dimanche';
+      default:
+        return 'Unknown';
     }
-    return dayValue.toString();
   }
   
   bool _isDayOfWeekString(String value) {
@@ -3612,6 +3913,9 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
             controller: widget.scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
+              // ============================================================
+              // SECTION 1: ALL STATS FIRST
+              // ============================================================
               // **SUMMARY SECTION FIRST** - Schedule, Punctuality, and Form Compliance
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3688,6 +3992,18 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                       ],
                     ),
                   )),
+              const SizedBox(height: 24),
+              
+              // ============================================================
+              // SECTION 2: EDIT CONTROLS
+              // ============================================================
+              // **NEW: Forms Compliance Summary with Penalty** (moved before Individual Shift Payouts)
+              _FormsComplianceSummary(
+                audit: widget.audit,
+                orphanShifts: _cachedOrphanShifts ?? [],
+                unlinkedForms: _cachedUnlinkedForms ?? [],
+                onApplyPenalty: _applyFormPenalty,
+              ),
               const SizedBox(height: 12),
               
               // **NEW: Individual Shift Payouts with Adjustment**
@@ -3697,21 +4013,21 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                 audit: widget.audit,
                 onUpdatePayment: _updateShiftPayment,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
               
-              // **NEW: Forms Compliance Summary with Penalty**
-              _FormsComplianceSummary(
-                audit: widget.audit,
-                orphanShifts: _cachedOrphanShifts ?? [],
-                unlinkedForms: _cachedUnlinkedForms ?? [],
-                onApplyPenalty: _applyFormPenalty,
-              ),
-              const SizedBox(height: 12),
-              // **NEW: Shifts & Forms by Day (Unified View)**
-              if (_cachedDayItems != null && _cachedDayItems!.isNotEmpty) ...[
-                const SizedBox(height: 10),
+              // ============================================================
+              // SECTION 3: FORMS LIST (Shifts & Forms by Day)
+              // ============================================================
                 _buildSectionHeader('Shifts & Forms by Day'),
                 const SizedBox(height: 12),
+              if (_isLoadingDayData) ...[
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ] else if (_cachedDayItems != null && _cachedDayItems!.isNotEmpty) ...[
                 ..._cachedDayItems!.map((dayItem) => _DaySection(
                   dayItem: dayItem,
                   orphanShifts: _cachedOrphanShifts ?? [],
@@ -3719,6 +4035,22 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                   onLinkFormToShift: _linkFormToShift,
                   parentContext: context,
                 )),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'No shifts or forms found for this month',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ],
               if (widget.audit.issues.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -3848,8 +4180,9 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
           _cachedDayItems = null;
           _cachedOrphanShifts = null;
           _cachedUnlinkedForms = null;
+          _isLoadingDayData = true;
         });
-        _computeGroupedData();
+        _computeGroupedData(); // Fire and forget - async operation
       } else if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -5125,11 +5458,53 @@ class _FormDetailsContent extends StatefulWidget {
 class _FormDetailsContentState extends State<_FormDetailsContent> {
   Map<String, String>? _fieldLabels;
   bool _isLoadingLabels = true;
+  TeachingShift? _shift;
+  bool _isLoadingShift = true;
 
   @override
   void initState() {
     super.initState();
     _loadFieldLabels();
+    _loadShiftData();
+  }
+  
+  Future<void> _loadShiftData() async {
+    if (widget.shiftId == 'N/A' || widget.shiftId.isEmpty) {
+      setState(() {
+        _isLoadingShift = false;
+      });
+      return;
+    }
+    
+    try {
+      final shiftDoc = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(widget.shiftId)
+          .get();
+
+      if (shiftDoc.exists) {
+        final shift = TeachingShift.fromFirestore(shiftDoc);
+        if (mounted) {
+          setState(() {
+            _shift = shift;
+            _isLoadingShift = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingShift = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading shift data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingShift = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadFieldLabels() async {
@@ -5228,28 +5603,77 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Minimal header with view shift button
-          if (widget.shiftId != 'N/A' && widget.shiftId.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
+          // Shift Information Section (Autofilled Data)
+          if (widget.shiftId != 'N/A' && widget.shiftId.isNotEmpty) ...[
+            if (_isLoadingShift)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Loading shift information...',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_shift != null) ...[
+              // Display all shift information
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Shift Information (Autofilled)',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                        InkWell(
                 onTap: _navigateToShift,
-                borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue.shade200),
-                    borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.blue.shade300),
+                              borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.open_in_new, size: 14, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
+                                Icon(Icons.open_in_new, size: 12, color: Colors.blue.shade700),
+                                const SizedBox(width: 4),
                       Text(
                         'View Shift',
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                                    fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: Colors.blue.shade700,
                         ),
@@ -5258,7 +5682,61 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                   ),
                 ),
               ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Student Names
+                    if (_shift!.studentNames.isNotEmpty)
+                      _buildShiftInfoRow(
+                        'Students',
+                        _shift!.studentNames.join(', '),
+                      ),
+                    // Subject
+                    if (_shift!.subjectDisplayName != null && _shift!.subjectDisplayName!.isNotEmpty)
+                      _buildShiftInfoRow(
+                        'Subject',
+                        _shift!.subjectDisplayName!,
+                      ),
+                    // Schedule Time
+                    _buildShiftInfoRow(
+                      'Schedule',
+                      '${DateFormat('MMM d, yyyy').format(_shift!.shiftStart)} • ${DateFormat('HH:mm').format(_shift!.shiftStart)} - ${DateFormat('HH:mm').format(_shift!.shiftEnd)}',
+                    ),
+                    // Duration
+                    Builder(
+                      builder: (context) {
+                        final duration = _shift!.shiftEnd.difference(_shift!.shiftStart);
+                        final hours = duration.inHours;
+                        final minutes = duration.inMinutes % 60;
+                        return _buildShiftInfoRow(
+                          'Duration',
+                          hours > 0 
+                            ? '$hours ${hours == 1 ? 'hour' : 'hours'}${minutes > 0 ? ' $minutes min' : ''}'
+                            : '$minutes min',
+                        );
+                      },
+                    ),
+                    // Teacher
+                    _buildShiftInfoRow(
+                      'Teacher',
+                      _shift!.teacherName,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
+          // Form Responses Section
+          Text(
+            'Form Responses',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade900,
             ),
+          ),
+          const SizedBox(height: 8),
           // Responses - Modern minimal design
           if (_isLoadingLabels)
             const Padding(
@@ -5312,6 +5790,37 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                 ),
               );
             }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: Colors.grey.shade900,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -6639,11 +7148,18 @@ class _ExportDialogState extends State<_ExportDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 500,
+        constraints: const BoxConstraints(maxHeight: 600), // Limit dialog height
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Scrollable content
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
             // Header
             Row(
               children: [
@@ -6841,9 +7357,13 @@ class _ExportDialogState extends State<_ExportDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             
-            // Action Buttons
+            // Action Buttons (fixed at bottom)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -6899,6 +7419,388 @@ class _ExportDialogState extends State<_ExportDialog> {
         style: GoogleFonts.inter(
           fontSize: 10,
           color: Colors.grey.shade700,
+        ),
+      ),
+    );
+  }
+}
+
+/// Progress state for audit generation
+class _AuditProgressState {
+  final double progress;
+  final int completed;
+  final int total;
+  final String currentTeacher;
+  final int elapsedSeconds;
+  final bool isComplete;
+
+  _AuditProgressState({
+    required this.progress,
+    required this.completed,
+    required this.total,
+    this.currentTeacher = '',
+    this.elapsedSeconds = 0,
+    this.isComplete = false,
+  });
+}
+
+/// Enhanced progress dialog with animations and fun messages
+class _EnhancedProgressDialog extends StatefulWidget {
+  final Stream<_AuditProgressState> progressStream;
+  final int totalTeachers;
+  final List<String> funMessages;
+  final DateTime startTime;
+
+  const _EnhancedProgressDialog({
+    required this.progressStream,
+    required this.totalTeachers,
+    required this.funMessages,
+    required this.startTime,
+  });
+
+  @override
+  State<_EnhancedProgressDialog> createState() => _EnhancedProgressDialogState();
+}
+
+class _EnhancedProgressDialogState extends State<_EnhancedProgressDialog>
+    with TickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late AnimationController _bounceController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _bounceAnimation;
+  
+  int _currentMessageIndex = 0;
+  Timer? _messageTimer;
+  Timer? _elapsedTimer;
+  int _elapsedSeconds = 0;
+  
+  _AuditProgressState _currentState = _AuditProgressState(
+    progress: 0,
+    completed: 0,
+    total: 1,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Pulse animation for the progress ring
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    
+    // Bounce animation for the icon
+    _bounceController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _bounceAnimation = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut),
+    );
+    
+    // Rotate fun messages every 3 seconds
+    _messageTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_currentState.isComplete) {
+        setState(() {
+          _currentMessageIndex = (_currentMessageIndex + 1) % widget.funMessages.length;
+        });
+      }
+    });
+    
+    // Update elapsed time every second
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _elapsedSeconds = DateTime.now().difference(widget.startTime).inSeconds;
+        });
+      }
+    });
+    
+    // Listen to progress stream
+    widget.progressStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _currentState = state;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _bounceController.dispose();
+    _messageTimer?.cancel();
+    _elapsedTimer?.cancel();
+    super.dispose();
+  }
+  
+  String _formatDuration(int seconds) {
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    if (mins > 0) {
+      return '${mins}m ${secs}s';
+    }
+    return '${secs}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _currentState.progress;
+    final isComplete = _currentState.isComplete;
+    final completed = _currentState.completed;
+    final total = _currentState.total;
+    
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 340,
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Animated progress indicator
+              AnimatedBuilder(
+                animation: _pulseAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: isComplete ? 1.0 : _pulseAnimation.value,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Background circle
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isComplete 
+                                ? Colors.green.shade50 
+                                : Colors.blue.shade50,
+                          ),
+                        ),
+                        // Progress ring
+                        SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 8,
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isComplete ? Colors.green : const Color(0xff0386FF),
+                            ),
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                        // Center icon/text
+                        AnimatedBuilder(
+                          animation: _bounceAnimation,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(0, isComplete ? 0 : _bounceAnimation.value),
+                              child: isComplete
+                                  ? Icon(
+                                      Icons.check_circle,
+                                      size: 48,
+                                      color: Colors.green.shade600,
+                                    )
+                                  : Text(
+                                      '${(progress * 100).toStringAsFixed(0)}%',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xff0386FF),
+                                      ),
+                                    ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Title
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Text(
+                  isComplete ? '✨ Complete!' : 'Generating Audits',
+                  key: ValueKey(isComplete),
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: isComplete ? Colors.green.shade700 : Colors.grey.shade900,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Progress counter with animation
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  key: ValueKey(completed),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isComplete ? Colors.green.shade100 : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isComplete ? Icons.check : Icons.person,
+                        size: 18,
+                        color: isComplete ? Colors.green.shade700 : const Color(0xff0386FF),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isComplete 
+                            ? '$total teachers processed'
+                            : '$completed / $total teachers',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isComplete ? Colors.green.shade700 : const Color(0xff0386FF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Fun rotating message
+              if (!isComplete) ...[
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.3),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    widget.funMessages[_currentMessageIndex],
+                    key: ValueKey(_currentMessageIndex),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              
+              // Current teacher being processed
+              if (_currentState.currentTeacher.isNotEmpty && !isComplete)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade500),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _currentState.currentTeacher,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              const SizedBox(height: 16),
+              
+              // Elapsed time
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.timer_outlined, size: 16, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Elapsed: ${_formatDuration(_elapsedSeconds)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  if (!isComplete && _elapsedSeconds > 0 && completed > 0) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      '• ~${_formatDuration(((total - completed) * (_elapsedSeconds / completed)).round())} remaining',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              
+              // Progress bar at bottom
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isComplete ? Colors.green : const Color(0xff0386FF),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -340,7 +340,24 @@ class MyApp extends StatelessWidget {
           darkTheme: AppTheme.darkTheme,
           themeMode: themeService.themeMode,
 
-          home: _initialScreen,
+          // Route handling for direct URL navigation
+          onGenerateRoute: (settings) {
+            // Handle routes that may come from browser URL
+            switch (settings.name) {
+              case '/login':
+              case '/signup':
+                return MaterialPageRoute(
+                  settings: settings,
+                  builder: (context) => const AuthenticationWrapper(),
+                );
+              default:
+                return MaterialPageRoute(
+                  settings: const RouteSettings(name: '/'),
+                  builder: (context) => _initialScreen,
+                );
+            }
+          },
+          initialRoute: '/',
         );
       },
     );

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import '../../../core/services/form_labels_cache_service.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
 /// Now supports month filtering for better organization
@@ -906,76 +907,13 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
 
   Future<void> _loadFormTemplate() async {
     try {
-      final formId = widget.data['formId'] as String?;
-      AppLogger.debug('Loading form template for formId: $formId');
+      // Use FormLabelsCacheService which handles both old form system and new template system
+      // It will automatically fetch the form response document and extract templateId/formId
+      AppLogger.debug('Loading form labels for submission: ${widget.submissionId}');
       
-      if (formId == null) {
-        setState(() => _isLoadingLabels = false);
-        return;
-      }
-
-      final formDoc = await FirebaseFirestore.instance
-          .collection('form')
-          .doc(formId)
-          .get();
-
-      if (!formDoc.exists) {
-        AppLogger.warning('Form document not found for formId: $formId');
-        setState(() => _isLoadingLabels = false);
-        return;
-      }
-
-      final formData = formDoc.data();
-      AppLogger.debug('Form data structure: ${formData?.keys.toList()}');
+      final labels = await FormLabelsCacheService().getLabelsForFormResponse(widget.submissionId);
       
-      final fieldsData = formData?['fields'];
-      AppLogger.debug('Fields data type: ${fieldsData.runtimeType}');
-
-      final labels = <String, String>{};
-      
-      // Handle both Map and List structures
-      if (fieldsData is Map<String, dynamic>) {
-        // Fields stored as a map where key is field ID
-        AppLogger.debug('Found ${fieldsData.length} fields in form (Map structure)');
-        
-        for (var entry in fieldsData.entries) {
-          final fieldId = entry.key;
-          final field = entry.value as Map<String, dynamic>?;
-          
-          if (field != null) {
-            AppLogger.debug('Field $fieldId structure: ${field.keys.toList()}');
-            final label = field['label'] as String?;
-            final question = field['question'] as String?;
-            final placeholderLabel = field['placeholderLabel'] as String?;
-            
-            AppLogger.debug('Field: id=$fieldId, label=$label, question=$question, placeholderLabel=$placeholderLabel');
-            
-            // Try label first, then question, then placeholderLabel, then fall back to id
-            labels[fieldId] = label ?? question ?? placeholderLabel ?? fieldId;
-          }
-        }
-      } else if (fieldsData is List<dynamic>) {
-        // Fields stored as a list (legacy structure)
-        AppLogger.debug('Found ${fieldsData.length} fields in form (List structure)');
-        
-        for (var field in fieldsData) {
-          if (field is Map<String, dynamic>) {
-            AppLogger.debug('Field structure: ${field.keys.toList()}');
-            final id = field['id'] as String?;
-            final label = field['label'] as String?;
-            final question = field['question'] as String?;
-            final placeholderLabel = field['placeholderLabel'] as String?;
-            
-            AppLogger.debug('Field: id=$id, label=$label, question=$question, placeholderLabel=$placeholderLabel');
-            
-            if (id != null) {
-              labels[id] = label ?? question ?? placeholderLabel ?? id;
-            }
-          }
-        }
-      }
-
-      AppLogger.debug('Loaded ${labels.length} field labels: $labels');
+      AppLogger.debug('Loaded ${labels.length} field labels for submission ${widget.submissionId}');
       
       if (mounted) {
         setState(() {

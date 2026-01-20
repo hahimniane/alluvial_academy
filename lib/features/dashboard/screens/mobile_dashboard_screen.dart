@@ -9,7 +9,7 @@ import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../../form_screen.dart';
 import '../../forms/screens/my_submissions_screen.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
-import '../../zoom/screens/zoom_screen.dart';
+import '../../forms/screens/teacher_forms_screen.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../notifications/screens/mobile_notification_screen.dart';
@@ -33,9 +33,7 @@ class _NavItemData {
 
 /// Beautiful mobile-optimized dashboard with bottom navigation
 class MobileDashboardScreen extends StatefulWidget {
-  final String? userId;
-
-  const MobileDashboardScreen({super.key, this.userId});
+  const MobileDashboardScreen({super.key});
 
   @override
   State<MobileDashboardScreen> createState() => _MobileDashboardScreenState();
@@ -342,13 +340,13 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   List<Widget> get _screens {
     final role = _userRole?.toLowerCase();
 
-    // ONLY Teachers get time clock, shifts, zoom, job board
+    // ONLY Teachers get time clock, shifts, forms, job board
     if (role == 'teacher') {
       return [
         const TeacherHomeScreen(), // Use the new screen
         const TeacherShiftScreen(),
         const ChatPage(),
-        const ZoomScreen(), // Replaced MySubmissionsScreen with Zoom
+        const TeacherFormsScreen(), // Replaced ZoomScreen with Forms
         const TeacherJobBoardScreen(),
       ];
     }
@@ -368,7 +366,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     // Students get classes as their main screen
     if (role == 'student') {
       return [
-        StudentClassesScreen(userId: widget.userId), // Main screen for students
+        const StudentClassesScreen(), // Main screen for students
         const ChatPage(),
         const QuickTasksScreen(),
       ];
@@ -386,13 +384,13 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   List<_NavItemData> get _navItems {
     final role = _userRole?.toLowerCase();
 
-    // ONLY Teachers get Clock, Shifts, Zoom, and Job Board tabs
+    // ONLY Teachers get Clock, Shifts, Forms, and Job Board tabs
     if (role == 'teacher') {
       return [
         _NavItemData(Icons.home_rounded, 'Home', 0),
         _NavItemData(Icons.calendar_today_rounded, 'Shifts', 1),
         _NavItemData(Icons.chat_bubble_rounded, 'Chat', 2),
-        _NavItemData(Icons.video_call_rounded, 'Classes', 3),
+        _NavItemData(Icons.description_rounded, 'Forms', 3),
         _NavItemData(Icons.work_outline_rounded, 'Jobs', 4),
       ];
     }
@@ -727,3 +725,4 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   }
 
 }
+

@@ -685,4 +685,3 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
     };
   }
 }
-
