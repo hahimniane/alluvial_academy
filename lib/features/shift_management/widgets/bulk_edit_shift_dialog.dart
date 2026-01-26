@@ -15,6 +15,7 @@ class BulkEditShiftDialog extends StatefulWidget {
   final List<Employee> students;
   final List<Subject> subjects;
   final VoidCallback onApplied;
+  final bool updateSeriesTemplate;
 
   const BulkEditShiftDialog({
     super.key,
@@ -23,6 +24,7 @@ class BulkEditShiftDialog extends StatefulWidget {
     required this.students,
     required this.subjects,
     required this.onApplied,
+    this.updateSeriesTemplate = false,
   });
 
   @override
@@ -115,44 +117,83 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xff0386FF).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.edit, color: Color(0xff0386FF), size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bulk Edit Shifts',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff111827),
-                  ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xff0386FF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Editing $selectedCount of ${widget.shifts.length} shifts',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xff6B7280),
-                  ),
+                child:
+                    const Icon(Icons.edit, color: Color(0xff0386FF), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Bulk Edit Shifts',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff111827),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Editing $selectedCount of ${widget.shifts.length} shifts',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              IconButton(
+                onPressed: _isSaving ? null : () => Navigator.pop(context),
+                icon: const Icon(Icons.close, size: 20),
+              ),
+            ],
+          ),
+          if (widget.updateSeriesTemplate) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xffF59E0B).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xffF59E0B).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: Color(0xffD97706),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Changes will update the recurring template. All future shifts in this series will use the new settings.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff92400E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: _isSaving ? null : () => Navigator.pop(context),
-            icon: const Icon(Icons.close, size: 20),
-          ),
+          ],
         ],
       ),
     );
@@ -660,6 +701,119 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
       return;
     }
 
+    // Confirm template update if applicable
+    if (widget.updateSeriesTemplate) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF59E0B).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xffD97706),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Update Recurring Template?',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This will update the recurring template. Changes will affect:',
+                style: GoogleFonts.inter(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              _buildConfirmationItem(
+                icon: Icons.check_circle,
+                text: '${_selectedShiftIds.length} selected shift(s)',
+                color: const Color(0xff10B981),
+              ),
+              const SizedBox(height: 8),
+              _buildConfirmationItem(
+                icon: Icons.repeat,
+                text: 'All future shifts in this series',
+                color: const Color(0xff0386FF),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xffFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: Color(0xff92400E),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'The daily scheduler will generate new shifts using the updated template settings.',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff92400E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff6B7280),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff0386FF),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Yes, Update Template',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted) return;
+      if (confirmed != true) return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final conflicts = await ShiftService.checkBulkUpdateConflicts(
@@ -703,14 +857,19 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         _selectedShiftIds.toList(),
         updates,
         checkConflicts: false,
+        updateSeriesTemplate: widget.updateSeriesTemplate,
       );
 
       if (mounted) {
         Navigator.pop(context);
         widget.onApplied();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bulk update applied successfully'),
+          SnackBar(
+            content: Text(
+              widget.updateSeriesTemplate
+                  ? 'Shifts and template updated successfully'
+                  : 'Bulk update applied successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -726,6 +885,27 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Widget _buildConfirmationItem({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xff374151),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _pickTeacher() async {

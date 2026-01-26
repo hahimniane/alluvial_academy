@@ -51,6 +51,9 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
+  <!-- Google Sign-In Client ID (from Firebase Console → Authentication → Google) -->
+  <meta name="google-signin-client_id" content="554077757249-chmmh1h8vns5fuih48gdd565r7mcuad5.apps.googleusercontent.com">
+
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -67,28 +70,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Round" rel="stylesheet">
 
-  <!-- Zoom Web SDK Dependencies -->
-  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/5.0.0/css/bootstrap.css" />
-  <link type="text/css" rel="stylesheet" href="https://source.zoom.us/5.0.0/css/react-select.css" />
-
   <title>Alluwal Education Hub - Islamic Education Management System</title>
-  <link rel="manifest" href="manifest.json?v=56">
+  <link rel="manifest" href="manifest.json?v=61">
 </head>
 <body>
-  <!-- Zoom Web SDK Scripts -->
-  <script src="https://source.zoom.us/5.0.0/lib/vendor/react.min.js"></script>
-  <script src="https://source.zoom.us/5.0.0/lib/vendor/react-dom.min.js"></script>
-  <script src="https://source.zoom.us/5.0.0/lib/vendor/redux.min.js"></script>
-  <script src="https://source.zoom.us/5.0.0/lib/vendor/redux-thunk.min.js"></script>
-  <script src="https://source.zoom.us/5.0.0/zoom-meeting-5.0.0.min.js"></script>
-
-  <!-- Zoom SDK Integration for Flutter -->
-  <script src="zoom_integration.js"></script>
-
   <!-- Version check: Force reload if cached version is outdated -->
   <script>
     (function() {
-      var CURRENT_VERSION = 56; // This will be updated by increment_version.sh
+      var CURRENT_VERSION = 61; // This will be updated by increment_version.sh
       var VERSION_KEY = 'flutter_web_version';
       
       try {
@@ -132,6 +121,6 @@
     })();
   </script>
   
-  <script src="flutter_bootstrap.js?v=56" async></script>
+  <script src="flutter_bootstrap.js?v=61" async></script>
 </body>
 </html>

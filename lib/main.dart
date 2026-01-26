@@ -40,7 +40,7 @@ import 'features/livekit/screens/guest_join_screen.dart';
 // const String _firebaseEnv =
 //     String.fromEnvironment('FIREBASE_ENV', defaultValue: '');
 
-    const String _firebaseEnv = 'prod'; // change to 'dev' to switch projects
+    const String _firebaseEnv = 'prod'; // change to 'dev' to switch projects and prod to run the production project
 
 
 bool get _useProdFirebase {
@@ -53,6 +53,26 @@ bool get _useProdFirebase {
 FirebaseOptions get _firebaseOptions => _useProdFirebase
     ? prod_firebase.DefaultFirebaseOptions.currentPlatform
     : dev_firebase.DevFirebaseOptions.currentPlatform;
+
+bool get _isNativeMobilePlatform {
+  if (kIsWeb) return false;
+  return Platform.isAndroid || Platform.isIOS;
+}
+
+bool get _isMobileWebPlatform {
+  if (!kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+}
+
+bool get _isMobileLikePlatform => _isNativeMobilePlatform || _isMobileWebPlatform;
+
+bool _isMobileLayout(BuildContext context) {
+  if (_isMobileLikePlatform) return true;
+  if (!kIsWeb) return false;
+  final shortestSide = MediaQuery.of(context).size.shortestSide;
+  return shortestSide < 600;
+}
 
 /// Save FCM token if user is already logged in (non-blocking)
 void _saveFCMTokenIfLoggedIn() {
@@ -273,34 +293,38 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   // Determine initial screen based on platform
-  Widget get _initialScreen {
+  Widget _initialScreen(BuildContext context) {
     AppLogger.debug('=== MyApp._initialScreen: kIsWeb = $kIsWeb ===');
 
-    if (kIsWeb && JoinLinkService.hasPendingGuestJoin) {
+    // NATIVE MOBILE (iOS/Android) - Always go to AuthenticationWrapper
+    if (!kIsWeb) {
+      AppLogger.debug('=== Native platform detected (${Platform.operatingSystem}) - going to AuthenticationWrapper ===');
+      return const AuthenticationWrapper();
+    }
+
+    // WEB: Check for special join links
+    if (JoinLinkService.hasPendingGuestJoin) {
       AppLogger.debug('=== Guest join link detected ===');
       return const GuestJoinScreen();
     }
 
-    if (kIsWeb && JoinLinkService.hasPendingJoin) {
+    if (JoinLinkService.hasPendingJoin) {
       AppLogger.debug('=== Join link detected: routing to AuthenticationWrapper ===');
       return const AuthenticationWrapper();
     }
 
-    if (!kIsWeb) {
-      final platform = defaultTargetPlatform;
-      final isMobilePlatform =
-          platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    // WEB: Check if mobile-sized screen (responsive)
+    final platformLabel = defaultTargetPlatform.toString();
+    AppLogger.debug(
+        '=== Web platform check: $platformLabel, isMobile=${_isMobileLayout(context)} ===');
 
-      AppLogger.debug(
-          '=== Platform check: $platform, isMobile=$isMobilePlatform ===');
-      if (isMobilePlatform) {
-        AppLogger.debug('=== Returning AuthenticationWrapper for mobile ===');
-        return const AuthenticationWrapper();
-      }
+    if (_isMobileLayout(context)) {
+      AppLogger.debug('=== Mobile web layout - going to AuthenticationWrapper ===');
+      return const AuthenticationWrapper();
     }
 
-    // On web or other platforms, show the website landing page
-    AppLogger.debug('=== Returning LandingPage ===');
+    // WEB desktop: Show landing page
+    AppLogger.debug('=== Returning LandingPage for web desktop ===');
     return const LandingPage();
   }
 
@@ -353,7 +377,7 @@ class MyApp extends StatelessWidget {
               default:
                 return MaterialPageRoute(
                   settings: const RouteSettings(name: '/'),
-                  builder: (context) => _initialScreen,
+                  builder: (context) => _initialScreen(context),
                 );
             }
           },
@@ -610,13 +634,9 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     }
   }
 
-  // Helper to check if running on native mobile (not web)
-  // Web browsers (mobile or desktop) should use the web dashboard flow
+  // Helper to check if we should use the mobile UI
   bool _isMobile(BuildContext context) {
-    // Only return true for native mobile platforms, not web browsers
-    if (kIsWeb) return false;
-    final platform = defaultTargetPlatform;
-    return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    return _isMobileLayout(context);
   }
 
   @override
@@ -1013,6 +1033,47 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
     return '$normalized@$domain';
   }
 
+  // Handle Google Sign-In
+  Future<void> _handleGoogleSignIn() async {
+    AuthService authService = AuthService();
+    try {
+      User? user = await authService.signInWithGoogle();
+
+      if (user != null) {
+        AppLogger.info('Google sign-in succeeded for uid=${user.uid}');
+      }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-registered':
+          errorMessage =
+              'No account found with this Google email. Please contact an administrator to create your account first.';
+          break;
+        case 'user-deactivated':
+          errorMessage =
+              'Your account has been archived. Please contact an administrator for assistance.';
+          break;
+        case 'account-exists-with-different-credential':
+          errorMessage =
+              'An account already exists with this email but uses a different sign-in method. Please use your email and password to sign in.';
+          break;
+        case 'google-signin-failed':
+          errorMessage = 'Google sign-in failed. Please try again.';
+          break;
+        default:
+          errorMessage =
+              'Sign-in failed. Please check your account and try again.';
+      }
+      if (mounted) {
+        _showErrorDialog(errorMessage);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('An unexpected error occurred. Please try again.');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1334,21 +1395,8 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                 // Google Sign In Button
                 SizedBox(
                   height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.g_mobiledata,
-                      size: 20,
-                      color: Color(0xff374151),
-                    ),
-                    label: Text(
-                      'Continue with Google',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff374151),
-                      ),
-                    ),
+                  child: OutlinedButton(
+                    onPressed: _handleGoogleSignIn,
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(
                         color: Color(0xffD1D5DB),
@@ -1357,6 +1405,28 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Google "G" logo using custom colors
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CustomPaint(
+                            painter: _GoogleLogoPainter(),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Continue with Google',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff374151),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1367,4 +1437,72 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       ),
     );
   }
+}
+
+/// Custom painter for the Google "G" logo
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double width = size.width;
+    final double height = size.height;
+
+    // Blue arc (right side)
+    final bluePaint = Paint()
+      ..color = const Color(0xff4285F4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    // Green arc (bottom right)
+    final greenPaint = Paint()
+      ..color = const Color(0xff34A853)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    // Yellow arc (bottom left)
+    final yellowPaint = Paint()
+      ..color = const Color(0xffFBBC05)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    // Red arc (top)
+    final redPaint = Paint()
+      ..color = const Color(0xffEA4335)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    final rect = Rect.fromLTWH(
+      width * 0.09,
+      height * 0.09,
+      width * 0.82,
+      height * 0.82,
+    );
+
+    // Draw arcs (clockwise from right)
+    canvas.drawArc(rect, -0.4, 1.2, false, bluePaint); // Right
+    canvas.drawArc(rect, 0.8, 0.9, false, greenPaint); // Bottom right
+    canvas.drawArc(rect, 1.7, 0.9, false, yellowPaint); // Bottom left / left
+    canvas.drawArc(rect, 2.6, 1.0, false, redPaint); // Top
+
+    // Draw the horizontal bar of the "G"
+    final barPaint = Paint()
+      ..color = const Color(0xff4285F4)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRect(
+      Rect.fromLTWH(
+        width * 0.5,
+        height * 0.42,
+        width * 0.41,
+        height * 0.16,
+      ),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

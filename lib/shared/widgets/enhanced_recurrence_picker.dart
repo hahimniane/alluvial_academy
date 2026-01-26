@@ -81,7 +81,23 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
         }).toList(),
         onChanged: (value) {
           if (value != null) {
-            _updateRecurrence(_recurrence.copyWith(type: value));
+            // Clear irrelevant fields when type changes to avoid conflicts
+            _updateRecurrence(_recurrence.copyWith(
+              type: value,
+              // Clear excludedWeekdays when switching to weekly/monthly/yearly
+              // (excludedWeekdays is only for daily recurrence)
+              excludedWeekdays:
+                  value == EnhancedRecurrenceType.daily ? null : const [],
+              // Clear selectedWeekdays when switching away from weekly
+              selectedWeekdays:
+                  value == EnhancedRecurrenceType.weekly ? null : const [],
+              // Clear selectedMonthDays when switching away from monthly
+              selectedMonthDays:
+                  value == EnhancedRecurrenceType.monthly ? null : const [],
+              // Clear selectedMonths when switching away from yearly
+              selectedMonths:
+                  value == EnhancedRecurrenceType.yearly ? null : const [],
+            ));
           }
         },
       ),

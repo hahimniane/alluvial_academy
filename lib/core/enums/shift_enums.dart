@@ -67,6 +67,7 @@ enum ShiftCategory {
 
 /// Video provider enum - determines which video platform is used for the class
 enum VideoProvider {
-  zoom,     // Default - uses Zoom for video calls
-  livekit,  // Beta - uses LiveKit for video calls
+  livekit,  // Default - uses LiveKit for video calls
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
+  zoom,     // Legacy - no longer supported
 }

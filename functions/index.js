@@ -13,14 +13,10 @@ const notificationHandlers = require('./handlers/notifications');
 const enrollmentHandlers = require('./handlers/enrollments');
 const jobHandlers = require('./handlers/jobs');
 const formHandlers = require('./handlers/forms');
-const zoomHandlers = require('./handlers/zoom');
+// Zoom handlers removed - all video calls now use LiveKit
 const livekitHandlers = require('./handlers/livekit');
 const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
-const testZoomHandlers = require('./handlers/test_zoom_shift');
-const zoomHostHandlers = require('./handlers/zoom_hosts');
-const testHostAllocationHandlers = require('./handlers/test_host_allocation');
-const testOverlappingShiftsHandlers = require('./handlers/test_overlapping_shifts');
 const passwordHandlers = require('./handlers/password');
 const paymentHandlers = require('./handlers/payments');
 // Temporarily commented out to allow deployment
@@ -68,14 +64,10 @@ exports.scheduleUpcomingShiftLifecycleTasks =
 exports.generateDailyShifts = shiftTemplateHandlers.generateDailyShifts;
 exports.createShiftTemplate = shiftTemplateHandlers.createShiftTemplate;
 exports.generateShiftsForTemplate = shiftTemplateHandlers.generateShiftsForTemplateCallable;
+exports.updateShiftTemplate = shiftTemplateHandlers.updateShiftTemplate;
+exports.excludeShiftTemplateDate = shiftTemplateHandlers.excludeShiftTemplateDate;
 exports.onTeacherDeleted = shiftTemplateHandlers.onTeacherDeleted;
-exports.joinZoomMeeting = zoomHandlers.joinZoomMeeting;
-exports.getZoomJoinUrl = zoomHandlers.getZoomJoinUrl;
-exports.getZoomMeetingSdkJoinPayload = zoomHandlers.getZoomMeetingSdkJoinPayload;
-exports.endActiveZoomMeetings = zoomHandlers.endActiveZoomMeetings;
-exports.checkActiveZoomMeetings = zoomHandlers.checkActiveZoomMeetings;
-exports.testZoomForShift = testZoomHandlers.testZoomForShift;
-exports.testZoomForShiftHttp = testZoomHandlers.testZoomForShiftHttp;
+// Zoom functions removed - all video calls now use LiveKit
 exports.fixActiveShiftsStatus = shiftHandlers.fixActiveShiftsStatus;
 exports.fixTimesheetsPayAndStatus = shiftHandlers.fixTimesheetsPayAndStatus;
 
@@ -87,13 +79,7 @@ exports.getPaymentHistory = onCall(paymentHandlers.getPaymentHistory);
 exports.handlePayoneerWebhook = functions.https.onRequest(paymentHandlers.handlePayoneerWebhook);
 exports.generateInvoicesForPeriod = paymentHandlers.generateInvoicesForPeriod;
 
-// Zoom host management functions (multi-host meeting distribution)
-exports.listZoomHosts = zoomHostHandlers.listZoomHosts;
-exports.addZoomHost = zoomHostHandlers.addZoomHost;
-exports.updateZoomHost = zoomHostHandlers.updateZoomHost;
-exports.removeZoomHost = zoomHostHandlers.removeZoomHost;
-exports.revalidateZoomHost = zoomHostHandlers.revalidateZoomHost;
-exports.checkHostAvailability = zoomHostHandlers.checkHostAvailability;
+// Zoom host management removed - all video calls now use LiveKit
 
 // Form management functions
 exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessForms;
@@ -151,21 +137,7 @@ exports.onShiftUpdateNew = newImplementation.onShiftUpdateNew;
 // Timesheet export function
 exports.exportTimesheet = newImplementation.exportTimesheet;
 
-// Test function for host allocation (HTTP callable)
-exports.testHostAllocation = testHostAllocationHandlers.testHostAllocation;
-exports.testCreateOverlappingShifts = testOverlappingShiftsHandlers.testCreateOverlappingShifts;
-exports.debugShifts = testHostAllocationHandlers.debugShifts;
-
-// Host config check (HTTP callable)
-const getHostConfigHandlers = require('./handlers/get_host_config');
-exports.getHostConfig = getHostConfigHandlers.getHostConfig;
-
-// Hub Meeting Scheduler (HTTP callable for testing/cron)
-const { scheduleHubMeetings } = require('./services/shifts/schedule_hubs');
-exports.scheduleHubMeetings = functions.https.onCall(async (data, context) => {
-  // Optional: Add auth check here if needed restricted to admin
-  return await scheduleHubMeetings();
-});
+// Zoom host allocation and hub meeting tests removed - all video calls now use LiveKit
 
 // Programmed Clock-in Executor (HTTP callable for cron jobs)
 const clockinSchedulerHandlers = require('./handlers/clockin_scheduler');
@@ -274,41 +246,13 @@ const checkKiosqueCodesHttp = functions.https.onRequest(async (req, res) => {
 
 exports.checkKiosqueCodesHttp = checkKiosqueCodesHttp;
 
-// Hub Meeting Test/Manual Triggers
-const testHubCreationHandlers = require('./handlers/test_hub_creation');
-exports.createHubForShift = testHubCreationHandlers.createHubForShift;
-exports.listShiftHubStatus = testHubCreationHandlers.listShiftHubStatus;
-exports.runHubScheduler = testHubCreationHandlers.runHubScheduler;
-
-// Professional Test Suite for Hub Architecture
-const { testHubArchitecture } = require('./handlers/test_hub_architecture');
-exports.testHubArchitecture = testHubArchitecture;
-
-const testBreakoutHandlers = require('./handlers/test_breakout');
-exports.testBreakoutCreation = testBreakoutHandlers.testBreakoutCreation;
-exports.listUsers = testBreakoutHandlers.listUsers;
+// Zoom Hub/Breakout test functions removed - all video calls now use LiveKit
 
 // Kiosque code migration function
 const migrateKiosqueCodesHandlers = require('./handlers/migrate_kiosque_codes');
 exports.migrateKiosqueCodes = functions.https.onCall(migrateKiosqueCodesHandlers.migrateKiosqueCodes);
 
-// Zoom Check Test
-const testZoomCheckHandlers = require('./handlers/test_zoom_check');
-exports.checkZoomMeeting = testZoomCheckHandlers.checkZoomMeeting;
-
-// Breakout Room Opener (Cloud Task handler + helper functions)
-const breakoutOpenerHandlers = require('./handlers/breakout_opener');
-exports.openBreakoutRooms = breakoutOpenerHandlers.openBreakoutRooms;
-exports.markBreakoutRoomsOpened = breakoutOpenerHandlers.markBreakoutRoomsOpened;
-exports.getZoomHostKey = breakoutOpenerHandlers.getZoomHostKey;
-
-// Hybrid Zoom Test Functions
-const testHybridZoomHandlers = require('./handlers/test_hybrid_zoom');
-exports.testHybridZoomFlow = testHybridZoomHandlers.testHybridZoomFlow;
-exports.verifyHostKeyConfig = testHybridZoomHandlers.verifyHostKeyConfig;
-exports.getShiftForTesting = testHybridZoomHandlers.getShiftForTesting;
-exports.clearAllZoomMeetings = testHybridZoomHandlers.clearAllZoomMeetings;
-exports.createTestClassForTeacher = testHybridZoomHandlers.createTestClassForTeacher;
+// Zoom check, breakout, and hybrid test functions removed - all video calls now use LiveKit
 
 // LiveKit Video Functions
 exports.getLiveKitJoinToken = livekitHandlers.getLiveKitJoinToken;

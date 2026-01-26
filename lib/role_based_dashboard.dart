@@ -1,11 +1,21 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/user_role_service.dart';
 import 'dashboard.dart';
 import 'features/parent/screens/parent_dashboard_layout.dart';
+import 'features/dashboard/screens/mobile_dashboard_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+
+/// Check if running on native mobile platform
+bool get _isNativeMobile {
+  if (kIsWeb) return false;
+  return Platform.isAndroid || Platform.isIOS;
+}
 
 class RoleBasedDashboard extends StatefulWidget {
   const RoleBasedDashboard({super.key});
@@ -78,8 +88,16 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
       return _buildNoRoleScreen();
     }
 
-    // Route to appropriate dashboard based on role
-    AppLogger.debug('=== RoleBasedDashboard routing for role: ${userRole!.toLowerCase()} ===');
+    // Route to appropriate dashboard based on role AND platform
+    AppLogger.debug('=== RoleBasedDashboard routing for role: ${userRole!.toLowerCase()}, isNativeMobile: $_isNativeMobile ===');
+    
+    // On native mobile (iOS/Android), use MobileDashboardScreen with bottom navigation
+    if (_isNativeMobile) {
+      AppLogger.debug('=== Native mobile detected - returning MobileDashboardScreen ===');
+      return const MobileDashboardScreen();
+    }
+    
+    // On web, route based on role
     switch (userRole!.toLowerCase()) {
       case 'admin':
         AppLogger.debug('=== Returning AdminDashboard ===');
@@ -184,6 +202,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ElevatedButton(
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
@@ -231,6 +252,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ElevatedButton(
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
@@ -278,6 +302,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ElevatedButton(
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),

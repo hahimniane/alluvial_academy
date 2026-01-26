@@ -446,11 +446,11 @@ class NotificationService {
             'fcmTokens': FieldValue.arrayUnion([tokenData]),
             'lastTokenUpdate': FieldValue.serverTimestamp(),
           });
-          AppLogger.error('✅ Added new FCM token for $platform');
+          AppLogger.info('✅ Added new FCM token for $platform');
         }
       }
 
-      AppLogger.error('✅ FCM Token saved successfully to Firestore for user $uid on $platform');
+      AppLogger.info('✅ FCM Token saved successfully to Firestore for user $uid on $platform');
     } catch (e, stackTrace) {
       AppLogger.error('❌ Error saving FCM token to Firestore: $e');
       AppLogger.error('❌ Stack trace: $stackTrace');

@@ -12,7 +12,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   flutter_timezone
   flutter_webrtc
-  flutter_zoom_meeting_sdk
   geolocator_windows
   livekit_client
   permission_handler_windows

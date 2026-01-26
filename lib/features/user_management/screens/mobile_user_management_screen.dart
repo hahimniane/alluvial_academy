@@ -77,11 +77,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       _filteredUsers = _users.where((user) {
         final userType = user.userType.toLowerCase();
         final roleFilter = _selectedRoleFilter?.toLowerCase();
-        // Search query filter
-        final matchesSearch = _searchQuery.isEmpty ||
-            user.firstName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            user.lastName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            user.email.toLowerCase().contains(_searchQuery.toLowerCase());
+        // Search query filter - enhanced to support full name, student ID, email
+        final matchesSearch = _matchesSearchTerm(user, _searchQuery);
 
         // Role filter
         final matchesRole = roleFilter == null ||
@@ -94,6 +91,39 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         return matchesSearch && matchesRole && matchesActive;
       }).toList();
     });
+  }
+
+  /// Enhanced search matching that supports:
+  /// - First name, last name (partial match)
+  /// - Full name (e.g., "John Doe")
+  /// - Email address
+  /// - Student ID (student_code)
+  /// - Document ID (Firebase UID)
+  bool _matchesSearchTerm(Employee user, String searchQuery) {
+    if (searchQuery.isEmpty) return true;
+    
+    final term = searchQuery.toLowerCase().trim();
+    if (term.isEmpty) return true;
+
+    // Check individual fields
+    final firstName = user.firstName.toLowerCase();
+    final lastName = user.lastName.toLowerCase();
+    final email = user.email.toLowerCase();
+    final studentCode = user.studentCode.toLowerCase();
+    final documentId = user.documentId.toLowerCase();
+
+    // Build full name variations
+    final fullName = '$firstName $lastName';
+    final fullNameReversed = '$lastName $firstName';
+
+    // Match against all fields
+    return firstName.contains(term) ||
+        lastName.contains(term) ||
+        email.contains(term) ||
+        studentCode.contains(term) ||
+        documentId.contains(term) ||
+        fullName.contains(term) ||
+        fullNameReversed.contains(term);
   }
 
   void _showFilterOptions() {

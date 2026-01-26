@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/enums/timesheet_enums.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
@@ -217,15 +218,48 @@ class _TimesheetTableState extends State<TimesheetTable>
       AppLogger.error('TimesheetTable: ❌ Error loading timesheet entries: $e');
       AppLogger.error('TimesheetTable: 🔧 Stack trace: ${StackTrace.current}');
 
+      // Check if this is a Firestore cache corruption error
+      final errorString = e.toString();
+      final isFirestoreCacheError = errorString.contains('INTERNAL ASSERTION FAILED') ||
+          errorString.contains('Unexpected state');
+
       // Show user-friendly error message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading timesheet data: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+        if (isFirestoreCacheError) {
+          // Show a more helpful message for cache errors
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Browser cache issue detected. Please refresh the page (Ctrl+Shift+R or Cmd+Shift+R).',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'Refresh',
+                textColor: Colors.white,
+                onPressed: () {
+                  // Trigger a hard refresh on web
+                  if (kIsWeb) {
+                    // ignore: avoid_web_libraries_in_flutter
+                    // Use window.location.reload() via JS interop
+                    try {
+                      // Simple refresh without JS interop
+                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    } catch (_) {}
+                  }
+                },
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error loading timesheet data: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
 
       return [];

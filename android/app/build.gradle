@@ -34,7 +34,7 @@ android {
         applicationId = "org.alluvaleducationhub.academy"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdkVersion 26  // Required for Zoom SDK
+        minSdkVersion 26
         targetSdk = flutter.targetSdkVersion  // Use Flutter's recommended version
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -57,13 +57,6 @@ android {
             shrinkResources false
         }
     }
-    
-    // Zoom Meeting SDK AAR repository
-    repositories {
-        flatDir {
-            dirs 'libs/zoom'
-        }
-    }
 }
 
 flutter {
@@ -77,21 +70,6 @@ dependencies {
     
     // Core library desugaring for flutter_local_notifications
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
-    
-    // Zoom Meeting SDK - AAR must be copied by setup script
-    // Run: ./tools/setup_zoom_meeting_sdk.sh
-    // TEMPORARILY DISABLED FOR TESTING
-    // implementation(name: 'mobilertc', ext: 'aar')
-    // Zoom SDK Dependencies to fix resource errors
-    // ExoPlayer REQUIRED for mobilertc
-    implementation "com.google.android.exoplayer:exoplayer-core:2.18.5"
-    implementation "com.google.android.exoplayer:exoplayer-ui:2.18.5"
-    // Lottie REQUIRED for mobilertc (fixes lottie_autoPlay resource errors)
-    implementation "com.airbnb.android:lottie:6.0.0"
-    // Optional Zoom SDK dependencies (uncomment if needed)
-    // implementation "androidx.security:security-crypto:1.1.0-alpha06"
-    // implementation "com.google.crypto.tink:tink-android:1.7.0"
-    // implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
 }
 
 configurations.all {

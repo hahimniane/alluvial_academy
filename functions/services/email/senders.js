@@ -421,11 +421,115 @@ const sendTestEmail = async ({to, subject, message}) => {
   };
 };
 
+const sendDailyShiftGenerationReport = async ({
+  totalTemplates,
+  totalShiftsCreated,
+  totalSkipped,
+  teachersAffected,
+  runDate,
+}) => {
+  const transporter = createTransporter();
+
+  const teachersList = teachersAffected.length > 0
+    ? teachersAffected.map((t) => `<li>${t.name} - ${t.shiftsCreated} shift(s) generated</li>`).join('')
+    : '<li>No shifts generated for any teacher</li>';
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: 'support@alluwaleducationhub.org',
+    subject: `📅 Daily Shift Generation Report - ${runDate}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Daily Shift Generation Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+          .container { max-width: 600px; margin: 0 auto; background-color: white; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+          .content { padding: 30px 20px; }
+          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+          .stat-box { background-color: #f0fdf4; border: 1px solid #86efac; padding: 15px; border-radius: 8px; text-align: center; }
+          .stat-number { font-size: 28px; font-weight: bold; color: #059669; }
+          .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; }
+          .teachers-section { background-color: #f9fafb; padding: 20px; margin: 20px 0; border-radius: 8px; }
+          .teachers-section h3 { margin-top: 0; color: #374151; }
+          .teachers-section ul { margin: 0; padding-left: 20px; }
+          .teachers-section li { padding: 5px 0; color: #4b5563; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #6b7280; font-size: 14px; }
+          .success-badge { display: inline-block; background-color: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📅 Daily Shift Generation Report</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">${runDate}</p>
+          </div>
+          
+          <div class="content">
+            <p style="text-align: center;">
+              <span class="success-badge">✓ Completed Successfully</span>
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 15px; background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: bold; color: #059669;">${totalTemplates}</div>
+                    <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Active Templates</div>
+                  </td>
+                  <td style="padding: 15px; background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: bold; color: #2563eb;">${totalShiftsCreated}</div>
+                    <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Shifts Created</div>
+                  </td>
+                  <td style="padding: 15px; background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: bold; color: #d97706;">${totalSkipped}</div>
+                    <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Skipped</div>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            
+            <div class="teachers-section">
+              <h3>👨‍🏫 Teachers with New Shifts Generated:</h3>
+              <ul>
+                ${teachersList}
+              </ul>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+              The daily shift generation runs automatically at midnight UTC to ensure all recurring shifts are scheduled for the upcoming days based on active templates.
+            </p>
+          </div>
+          
+          <div class="footer">
+            <p>This is an automated report from the Alluwal Academy scheduling system.</p>
+            <p>Alluwal Academy - Excellence in Islamic Education</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('[email] Failed to send daily shift generation report:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendStudentNotificationEmail,
   sendTaskAssignmentEmail,
   sendTestEmail,
+  sendDailyShiftGenerationReport,
 };
 

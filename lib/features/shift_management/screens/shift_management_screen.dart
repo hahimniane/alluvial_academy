@@ -2122,6 +2122,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         teachers: _allAssignableTeachers(),
         students: _availableStudents,
         subjects: _availableSubjects,
+        updateSeriesTemplate: true,
         onApplied: () {
           _loadShiftData();
           _loadShiftStatistics();
@@ -2435,6 +2436,12 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           return;
         }
         await ShiftService.deleteMultipleShifts(ids);
+        final templateId = (series?.shifts ?? const <TeachingShift>[])
+                .map((s) => s.templateId)
+                .firstWhere((id) => id != null && id.trim().isNotEmpty,
+                    orElse: () => null) ??
+            shift.id;
+        await ShiftService.deactivateShiftTemplate(templateId);
       }
 
       await ShiftService.cleanupOrphanedTimesheets(deleteOrphans: true);

@@ -481,6 +481,10 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
 
     if (confirmed == true) {
       await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        // Navigate to root and clear all routes - AuthenticationWrapper will show login
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
     }
   }
 

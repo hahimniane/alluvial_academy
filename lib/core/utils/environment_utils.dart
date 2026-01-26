@@ -28,5 +28,25 @@ class EnvironmentUtils {
 
     return false;
   }
-}
 
+  static bool get isShiftTemplateEnabled {
+    final id = projectId?.trim().toLowerCase();
+    if (id == null || id.isEmpty) {
+      return !kReleaseMode;
+    }
+
+    if (id == 'alluwal-dev' || id.contains('alluwal-dev') || id.endsWith('-dev')) {
+      return true;
+    }
+
+    if (id.contains('demo') || id.contains('emulator')) {
+      return true;
+    }
+
+    if (id == 'alluwal-academy' || id.contains('alluwal-academy')) {
+      return true;
+    }
+
+    return false;
+  }
+}

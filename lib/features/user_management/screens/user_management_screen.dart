@@ -29,6 +29,417 @@ class UserManagementScreen extends StatefulWidget {
   _UserManagementScreenState createState() => _UserManagementScreenState();
 }
 
+class _ParentSearchDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> parents;
+  final String? selectedParentId;
+  final ValueChanged<String> onParentSelected;
+  final VoidCallback onClearFilter;
+
+  const _ParentSearchDialog({
+    required this.parents,
+    required this.selectedParentId,
+    required this.onParentSelected,
+    required this.onClearFilter,
+  });
+
+  @override
+  State<_ParentSearchDialog> createState() => _ParentSearchDialogState();
+}
+
+class _ParentSearchDialogState extends State<_ParentSearchDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _filteredParents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredParents = widget.parents;
+    _searchController.addListener(_filterParents);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterParents() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredParents = widget.parents.where((parent) {
+        final name = (parent['name'] ?? '').toString().toLowerCase();
+        final email = (parent['email'] ?? '').toString().toLowerCase();
+        return name.contains(query) || email.contains(query);
+      }).toList();
+    });
+  }
+
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    return trimmed[0].toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 16,
+      child: Container(
+        width: 500,
+        constraints: const BoxConstraints(maxHeight: 600),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              const Color(0xff9333EA).withOpacity(0.02),
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xff9333EA),
+                    Color(0xff7C3AED),
+                  ],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.family_restroom,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Select Parent',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Choose a parent to view their students',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            // Search
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xffE2E8F0)),
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Search by name or email...',
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xff9CA3AF),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Color(0xff6B7280),
+                      size: 20,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${_filteredParents.length} parents found',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xff6B7280),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Content
+            Expanded(
+              child: _filteredParents.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'No parents found',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ListView.builder(
+                        itemCount: _filteredParents.length,
+                        itemBuilder: (context, index) {
+                          final parent = _filteredParents[index];
+                          final parentId = parent['id']?.toString() ?? '';
+                          final parentName =
+                              parent['name']?.toString() ?? '';
+                          final parentEmail =
+                              parent['email']?.toString() ?? '';
+                          final isSelected =
+                              widget.selectedParentId == parentId;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xff9333EA)
+                                    : Colors.grey.withOpacity(0.2),
+                                width: isSelected ? 2 : 1,
+                              ),
+                              color: isSelected
+                                  ? const Color(0xff9333EA).withOpacity(0.05)
+                                  : Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isSelected
+                                      ? const Color(0xff9333EA)
+                                          .withOpacity(0.1)
+                                      : Colors.black.withOpacity(0.02),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () {
+                                  widget.onParentSelected(parentId);
+                                  Navigator.pop(context);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    children: [
+                                      // Avatar
+                                      Container(
+                                        width: 56,
+                                        height: 56,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xff9333EA),
+                                              Color(0xff7C3AED),
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xff9333EA)
+                                                  .withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            _getInitials(parentName),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      // Info
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              parentName,
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xff1F2937),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              parentEmail,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Student count badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(0xff9333EA)
+                                                  .withOpacity(0.1),
+                                              const Color(0xff7C3AED)
+                                                  .withOpacity(0.1),
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: const Color(0xff9333EA)
+                                                .withOpacity(0.3),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.people,
+                                              size: 16,
+                                              color: Color(0xff9333EA),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '${parent['studentCount']}',
+                                              style: const TextStyle(
+                                                color: Color(0xff9333EA),
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Padding(
+                                          padding: EdgeInsets.only(left: 12),
+                                          child: Icon(
+                                            Icons.check_circle,
+                                            color: Color(0xff9333EA),
+                                            size: 24,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+            if (widget.selectedParentId != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        widget.onClearFilter();
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.clear, color: Colors.white),
+                      label: const Text('Clear Filter'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff9333EA),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _UserManagementScreenState extends State<UserManagementScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -150,6 +561,53 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
       _applyFilters();
     });
+  }
+
+  /// Enhanced search matching that supports:
+  /// - First name, last name (partial match)
+  /// - Full name (e.g., "John Doe")
+  /// - Email address
+  /// - Student ID (student_code)
+  /// - Phone number (phone_number)
+  /// - Document ID (Firebase UID)
+  bool _matchesSearchTerm(Employee employee, String searchTerm) {
+    final term = searchTerm.toLowerCase().trim();
+    if (term.isEmpty) return true;
+
+    // Check individual fields
+    final firstName = employee.firstName.toLowerCase();
+    final lastName = employee.lastName.toLowerCase();
+    final email = employee.email.toLowerCase();
+    final studentCode = employee.studentCode.toLowerCase();
+    final mobilePhone = employee.mobilePhone.toLowerCase();
+    final countryCode = employee.countryCode.toLowerCase();
+    final documentId = employee.documentId.toLowerCase();
+
+    // Build full name variations
+    final fullName = '$firstName $lastName';
+    final fullNameReversed = '$lastName $firstName';
+    final fullPhone = '$countryCode$mobilePhone';
+
+    String normalizePhone(String value) {
+      return value.replaceAll(RegExp(r'[^0-9]'), '');
+    }
+
+    final termDigits = normalizePhone(term);
+    final phoneDigits = normalizePhone(mobilePhone);
+    final fullPhoneDigits = normalizePhone(fullPhone);
+
+    // Match against all fields
+    return firstName.contains(term) ||
+        lastName.contains(term) ||
+        email.contains(term) ||
+        studentCode.contains(term) ||
+        mobilePhone.contains(term) ||
+        (termDigits.isNotEmpty &&
+            (phoneDigits.contains(termDigits) ||
+                fullPhoneDigits.contains(termDigits))) ||
+        documentId.contains(term) ||
+        fullName.contains(term) ||
+        fullNameReversed.contains(term);
   }
 
   Future<void> _loadParentStudentRelationships() async {
@@ -275,15 +733,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     // Apply search filter to both lists
     if (_currentSearchTerm.isNotEmpty) {
       regularUsers = regularUsers.where((employee) {
-        return employee.firstName.toLowerCase().contains(_currentSearchTerm) ||
-            employee.lastName.toLowerCase().contains(_currentSearchTerm) ||
-            employee.email.toLowerCase().contains(_currentSearchTerm);
+        return _matchesSearchTerm(employee, _currentSearchTerm);
       }).toList();
 
       adminUsers = adminUsers.where((employee) {
-        return employee.firstName.toLowerCase().contains(_currentSearchTerm) ||
-            employee.lastName.toLowerCase().contains(_currentSearchTerm) ||
-            employee.email.toLowerCase().contains(_currentSearchTerm);
+        return _matchesSearchTerm(employee, _currentSearchTerm);
       }).toList();
     }
 
@@ -1472,320 +1926,25 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 16,
-        child: Container(
-          width: 500,
-          constraints: const BoxConstraints(maxHeight: 600),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                const Color(0xff9333EA).withOpacity(0.02),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Modern Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xff9333EA),
-                      Color(0xff7C3AED),
-                    ],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.family_restroom,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Select Parent',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Choose a parent to view their students',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-              // Content
-              Expanded(
-                child: parents.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.people_outline,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No parents with students found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: ListView.builder(
-                          itemCount: parents.length,
-                          itemBuilder: (context, index) {
-                            final parent = parents[index];
-                            final isSelected =
-                                _currentParentFilter == parent['id'];
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xff9333EA)
-                                      : Colors.grey.withOpacity(0.2),
-                                  width: isSelected ? 2 : 1,
-                                ),
-                                color: isSelected
-                                    ? const Color(0xff9333EA).withOpacity(0.05)
-                                    : Colors.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: isSelected
-                                        ? const Color(0xff9333EA)
-                                            .withOpacity(0.1)
-                                        : Colors.black.withOpacity(0.02),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    setState(() {
-                                      _currentFilterType = null;
-                                      _currentStatusFilter = null;
-                                      _currentParentFilter =
-                                          parent['id'].toString();
-                                      _applyFilters();
-                                    });
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Row(
-                                      children: [
-                                        // Avatar
-                                        Container(
-                                          width: 56,
-                                          height: 56,
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xff9333EA),
-                                                Color(0xff7C3AED),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(0xff9333EA)
-                                                    .withOpacity(0.3),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              parent['name']
-                                                  .toString()[0]
-                                                  .toUpperCase(),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        // Info
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                parent['name'].toString(),
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xff1F2937),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                parent['email'].toString(),
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Student count badge
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                const Color(0xff9333EA)
-                                                    .withOpacity(0.1),
-                                                const Color(0xff7C3AED)
-                                                    .withOpacity(0.1),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: const Color(0xff9333EA)
-                                                  .withOpacity(0.3),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.people,
-                                                size: 16,
-                                                color: Color(0xff9333EA),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                '${parent['studentCount']}',
-                                                style: const TextStyle(
-                                                  color: Color(0xff9333EA),
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          const Padding(
-                                            padding: EdgeInsets.only(left: 12),
-                                            child: Icon(
-                                              Icons.check_circle,
-                                              color: Color(0xff9333EA),
-                                              size: 24,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-              // Bottom actions
-              if (_currentParentFilter != null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: Colors.grey.withOpacity(0.2)),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          setState(() {
-                            _currentParentFilter = null;
-                            _applyFilters();
-                          });
-                        },
-                        icon: const Icon(Icons.clear, color: Colors.white),
-                        label: const Text('Clear Filter'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff9333EA),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
+      builder: (context) => _ParentSearchDialog(
+        parents: parents,
+        selectedParentId: _currentParentFilter,
+        onParentSelected: (parentId) {
+          if (!mounted) return;
+          setState(() {
+            _currentFilterType = null;
+            _currentStatusFilter = null;
+            _currentParentFilter = parentId;
+            _applyFilters();
+          });
+        },
+        onClearFilter: () {
+          if (!mounted) return;
+          setState(() {
+            _currentParentFilter = null;
+            _applyFilters();
+          });
+        },
       ),
     );
   }

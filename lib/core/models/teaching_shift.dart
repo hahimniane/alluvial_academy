@@ -32,6 +32,8 @@ class TeachingShift {
   final String? recurrenceSeriesId; // Links shifts in same recurring series
   final DateTime? seriesCreatedAt; // Timestamp when series was first created
   final EnhancedRecurrence enhancedRecurrence; // New enhanced recurrence
+  final String? templateId; // Shift template ID for dev rolling schedules
+  final bool generatedFromTemplate; // True if materialized from a template
   final String? notes;
 
   // Clock-in/out tracking fields
@@ -62,10 +64,14 @@ class TeachingShift {
   final String?
       leaderRole; // Role for leader shifts (admin, coordination, meeting, etc.)
 
-  // Zoom meeting fields (populated by backend when meeting is created)
+  // Legacy Zoom meeting fields - kept for backward compatibility during migration
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final String? zoomMeetingId;
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final String? zoomEncryptedJoinUrl;
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final DateTime? zoomMeetingCreatedAt;
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   final DateTime? zoomInviteSentAt;
 
   // Hub Meeting Fields
@@ -79,8 +85,9 @@ class TeachingShift {
   final List<String> preAssignedParticipants;
   final bool hasRoutingRisk;
 
-  // Video Provider Fields (for Zoom/LiveKit selection)
-  final VideoProvider videoProvider; // Default: zoom
+  // Video Provider Fields - all shifts now use LiveKit
+  @Deprecated('All shifts use LiveKit. This field is kept for backward compatibility.')
+  final VideoProvider videoProvider; // Now always defaults to livekit
   final String? livekitRoomName; // e.g., "shift_<shiftId>"
   final DateTime? livekitLastTokenIssuedAt;
 
@@ -110,6 +117,8 @@ class TeachingShift {
     this.recurrenceSeriesId,
     this.seriesCreatedAt,
     this.enhancedRecurrence = const EnhancedRecurrence(),
+    this.templateId,
+    this.generatedFromTemplate = false,
     this.notes,
     this.clockInTime,
     this.clockOutTime,
@@ -138,25 +147,26 @@ class TeachingShift {
     this.routingRiskParticipants = const [],
     this.preAssignedParticipants = const [],
     this.hasRoutingRisk = false,
-    this.videoProvider = VideoProvider.zoom,
+    this.videoProvider = VideoProvider.livekit,
     this.livekitRoomName,
     this.livekitLastTokenIssuedAt,
   });
 
-  // Check if shift has a Zoom meeting configured (direct OR hub)
+  // Legacy - Zoom support removed. Kept for backward compatibility.
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
   bool get hasZoomMeeting =>
       (zoomMeetingId != null && zoomMeetingId!.isNotEmpty) ||
       (hubMeetingId != null && hubMeetingId!.isNotEmpty);
 
-  // Check if shift uses LiveKit as video provider
-  bool get usesLiveKit => videoProvider == VideoProvider.livekit;
+  // Check if shift uses LiveKit as video provider (always true now)
+  bool get usesLiveKit => true;
 
-  // Check if shift uses Zoom as video provider
-  bool get usesZoom => videoProvider == VideoProvider.zoom;
+  // Legacy - Zoom support removed
+  @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
+  bool get usesZoom => false;
 
-  // Check if video call is available (either Zoom meeting or LiveKit room)
-  bool get hasVideoCall =>
-      usesZoom ? hasZoomMeeting : (livekitRoomName != null && livekitRoomName!.isNotEmpty);
+  // Check if video call is available - always true with LiveKit (rooms are created on-demand)
+  bool get hasVideoCall => true;
 
   // Get the effective room name for LiveKit (generates default if not set)
   String get effectiveLivekitRoomName =>
@@ -418,6 +428,8 @@ class TeachingShift {
       'recurrence_series_id': recurrenceSeriesId,
       'series_created_at':
           seriesCreatedAt != null ? Timestamp.fromDate(seriesCreatedAt!) : null,
+      if (templateId != null) 'template_id': templateId,
+      if (generatedFromTemplate) 'generated_from_template': true,
       'notes': notes,
       'clock_in_time':
           clockInTime != null ? Timestamp.fromDate(clockInTime!) : null,
@@ -496,25 +508,19 @@ class TeachingShift {
         parseString(data['zoomRoutingMode'] ?? data['zoom_routing_mode']);
 
     VideoProvider parseVideoProvider() {
+      // All shifts now use LiveKit - Zoom support has been removed
+      // We still parse the field for backward compatibility during migration
       final rawProvider = parseString(data['video_provider'] ?? data['videoProvider']);
       if (rawProvider != null && rawProvider.trim().isNotEmpty) {
         final normalized = rawProvider.trim().toLowerCase();
-        for (final provider in VideoProvider.values) {
-          if (provider.name == normalized) return provider;
+        // Only return zoom if explicitly set (for any remaining legacy data)
+        if (normalized == 'zoom') {
+          // Even if it says zoom, treat as livekit since zoom is deprecated
+          return VideoProvider.livekit;
         }
       }
-
-      final hasZoomData = (zoomMeetingId != null && zoomMeetingId.trim().isNotEmpty) ||
-          (hubMeetingId != null && hubMeetingId.trim().isNotEmpty) ||
-          (zoomEncryptedJoinUrl != null && zoomEncryptedJoinUrl.trim().isNotEmpty);
-
-      if (hasZoomData) return VideoProvider.zoom;
-
-      // Legacy teaching shifts without explicit provider default to LiveKit to avoid "Meeting not ready"
-      // when no Zoom meeting/hub is provisioned.
-      if (category == ShiftCategory.teaching) return VideoProvider.livekit;
-
-      return VideoProvider.zoom;
+      // Default to LiveKit for all shifts
+      return VideoProvider.livekit;
     }
 
     final videoProvider = parseVideoProvider();
@@ -563,6 +569,8 @@ class TeachingShift {
           ? (data['recurrence_end_date'] as Timestamp).toDate()
           : null,
       recurrenceSettings: data['recurrence_settings'],
+      templateId: data['template_id'],
+      generatedFromTemplate: data['generated_from_template'] == true,
       notes: data['notes'],
       clockInTime: data['clock_in_time'] != null
           ? (data['clock_in_time'] as Timestamp).toDate()
@@ -644,6 +652,8 @@ class TeachingShift {
     Map<String, dynamic>? recurrenceSettings,
     String? recurrenceSeriesId,
     DateTime? seriesCreatedAt,
+    String? templateId,
+    bool? generatedFromTemplate,
     String? notes,
     DateTime? clockInTime,
     DateTime? clockOutTime,
@@ -702,6 +712,9 @@ class TeachingShift {
       recurrenceSettings: recurrenceSettings ?? this.recurrenceSettings,
       recurrenceSeriesId: recurrenceSeriesId ?? this.recurrenceSeriesId,
       seriesCreatedAt: seriesCreatedAt ?? this.seriesCreatedAt,
+      templateId: templateId ?? this.templateId,
+      generatedFromTemplate:
+          generatedFromTemplate ?? this.generatedFromTemplate,
       notes: notes ?? this.notes,
       clockInTime: clockInTime ?? this.clockInTime,
       clockOutTime: clockOutTime ?? this.clockOutTime,

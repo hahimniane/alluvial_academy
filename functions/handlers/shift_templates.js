@@ -38,17 +38,23 @@ const _isAdminUid = async (uid) => {
   return _isAdminRole(doc.data());
 };
 
-const _isDevProject = () => {
+const _isTemplatesEnabledProject = () => {
   const id = (PROJECT_ID || '').toString().trim().toLowerCase();
   if (!id) return false;
-  return id === 'alluwal-dev' || id.includes('alluwal-dev') || id.endsWith('-dev') || id.includes('demo');
+  if (id === 'alluwal-dev' || id.includes('alluwal-dev') || id.endsWith('-dev') || id.includes('demo')) {
+    return true;
+  }
+  if (id === 'alluwal-academy' || id.includes('alluwal-academy')) {
+    return true;
+  }
+  return false;
 };
 
-const _assertDevOrThrow = () => {
-  if (_isDevProject()) return;
+const _assertTemplatesEnabledOrThrow = () => {
+  if (_isTemplatesEnabledProject()) return;
   throw new functions.https.HttpsError(
     'failed-precondition',
-    `Shift templates are enabled for dev projects only. (projectId=${PROJECT_ID || 'unknown'})`,
+    `Shift templates are not enabled for this project. (projectId=${PROJECT_ID || 'unknown'})`,
   );
 };
 
@@ -202,7 +208,7 @@ const _buildGeneratedShiftId = ({templateId, shiftStartUtc}) => {
 };
 
 const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc, shiftEndUtc}) => {
-  const videoProvider = (template.video_provider || template.videoProvider || 'zoom').toString().trim().toLowerCase();
+  const videoProvider = (template.video_provider || template.videoProvider || 'livekit').toString().trim().toLowerCase();
 
   return {
     id: shiftId,
@@ -240,9 +246,8 @@ const _buildGeneratedShiftData = ({templateId, shiftId, template, shiftStartUtc,
   };
 };
 
-// Legacy backend materialization (disabled):
-// We no longer generate `teaching_shifts` instances from templates in dev.
-// Virtual shifts are generated client-side and persisted via overrides only.
+// Rolling window materialization (dev only):
+// Generates upcoming shifts for templates, capped by max_days_ahead.
 const _generateShiftsForTemplate = async ({templateId, template}) => {
   const db = admin.firestore();
 
@@ -387,7 +392,7 @@ const _cleanupGeneratedShifts = async ({templateId = null} = {}) => {
 };
 
 const createShiftTemplate = onCall(async (request) => {
-  _assertDevOrThrow();
+  _assertTemplatesEnabledOrThrow();
 
   if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -484,7 +489,7 @@ const createShiftTemplate = onCall(async (request) => {
     notes: data.notes || null,
     category: (data.category || 'teaching').toString().trim(),
     leader_role: data.leader_role || null,
-    video_provider: (data.video_provider || 'zoom').toString().trim().toLowerCase(),
+    video_provider: (data.video_provider || 'livekit').toString().trim().toLowerCase(),
     created_by_admin_id: data.created_by_admin_id || uid,
     created_at: admin.firestore.FieldValue.serverTimestamp(),
     last_modified: admin.firestore.FieldValue.serverTimestamp(),
@@ -514,11 +519,18 @@ const createShiftTemplate = onCall(async (request) => {
     console.warn(`[shift_templates] Failed to cleanup generated shifts for template ${templateId}:`, err);
   }
 
-  return {templateId, cleanup_deleted: deleted, materialization_disabled: true};
+  let generated = null;
+  try {
+    generated = await _generateShiftsForTemplate({templateId, template: templateDoc});
+  } catch (err) {
+    console.warn(`[shift_templates] Failed to generate shifts for template ${templateId}:`, err);
+  }
+
+  return {templateId, cleanup_deleted: deleted, generated};
 });
 
 const generateShiftsForTemplateCallable = onCall(async (request) => {
-  _assertDevOrThrow();
+  _assertTemplatesEnabledOrThrow();
 
   if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -542,29 +554,207 @@ const generateShiftsForTemplateCallable = onCall(async (request) => {
 
   const template = doc.data() || {};
   if (template.is_active === false) {
-    return {templateId, cleanup_deleted: 0, skippedInactive: true, materialization_disabled: true};
+    return {templateId, cleanup_deleted: 0, skippedInactive: true};
   }
 
-  // Materialization is disabled; allow this callable to act as a cleanup trigger instead.
-  const cleanup = await _cleanupGeneratedShifts({templateId});
-  return {templateId, cleanup_deleted: cleanup.deleted, materialization_disabled: true};
+  const result = await _generateShiftsForTemplate({templateId, template});
+  return {templateId, generated: result};
 });
 
 const generateDailyShifts = onSchedule({schedule: '0 0 * * *', timeZone: 'Etc/UTC'}, async () => {
-  if (!_isDevProject()) {
-    console.log(`[shift_templates] Skipping daily generation on non-dev project (${PROJECT_ID || 'unknown'}).`);
+  if (!_isTemplatesEnabledProject()) {
+    console.log(
+      `[shift_templates] Skipping daily generation on disabled project (${PROJECT_ID || 'unknown'}).`,
+    );
     return;
   }
 
   const db = admin.firestore();
 
-  // Materialization is disabled; keep the scheduled job to cleanup any legacy docs.
-  const cleanup = await _cleanupGeneratedShifts();
-  console.log(`[shift_templates] Materialization disabled. cleaned_generated=${cleanup.deleted}`);
+  const templatesSnap = await db
+    .collection(TEMPLATE_COLLECTION)
+    .where('is_active', '==', true)
+    .get();
+
+  if (templatesSnap.empty) {
+    console.log('[shift_templates] No active templates found for daily generation.');
+    return;
+  }
+
+  let created = 0;
+  let skipped = 0;
+  const teacherShiftCounts = new Map(); // teacherId -> { name, shiftsCreated }
+
+  for (const doc of templatesSnap.docs) {
+    const templateId = doc.id;
+    const template = doc.data() || {};
+    try {
+      const result = await _generateShiftsForTemplate({templateId, template});
+      const shiftsCreated = result.created || 0;
+      created += shiftsCreated;
+      skipped += (result.skippedConflicts || 0) + (result.skippedNoMatch || 0);
+
+      // Track teacher if shifts were created
+      if (shiftsCreated > 0) {
+        const teacherId = template.teacher_id;
+        const teacherName = template.teacher_name || 'Unknown Teacher';
+        if (teacherShiftCounts.has(teacherId)) {
+          const existing = teacherShiftCounts.get(teacherId);
+          existing.shiftsCreated += shiftsCreated;
+        } else {
+          teacherShiftCounts.set(teacherId, {
+            name: teacherName,
+            shiftsCreated: shiftsCreated,
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`[shift_templates] Failed daily generation for ${templateId}:`, err);
+    }
+  }
+
+  console.log(`[shift_templates] Daily generation done. created=${created} skipped=${skipped}`);
+
+  // Send email report
+  try {
+    const {sendDailyShiftGenerationReport} = require('../services/email/senders');
+    const runDate = DateTime.now().setZone('America/New_York').toFormat('cccc, LLLL d, yyyy');
+
+    // Convert map to array sorted by shifts created
+    const teachersAffected = Array.from(teacherShiftCounts.values())
+      .sort((a, b) => b.shiftsCreated - a.shiftsCreated);
+
+    await sendDailyShiftGenerationReport({
+      totalTemplates: templatesSnap.size,
+      totalShiftsCreated: created,
+      totalSkipped: skipped,
+      teachersAffected,
+      runDate,
+    });
+
+    console.log('[shift_templates] Daily generation email report sent successfully.');
+  } catch (emailErr) {
+    console.error('[shift_templates] Failed to send email report:', emailErr);
+  }
+});
+
+const updateShiftTemplate = onCall(async (request) => {
+  _assertTemplatesEnabledOrThrow();
+
+  if (!request.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const uid = request.auth.uid;
+  const isAdmin = await _isAdminUid(uid);
+  if (!isAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin access required');
+  }
+
+  const data = request.data || {};
+  const templateId = (data.templateId || data.template_id || '').toString().trim();
+  if (!templateId) {
+    throw new functions.https.HttpsError('invalid-argument', 'templateId is required');
+  }
+
+  const templateRef = admin.firestore().collection(TEMPLATE_COLLECTION).doc(templateId);
+  const templateSnap = await templateRef.get();
+  if (!templateSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Template not found');
+  }
+
+  const updates = {};
+
+  if (typeof data.start_time === 'string') {
+    _parseHHmm(data.start_time);
+    updates.start_time = data.start_time.trim();
+  }
+  if (typeof data.end_time === 'string') {
+    _parseHHmm(data.end_time);
+    updates.end_time = data.end_time.trim();
+  }
+  if (data.duration_minutes != null) {
+    const duration = Number(data.duration_minutes);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'duration_minutes must be a positive number');
+    }
+    updates.duration_minutes = duration;
+  }
+
+  if (data.admin_timezone) updates.admin_timezone = _normalizeTimezone(data.admin_timezone);
+  if (data.teacher_timezone) updates.teacher_timezone = _normalizeTimezone(data.teacher_timezone);
+  if (data.teacher_id) updates.teacher_id = String(data.teacher_id).trim();
+  if (data.teacher_name) updates.teacher_name = String(data.teacher_name).trim();
+  if (Array.isArray(data.student_ids)) updates.student_ids = data.student_ids;
+  if (Array.isArray(data.student_names)) updates.student_names = data.student_names;
+  if (data.subject) updates.subject = String(data.subject).trim();
+  if (data.subject_id !== undefined) updates.subject_id = data.subject_id || null;
+  if (data.subject_display_name !== undefined) updates.subject_display_name = data.subject_display_name || null;
+  if (data.hourly_rate !== undefined) updates.hourly_rate = data.hourly_rate ?? null;
+  if (data.auto_generated_name !== undefined) updates.auto_generated_name = data.auto_generated_name || null;
+  if (data.custom_name !== undefined) updates.custom_name = data.custom_name || null;
+  if (data.notes !== undefined) updates.notes = data.notes || null;
+  if (data.category) updates.category = String(data.category).trim();
+  if (data.leader_role !== undefined) updates.leader_role = data.leader_role || null;
+  if (data.video_provider) updates.video_provider = String(data.video_provider).trim().toLowerCase();
+  if (data.is_active !== undefined) {
+    const active = Boolean(data.is_active);
+    updates.is_active = active;
+    if (!active) {
+      updates.deactivated_at = admin.firestore.FieldValue.serverTimestamp();
+      updates.deactivated_reason = data.deactivated_reason || 'manual';
+    }
+  }
+
+  if (data.base_shift_start) updates.base_shift_start = _toTimestamp(data.base_shift_start);
+  if (data.base_shift_end) updates.base_shift_end = _toTimestamp(data.base_shift_end);
+
+  updates.last_modified = admin.firestore.FieldValue.serverTimestamp();
+
+  await templateRef.set(updates, {merge: true});
+
+  return {templateId, updated: true};
+});
+
+const excludeShiftTemplateDate = onCall(async (request) => {
+  _assertTemplatesEnabledOrThrow();
+
+  if (!request.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const uid = request.auth.uid;
+  const isAdmin = await _isAdminUid(uid);
+  if (!isAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin access required');
+  }
+
+  const data = request.data || {};
+  const templateId = (data.templateId || data.template_id || '').toString().trim();
+  if (!templateId) {
+    throw new functions.https.HttpsError('invalid-argument', 'templateId is required');
+  }
+
+  const adminTimezone = _normalizeTimezone(data.admin_timezone || 'UTC');
+  const excluded = _toTimestampInTimezone(data.date, adminTimezone);
+  if (!excluded) {
+    throw new functions.https.HttpsError('invalid-argument', 'date is required (YYYY-MM-DD)');
+  }
+
+  const templateRef = admin.firestore().collection(TEMPLATE_COLLECTION).doc(templateId);
+  await templateRef.set(
+    {
+      'enhanced_recurrence.excludedDates': admin.firestore.FieldValue.arrayUnion(excluded),
+      last_modified: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    {merge: true},
+  );
+
+  return {templateId, excluded_date: excluded.toDate().toISOString().slice(0, 10)};
 });
 
 const onTeacherDeleted = onDocumentDeleted('users/{userId}', async (event) => {
-  if (!_isDevProject()) return;
+  if (!_isTemplatesEnabledProject()) return;
 
   const deleted = event.data?.data ? event.data.data() : null;
   const userType = (deleted?.user_type || deleted?.role || '').toString().trim().toLowerCase();
@@ -610,7 +800,10 @@ module.exports = {
   generateDailyShifts,
   createShiftTemplate,
   generateShiftsForTemplateCallable,
+  updateShiftTemplate,
+  excludeShiftTemplateDate,
   onTeacherDeleted,
+  _generateShiftsForTemplate,
   _cleanupGeneratedShifts,
   __test: {
     _buildGeneratedShiftId,

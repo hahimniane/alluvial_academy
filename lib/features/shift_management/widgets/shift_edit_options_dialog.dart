@@ -94,12 +94,14 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
 
                 return _buildOption(
                   title: 'Edit all in series (${series.shifts.length})',
-                  subtitle: 'Apply changes to all shifts in this recurring series.',
+                  subtitle:
+                      'Apply changes to all shifts and update the recurring template.',
                   icon: Icons.repeat,
                   onTap: () => Navigator.pop(
                     context,
                     const ShiftEditOptionsResult(mode: ShiftEditOptionMode.series),
                   ),
+                  badge: 'Updates Template',
                 );
               },
             ),
@@ -190,6 +192,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
     required IconData icon,
     required VoidCallback? onTap,
     Widget? trailing,
+    String? badge,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -220,13 +223,41 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xff111827),
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xff111827),
+                              ),
+                            ),
+                          ),
+                          if (badge != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffF59E0B)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                badge,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xffD97706),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -239,7 +270,10 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
                     ],
                   ),
                 ),
-                if (trailing != null) trailing else const Icon(Icons.chevron_right),
+                if (trailing != null)
+                  trailing
+                else
+                  const Icon(Icons.chevron_right),
               ],
             ),
           ),

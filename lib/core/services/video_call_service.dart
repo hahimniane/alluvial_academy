@@ -6,53 +6,36 @@ import '../models/teaching_shift.dart';
 import '../enums/shift_enums.dart';
 import '../utils/app_logger.dart';
 import 'user_role_service.dart';
-import 'zoom_service.dart';
 import 'livekit_service.dart';
 import 'join_link_service.dart';
 
-/// Unified video call service that routes to the appropriate provider
+/// Unified video call service for joining classes
 ///
-/// This service acts as the single entry point for joining video calls.
-/// It determines which video provider (Zoom or LiveKit) to use based on
-/// the shift's `videoProvider` field and routes accordingly.
+/// All classes use LiveKit for video calls. Zoom support has been removed.
 class VideoCallService {
   /// Check if the user can currently join the class
   ///
-  /// This checks the time window regardless of video provider.
+  /// This checks the time window (10 minutes before start to 10 minutes after end).
   static bool canJoinClass(TeachingShift shift) {
-    if (shift.usesLiveKit) {
-      return LiveKitService.canJoinClass(shift);
-    } else {
-      return ZoomService.canJoinClass(shift);
-    }
+    return LiveKitService.canJoinClass(shift);
   }
 
   /// Get the time until the class can be joined
   static Duration? getTimeUntilCanJoin(TeachingShift shift) {
-    if (shift.usesLiveKit) {
-      return LiveKitService.getTimeUntilCanJoin(shift);
-    } else {
-      return ZoomService.getTimeUntilCanJoin(shift);
-    }
+    return LiveKitService.getTimeUntilCanJoin(shift);
   }
 
-  /// Join a class using the appropriate video provider
-  ///
-  /// Automatically routes to Zoom or LiveKit based on the shift's
-  /// `videoProvider` field.
+  /// Join a class using LiveKit
   static Future<void> joinClass(
     BuildContext context,
     TeachingShift shift, {
     bool isTeacher = false,
   }) async {
     AppLogger.info(
-      'VideoCallService: Joining class ${shift.id} via ${shift.videoProvider.name}',
+      'VideoCallService: Joining class ${shift.id} via LiveKit',
     );
 
-    // Client-side access guard:
-    // - LiveKit also enforces this server-side when generating join tokens.
-    // - Zoom meetings can't be fully enforced server-side, so we gate in the client
-    //   to ensure students can only join their own classes.
+    // Client-side access guard - LiveKit also enforces this server-side
     final currentUser = FirebaseAuth.instance.currentUser;
     final uid = currentUser?.uid;
     if (uid == null) {
@@ -92,43 +75,26 @@ class VideoCallService {
       return;
     }
 
-    if (shift.usesLiveKit) {
-      await LiveKitService.joinClass(context, shift, isTeacher: isTeacher);
-    } else {
-      // Default to Zoom (existing behavior)
-      await ZoomService.joinClass(context, shift);
-    }
+    await LiveKitService.joinClass(context, shift, isTeacher: isTeacher);
   }
 
   /// Get a human-readable name for the video provider
   static String getProviderDisplayName(VideoProvider provider) {
-    switch (provider) {
-      case VideoProvider.livekit:
-        return 'LiveKit (Beta)';
-      case VideoProvider.zoom:
-        return 'Zoom';
-    }
+    // All providers now use LiveKit
+    return 'Video Call';
   }
 
   /// Get the icon for the video provider
   static IconData getProviderIcon(VideoProvider provider) {
-    switch (provider) {
-      case VideoProvider.livekit:
-        return Icons.video_call;
-      case VideoProvider.zoom:
-        return Icons.videocam;
-    }
+    return Icons.video_call;
   }
 
   /// Check if a video call is available for the shift
+  /// 
+  /// Always returns true since LiveKit rooms are created on-demand.
   static bool hasVideoCall(TeachingShift shift) {
-    if (shift.usesLiveKit) {
-      // LiveKit rooms are created on-demand, so always available
-      return true;
-    } else {
-      // Zoom requires a pre-created meeting
-      return shift.hasZoomMeeting;
-    }
+    // LiveKit rooms are created on-demand, so always available
+    return true;
   }
 
   /// Build a shareable join link for a shift.

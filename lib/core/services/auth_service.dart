@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'location_service.dart';
 import 'location_preference_service.dart';
 import 'prayer_time_service.dart';
@@ -72,6 +73,119 @@ class AuthService {
       throw FirebaseAuthException(
         code: 'unknown-error',
         message: 'An unexpected error occurred. Please try again later.',
+      );
+    }
+  }
+
+  // Sign in with Google
+  Future<User?> signInWithGoogle() async {
+    try {
+      // Initialize GoogleSignIn
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
+
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        AppLogger.debug('AuthService: Google sign-in cancelled by user');
+        return null;
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential result =
+          await _auth.signInWithCredential(credential);
+      final User? user = result.user;
+
+      if (user != null) {
+        // Web: refresh ID token
+        if (kIsWeb) {
+          try {
+            await user.getIdToken(true);
+            AppLogger.debug(
+                'AuthService: refreshed ID token after Google login (web)');
+          } catch (e) {
+            AppLogger.error(
+                'AuthService: failed to refresh ID token after Google login: $e');
+          }
+        }
+
+        // Check if the user exists in our system
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          // Also check by email
+          final emailQuery = await FirebaseFirestore.instance
+              .collection('users')
+              .where('e-mail', isEqualTo: user.email?.toLowerCase())
+              .limit(1)
+              .get();
+
+          if (emailQuery.docs.isEmpty) {
+            // User doesn't exist in our system - sign them out
+            await _auth.signOut();
+            await googleSignIn.signOut();
+            throw FirebaseAuthException(
+              code: 'user-not-registered',
+              message:
+                  'No account found with this email. Please contact an administrator to create your account.',
+            );
+          }
+        }
+
+        // Check if the user is active
+        final isActive = await UserRoleService.isUserActive(user.email!);
+        if (!isActive) {
+          await _auth.signOut();
+          await googleSignIn.signOut();
+          throw FirebaseAuthException(
+            code: 'user-deactivated',
+            message:
+                'Your account has been archived. Please contact an administrator for assistance.',
+          );
+        }
+
+        // Update last login time
+        await _updateLastLoginTime(user);
+
+        // Update timezone (non-blocking)
+        TimezoneService.updateUserTimezoneOnLogin().catchError((e) {
+          AppLogger.error('AuthService: Failed to update timezone: $e');
+        });
+
+        // Initialize teacher services (non-blocking)
+        _initializeTeacherServices(user).catchError((e) {
+          AppLogger.error(
+              'AuthService: Background teacher initialization failed: $e');
+        });
+
+        AppLogger.info(
+            'AuthService: Google sign-in succeeded for ${user.email}');
+      }
+
+      return user;
+    } on FirebaseAuthException {
+      rethrow;
+    } catch (e) {
+      AppLogger.error('AuthService: Google sign-in error: $e');
+      throw FirebaseAuthException(
+        code: 'google-signin-failed',
+        message: 'Google sign-in failed. Please try again.',
       );
     }
   }

@@ -399,7 +399,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     return TextButton(
       onPressed: () async {
         await FirebaseAuth.instance.signOut();
-        // Navigation handled by stream in main
+        if (context.mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
       },
       child: Text("Sign Out", style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontWeight: FontWeight.w600)),
     );

@@ -690,6 +690,7 @@ class ShiftService {
     List<String> shiftIds,
     Map<String, dynamic> updates, {
     bool checkConflicts = true,
+    bool updateSeriesTemplate = false,
   }) async {
     if (shiftIds.isEmpty) return;
     if (shiftIds.length > 100) {
@@ -770,6 +771,7 @@ class ShiftService {
     }
 
     final failures = <String>[];
+    TeachingShift? templateSeed;
     for (final shift in shifts) {
       try {
         final updated = await _buildUpdatedShiftForBulkUpdate(
@@ -798,7 +800,11 @@ class ShiftService {
           timezoneId: timezoneId,
         );
 
-        await updateShift(updated);
+        await updateShift(
+          updated,
+          skipTemplateExclusion: updateSeriesTemplate,
+        );
+        templateSeed ??= updated;
       } catch (e) {
         failures.add('${shift.displayName} (${shift.id}): $e');
       }
@@ -806,6 +812,12 @@ class ShiftService {
 
     if (failures.isNotEmpty) {
       throw Exception('Bulk update failed for ${failures.length} shift(s).');
+    }
+
+    if (updateSeriesTemplate &&
+        EnvironmentUtils.isShiftTemplateEnabled &&
+        templateSeed != null) {
+      await _updateShiftTemplateFromShift(templateSeed);
     }
   }
 
@@ -1188,6 +1200,9 @@ class ShiftService {
         enhancedRecurrence: effectiveRecurrence,
         recurrenceEndDate: recurrenceEndDate,
         recurrenceSettings: recurrenceSettings,
+        templateId: (EnvironmentUtils.isShiftTemplateEnabled && isRecurringSeries)
+            ? shiftDoc.id
+            : null,
         notes: notes,
         // NEW: Category and leader role
         category: category,
@@ -1224,16 +1239,19 @@ class ShiftService {
       // Create recurring shifts if specified
       if (recurrence != RecurrencePattern.none ||
           effectiveRecurrence.type != EnhancedRecurrenceType.none) {
-        // Use provided end date or default to 1 year from now if not specified
-        final endDate = effectiveRecurrence.endDate ??
-            recurrenceEndDate ??
-            DateTime.now().add(const Duration(days: 365));
-        if (EnvironmentUtils.isDevelopment) {
+        // Use provided end date, or null for indefinite recurrence
+        final DateTime? endDate =
+            effectiveRecurrence.endDate ?? recurrenceEndDate;
+
+        if (EnvironmentUtils.isShiftTemplateEnabled) {
           await _createShiftTemplate(
               shift, endDate, safeOriginalLocalStart, safeOriginalLocalEnd);
         } else {
-          await _createRecurringShifts(
-              shift, endDate, safeOriginalLocalStart, safeOriginalLocalEnd);
+          // Legacy path needs a concrete end date, default to 1 year
+          final legacyEndDate =
+              endDate ?? DateTime.now().add(const Duration(days: 365));
+          await _createRecurringShifts(shift, legacyEndDate,
+              safeOriginalLocalStart, safeOriginalLocalEnd);
         }
       }
 
@@ -1527,15 +1545,17 @@ class ShiftService {
 
   static Map<String, dynamic> _buildTemplateRecurrencePayload(
     TeachingShift baseShift,
-    DateTime resolvedEndDate,
+    DateTime? resolvedEndDate,
   ) {
     final enhanced = baseShift.enhancedRecurrence;
     if (enhanced.type != EnhancedRecurrenceType.none) {
+      final effectiveEndDate = enhanced.endDate ?? resolvedEndDate;
       return {
         'type': enhanced.type.name,
         // Dates are treated as calendar days in the admin timezone; keep them date-only
         // to avoid accidental day shifts from UTC conversion.
-        'endDate': _formatDateYYYYMMDD(enhanced.endDate ?? resolvedEndDate),
+        // If no end date, omit it for indefinite recurrence.
+        if (effectiveEndDate != null) 'endDate': _formatDateYYYYMMDD(effectiveEndDate),
         'excludedDates': enhanced.excludedDates.map(_formatDateYYYYMMDD).toList(),
         'excludedWeekdays': enhanced.excludedWeekdays.map((d) => d.value).toList(),
         'selectedWeekdays': enhanced.selectedWeekdays.map((d) => d.value).toList(),
@@ -1553,7 +1573,8 @@ class ShiftService {
       case RecurrencePattern.daily:
         return {
           'type': EnhancedRecurrenceType.daily.name,
-          'endDate': _formatDateYYYYMMDD(resolvedEndDate),
+          if (resolvedEndDate != null)
+            'endDate': _formatDateYYYYMMDD(resolvedEndDate),
           'excludedDates': <String>[],
           'excludedWeekdays': <int>[],
           'selectedWeekdays': <int>[],
@@ -1563,7 +1584,8 @@ class ShiftService {
       case RecurrencePattern.weekly:
         return {
           'type': EnhancedRecurrenceType.weekly.name,
-          'endDate': _formatDateYYYYMMDD(resolvedEndDate),
+          if (resolvedEndDate != null)
+            'endDate': _formatDateYYYYMMDD(resolvedEndDate),
           'excludedDates': <String>[],
           'excludedWeekdays': <int>[],
           'selectedWeekdays': <int>[baseLocalStart.weekday],
@@ -1573,7 +1595,8 @@ class ShiftService {
       case RecurrencePattern.monthly:
         return {
           'type': EnhancedRecurrenceType.monthly.name,
-          'endDate': _formatDateYYYYMMDD(resolvedEndDate),
+          if (resolvedEndDate != null)
+            'endDate': _formatDateYYYYMMDD(resolvedEndDate),
           'excludedDates': <String>[],
           'excludedWeekdays': <int>[],
           'selectedWeekdays': <int>[],
@@ -1583,7 +1606,6 @@ class ShiftService {
       case RecurrencePattern.none:
         return {
           'type': EnhancedRecurrenceType.none.name,
-          'endDate': null,
           'excludedDates': <String>[],
           'excludedWeekdays': <int>[],
           'selectedWeekdays': <int>[],
@@ -1595,7 +1617,7 @@ class ShiftService {
 
   static Future<void> _createShiftTemplate(
     TeachingShift baseShift,
-    DateTime resolvedEndDate,
+    DateTime? resolvedEndDate,
     DateTime? originalLocalStart,
     DateTime? originalLocalEnd,
   ) async {
@@ -1640,7 +1662,9 @@ class ShiftService {
         'recurrence_series_id': baseShift.recurrenceSeriesId,
         'series_created_at':
             baseShift.seriesCreatedAt?.toUtc().toIso8601String(),
-        'recurrence_end_date': _formatDateYYYYMMDD(resolvedEndDate),
+        // Only include recurrence_end_date if specified; null = indefinite
+        if (resolvedEndDate != null)
+          'recurrence_end_date': _formatDateYYYYMMDD(resolvedEndDate),
         'recurrence_settings': baseShift.recurrenceSettings,
         'subject': baseShift.subject.name,
         'subject_id': baseShift.subjectId,
@@ -1656,7 +1680,7 @@ class ShiftService {
         'base_shift_id': baseShift.id,
         'base_shift_start': baseShift.shiftStart.toUtc().toIso8601String(),
         'base_shift_end': baseShift.shiftEnd.toUtc().toIso8601String(),
-        'max_days_ahead': 10,
+        'max_days_ahead': 70, // 10 weeks rolling window
       };
 
       final callable = _functions.httpsCallable('createShiftTemplate');
@@ -1665,6 +1689,93 @@ class ShiftService {
           'ShiftService: Created dev shift template for base shift ${baseShift.id}');
     } catch (e) {
       AppLogger.error('ShiftService: Error creating shift template: $e');
+    }
+  }
+
+  static Future<void> _updateShiftTemplateFromShift(TeachingShift shift) async {
+    if (!EnvironmentUtils.isShiftTemplateEnabled) return;
+    final templateId = shift.templateId ?? shift.id;
+    if (templateId.trim().isEmpty) return;
+
+    try {
+      final localStart =
+          TimezoneUtils.convertToTimezone(shift.shiftStart, shift.adminTimezone);
+      final localEnd =
+          TimezoneUtils.convertToTimezone(shift.shiftEnd, shift.adminTimezone);
+      final durationMinutes = shift.shiftEnd.difference(shift.shiftStart).inMinutes;
+
+      final payload = <String, dynamic>{
+        'templateId': templateId,
+        'start_time': _formatTimeHHmm(localStart),
+        'end_time': _formatTimeHHmm(localEnd),
+        'duration_minutes': durationMinutes,
+        'teacher_id': shift.teacherId,
+        'teacher_name': shift.teacherName,
+        'student_ids': shift.studentIds,
+        'student_names': shift.studentNames,
+        'subject': shift.subject.name,
+        'subject_id': shift.subjectId,
+        'subject_display_name': shift.subjectDisplayName,
+        'hourly_rate': shift.hourlyRate,
+        'custom_name': shift.customName,
+        'auto_generated_name': shift.autoGeneratedName,
+        'notes': shift.notes,
+        'admin_timezone': shift.adminTimezone,
+        'teacher_timezone': shift.teacherTimezone,
+        'category': shift.category.name,
+        'leader_role': shift.leaderRole,
+        'video_provider': shift.videoProvider.name,
+      };
+
+      final callable = _functions.httpsCallable('updateShiftTemplate');
+      await callable.call(payload);
+    } catch (e) {
+      AppLogger.warning('ShiftService: Failed to update shift template: $e');
+    }
+  }
+
+  static Future<void> _excludeTemplateDateForShift(
+    TeachingShift shift,
+  ) async {
+    if (!EnvironmentUtils.isShiftTemplateEnabled) return;
+    final templateId = shift.templateId;
+    if (templateId == null || templateId.trim().isEmpty) return;
+
+    try {
+      final localStart =
+          TimezoneUtils.convertToTimezone(shift.shiftStart, shift.adminTimezone);
+      final dateOnly = DateTime(
+        localStart.year,
+        localStart.month,
+        localStart.day,
+      );
+
+      final callable = _functions.httpsCallable('excludeShiftTemplateDate');
+      await callable.call({
+        'templateId': templateId,
+        'date': _formatDateYYYYMMDD(dateOnly),
+        'admin_timezone': shift.adminTimezone,
+      });
+    } catch (e) {
+      AppLogger.warning('ShiftService: Failed to exclude template date: $e');
+    }
+  }
+
+  static Future<void> deactivateShiftTemplate(
+    String templateId, {
+    String? reason,
+  }) async {
+    if (!EnvironmentUtils.isShiftTemplateEnabled) return;
+    if (templateId.trim().isEmpty) return;
+    try {
+      final callable = _functions.httpsCallable('updateShiftTemplate');
+      await callable.call({
+        'templateId': templateId,
+        'is_active': false,
+        'deactivated_reason': reason ?? 'series_deleted',
+      });
+    } catch (e) {
+      AppLogger.warning('ShiftService: Failed to deactivate template: $e');
     }
   }
 
@@ -2022,6 +2133,10 @@ class ShiftService {
           AppLogger.error(
               'ShiftService: Warning - unable to cancel lifecycle tasks for shift $shiftId: $scheduleError');
         }
+        if (EnvironmentUtils.isShiftTemplateEnabled &&
+            existingShift.templateId != null) {
+          await _excludeTemplateDateForShift(existingShift);
+        }
       }
 
       // Delete all related data before deleting the shift
@@ -2221,7 +2336,10 @@ class ShiftService {
   }
 
   /// Update shift details
-  static Future<void> updateShift(TeachingShift shift) async {
+  static Future<void> updateShift(
+    TeachingShift shift, {
+    bool skipTemplateExclusion = false,
+  }) async {
     final normalizedTimezone =
         TimezoneUtils.normalizeTimezone(shift.adminTimezone, fallback: 'UTC');
     final normalizedShift = normalizedTimezone == shift.adminTimezone
@@ -2229,8 +2347,23 @@ class ShiftService {
         : shift.copyWith(adminTimezone: normalizedTimezone);
 
     try {
+      TeachingShift? existingShift;
+      if (EnvironmentUtils.isShiftTemplateEnabled && !skipTemplateExclusion) {
+        final snapshot = await _shiftsCollection.doc(shift.id).get();
+        if (snapshot.exists) {
+          existingShift = TeachingShift.fromFirestore(snapshot);
+        }
+      }
+
       await _shiftsCollection.doc(shift.id).update(normalizedShift.toFirestore());
       AppLogger.info('Shift updated successfully in Firestore');
+
+      if (existingShift != null &&
+          existingShift.templateId != null &&
+          (existingShift.shiftStart != normalizedShift.shiftStart ||
+              existingShift.shiftEnd != normalizedShift.shiftEnd)) {
+        await _excludeTemplateDateForShift(existingShift);
+      }
     } catch (e) {
       AppLogger.error('Error updating shift in Firestore: $e');
       throw Exception('Failed to update shift');

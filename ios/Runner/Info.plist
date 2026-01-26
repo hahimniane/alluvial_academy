@@ -43,9 +43,9 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app may save photos you capture so you keep a copy of attachments you take.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>This app uses Bluetooth for connecting to audio devices during Zoom meetings.</string>
+	<string>This app uses Bluetooth for connecting to audio devices during video meetings.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>This app uses Bluetooth for connecting to audio devices during Zoom meetings.</string>
+	<string>This app uses Bluetooth for connecting to audio devices during video meetings.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>This app needs to send you notifications about important updates, schedules, and messages.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

@@ -88,7 +88,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
         final availableWidth = constraints.maxWidth;
         final userColumnWidth = (availableWidth * 0.18).clamp(120.0, 180.0);
         final weekNavWidth = widget.onWeekChanged != null ? 80.0 : 0.0;
-        final dayColumnWidth = (availableWidth - userColumnWidth - weekNavWidth) / 7;
+        final dayColumnWidth = ((availableWidth - userColumnWidth - weekNavWidth) / 7).clamp(40.0, double.infinity);
 
         return Column(
           children: [
@@ -275,7 +275,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                   final stats = _calculateDayStats(_getShiftsForDay(day));
                   
                   return Container(
-                    width: dayColumnWidth,
+                    width: dayColumnWidth > 0 ? dayColumnWidth : 40.0,
                     decoration: BoxDecoration(
                       border: const Border(right: BorderSide(color: Color(0xffE2E8F0))),
                       color: isToday ? const Color(0xff0386FF).withOpacity(0.05) : null,
@@ -478,7 +478,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             final isPastDate = dayStart.isBefore(DateTime(now.year, now.month, now.day));
             
             return SizedBox(
-              width: dayColumnWidth,
+              width: dayColumnWidth > 0 ? dayColumnWidth : 40.0,
               height: rowHeight, // Pass the dynamic height down
               child: _buildDayCell(user, day, isPastDate, singleShiftHeight, rowHeight),
             );
