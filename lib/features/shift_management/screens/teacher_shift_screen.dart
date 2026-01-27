@@ -16,6 +16,7 @@ import '../widgets/shift_details_dialog.dart';
 import '../widgets/report_schedule_issue_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TeacherShiftScreen extends StatefulWidget {
   const TeacherShiftScreen({super.key});
@@ -168,7 +169,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Too early to clock in. Please wait for the programming window.'),
+              AppLocalizations.of(context)!.tooEarlyToClockInPlease),
           backgroundColor: Colors.orange,
         ),
       );
@@ -298,7 +299,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Programming cancelled'),
+          content: Text(AppLocalizations.of(context)!.clockInCancelled),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -314,7 +315,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Not authenticated'),
+            content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated),
             backgroundColor: Colors.red,
           ),
         );
@@ -344,7 +345,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'Unable to get location. Please enable location services.'),
+                AppLocalizations.of(context)!.clockInLocationError),
             backgroundColor: Colors.red,
           ),
         );
@@ -398,7 +399,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       AppLogger.error('Error clocking in: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text(AppLocalizations.of(context)!.errorE),
           backgroundColor: Colors.red,
         ),
       );
@@ -434,14 +435,14 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text(
-            'Report Schedule Issue',
+            AppLocalizations.of(context)!.reportScheduleIssue,
             style: GoogleFonts.inter(fontWeight: FontWeight.w600),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Select a shift to report an issue, or fix your timezone:',
+                AppLocalizations.of(context)!.selectAShiftToReportAn,
                 style: GoogleFonts.inter(fontSize: 14),
               ),
               const SizedBox(height: 16),
@@ -473,12 +474,12 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 leading:
                     const Icon(Icons.access_time, color: Color(0xFFF59E0B)),
                 title: Text(
-                  'Fix My Timezone Only',
+                  AppLocalizations.of(context)!.fixMyTimezoneOnly,
                   style: GoogleFonts.inter(
                       fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  'Update timezone without reporting a shift issue',
+                  AppLocalizations.of(context)!.updateTimezoneWithoutReportingAShift,
                   style: GoogleFonts.inter(fontSize: 12),
                 ),
                 onTap: () {
@@ -530,7 +531,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
               const Icon(Icons.access_time, color: Color(0xFF0386FF)),
               const SizedBox(width: 8),
               Text(
-                'Fix Timezone',
+                AppLocalizations.of(context)!.fixTimezone,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
             ],
@@ -540,7 +541,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Select your correct timezone:',
+                AppLocalizations.of(context)!.selectYourCorrectTimezone,
                 style: GoogleFonts.inter(fontSize: 14),
               ),
               const SizedBox(height: 12),
@@ -559,7 +560,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: GoogleFonts.inter()),
+              child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter()),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -578,7 +579,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content:
-                              Text('Timezone updated to $selectedTimezone'),
+                              Text(AppLocalizations.of(context)!.timezoneUpdatedToSelectedtimezone),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -588,7 +589,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Error: $e'),
+                          content: Text(AppLocalizations.of(context)!.errorE),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -602,7 +603,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                 backgroundColor: const Color(0xFF0386FF),
                 foregroundColor: Colors.white,
               ),
-              child: Text('Update',
+              child: Text(AppLocalizations.of(context)!.update,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             ),
           ],
@@ -621,7 +622,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Schedule',
+          AppLocalizations.of(context)!.shiftSchedule,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -636,7 +637,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           IconButton(
             icon:
                 const Icon(Icons.settings, color: Color(0xFF6B7280), size: 20),
-            tooltip: 'Fix timezone or report schedule issue',
+            tooltip: AppLocalizations.of(context)!.fixTimezoneOrReportScheduleIssue,
             onPressed: () {
               // Show dialog to select a shift or fix timezone globally
               _showScheduleIssueDialog();
@@ -742,7 +743,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              "No shifts on this day",
+              AppLocalizations.of(context)!.shiftNoShiftsToday,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -751,7 +752,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              "Enjoy your free time or check available shifts to pick up extra classes.",
+              AppLocalizations.of(context)!.shiftEnjoyFreeTime,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,

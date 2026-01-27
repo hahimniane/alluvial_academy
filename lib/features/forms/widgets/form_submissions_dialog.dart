@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/utils/performance_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FormSubmissionsDialog extends StatefulWidget {
   final String formId;
@@ -221,7 +222,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Note saved successfully'),
+            content: Text(AppLocalizations.of(context)!.noteSavedSuccessfully),
             backgroundColor: Color(0xFF059669),
             duration: Duration(seconds: 2),
           ),
@@ -231,7 +232,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save note: $e'),
+            content: Text(AppLocalizations.of(context)!.failedToSaveNoteE),
             backgroundColor: Colors.red,
           ),
         );
@@ -249,7 +250,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Status updated to "$status"'),
+            content: Text(AppLocalizations.of(context)!.statusUpdatedToStatus),
             backgroundColor: const Color(0xFF059669),
             duration: const Duration(seconds: 2),
           ),
@@ -259,7 +260,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save status: $e'),
+            content: Text(AppLocalizations.of(context)!.failedToSaveStatusE),
             backgroundColor: Colors.red,
           ),
         );
@@ -318,7 +319,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     if (_filteredSubmissions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No submissions to export'),
+          content: Text(AppLocalizations.of(context)!.noSubmissionsToExport),
           backgroundColor: Colors.orange,
         ),
       );
@@ -389,7 +390,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Export failed: $e'),
+          content: Text(AppLocalizations.of(context)!.exportFailedE),
           backgroundColor: Colors.red,
         ),
       );
@@ -580,7 +581,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Available options:',
+                AppLocalizations.of(context)!.availableOptions,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -639,7 +640,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                'Close',
+                AppLocalizations.of(context)!.commonClose,
                 style: GoogleFonts.inter(
                   color: const Color(0xFF6B7280),
                   fontWeight: FontWeight.w600,
@@ -700,7 +701,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Published',
+                        AppLocalizations.of(context)!.published,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -712,7 +713,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                     ElevatedButton.icon(
                       onPressed: _exportSubmissions,
                       icon: const Icon(Icons.file_download_outlined, size: 16),
-                      label: const Text('Export'),
+                      label: Text(AppLocalizations.of(context)!.commonExport),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xff0386FF),
                         foregroundColor: Colors.white,
@@ -743,7 +744,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                     fontWeight: FontWeight.w500,
                   ),
                   tabs: const [
-                    Tab(text: 'Submissions'),
+                    Tab(text: AppLocalizations.of(context)!.submissions),
                   ],
                 ),
               ),
@@ -830,7 +831,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                             },
                             style: GoogleFonts.inter(fontSize: 13),
                             decoration: InputDecoration(
-                              hintText: 'Search',
+                              hintText: AppLocalizations.of(context)!.commonSearch,
                               hintStyle: GoogleFonts.inter(
                                 fontSize: 13,
                                 color: const Color(0xFF9CA3AF),
@@ -898,7 +899,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                     Row(
                       children: [
                         Text(
-                          'Rows per page:',
+                          AppLocalizations.of(context)!.rowsPerPage,
                           style: GoogleFonts.inter(
                               fontSize: 13, color: const Color(0xFF6B7280)),
                         ),
@@ -1057,7 +1058,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
           SizedBox(
             width: 60,
             child: Text(
-              '#',
+              AppLocalizations.of(context)!.text4,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1073,7 +1074,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
           SizedBox(
             width: 220,
             child: Text(
-              'User',
+              AppLocalizations.of(context)!.roleUser,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1117,7 +1118,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
           SizedBox(
             width: 140,
             child: Text(
-              'Status',
+              AppLocalizations.of(context)!.userStatus,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1133,7 +1134,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
           SizedBox(
             width: 200,
             child: Text(
-              'Notes',
+              AppLocalizations.of(context)!.shiftNotes,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1288,7 +1289,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                               controller: _notesControllers[docId],
                               style: GoogleFonts.inter(fontSize: 13),
                               decoration: InputDecoration(
-                                hintText: 'Add note...',
+                                hintText: AppLocalizations.of(context)!.addNote,
                                 hintStyle: GoogleFonts.inter(
                                   fontSize: 13,
                                   color: const Color(0xFF9CA3AF),

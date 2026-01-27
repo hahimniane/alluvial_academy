@@ -6,6 +6,7 @@ import '../../../core/models/employee_model.dart';
 import '../../../core/enums/shift_enums.dart';
 import 'shift_block.dart';
 import 'empty_cell_hover_indicator.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// ConnectTeam-inspired weekly schedule grid view
 /// Shows users as rows, days as columns, with shift blocks
@@ -199,7 +200,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'TEACHERS',
+                  AppLocalizations.of(context)!.teachers,
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -236,7 +237,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           color: const Color(0xff6B7280),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          tooltip: 'Previous week',
+                          tooltip: AppLocalizations.of(context)!.previousWeek,
                           onPressed: () {
                             widget.onWeekChanged!(widget.weekStart.subtract(const Duration(days: 7)));
                           },
@@ -259,7 +260,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                           color: const Color(0xff6B7280),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          tooltip: 'Next week',
+                          tooltip: AppLocalizations.of(context)!.nextWeek,
                           onPressed: () {
                             widget.onWeekChanged!(widget.weekStart.add(const Duration(days: 7)));
                           },
@@ -624,7 +625,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                             if (widget.onEditShift != null)
                               TextButton.icon(
                                 icon: const Icon(Icons.edit, size: 16),
-                                label: const Text('Edit'),
+                                label: Text(AppLocalizations.of(context)!.commonEdit),
                                 onPressed: () {
                                   Navigator.pop(context);
                                   widget.onEditShift!(shift);
@@ -654,7 +655,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                   padding: const EdgeInsets.only(top: 8),
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Another Shift'),
+                    label: Text(AppLocalizations.of(context)!.addAnotherShift2),
                     onPressed: () {
                       Navigator.pop(context);
                       widget.onCreateShift(user.email, day, const TimeOfDay(hour: 14, minute: 0));
@@ -668,7 +669,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Close',
+              AppLocalizations.of(context)!.commonClose,
               style: GoogleFonts.inter(color: const Color(0xff6B7280)),
             ),
           ),

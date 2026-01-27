@@ -6,6 +6,7 @@ import 'package:country_picker/country_picker.dart';
 import '../widgets/modern_header.dart';
 import '../core/models/teacher_application.dart';
 import '../shared/widgets/fade_in_slide.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TeacherApplicationScreen extends StatefulWidget {
   const TeacherApplicationScreen({super.key});
@@ -161,7 +162,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
             border: Border.all(color: const Color(0xff8B5CF6).withOpacity(0.2)),
           ),
           child: Text(
-            '👨‍🏫 Join Our Team',
+            AppLocalizations.of(context)!.joinOurTeam,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -171,7 +172,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'Teacher Application',
+          AppLocalizations.of(context)!.teacherApplication,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -182,7 +183,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Thank you for your interest in teaching at Alluwal Education Hub!',
+          AppLocalizations.of(context)!.thankYouForYourInterestIn,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 16,
@@ -282,10 +283,10 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               isExpanded: true,
               decoration: _inputDecoration('I am currently a... *', Icons.school),
               items: [
-                DropdownMenuItem(value: 'university_student', child: const Text('University Student', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'high_school_student', child: const Text('High School Student', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'university_graduate', child: const Text('University Graduate', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'other', child: const Text('Other', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'university_student', child: Text(AppLocalizations.of(context)!.universityStudent, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'high_school_student', child: Text(AppLocalizations.of(context)!.highSchoolStudent, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'university_graduate', child: Text(AppLocalizations.of(context)!.universityGraduate, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'other', child: Text(AppLocalizations.of(context)!.other, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _currentStatus = value),
               validator: (value) => value == null ? 'Please select your current status' : null,
@@ -312,7 +313,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
           _buildSectionTitle('Teaching Program', Icons.book_outlined),
           const SizedBox(height: 8),
           Text(
-            'Select the program(s) you are interested in teaching:',
+            AppLocalizations.of(context)!.selectTheProgramSYouAre,
             style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff6B7280)),
           ),
           const SizedBox(height: 24),
@@ -370,16 +371,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 value: _tajwidLevel,
                 icon: Icons.auto_stories,
                 selectedItemBuilder: const [
-                  Text('Yes', overflow: TextOverflow.ellipsis),
-                  Text('No', overflow: TextOverflow.ellipsis),
-                  Text('Average', overflow: TextOverflow.ellipsis),
-                  Text('N/A', overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.commonYes, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.commonNo, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.average, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis),
                 ],
                 items: const [
-                  DropdownMenuItem(value: 'yes', child: Text('Yes', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'no', child: Text('No', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'average', child: Text('Average', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'n/a', child: Text('N/A', overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'yes', child: Text(AppLocalizations.of(context)!.commonYes, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'no', child: Text(AppLocalizations.of(context)!.commonNo, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'average', child: Text(AppLocalizations.of(context)!.average, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'n/a', child: Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis)),
                 ],
                 onChanged: (value) => setState(() => _tajwidLevel = value),
                 validator: null,
@@ -393,21 +394,21 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 value: _quranMemorization,
                 icon: Icons.book,
                 selectedItemBuilder: const [
-                  Text('100% - I am Hafiz', overflow: TextOverflow.ellipsis),
-                  Text('About 50% or more', overflow: TextOverflow.ellipsis),
-                  Text('About 35% or less', overflow: TextOverflow.ellipsis),
-                  Text('I memorize less than Juzu Anma', overflow: TextOverflow.ellipsis),
-                  Text('N/A', overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.100IAmHafiz, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.about50OrMore, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.about35OrLess, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.iMemorizeLessThanJuzuAnma, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis),
                 ],
                 items: const [
-                  DropdownMenuItem(value: 'hafiz', child: Text('100% - I am Hafiz', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: '50%_or_more', child: Text('About 50% or more', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: '35%_or_less', child: Text('About 35% or less', overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'hafiz', child: Text(AppLocalizations.of(context)!.100IAmHafiz, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: '50%_or_more', child: Text(AppLocalizations.of(context)!.about50OrMore, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: '35%_or_less', child: Text(AppLocalizations.of(context)!.about35OrLess, overflow: TextOverflow.ellipsis)),
                   DropdownMenuItem(
                     value: 'less_than_juzu_anma',
-                    child: Text('I memorize less than Juzu Anma', overflow: TextOverflow.ellipsis, maxLines: 2),
+                    child: Text(AppLocalizations.of(context)!.iMemorizeLessThanJuzuAnma, overflow: TextOverflow.ellipsis, maxLines: 2),
                   ),
-                  DropdownMenuItem(value: 'n/a', child: Text('N/A', overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'n/a', child: Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis)),
                 ],
                 onChanged: (value) => setState(() => _quranMemorization = value),
                 validator: null,
@@ -421,16 +422,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 value: _arabicProficiency,
                 icon: Icons.translate,
                 selectedItemBuilder: const [
-                  Text('I am excellent', overflow: TextOverflow.ellipsis),
-                  Text('I am intermediate', overflow: TextOverflow.ellipsis),
-                  Text('I am a beginner', overflow: TextOverflow.ellipsis),
-                  Text('N/A', overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.iAmExcellent, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.iAmIntermediate, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.iAmABeginner, overflow: TextOverflow.ellipsis),
+                  Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis),
                 ],
                 items: const [
-                  DropdownMenuItem(value: 'excellent', child: Text('I am excellent', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'intermediate', child: Text('I am intermediate', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'beginner', child: Text('I am a beginner', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'n/a', child: Text('N/A', overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'excellent', child: Text(AppLocalizations.of(context)!.iAmExcellent, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'intermediate', child: Text(AppLocalizations.of(context)!.iAmIntermediate, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'beginner', child: Text(AppLocalizations.of(context)!.iAmABeginner, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'n/a', child: Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis)),
                 ],
                 onChanged: (value) => setState(() => _arabicProficiency = value),
                 validator: null,
@@ -485,16 +486,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _timeDiscipline,
               icon: Icons.access_time,
               selectedItemBuilder: const [
-                Text('100% - Sleep will never cause me to be late/absent', overflow: TextOverflow.ellipsis),
-                Text('50% - Sleep and personal engagement might impact', overflow: TextOverflow.ellipsis),
-                Text('<30% - Resisting sleep and planning ahead is tough', overflow: TextOverflow.ellipsis),
-                Text('Sorry not at all, I am a day person', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.100SleepWillNeverCauseMe, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.50SleepAndPersonalEngagementMight, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.30ResistingSleepAndPlanningAhead, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.sorryNotAtAllIAm, overflow: TextOverflow.ellipsis),
               ],
               items: const [
                 DropdownMenuItem(
                   value: '100%',
                   child: Text(
-                    '100% - Sleep will never cause me to be late/absent from my class',
+                    AppLocalizations.of(context)!.100SleepWillNeverCauseMe2,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                   ),
@@ -502,7 +503,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 DropdownMenuItem(
                   value: '50%',
                   child: Text(
-                    '50% - Sleep and personal engagement might impact my class attendance quite often',
+                    AppLocalizations.of(context)!.50SleepAndPersonalEngagementMight2,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                   ),
@@ -510,7 +511,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 DropdownMenuItem(
                   value: '<30%',
                   child: Text(
-                    '<30% - Resisting sleep and planning ahead is tough for me',
+                    AppLocalizations.of(context)!.30ResistingSleepAndPlanningAhead2,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                   ),
@@ -518,7 +519,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 DropdownMenuItem(
                   value: 'day_person',
                   child: Text(
-                    'Sorry not at all, I am a day person',
+                    AppLocalizations.of(context)!.sorryNotAtAllIAm,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -535,25 +536,25 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _scheduleBalance,
               icon: Icons.balance,
               selectedItemBuilder: const [
-                Text('100% - I am always on top of things', overflow: TextOverflow.ellipsis),
-                Text('50% - I often try to be on top of things', overflow: TextOverflow.ellipsis),
-                Text('>30% - Life balance is not one of my great skills...', overflow: TextOverflow.ellipsis),
-                Text('Not at all', overflow: TextOverflow.ellipsis),
-                Text('N/A', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.100IAmAlwaysOnTop, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.50IOftenTryToBe, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.30LifeBalanceIsNotOne, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.notAtAll, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: '100%', child: Text('100% - I am always on top of things', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: '50%', child: Text('50% - I often try to be on top of things', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '100%', child: Text(AppLocalizations.of(context)!.100IAmAlwaysOnTop, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '50%', child: Text(AppLocalizations.of(context)!.50IOftenTryToBe, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(
                   value: '>30%',
                   child: Text(
-                    '>30% - Life balance is not one of my great skills, but I will try my best',
+                    AppLocalizations.of(context)!.30LifeBalanceIsNotOne2,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 2,
                   ),
                 ),
-                DropdownMenuItem(value: 'not_at_all', child: Text('Not at all', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'n/a', child: Text('N/A', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'not_at_all', child: Text(AppLocalizations.of(context)!.notAtAll, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'n/a', child: Text(AppLocalizations.of(context)!.nA, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _scheduleBalance = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -591,16 +592,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _electricityAccess,
               icon: Icons.bolt,
               selectedItemBuilder: const [
-                Text('Always (24/7)', overflow: TextOverflow.ellipsis),
-                Text('Sometimes', overflow: TextOverflow.ellipsis),
-                Text('Rarely', overflow: TextOverflow.ellipsis),
-                Text('Never', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.sometimes, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.rarely, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.never, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: 'always', child: Text('Always (24/7)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'sometimes', child: Text('Sometimes', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'rarely', child: Text('Rarely', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'never', child: Text('Never', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'always', child: Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'sometimes', child: Text(AppLocalizations.of(context)!.sometimes, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'rarely', child: Text(AppLocalizations.of(context)!.rarely, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'never', child: Text(AppLocalizations.of(context)!.never, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _electricityAccess = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -614,16 +615,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _teachingComfort,
               icon: Icons.video_call,
               selectedItemBuilder: const [
-                Text('Very comfortable', overflow: TextOverflow.ellipsis),
-                Text('Comfortable', overflow: TextOverflow.ellipsis),
-                Text('Less comfortable', overflow: TextOverflow.ellipsis),
-                Text('Uncomfortable', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.veryComfortable, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.comfortable, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.lessComfortable, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.uncomfortable, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: 'very_comfortable', child: Text('Very comfortable', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'comfortable', child: Text('Comfortable', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'less_comfortable', child: Text('Less comfortable', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'uncomfortable', child: Text('Uncomfortable', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'very_comfortable', child: Text(AppLocalizations.of(context)!.veryComfortable, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'comfortable', child: Text(AppLocalizations.of(context)!.comfortable, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'less_comfortable', child: Text(AppLocalizations.of(context)!.lessComfortable, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'uncomfortable', child: Text(AppLocalizations.of(context)!.uncomfortable, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _teachingComfort = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -637,16 +638,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _studentInteractionGuarantee,
               icon: Icons.shield,
               selectedItemBuilder: const [
-                Text('Yes and always', overflow: TextOverflow.ellipsis),
-                Text('Sometimes', overflow: TextOverflow.ellipsis),
-                Text('Maybe, but I will try', overflow: TextOverflow.ellipsis),
-                Text('No, I can\'t', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.yesAndAlways, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.sometimes, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.maybeButIWillTry, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.noICanT, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: 'yes_always', child: Text('Yes and always', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'sometimes', child: Text('Sometimes', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'maybe_try', child: Text('Maybe, but I will try', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'no_cant', child: Text('No, I can\'t', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'yes_always', child: Text(AppLocalizations.of(context)!.yesAndAlways, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'sometimes', child: Text(AppLocalizations.of(context)!.sometimes, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'maybe_try', child: Text(AppLocalizations.of(context)!.maybeButIWillTry, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'no_cant', child: Text(AppLocalizations.of(context)!.noICanT, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _studentInteractionGuarantee = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -660,18 +661,18 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _availabilityStart,
               icon: Icons.calendar_today,
               selectedItemBuilder: const [
-                Text('In One Week from now', overflow: TextOverflow.ellipsis),
-                Text('In Two Weeks from now', overflow: TextOverflow.ellipsis),
-                Text('In Three Weeks from now', overflow: TextOverflow.ellipsis),
-                Text('In a Month from now', overflow: TextOverflow.ellipsis),
-                Text('Other', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.inOneWeekFromNow, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.inTwoWeeksFromNow, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.inThreeWeeksFromNow, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.inAMonthFromNow, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.other, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: 'one_week', child: Text('In One Week from now', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'two_weeks', child: Text('In Two Weeks from now', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'three_weeks', child: Text('In Three Weeks from now', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'one_month', child: Text('In a Month from now', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'other', child: Text('Other', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'one_week', child: Text(AppLocalizations.of(context)!.inOneWeekFromNow, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'two_weeks', child: Text(AppLocalizations.of(context)!.inTwoWeeksFromNow, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'three_weeks', child: Text(AppLocalizations.of(context)!.inThreeWeeksFromNow, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'one_month', child: Text(AppLocalizations.of(context)!.inAMonthFromNow, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'other', child: Text(AppLocalizations.of(context)!.other, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _availabilityStart = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -704,16 +705,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _teachingDevice,
               icon: Icons.devices,
               selectedItemBuilder: const [
-                Text('A Computer', overflow: TextOverflow.ellipsis),
-                Text('A Tablet', overflow: TextOverflow.ellipsis),
-                Text('A Phone', overflow: TextOverflow.ellipsis),
-                Text('No device', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.aComputer, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.aTablet, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.aPhone, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.noDevice, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: 'computer', child: Text('A Computer', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'tablet', child: Text('A Tablet', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'phone', child: Text('A Phone', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'no_device', child: Text('No device', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'computer', child: Text(AppLocalizations.of(context)!.aComputer, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'tablet', child: Text(AppLocalizations.of(context)!.aTablet, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'phone', child: Text(AppLocalizations.of(context)!.aPhone, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'no_device', child: Text(AppLocalizations.of(context)!.noDevice, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _teachingDevice = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -727,16 +728,16 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
               value: _internetAccess,
               icon: Icons.wifi,
               selectedItemBuilder: const [
-                Text('Always (24/7)', overflow: TextOverflow.ellipsis),
-                Text('Often (few days a week)', overflow: TextOverflow.ellipsis),
-                Text('Rarely (few hours a week)', overflow: TextOverflow.ellipsis),
-                Text('Not at all', overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.oftenFewDaysAWeek, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.rarelyFewHoursAWeek, overflow: TextOverflow.ellipsis),
+                Text(AppLocalizations.of(context)!.notAtAll, overflow: TextOverflow.ellipsis),
               ],
               items: const [
-                DropdownMenuItem(value: 'always', child: Text('Always (24/7)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'often', child: Text('Often (few days a week)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'rarely', child: Text('Rarely (few hours a week)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'not_at_all', child: Text('Not at all', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'always', child: Text(AppLocalizations.of(context)!.always247, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'often', child: Text(AppLocalizations.of(context)!.oftenFewDaysAWeek, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'rarely', child: Text(AppLocalizations.of(context)!.rarelyFewHoursAWeek, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'not_at_all', child: Text(AppLocalizations.of(context)!.notAtAll, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (value) => setState(() => _internetAccess = value),
               validator: (value) => value == null ? 'Please select an option' : null,
@@ -909,7 +910,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
             if (required)
               const Padding(
                 padding: EdgeInsets.only(left: 4, top: 2),
-                child: Text(' *', style: TextStyle(color: Colors.red, fontSize: 15)),
+                child: Text(AppLocalizations.of(context)!.text, style: TextStyle(color: Colors.red, fontSize: 15)),
               ),
           ],
         ),
@@ -1012,7 +1013,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                 minimumSize: const Size(0, 48),
               ),
               child: Text(
-                'Previous',
+                AppLocalizations.of(context)!.previous,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1073,7 +1074,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
 
     if (_selectedPrograms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one teaching program')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneTeaching)),
       );
       _pageController.jumpToPage(1);
       return;
@@ -1081,7 +1082,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
 
     if (_selectedLanguages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one language')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneLanguage)),
       );
       _pageController.jumpToPage(1);
       return;
@@ -1189,7 +1190,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Application Submitted!',
+              AppLocalizations.of(context)!.applicationSubmitted,
               style: GoogleFonts.inter(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
@@ -1198,7 +1199,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Thank you for your interest! We\'ve received your application and will review it carefully. You will receive a confirmation email shortly.',
+              AppLocalizations.of(context)!.thankYouForYourInterestWe,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,
@@ -1220,7 +1221,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(
-                  'Return Home',
+                  AppLocalizations.of(context)!.returnHome,
                   style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),

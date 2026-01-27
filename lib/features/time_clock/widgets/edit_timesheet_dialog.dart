@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/enums/timesheet_enums.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EditTimesheetDialog extends StatefulWidget {
   final String timesheetId;
@@ -53,7 +54,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('This timesheet has been approved and cannot be edited'),
+              content: Text(AppLocalizations.of(context)!.timesheetApprovedLocked),
               backgroundColor: Colors.red,
             ),
           );
@@ -177,8 +178,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       _timesheetDate = DateTime.now();
       _clockInDateTime = DateTime.now().copyWith(hour: 9, minute: 0);
       _clockOutDateTime = DateTime.now().copyWith(hour: 10, minute: 0);
-      _clockInTimeController = TextEditingController(text: '9:00 AM');
-      _clockOutTimeController = TextEditingController(text: '10:00 AM');
+      _clockInTimeController = TextEditingController(text: AppLocalizations.of(context)!.900Am);
+      _clockOutTimeController = TextEditingController(text: AppLocalizations.of(context)!.1000Am);
     }
   }
 
@@ -280,7 +281,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     if (_hasFollowingShift) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Cannot edit clock-out time: You have another shift scheduled immediately after this one'),
+          content: Text(AppLocalizations.of(context)!.cannotEditClockOutTimeYou),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 4),
         ),
@@ -329,7 +330,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
         _clockOutDateTime!.isAtSameMomentAs(_clockInDateTime!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Clock-out time must be after clock-in time'),
+          content: Text(AppLocalizations.of(context)!.clockOutTimeMustBeAfter),
           backgroundColor: Colors.red,
         ),
       );
@@ -384,7 +385,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Timesheet updated successfully. Awaiting admin approval.'),
+            content: Text(AppLocalizations.of(context)!.timesheetUpdatedSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -396,7 +397,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating timesheet: $e'),
+            content: Text(AppLocalizations.of(context)!.errorUpdatingTimesheetE),
             backgroundColor: Colors.red,
           ),
         );
@@ -456,7 +457,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Edit Timesheet',
+                        AppLocalizations.of(context)!.timesheetEditTimesheet,
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -486,7 +487,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Changes will be submitted for admin approval.',
+                          AppLocalizations.of(context)!.timesheetEditNote,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: const Color(0xFFD97706),
@@ -513,7 +514,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Clock-out time cannot be edited: Another shift follows immediately after.',
+                            AppLocalizations.of(context)!.clockOutTimeCannotBeEdited,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFFEF4444),
@@ -556,7 +557,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Date display (read-only)
                 Text(
-                  'Date',
+                  AppLocalizations.of(context)!.timesheetDate,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -593,7 +594,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Clock In Time
                 Text(
-                  'Clock In Time',
+                  AppLocalizations.of(context)!.timesheetClockInTime,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -632,7 +633,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Clock Out Time
                 Text(
-                  'Clock Out Time',
+                  AppLocalizations.of(context)!.timesheetClockOutTime,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -671,7 +672,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Total Hours (calculated, read-only)
                 Text(
-                  'Total Hours',
+                  AppLocalizations.of(context)!.timesheetTotalHours,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -705,7 +706,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Payment Calculation (calculated, read-only)
                 Text(
-                  'Payment Calculation',
+                  AppLocalizations.of(context)!.timesheetPaymentCalculation,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -787,7 +788,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Notes (Mandatory)
                 Text(
-                  'Notes *',
+                  AppLocalizations.of(context)!.notes,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -808,7 +809,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     return null;
                   },
                   decoration: InputDecoration(
-                    hintText: 'Explain why you are editing this timesheet (e.g., "Forgot to clock in on time, clocked in 5 minutes late")...',
+                    hintText: AppLocalizations.of(context)!.explainWhyYouAreEditingThis,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -826,7 +827,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                     TextButton(
                       onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                       child: Text(
-                        'Cancel',
+                        AppLocalizations.of(context)!.commonCancel,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                         ),
@@ -850,7 +851,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                               ),
                             )
                           : Text(
-                              'Save Changes',
+                              AppLocalizations.of(context)!.timesheetSaveChanges,
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
                               ),

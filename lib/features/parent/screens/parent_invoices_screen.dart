@@ -7,6 +7,7 @@ import 'package:alluwalacademyadmin/core/services/invoice_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/invoice_card.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ParentInvoicesScreen extends StatefulWidget {
   final String parentId;
@@ -66,7 +67,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
         foregroundColor: const Color(0xFF111827),
         elevation: 0,
         title: Text(
-          'Invoices',
+          AppLocalizations.of(context)!.invoices,
           style: GoogleFonts.inter(fontWeight: FontWeight.w800),
         ),
       ),
@@ -80,7 +81,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Search invoice number…',
+                    hintText: AppLocalizations.of(context)!.searchInvoiceNumber,
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
                     fillColor: Colors.white,
@@ -232,7 +233,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'No invoices found.',
+          AppLocalizations.of(context)!.noInvoicesFound,
           style: GoogleFonts.inter(color: const Color(0xFF6B7280), fontWeight: FontWeight.w600),
         ),
       ),
@@ -244,7 +245,7 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Failed to load invoices.\n$message',
+          AppLocalizations.of(context)!.failedToLoadInvoicesNMessage,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(color: const Color(0xFF6B7280), fontWeight: FontWeight.w600),
         ),

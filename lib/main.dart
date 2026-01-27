@@ -9,9 +9,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:provider/provider.dart';
+import 'l10n/app_localizations.dart';
 
 import 'role_based_dashboard.dart';
 import 'firebase_options.dart' as prod_firebase;
@@ -22,6 +24,7 @@ import 'core/utils/timezone_utils.dart';
 import 'core/utils/auth_debug_logger.dart';
 import 'features/auth/screens/mobile_login_screen.dart';
 import 'core/services/connectivity_service.dart';
+import 'core/services/language_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
@@ -240,8 +243,11 @@ Future<void> main() async {
         runWidget(
           View(
             view: views.first,
-            child: ChangeNotifierProvider(
-              create: (_) => ThemeService(),
+            child: MultiProvider(
+              providers: [
+                ChangeNotifierProvider(create: (_) => ThemeService()),
+                ChangeNotifierProvider(create: (_) => LanguageService()),
+              ],
               child: DevicePreview(
                 enabled: kDebugMode, // Only enabled in debug mode
                 builder: (context) => const MyApp(),
@@ -252,8 +258,11 @@ Future<void> main() async {
       } else {
         // Fallback to runApp if no views available
         runApp(
-          ChangeNotifierProvider(
-            create: (_) => ThemeService(),
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider(create: (_) => ThemeService()),
+              ChangeNotifierProvider(create: (_) => LanguageService()),
+            ],
             child: DevicePreview(
               enabled: kDebugMode,
               builder: (context) => const MyApp(),
@@ -265,8 +274,11 @@ Future<void> main() async {
       // If runWidget fails, fallback to runApp
       AppLogger.error('runWidget failed, falling back to runApp: $e');
       runApp(
-        ChangeNotifierProvider(
-          create: (_) => ThemeService(),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ThemeService()),
+            ChangeNotifierProvider(create: (_) => LanguageService()),
+          ],
           child: DevicePreview(
             enabled: kDebugMode,
             builder: (context) => const MyApp(),
@@ -276,8 +288,11 @@ Future<void> main() async {
     }
   } else {
     runApp(
-      ChangeNotifierProvider(
-        create: (_) => ThemeService(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ThemeService()),
+          ChangeNotifierProvider(create: (_) => LanguageService()),
+        ],
         child: VersionCheckWrapper(
           child: DevicePreview(
             enabled: kDebugMode, // Only enabled in debug mode
@@ -331,13 +346,35 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeService>(
-      builder: (context, themeService, child) {
+    return Consumer2<ThemeService, LanguageService>(
+      builder: (context, themeService, languageService, child) {
+        final previewLocale = DevicePreview.locale(context);
+        // Ensure we always have a valid supported locale
+        final appLocale = languageService.locale ?? 
+            (previewLocale != null && LanguageService.supportedLocales.any((l) => l.languageCode == previewLocale.languageCode) 
+                ? previewLocale 
+                : const Locale('en'));
         return MaterialApp(
           // Navigator key for notification navigation
           navigatorKey: NotificationService.navigatorKey,
           // DevicePreview configuration
-          locale: DevicePreview.locale(context),
+          locale: appLocale,
+          supportedLocales: LanguageService.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          localeResolutionCallback: (locale, supportedLocales) {
+            if (locale == null) return supportedLocales.first;
+            for (final supported in supportedLocales) {
+              if (supported.languageCode == locale.languageCode) {
+                return supported;
+              }
+            }
+            return supportedLocales.first;
+          },
           builder: (context, child) {
             final built = DevicePreview.appBuilder(context, child);
             if (kReleaseMode) return built;
@@ -466,7 +503,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Failed to initialize Firebase',
+                AppLocalizations.of(context)!.failedToInitializeFirebase,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -475,7 +512,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Please check your internet connection and try again',
+                AppLocalizations.of(context)!.pleaseCheckYourInternetConnectionAnd,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -495,7 +532,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
                   backgroundColor: const Color(0xff0386FF),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Retry'),
+                child: Text(AppLocalizations.of(context)!.commonRetry),
               ),
             ],
           ),
@@ -537,7 +574,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               ),
               const SizedBox(height: 32),
               Text(
-                'Alluwal Education Hub',
+                AppLocalizations.of(context)!.alluwalEducationHub,
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -546,7 +583,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Initializing application...',
+                AppLocalizations.of(context)!.initializingApplication,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   color: const Color(0xff6B7280),
@@ -615,7 +652,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       if (shift == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('This class link is no longer valid.'),
+            content: Text(AppLocalizations.of(context)!.thisClassLinkIsNoLonger),
             backgroundColor: Colors.red,
           ),
         );
@@ -627,7 +664,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to open class link: $e'),
+          content: Text(AppLocalizations.of(context)!.failedToOpenClassLinkE),
           backgroundColor: Colors.red,
         ),
       );
@@ -681,7 +718,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Checking connection...',
+                AppLocalizations.of(context)!.checkingConnection,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   color: const Color(0xff6B7280),
@@ -740,7 +777,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Loading...',
+                    AppLocalizations.of(context)!.commonLoading,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       color: const Color(0xff6B7280),
@@ -767,7 +804,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Authentication Error',
+                    AppLocalizations.of(context)!.authenticationError,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -776,7 +813,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Please refresh the page',
+                    AppLocalizations.of(context)!.pleaseRefreshThePage,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xff6B7280),
@@ -829,7 +866,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-          'Error',
+          AppLocalizations.of(context)!.commonError,
           style: openSansHebrewTextStyle.copyWith(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -842,7 +879,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
         actions: <Widget>[
           TextButton(
             child: Text(
-              'Okay',
+              AppLocalizations.of(context)!.okay,
               style: openSansHebrewTextStyle.copyWith(
                 color: const Color(0xff04ABC1),
                 fontWeight: FontWeight.w600,
@@ -877,7 +914,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
         actions: <Widget>[
           TextButton(
             child: Text(
-              'Okay',
+              AppLocalizations.of(context)!.okay,
               style: openSansHebrewTextStyle.copyWith(
                 color: const Color(0xff0386FF),
                 fontWeight: FontWeight.w600,
@@ -1138,7 +1175,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                     const SizedBox(height: 32),
                     Text(
-                      'Welcome Back',
+                      AppLocalizations.of(context)!.loginWelcomeBack,
                       style: GoogleFonts.inter(
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
@@ -1148,7 +1185,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Please sign in to your account',
+                      AppLocalizations.of(context)!.pleaseSignInToYourAccount,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: const Color(0xff6B7280),
@@ -1173,7 +1210,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Use Student ID',
+                      AppLocalizations.of(context)!.useStudentId,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xff374151),
@@ -1251,7 +1288,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Password',
+                      AppLocalizations.of(context)!.loginPassword,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -1268,7 +1305,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         color: const Color(0xff111827),
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Enter your password',
+                        hintText: AppLocalizations.of(context)!.loginEnterPassword,
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xff9CA3AF),
                           fontSize: 16,
@@ -1330,7 +1367,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                           horizontal: 8, vertical: 4),
                     ),
                     child: Text(
-                      'Forgot password?',
+                      AppLocalizations.of(context)!.forgotPassword,
                       style: GoogleFonts.inter(
                         color: const Color(0xff0386FF),
                         fontSize: 14,
@@ -1355,7 +1392,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                       ),
                     ),
                     child: Text(
-                      'Sign In',
+                      AppLocalizations.of(context)!.loginSignIn,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -1377,7 +1414,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'or',
+                        AppLocalizations.of(context)!.or,
                         style: GoogleFonts.inter(
                           color: const Color(0xff6B7280),
                           fontSize: 14,
@@ -1421,7 +1458,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Continue with Google',
+                          AppLocalizations.of(context)!.continueWithGoogle,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,

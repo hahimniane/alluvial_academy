@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/version_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ForceUpdateDialog extends StatelessWidget {
   const ForceUpdateDialog({super.key});
@@ -51,7 +52,7 @@ class ForceUpdateDialog extends StatelessWidget {
 
               // Title
               Text(
-                'Update Required',
+                AppLocalizations.of(context)!.updateRequired,
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -63,7 +64,7 @@ class ForceUpdateDialog extends StatelessWidget {
 
               // Message
               Text(
-                'A new version of Alluvial Academy is available. Please update to continue using the app with the latest features and improvements.',
+                AppLocalizations.of(context)!.aNewVersionOfAlluvialAcademy,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: Colors.grey.shade700,
@@ -96,7 +97,7 @@ class ForceUpdateDialog extends StatelessWidget {
                       const Icon(Icons.download),
                       const SizedBox(width: 8),
                       Text(
-                        'Update Now',
+                        AppLocalizations.of(context)!.updateNow,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -113,7 +114,7 @@ class ForceUpdateDialog extends StatelessWidget {
                 TextButton(
                   onPressed: () => _exitApp(),
                   child: Text(
-                    'Exit App',
+                    AppLocalizations.of(context)!.exitApp,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: Colors.grey.shade600,
@@ -206,7 +207,7 @@ class ForceUpdateScreen extends StatelessWidget {
 
                 // Title
                 Text(
-                  'Update Required',
+                  AppLocalizations.of(context)!.updateRequired,
                   style: GoogleFonts.inter(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -218,7 +219,7 @@ class ForceUpdateScreen extends StatelessWidget {
 
                 // Message
                 Text(
-                  'A new version of Alluvial Academy is available.',
+                  AppLocalizations.of(context)!.aNewVersionOfAlluvialAcademy2,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -228,7 +229,7 @@ class ForceUpdateScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please update to continue using the app with the latest features and improvements.',
+                  AppLocalizations.of(context)!.pleaseUpdateToContinueUsingThe,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.8),
@@ -261,7 +262,7 @@ class ForceUpdateScreen extends StatelessWidget {
                         Icon(Icons.download, size: 24),
                         const SizedBox(width: 12),
                         Text(
-                          'Update Now',
+                          AppLocalizations.of(context)!.updateNow,
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -284,7 +285,7 @@ class ForceUpdateScreen extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Exit App',
+                      AppLocalizations.of(context)!.exitApp,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: Colors.white.withOpacity(0.8),

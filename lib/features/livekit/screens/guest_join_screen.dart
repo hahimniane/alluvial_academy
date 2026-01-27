@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/join_link_service.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../screens/landing_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class GuestJoinScreen extends StatefulWidget {
   const GuestJoinScreen({super.key});
@@ -94,10 +95,10 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
                 if (_joining) ...[
                   const CircularProgressIndicator(),
                   const SizedBox(height: 20),
-                  Text('Joining class...', style: titleStyle),
+                  Text(AppLocalizations.of(context)!.joiningClass, style: titleStyle),
                   const SizedBox(height: 8),
                   Text(
-                    'Please wait while we connect you.',
+                    AppLocalizations.of(context)!.pleaseWaitWhileWeConnectYou,
                     style: bodyStyle,
                     textAlign: TextAlign.center,
                   ),
@@ -108,7 +109,7 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
                     color: Colors.red.shade400,
                   ),
                   const SizedBox(height: 12),
-                  Text('Unable to join', style: titleStyle),
+                  Text(AppLocalizations.of(context)!.unableToJoin, style: titleStyle),
                   const SizedBox(height: 8),
                   Text(
                     _error ?? 'Something went wrong.',
@@ -121,7 +122,7 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
                     children: [
                       OutlinedButton(
                         onPressed: _startJoin,
-                        child: const Text('Try again'),
+                        child: Text(AppLocalizations.of(context)!.tryAgain),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
@@ -132,7 +133,7 @@ class _GuestJoinScreenState extends State<GuestJoinScreen> {
                             ),
                           );
                         },
-                        child: const Text('Go to site'),
+                        child: Text(AppLocalizations.of(context)!.goToSite),
                       ),
                     ],
                   ),

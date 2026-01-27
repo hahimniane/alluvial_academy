@@ -21,6 +21,7 @@ import '../../../core/services/user_role_service.dart';
 import 'edit_user_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -137,7 +138,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Select Parent',
+                          AppLocalizations.of(context)!.selectParent,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 24,
@@ -145,7 +146,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                           ),
                         ),
                         Text(
-                          'Choose a parent to view their students',
+                          AppLocalizations.of(context)!.chooseAParentToViewTheir,
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -173,7 +174,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                 child: TextField(
                   controller: _searchController,
                   decoration: const InputDecoration(
-                    hintText: 'Search by name or email...',
+                    hintText: AppLocalizations.of(context)!.searchByNameOrEmail,
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: Color(0xff9CA3AF),
@@ -220,7 +221,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                           ),
                           SizedBox(height: 16),
                           Text(
-                            'No parents found',
+                            AppLocalizations.of(context)!.noParentsFound,
                             style: TextStyle(
                               fontSize: 18,
                               color: Colors.grey,
@@ -417,7 +418,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                         Navigator.pop(context);
                       },
                       icon: const Icon(Icons.clear, color: Colors.white),
-                      label: const Text('Clear Filter'),
+                      label: Text(AppLocalizations.of(context)!.clearFilter),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xff9333EA),
                         foregroundColor: Colors.white,
@@ -901,7 +902,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 child: const Icon(Icons.key, color: Color(0xff06B6D4)),
               ),
               const SizedBox(width: 12),
-              const Text('Student Login Credentials'),
+              Text(AppLocalizations.of(context)!.studentLoginCredentials),
             ],
           ),
           content: SizedBox(
@@ -957,7 +958,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(AppLocalizations.of(context)!.commonClose),
             ),
             ElevatedButton.icon(
               onPressed: () async {
@@ -965,7 +966,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 await _resetStudentPassword(employee);
               },
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Reset Password'),
+              label: Text(AppLocalizations.of(context)!.userResetPassword),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff3B82F6),
                 foregroundColor: Colors.white,
@@ -1026,7 +1027,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
         return StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Reset Password'),
+            title: Text(AppLocalizations.of(context)!.userResetPassword),
             content: SizedBox(
               width: 420,
               child: Column(
@@ -1043,9 +1044,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     obscureText: obscurePassword,
                     style: GoogleFonts.inter(fontSize: 14),
                     decoration: InputDecoration(
-                      labelText: 'Custom password (optional)',
-                      hintText: 'Leave blank to generate a password',
-                      helperText: 'Min 6 characters. Avoid leading/trailing spaces.',
+                      labelText: AppLocalizations.of(context)!.userCustomPassword,
+                      hintText: AppLocalizations.of(context)!.userLeaveBlankGenerate,
+                      helperText: AppLocalizations.of(context)!.userPasswordMinChars,
                       errorText: errorText,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
@@ -1069,7 +1070,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'If left blank, a secure password will be generated and saved. '
+                      AppLocalizations.of(context)!.ifLeftBlankASecurePassword
                       'If the student has a parent linked, they will receive an email with the new credentials.',
                       style: GoogleFonts.inter(
                         fontSize: 13,
@@ -1083,7 +1084,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -1110,7 +1111,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   backgroundColor: const Color(0xff3B82F6),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Reset Password'),
+                child: Text(AppLocalizations.of(context)!.userResetPassword),
               ),
             ],
           ),
@@ -1129,7 +1130,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               children: [
                 CircularProgressIndicator(),
                 SizedBox(width: 16),
-                Text('Resetting password...'),
+                Text(AppLocalizations.of(context)!.userResettingPassword),
               ],
             ),
           ),
@@ -1160,7 +1161,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               children: [
                 Icon(Icons.check_circle, color: Colors.green),
                 SizedBox(width: 8),
-                Text('Password Reset Successfully'),
+                Text(AppLocalizations.of(context)!.passwordResetSuccessfully),
               ],
             ),
             content: Column(
@@ -1197,7 +1198,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Email sent to parent with new credentials',
+                            AppLocalizations.of(context)!.userEmailSentToParent,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: Colors.green.shade700,
@@ -1209,7 +1210,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   )
                 else
                   Text(
-                    'Please share this password with the student or their parent.',
+                    AppLocalizations.of(context)!.userShareCredentials,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: Colors.grey[600],
@@ -1224,7 +1225,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   backgroundColor: const Color(0xff10B981),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Done'),
+                child: Text(AppLocalizations.of(context)!.commonDone),
               ),
             ],
           ),
@@ -1333,7 +1334,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This action cannot be undone!',
+                        AppLocalizations.of(context)!.thisActionCannotBeUndone,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1363,7 +1364,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'User Details:',
+                      AppLocalizations.of(context)!.userDetails,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1401,7 +1402,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     ),
                     subtitle: userType == 'student'
                         ? Text(
-                            'Group classes will remain for other students.',
+                            AppLocalizations.of(context)!.userGroupClassesRemain,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xff6B7280),
@@ -1414,7 +1415,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               ],
               const SizedBox(height: 16),
               Text(
-                'All associated data including timesheets, forms, and other records will be permanently removed.',
+                AppLocalizations.of(context)!.allAssociatedDataIncludingTimesheetsForms,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -1427,7 +1428,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               onPressed: () => Navigator.of(context)
                   .pop((confirmed: false, deleteClasses: false)),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   color: const Color(0xff6B7280),
                   fontWeight: FontWeight.w500,
@@ -1460,7 +1461,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               children: [
                 const Icon(Icons.admin_panel_settings, color: Colors.orange),
                 const SizedBox(width: 8),
-                Text('Promote to Admin-Teacher',
+                Text(AppLocalizations.of(context)!.promoteToAdminTeacher,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
@@ -1482,16 +1483,16 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('This will give them:',
+                      Text(AppLocalizations.of(context)!.thisWillGiveThem,
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('• Full admin privileges',
+                      Text(AppLocalizations.of(context)!.fullAdminPrivileges,
                           style: GoogleFonts.inter(fontSize: 12)),
                       Text(
-                          '• Ability to switch between Admin and Teacher roles',
+                          AppLocalizations.of(context)!.abilityToSwitchBetweenAdminAnd,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Access to user management and system settings',
+                      Text(AppLocalizations.of(context)!.accessToUserManagementAndSystem,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1501,12 +1502,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: const Text('Promote',
+                child: Text(AppLocalizations.of(context)!.userPromote,
                     style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -1523,7 +1524,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               children: [
                 const Icon(Icons.remove_moderator, color: Colors.red),
                 const SizedBox(width: 8),
-                Text('Revoke Admin Privileges',
+                Text(AppLocalizations.of(context)!.revokeAdminPrivileges,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
@@ -1545,15 +1546,15 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('This will:',
+                      Text(AppLocalizations.of(context)!.thisWill,
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('• Remove admin privileges',
+                      Text(AppLocalizations.of(context)!.removeAdminPrivileges,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Keep their teacher role intact',
+                      Text(AppLocalizations.of(context)!.keepTheirTeacherRoleIntact,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Remove access to admin functions',
+                      Text(AppLocalizations.of(context)!.removeAccessToAdminFunctions,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1563,13 +1564,13 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 child:
-                    const Text('Revoke', style: TextStyle(color: Colors.white)),
+                    Text(AppLocalizations.of(context)!.revoke, style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -1585,7 +1586,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               children: [
                 const Icon(Icons.delete_outline, color: Colors.red),
                 const SizedBox(width: 8),
-                Text('Archive User',
+                Text(AppLocalizations.of(context)!.archiveUser,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
@@ -1607,17 +1608,17 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('This will:',
+                      Text(AppLocalizations.of(context)!.thisWill,
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('• Archive their account (not permanently delete)',
+                      Text(AppLocalizations.of(context)!.archiveTheirAccountNotPermanentlyDelete,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Remove access to the system',
+                      Text(AppLocalizations.of(context)!.removeAccessToTheSystem,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Preserve all their data safely',
+                      Text(AppLocalizations.of(context)!.preserveAllTheirDataSafely,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Allow restoration at any time',
+                      Text(AppLocalizations.of(context)!.allowRestorationAtAnyTime,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1637,7 +1638,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'No data will be permanently lost. You can restore this user later.',
+                          AppLocalizations.of(context)!.noDataWillBePermanentlyLost,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: Colors.blue.shade700,
@@ -1653,12 +1654,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Archive User',
+                child: Text(AppLocalizations.of(context)!.archiveUser,
                     style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -1675,7 +1676,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               children: [
                 const Icon(Icons.restore, color: Colors.green),
                 const SizedBox(width: 8),
-                Text('Restore User',
+                Text(AppLocalizations.of(context)!.restoreUser,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
@@ -1697,17 +1698,17 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('This will:',
+                      Text(AppLocalizations.of(context)!.thisWill,
                           style:
                               GoogleFonts.inter(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text('• Restore their account from archive',
+                      Text(AppLocalizations.of(context)!.restoreTheirAccountFromArchive,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Re-enable access to the system',
+                      Text(AppLocalizations.of(context)!.reEnableAccessToTheSystem,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Allow them to log in again',
+                      Text(AppLocalizations.of(context)!.allowThemToLogInAgain,
                           style: GoogleFonts.inter(fontSize: 12)),
-                      Text('• Restore all their previous data',
+                      Text(AppLocalizations.of(context)!.restoreAllTheirPreviousData,
                           style: GoogleFonts.inter(fontSize: 12)),
                     ],
                   ),
@@ -1717,12 +1718,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Restore User',
+                child: Text(AppLocalizations.of(context)!.restoreUser,
                     style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -1767,7 +1768,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
             child: Text(
-              'First Name',
+              AppLocalizations.of(context)!.userFirstName,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3f4648),
@@ -1781,7 +1782,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
             child: Text(
-              'Last Name',
+              AppLocalizations.of(context)!.userLastName,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3f4648),
@@ -1795,7 +1796,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
             child: Text(
-              'Email',
+              AppLocalizations.of(context)!.profileEmail,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3f4648),
@@ -1809,7 +1810,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
             child: Text(
-              'Role Type',
+              AppLocalizations.of(context)!.roleType,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3f4648),
@@ -1823,7 +1824,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
             child: Text(
-              'Admin Type',
+              AppLocalizations.of(context)!.adminType,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3f4648),
@@ -1838,7 +1839,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             padding: const EdgeInsets.all(8.0),
             alignment: Alignment.center,
             child: Text(
-              'Actions',
+              AppLocalizations.of(context)!.timesheetActions,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff3f4648),
@@ -1978,7 +1979,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       ),
                     ),
                     Text(
-                      "User Management",
+                      AppLocalizations.of(context)!.userManagementTitle,
                       style: openSansHebrewTextStyle.copyWith(fontSize: 24),
                     ),
                   ],
@@ -2061,7 +2062,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  'First Name',
+                                                  AppLocalizations.of(context)!.userFirstName,
                                                   style: GoogleFonts.inter(
                                                     color:
                                                         const Color(0xff3f4648),
@@ -2077,7 +2078,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  'Last Name',
+                                                  AppLocalizations.of(context)!.userLastName,
                                                   style: openSansHebrewTextStyle
                                                       .copyWith(
                                                     color:
@@ -2094,7 +2095,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  'Email',
+                                                  AppLocalizations.of(context)!.profileEmail,
                                                   style: openSansHebrewTextStyle
                                                       .copyWith(
                                                     color:
@@ -2110,8 +2111,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Country Code',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.userCountryCode,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2124,8 +2125,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Mobile Phone',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.mobilePhone,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2138,8 +2139,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'User Type',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.userUserType,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2152,8 +2153,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Title',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.profileTitle,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2166,8 +2167,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Start Date',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.startDate,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2180,8 +2181,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Kiosk Code',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.userKioskCode,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2194,8 +2195,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Date Added',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.dateAdded,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2208,8 +2209,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                 padding:
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
-                                                child: const Text(
-                                                  'Last Login',
+                                                child: Text(
+                                                  AppLocalizations.of(context)!.lastLogin,
                                                   style: TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold),
@@ -2224,7 +2225,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     const EdgeInsets.all(8.0),
                                                 alignment: Alignment.center,
                                                 child: Text(
-                                                  'Actions',
+                                                  AppLocalizations.of(context)!.timesheetActions,
                                                   style: GoogleFonts.inter(
                                                     fontWeight: FontWeight.w600,
                                                     color:
@@ -2262,7 +2263,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'Admin Role Management',
+                                                    AppLocalizations.of(context)!.adminRoleManagement,
                                                     style: GoogleFonts.inter(
                                                       fontWeight:
                                                           FontWeight.w600,
@@ -2272,7 +2273,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
-                                                    'Promote teachers to admin-teacher (dual role) or revoke admin privileges. Admin-teachers can switch between roles.',
+                                                    AppLocalizations.of(context)!.promoteTeachersToAdminTeacherDual,
                                                     style: GoogleFonts.inter(
                                                       fontSize: 12,
                                                       color:
@@ -2310,7 +2311,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                         const SizedBox(
                                                             height: 16),
                                                         Text(
-                                                          'No admin users found',
+                                                          AppLocalizations.of(context)!.noAdminUsersFound,
                                                           style:
                                                               GoogleFonts.inter(
                                                             fontSize: 18,
@@ -2323,7 +2324,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                         const SizedBox(
                                                             height: 8),
                                                         Text(
-                                                          'Promote teachers from the Users tab to create admin-teachers',
+                                                          AppLocalizations.of(context)!.promoteTeachersFromTheUsersTab,
                                                           style:
                                                               GoogleFonts.inter(
                                                             fontSize: 14,
@@ -2360,7 +2361,7 @@ class TasksScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text("this is the TaskScreen screen"),
+        child: Text(AppLocalizations.of(context)!.thisIsTheTaskscreenScreen),
       ),
     );
   }
@@ -2373,7 +2374,7 @@ class TimeOffScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text("this is the timeoffScreen screen"),
+        child: Text(AppLocalizations.of(context)!.thisIsTheTimeoffscreenScreen),
       ),
     );
   }

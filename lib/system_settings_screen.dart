@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/services/wage_management_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key});
@@ -136,7 +137,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'System Settings ⚙️',
+                  AppLocalizations.of(context)!.systemSettings,
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -145,7 +146,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Configure and manage your education platform',
+                  AppLocalizations.of(context)!.configureAndManageYourEducationPlatform,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -200,7 +201,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'General Settings',
+                AppLocalizations.of(context)!.generalSettings,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -271,7 +272,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Security Settings',
+                AppLocalizations.of(context)!.securitySettings,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -338,7 +339,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Notification Settings',
+                AppLocalizations.of(context)!.notificationSettings,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -403,7 +404,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Backup Settings',
+                AppLocalizations.of(context)!.backupSettings,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -482,7 +483,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Maintenance',
+                AppLocalizations.of(context)!.maintenance,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -548,7 +549,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Wage Management',
+                AppLocalizations.of(context)!.wageManagement,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -682,7 +683,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'System Information',
+                AppLocalizations.of(context)!.systemInformation,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -867,7 +868,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             });
           },
           child: Text(
-            'Reset to Defaults',
+            AppLocalizations.of(context)!.resetToDefaults,
             style: GoogleFonts.inter(
               color: const Color(0xff6b7280),
               fontWeight: FontWeight.w500,
@@ -883,7 +884,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
           ),
           child: Text(
-            'Save Settings',
+            AppLocalizations.of(context)!.saveSettings,
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w600,
             ),
@@ -902,7 +903,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Settings saved successfully!',
+            AppLocalizations.of(context)!.settingsSavedSuccessfully,
             style: GoogleFonts.inter(fontWeight: FontWeight.w500),
           ),
           backgroundColor: Colors.green,
@@ -914,7 +915,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Error saving settings: $e',
+            AppLocalizations.of(context)!.errorSavingSettingsE,
             style: GoogleFonts.inter(fontWeight: FontWeight.w500),
           ),
           backgroundColor: Colors.red,
@@ -929,13 +930,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset All Passwords'),
-        content: const Text(
-            'Are you sure you want to force all users to reset their passwords? This action cannot be undone.'),
+        title: Text(AppLocalizations.of(context)!.resetAllPasswords),
+        content: Text(
+            AppLocalizations.of(context)!.areYouSureYouWantTo3),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -943,11 +944,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               // Implement password reset logic
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                    content: Text('Password reset initiated for all users')),
+                    content: Text(AppLocalizations.of(context)!.passwordResetInitiatedForAllUsers)),
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Reset All'),
+            child: Text(AppLocalizations.of(context)!.resetAll),
           ),
         ],
       ),
@@ -958,7 +959,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Login Logs'),
+        title: Text(AppLocalizations.of(context)!.loginLogs),
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
@@ -966,18 +967,18 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             children: const [
               ListTile(
                 leading: Icon(Icons.login, color: Colors.green),
-                title: Text('john.doe@email.com'),
-                subtitle: Text('Successful login - 2 minutes ago'),
+                title: Text(AppLocalizations.of(context)!.johnDoeEmailCom),
+                subtitle: Text(AppLocalizations.of(context)!.successfulLogin2MinutesAgo),
               ),
               ListTile(
                 leading: Icon(Icons.error, color: Colors.red),
-                title: Text('jane.smith@email.com'),
-                subtitle: Text('Failed login attempt - 15 minutes ago'),
+                title: Text(AppLocalizations.of(context)!.janeSmithEmailCom),
+                subtitle: Text(AppLocalizations.of(context)!.failedLoginAttempt15MinutesAgo),
               ),
               ListTile(
                 leading: Icon(Icons.login, color: Colors.green),
-                title: Text('admin@school.edu'),
-                subtitle: Text('Successful login - 1 hour ago'),
+                title: Text(AppLocalizations.of(context)!.adminSchoolEdu),
+                subtitle: Text(AppLocalizations.of(context)!.successfulLogin1HourAgo),
               ),
             ],
           ),
@@ -985,7 +986,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
         ],
       ),
@@ -996,13 +997,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Role Permissions'),
-        content: const Text(
-            'Role-based permissions are configured automatically. Contact support for custom permission modifications.'),
+        title: Text(AppLocalizations.of(context)!.rolePermissions),
+        content: Text(
+            AppLocalizations.of(context)!.roleBasedPermissionsAreConfiguredAutomatically),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(AppLocalizations.of(context)!.commonOk),
           ),
         ],
       ),
@@ -1011,13 +1012,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   void _testNotifications() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Test notification sent successfully!')),
+      const SnackBar(content: Text(AppLocalizations.of(context)!.testNotificationSentSuccessfully)),
     );
   }
 
   void _createBackup() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Backup created successfully!')),
+      const SnackBar(content: Text(AppLocalizations.of(context)!.backupCreatedSuccessfully)),
     );
   }
 
@@ -1025,12 +1026,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Restore Backup'),
-        content: const Text('Select a backup to restore from:'),
+        title: Text(AppLocalizations.of(context)!.restoreBackup),
+        content: Text(AppLocalizations.of(context)!.selectABackupToRestoreFrom),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
         ],
       ),
@@ -1039,7 +1040,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   void _clearCache() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cache cleared successfully!')),
+      const SnackBar(content: Text(AppLocalizations.of(context)!.cacheClearedSuccessfully)),
     );
   }
 
@@ -1047,31 +1048,31 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('System Diagnostics'),
+        title: Text(AppLocalizations.of(context)!.systemDiagnostics),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: Icon(Icons.check_circle, color: Colors.green),
-              title: Text('Database Connection'),
-              subtitle: Text('Healthy'),
+              title: Text(AppLocalizations.of(context)!.databaseConnection),
+              subtitle: Text(AppLocalizations.of(context)!.healthy),
             ),
             ListTile(
               leading: Icon(Icons.check_circle, color: Colors.green),
-              title: Text('Storage Service'),
-              subtitle: Text('Operational'),
+              title: Text(AppLocalizations.of(context)!.storageService),
+              subtitle: Text(AppLocalizations.of(context)!.operational),
             ),
             ListTile(
               leading: Icon(Icons.check_circle, color: Colors.green),
-              title: Text('Authentication Service'),
-              subtitle: Text('Active'),
+              title: Text(AppLocalizations.of(context)!.authenticationService),
+              subtitle: Text(AppLocalizations.of(context)!.shiftActive),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
         ],
       ),
@@ -1160,7 +1161,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Applying wage changes to all records...'),
+            Text(AppLocalizations.of(context)!.applyingWageChangesToAllRecords),
           ],
         ),
       ),
@@ -1196,7 +1197,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Wage Changes Applied'),
+          title: Text(AppLocalizations.of(context)!.wageChangesApplied),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1204,8 +1205,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               Text('✅ Updated ${results['shifts']} shifts'),
               Text('✅ Updated ${results['timesheets']} timesheet entries'),
               const SizedBox(height: 8),
-              const Text(
-                'All records now reflect the new wage rates.',
+              Text(
+                AppLocalizations.of(context)!.allRecordsNowReflectTheNew,
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
@@ -1213,7 +1214,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Done'),
+              child: Text(AppLocalizations.of(context)!.commonDone),
             ),
           ],
         ),
@@ -1223,7 +1224,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error applying wage changes: $e'),
+          content: Text(AppLocalizations.of(context)!.errorApplyingWageChangesE),
           backgroundColor: Colors.red,
         ),
       );
@@ -1273,7 +1274,7 @@ class _RoleWageDialogState extends State<_RoleWageDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Manage Role-Based Wages'),
+      title: Text(AppLocalizations.of(context)!.manageRoleBasedWages),
       content: SizedBox(
         width: 400,
         child: _isLoading
@@ -1281,8 +1282,8 @@ class _RoleWageDialogState extends State<_RoleWageDialog> {
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Set different hourly rates for each role. Leave blank to use global rate.',
+                  Text(
+                    AppLocalizations.of(context)!.setDifferentHourlyRatesForEach,
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
@@ -1336,14 +1337,14 @@ class _RoleWageDialogState extends State<_RoleWageDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.commonCancel),
         ),
         ElevatedButton(
           onPressed: () {
             widget.onSave(_roleWages);
             Navigator.of(context).pop();
           },
-          child: const Text('Save'),
+          child: Text(AppLocalizations.of(context)!.commonSave),
         ),
       ],
     );
@@ -1393,7 +1394,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Manage Individual Wages'),
+      title: Text(AppLocalizations.of(context)!.manageIndividualWages),
       content: SizedBox(
         width: 600,
         height: 400,
@@ -1403,7 +1404,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
                 children: [
                   TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search teachers...',
+                      hintText: AppLocalizations.of(context)!.searchTeachers,
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -1448,7 +1449,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
                                                       teacher['id'], null);
                                                   _loadTeachers();
                                                 },
-                                                tooltip: 'Remove override',
+                                                tooltip: AppLocalizations.of(context)!.removeOverride,
                                               )
                                             : null,
                                         border: OutlineInputBorder(
@@ -1498,7 +1499,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: Text(AppLocalizations.of(context)!.commonClose),
         ),
       ],
     );
@@ -1539,7 +1540,7 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Apply Wage to Role'),
+      title: Text(AppLocalizations.of(context)!.applyWageToRole),
       content: SizedBox(
         width: 400,
         child: _isLoading
@@ -1553,8 +1554,8 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Select a role and set the hourly wage for all users in that role.',
+                  Text(
+                    AppLocalizations.of(context)!.selectARoleAndSetThe,
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
@@ -1577,7 +1578,7 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: 'Hourly Wage',
+                      labelText: AppLocalizations.of(context)!.hourlyWage,
                       prefixText: '\$ ',
                       suffixText: ' /hour',
                       border: OutlineInputBorder(
@@ -1597,7 +1598,7 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.commonCancel),
         ),
         ElevatedButton(
           onPressed: _selectedRole == null
@@ -1606,7 +1607,7 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
                   Navigator.of(context).pop();
                   widget.onApply(_selectedRole!, _wage);
                 },
-          child: const Text('Apply to Role'),
+          child: Text(AppLocalizations.of(context)!.applyToRole),
         ),
       ],
     );
@@ -1669,7 +1670,7 @@ class _EnhancedIndividualWageDialogState
     return AlertDialog(
       title: Row(
         children: [
-          const Text('Manage Individual Wages'),
+          Text(AppLocalizations.of(context)!.manageIndividualWages),
           const Spacer(),
           Text(
             '${_selectedUserIds.length} selected',
@@ -1687,7 +1688,7 @@ class _EnhancedIndividualWageDialogState
                   // Search bar
                   TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search by name, email, or role...',
+                      hintText: AppLocalizations.of(context)!.searchByNameEmailOrRole,
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -1750,7 +1751,7 @@ class _EnhancedIndividualWageDialogState
                                 }
                               });
                             },
-                            child: const Text('Apply'),
+                            child: Text(AppLocalizations.of(context)!.commonApply),
                           ),
                         ],
                       ),
@@ -1827,7 +1828,7 @@ class _EnhancedIndividualWageDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.commonCancel),
         ),
         ElevatedButton(
           onPressed: () {
@@ -1843,7 +1844,7 @@ class _EnhancedIndividualWageDialogState
               widget.onSave(changedWages);
             }
           },
-          child: const Text('Save Changes'),
+          child: Text(AppLocalizations.of(context)!.timesheetSaveChanges),
         ),
       ],
     );
@@ -1895,7 +1896,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Apply Wage Changes to Records'),
+      title: Text(AppLocalizations.of(context)!.applyWageChangesToRecords),
       content: SizedBox(
         width: 500,
         height: 400,
@@ -1904,8 +1905,8 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'This will update all existing shifts and timesheet entries. This action cannot be undone.',
+                  Text(
+                    AppLocalizations.of(context)!.thisWillUpdateAllExistingShifts,
                     style: TextStyle(color: Colors.red),
                   ),
                   const SizedBox(height: 16),
@@ -1916,7 +1917,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: 'New Hourly Wage',
+                      labelText: AppLocalizations.of(context)!.newHourlyWage,
                       prefixText: '\$ ',
                       suffixText: ' /hour',
                       border: OutlineInputBorder(
@@ -1931,19 +1932,19 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Apply to:',
+                  Text(
+                    AppLocalizations.of(context)!.applyTo,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   RadioListTile<WageType>(
-                    title: const Text('All Users (Global)'),
+                    title: Text(AppLocalizations.of(context)!.allUsersGlobal),
                     value: WageType.global,
                     groupValue: _selectedType,
                     onChanged: (value) =>
                         setState(() => _selectedType = value!),
                   ),
                   RadioListTile<WageType>(
-                    title: const Text('Specific Role'),
+                    title: Text(AppLocalizations.of(context)!.specificRole),
                     value: WageType.role,
                     groupValue: _selectedType,
                     onChanged: (value) =>
@@ -1954,7 +1955,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                       padding: const EdgeInsets.only(left: 48, right: 16),
                       child: DropdownButtonFormField<String>(
                         value: _selectedRole,
-                        hint: const Text('Select Role'),
+                        hint: Text(AppLocalizations.of(context)!.selectRole),
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -1975,7 +1976,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                       ),
                     ),
                   RadioListTile<WageType>(
-                    title: const Text('Specific Users'),
+                    title: Text(AppLocalizations.of(context)!.specificUsers),
                     value: WageType.individual,
                     groupValue: _selectedType,
                     onChanged: (value) =>
@@ -2024,7 +2025,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.commonCancel),
         ),
         ElevatedButton(
           onPressed: _canApply()
@@ -2038,7 +2039,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
                 }
               : null,
           style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-          child: const Text('Apply Changes'),
+          child: Text(AppLocalizations.of(context)!.applyChanges),
         ),
       ],
     );

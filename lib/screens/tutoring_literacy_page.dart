@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TutoringLiteracyPage extends StatefulWidget {
   const TutoringLiteracyPage({super.key});
@@ -60,7 +61,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
                 border: Border.all(color: const Color(0xff10B981).withOpacity(0.2)),
             ),
             child: Text(
-                '📚 After School Tutoring',
+                AppLocalizations.of(context)!.afterSchoolTutoring,
               style: GoogleFonts.inter(
                 fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -73,7 +74,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-            'Transformative Education\nBeyond Traditional Boundaries',
+            AppLocalizations.of(context)!.transformativeEducationNbeyondTraditionalBoundaries,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +91,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
             child: Container(
             constraints: const BoxConstraints(maxWidth: 800),
             child: Text(
-                'Discover the transformative power of our After-school Tutoring Program at Alluwal Education Hub, embracing students from kindergarten through 12th grade with personalized class schedules.',
+                AppLocalizations.of(context)!.discoverTheTransformativePowerOfOur,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 18,
@@ -135,7 +136,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
           FadeInSlide(
             delay: 0.4,
             child: Text(
-              'Program Overview',
+              AppLocalizations.of(context)!.programOverview,
               style: GoogleFonts.inter(
                 fontSize: 36,
                 fontWeight: FontWeight.w800,
@@ -239,7 +240,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
       child: Column(
         children: [
           Text(
-            'K-12 Support',
+            AppLocalizations.of(context)!.k12Support,
             style: GoogleFonts.inter(
               fontSize: 36,
               fontWeight: FontWeight.w800,
@@ -325,7 +326,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
       child: Column(
         children: [
           Text(
-            'Start Your Learning Journey Today',
+            AppLocalizations.of(context)!.startYourLearningJourneyToday,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -336,7 +337,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Unlock your full potential with expert guidance',
+            AppLocalizations.of(context)!.unlockYourFullPotentialWithExpert,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 18,
@@ -362,7 +363,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
               ),
             ),
             child: Text(
-              'Enroll Now',
+              AppLocalizations.of(context)!.enrollNow,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -380,17 +381,17 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Enroll in Tutoring',
+          AppLocalizations.of(context)!.enrollInTutoring,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'Thank you for your interest! Please contact us to discuss your specific needs.',
+          AppLocalizations.of(context)!.thankYouForYourInterestPlease,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
           ElevatedButton(
             onPressed: () {
@@ -400,7 +401,7 @@ class _TutoringLiteracyPageState extends State<TutoringLiteracyPage> {
               backgroundColor: const Color(0xff10B981),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text('Contact Us', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.contactUs, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

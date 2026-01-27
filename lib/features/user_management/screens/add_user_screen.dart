@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import '../../../core/utils/timezone_utils.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
@@ -309,7 +310,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'No complete rows to save',
+            AppLocalizations.of(context)!.noCompleteRowsToSave,
             style: GoogleFonts.openSans(fontWeight: FontWeight.w600),
           ),
           backgroundColor: const Color(0xffED8936),
@@ -333,7 +334,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Duplicate kiosk code found: $kioskCode. Please ensure all kiosk codes are unique.',
+              AppLocalizations.of(context)!.duplicateKioskCodeFoundKioskcodePlease,
               style: GoogleFonts.openSans(fontWeight: FontWeight.w600),
             ),
             backgroundColor: const Color(0xffF56565),
@@ -358,7 +359,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Kiosk code $kioskCode already exists. Please use a different code.',
+              AppLocalizations.of(context)!.kioskCodeKioskcodeAlreadyExistsPlease,
               style: GoogleFonts.openSans(fontWeight: FontWeight.w600),
             ),
             backgroundColor: const Color(0xffF56565),
@@ -751,7 +752,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Add New Users',
+                            AppLocalizations.of(context)!.userAddNewUsers,
                             style: GoogleFonts.openSans(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -760,7 +761,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Create user accounts and assign roles for your organization',
+                            AppLocalizations.of(context)!.userCreateAccounts,
                             style: GoogleFonts.openSans(
                               fontSize: 16,
                               color: const Color(0xff718096),
@@ -779,7 +780,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                         color: Color(0xff0386FF),
                       ),
                       label: Text(
-                        'Learn more',
+                        AppLocalizations.of(context)!.learnMore,
                         style: GoogleFonts.openSans(
                           color: const Color(0xff0386FF),
                           fontWeight: FontWeight.w600,
@@ -808,7 +809,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Users will receive login credentials via email. Phone number is optional.',
+                          AppLocalizations.of(context)!.usersWillReceiveLoginCredentialsVia,
                           style: GoogleFonts.openSans(
                             fontSize: 14,
                             color: const Color(0xff0B3858),
@@ -865,7 +866,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              'First Name*',
+                              AppLocalizations.of(context)!.firstName,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -877,7 +878,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              'Last Name*',
+                              AppLocalizations.of(context)!.lastName,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -889,7 +890,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              'User Type*',
+                              AppLocalizations.of(context)!.userType2,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -901,7 +902,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              'Kiosk Code*',
+                              AppLocalizations.of(context)!.kioskCode,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -913,7 +914,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 3,
                             child: Text(
-                              'Mobile Phone',
+                              AppLocalizations.of(context)!.mobilePhone,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -925,7 +926,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           Expanded(
                             flex: 3,
                             child: Text(
-                              'Email Address*',
+                              AppLocalizations.of(context)!.emailAddress,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xff0B3858),
@@ -1006,7 +1007,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                             size: 20,
                           ),
                           label: Text(
-                            'Add another user',
+                            AppLocalizations.of(context)!.addAnotherUser,
                             style: GoogleFonts.openSans(
                               color: const Color(0xff0386FF),
                               fontWeight: FontWeight.w600,
@@ -1053,7 +1054,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                         horizontal: 24, vertical: 12),
                   ),
                   child: Text(
-                    'Cancel',
+                    AppLocalizations.of(context)!.commonCancel,
                     style: GoogleFonts.openSans(
                       color: const Color(0xff718096),
                       fontWeight: FontWeight.w600,
@@ -1091,7 +1092,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Creating...',
+                              AppLocalizations.of(context)!.creating,
                               style: GoogleFonts.openSans(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
@@ -1100,7 +1101,7 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
                           ],
                         )
                       : Text(
-                          'Create Users',
+                          AppLocalizations.of(context)!.createUsers,
                           style: GoogleFonts.openSans(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
@@ -1141,7 +1142,7 @@ class _UserInputRowState extends State<UserInputRow> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController kioskCodeController = TextEditingController();
   final TextEditingController hourlyRateController =
-      TextEditingController(text: '15.00');
+      TextEditingController(text: AppLocalizations.of(context)!.1500);
   String countryCode = "1";
   String selectedUserType = "Admin"; // Default to Admin
 
@@ -1294,7 +1295,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 _generateKioskCode();
               },
               decoration: InputDecoration(
-                hintText: 'First name',
+                hintText: AppLocalizations.of(context)!.firstName2,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1342,7 +1343,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 _generateKioskCode();
               },
               decoration: InputDecoration(
-                hintText: 'Last name',
+                hintText: AppLocalizations.of(context)!.lastName2,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1386,7 +1387,7 @@ class _UserInputRowState extends State<UserInputRow> {
             child: DropdownButtonFormField<String>(
               initialValue: selectedUserType,
               decoration: InputDecoration(
-                hintText: 'User Type',
+                hintText: AppLocalizations.of(context)!.userUserType,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1473,7 +1474,7 @@ class _UserInputRowState extends State<UserInputRow> {
               controller: kioskCodeController,
               onChanged: (value) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Auto-generated',
+                hintText: AppLocalizations.of(context)!.autoGenerated,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1509,7 +1510,7 @@ class _UserInputRowState extends State<UserInputRow> {
                     size: 18,
                   ),
                   onPressed: _generateKioskCode,
-                  tooltip: 'Regenerate Code',
+                  tooltip: AppLocalizations.of(context)!.regenerateCode,
                 ),
               ),
               style: GoogleFonts.openSans(
@@ -1534,7 +1535,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 });
               },
               decoration: InputDecoration(
-                hintText: 'Phone Number (Optional)',
+                hintText: AppLocalizations.of(context)!.phoneNumberOptional,
                 hintStyle: GoogleFonts.openSans(
                   color: const Color(0xffA0AEC0),
                   fontSize: 14,
@@ -1641,7 +1642,7 @@ class _UserInputRowState extends State<UserInputRow> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Student Type',
+                      AppLocalizations.of(context)!.studentType,
                       style: GoogleFonts.openSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1669,7 +1670,7 @@ class _UserInputRowState extends State<UserInputRow> {
                                 ),
                               ),
                               child: Text(
-                                'Adult',
+                                AppLocalizations.of(context)!.userAdult,
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.openSans(
                                   fontSize: 12,
@@ -1701,7 +1702,7 @@ class _UserInputRowState extends State<UserInputRow> {
                                 ),
                               ),
                               child: Text(
-                                'Minor',
+                                AppLocalizations.of(context)!.userMinor,
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.openSans(
                                   fontSize: 12,
@@ -1748,7 +1749,7 @@ class _UserInputRowState extends State<UserInputRow> {
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    'No Parents Found',
+                                    AppLocalizations.of(context)!.userNoParentsFound,
                                     style: GoogleFonts.openSans(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -1760,7 +1761,7 @@ class _UserInputRowState extends State<UserInputRow> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Create parent first',
+                              AppLocalizations.of(context)!.userCreateParentFirst,
                               style: GoogleFonts.openSans(
                                 fontSize: 11,
                                 color: const Color(0xffE53E3E),
@@ -1833,7 +1834,7 @@ class _UserInputRowState extends State<UserInputRow> {
                 controller: hourlyRateController,
                 onChanged: (value) => setState(() {}),
                 decoration: InputDecoration(
-                  hintText: 'Hourly Rate',
+                  hintText: AppLocalizations.of(context)!.shiftHourlyRate,
                   hintStyle: GoogleFonts.openSans(
                     color: const Color(0xffA0AEC0),
                     fontSize: 14,
@@ -1982,7 +1983,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Select Parent/Guardian',
+                          AppLocalizations.of(context)!.userSelectParent,
                           style: GoogleFonts.openSans(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
@@ -1991,7 +1992,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Choose a parent for this minor student',
+                          AppLocalizations.of(context)!.chooseAParentForThisMinor,
                           style: GoogleFonts.openSans(
                             fontSize: 14,
                             color: Colors.white.withOpacity(0.8),
@@ -2013,7 +2014,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search parents by name or email...',
+                  hintText: AppLocalizations.of(context)!.searchParentsByNameOrEmail,
                   hintStyle: GoogleFonts.openSans(
                     color: const Color(0xffA0AEC0),
                     fontSize: 14,
@@ -2076,7 +2077,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                             if (_searchTerm.isEmpty) ...[
                               const SizedBox(height: 8),
                               Text(
-                                'Create a parent account first',
+                                AppLocalizations.of(context)!.createAParentAccountFirst,
                                 style: GoogleFonts.openSans(
                                   fontSize: 14,
                                   color: const Color(0xff718096),
@@ -2189,7 +2190,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(
-                      'Cancel',
+                      AppLocalizations.of(context)!.commonCancel,
                       style: GoogleFonts.openSans(
                         fontSize: 14,
                         color: const Color(0xff6B7280),
@@ -2212,7 +2213,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                       ),
                     ),
                     child: Text(
-                      'Select',
+                      AppLocalizations.of(context)!.select,
                       style: GoogleFonts.openSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -2297,7 +2298,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Student Login Preview',
+                          AppLocalizations.of(context)!.userStudentLoginPreview,
                           style: GoogleFonts.openSans(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
@@ -2306,7 +2307,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Review login credentials before creating account',
+                          AppLocalizations.of(context)!.userReviewCredentials,
                           style: GoogleFonts.openSans(
                             fontSize: 14,
                             color: Colors.white.withOpacity(0.8),
@@ -2344,7 +2345,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Student Information',
+                              AppLocalizations.of(context)!.userStudentInfo,
                               style: GoogleFonts.openSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -2384,7 +2385,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Login Credentials',
+                              AppLocalizations.of(context)!.userLoginCredentials,
                               style: GoogleFonts.openSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -2414,7 +2415,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Student will use Student ID and system-generated password to login',
+                                  AppLocalizations.of(context)!.studentWillUseStudentIdAnd,
                                   style: GoogleFonts.openSans(
                                     fontSize: 12,
                                     color: const Color(0xff0D9488),
@@ -2444,7 +2445,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
                     child: Text(
-                      'Cancel',
+                      AppLocalizations.of(context)!.commonCancel,
                       style: GoogleFonts.openSans(
                         fontSize: 14,
                         color: const Color(0xff6B7280),
@@ -2462,7 +2463,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Create Account',
+                      AppLocalizations.of(context)!.userCreateAccount,
                       style: GoogleFonts.openSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -2487,7 +2488,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              '$label:',
+              AppLocalizations.of(context)!.label2,
               style: GoogleFonts.openSans(
                 fontSize: 14,
                 color: const Color(0xff718096),
@@ -2517,7 +2518,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
           SizedBox(
             width: 100,
             child: Text(
-              '$label:',
+              AppLocalizations.of(context)!.label2,
               style: GoogleFonts.openSans(
                 fontSize: 14,
                 color: const Color(0xff1E40AF),
@@ -2553,7 +2554,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                     onPressed: () {
                       // Copy to clipboard functionality can be added here
                     },
-                    tooltip: 'Copy to clipboard',
+                    tooltip: AppLocalizations.of(context)!.copyToClipboard,
                   ),
                 ],
               ),

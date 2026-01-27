@@ -2,6 +2,7 @@ import 'dart:html' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ResponseDetailsPanel extends StatelessWidget {
   final QueryDocumentSnapshot? response;
@@ -49,7 +50,7 @@ class ResponseDetailsPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Response Details',
+                        AppLocalizations.of(context)!.responseDetails,
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
@@ -70,7 +71,7 @@ class ResponseDetailsPanel extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: onClose,
-                  tooltip: 'Close',
+                  tooltip: AppLocalizations.of(context)!.commonClose,
                 ),
               ],
             ),
@@ -95,7 +96,7 @@ class ResponseDetailsPanel extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Submission Info',
+                          AppLocalizations.of(context)!.submissionInfo,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -129,7 +130,7 @@ class ResponseDetailsPanel extends StatelessWidget {
 
                   // Form responses
                   Text(
-                    'Responses',
+                    AppLocalizations.of(context)!.responses,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -222,7 +223,7 @@ class ResponseDetailsPanel extends StatelessWidget {
               const SizedBox(height: 8),
               if (response == null)
                 Text(
-                  'No response',
+                  AppLocalizations.of(context)!.noResponse,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -302,7 +303,7 @@ class ResponseDetailsPanel extends StatelessWidget {
             html.window.open(url.toString(), '_blank');
           },
           icon: const Icon(Icons.download),
-          label: const Text('Download Image'),
+          label: Text(AppLocalizations.of(context)!.downloadImage),
         ),
       ],
     );

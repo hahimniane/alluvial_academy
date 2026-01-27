@@ -11,6 +11,7 @@ import '../../../core/services/video_call_service.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 enum _ClassesTimeFilter {
   all,
@@ -340,7 +341,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                   selectedIds: teacherFilter == null
                       ? <String>{}
                       : <String>{teacherFilter!.documentId},
-                  title: 'Select Teacher',
+                  title: AppLocalizations.of(context)!.selectTeacher,
                   idSelector: (t) => t.documentId,
                 ),
               );
@@ -367,7 +368,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                       child: Row(
                         children: [
                           Text(
-                            'Filters',
+                            AppLocalizations.of(context)!.filters,
                             style: GoogleFonts.inter(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -385,14 +386,14 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                               });
                             },
                             child: Text(
-                              'Clear',
+                              AppLocalizations.of(context)!.commonClear,
                               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                             ),
                           ),
                           IconButton(
                             onPressed: () => Navigator.of(dialogContext).pop(),
                             icon: const Icon(Icons.close),
-                            tooltip: 'Close',
+                            tooltip: AppLocalizations.of(context)!.commonClose,
                           ),
                         ],
                       ),
@@ -405,7 +406,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Time',
+                              AppLocalizations.of(context)!.shiftTime,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -434,7 +435,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Date range',
+                              AppLocalizations.of(context)!.dateRange2,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -459,7 +460,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                 TextButton(
                                   onPressed: pickDateRange,
                                   child: Text(
-                                    'Select',
+                                    AppLocalizations.of(context)!.select,
                                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                                   ),
                                 ),
@@ -468,7 +469,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                             const SizedBox(height: 16),
                             if (isAdmin) ...[
                               Text(
-                                'Teacher',
+                                AppLocalizations.of(context)!.roleTeacher,
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -498,7 +499,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                               () => teacherFilter = null,
                                             ),
                                             icon: const Icon(Icons.close),
-                                            tooltip: 'Clear teacher filter',
+                                            tooltip: AppLocalizations.of(context)!.clearTeacherFilter,
                                           ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
@@ -518,7 +519,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                               const SizedBox(height: 16),
                             ],
                             Text(
-                              'Subject',
+                              AppLocalizations.of(context)!.shiftSubject,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -529,7 +530,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                             TextField(
                               controller: subjectController,
                               decoration: InputDecoration(
-                                hintText: 'Filter by subject',
+                                hintText: AppLocalizations.of(context)!.filterBySubject,
                                 prefixIcon: const Icon(Icons.menu_book_outlined),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -557,7 +558,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                 ),
                               ),
                               child: Text(
-                                'Cancel',
+                                AppLocalizations.of(context)!.commonCancel,
                                 style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                               ),
                             ),
@@ -586,7 +587,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                 elevation: 0,
                               ),
                               child: Text(
-                                'Apply',
+                                AppLocalizations.of(context)!.commonApply,
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
@@ -716,7 +717,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                            child: TextField(
 	                              controller: _searchController,
 	                              decoration: InputDecoration(
-	                                hintText: 'Search classes (teacher, student, subject)',
+	                                hintText: AppLocalizations.of(context)!.searchClassesTeacherStudentSubject,
 	                                prefixIcon: const Icon(Icons.search),
 	                                suffixIcon: _searchQuery.trim().isEmpty
 	                                    ? null
@@ -725,7 +726,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                                          _searchController.clear();
 	                                        },
 	                                        icon: const Icon(Icons.close),
-	                                        tooltip: 'Clear search',
+	                                        tooltip: AppLocalizations.of(context)!.clearSearch,
 	                                      ),
 	                                border: OutlineInputBorder(
 	                                  borderRadius: BorderRadius.circular(14),
@@ -761,7 +762,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                              child: TextButton(
 	                                onPressed: _clearFilters,
 	                                child: Text(
-	                                  'Clear',
+	                                  AppLocalizations.of(context)!.commonClear,
 	                                  style: GoogleFonts.inter(fontWeight: FontWeight.w700),
 	                                ),
 	                              ),
@@ -773,7 +774,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                      Align(
 	                        alignment: Alignment.centerLeft,
 	                        child: Text(
-	                          '0 results',
+	                          AppLocalizations.of(context)!.0Results,
 	                          style: GoogleFonts.inter(
 	                            fontSize: 12,
 	                            fontWeight: FontWeight.w600,
@@ -815,7 +816,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                             child: TextField(
                               controller: _searchController,
                               decoration: InputDecoration(
-                                hintText: 'Search classes (teacher, student, subject)',
+                                hintText: AppLocalizations.of(context)!.searchClassesTeacherStudentSubject,
                                 prefixIcon: const Icon(Icons.search),
                                 suffixIcon: _searchQuery.trim().isEmpty
                                     ? null
@@ -824,7 +825,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                           _searchController.clear();
                                         },
                                         icon: const Icon(Icons.close),
-                                        tooltip: 'Clear search',
+                                        tooltip: AppLocalizations.of(context)!.clearSearch,
                                       ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -857,7 +858,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                               child: TextButton(
                                 onPressed: _clearFilters,
                                 child: Text(
-                                  'Clear',
+                                  AppLocalizations.of(context)!.commonClear,
                                   style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -1096,7 +1097,7 @@ class _ZoomShiftCard extends StatelessWidget {
                           ),
                         ),
                         child: Text(
-                          'Beta',
+                          AppLocalizations.of(context)!.beta,
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -1109,7 +1110,7 @@ class _ZoomShiftCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$startDateText • $startTimeText – $endTimeText',
+                  AppLocalizations.of(context)!.startdatetextStarttimetextEndtimetext,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: const Color(0xFF64748B),
@@ -1118,7 +1119,7 @@ class _ZoomShiftCard extends StatelessWidget {
                 if (!hasVideoCall && !hasEnded) ...[
                   const SizedBox(height: 6),
                   Text(
-                    'Meeting is not ready yet. Contact an admin if it stays like this close to start time.',
+                    AppLocalizations.of(context)!.meetingIsNotReadyYetContact,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1159,7 +1160,7 @@ class _ZoomShiftCard extends StatelessWidget {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             color: const Color(0xFF64748B),
-                            tooltip: 'Refresh',
+                            tooltip: AppLocalizations.of(context)!.commonRefresh,
                           ),
                         );
                       }
@@ -1179,7 +1180,7 @@ class _ZoomShiftCard extends StatelessWidget {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             color: const Color(0xFF64748B),
-                            tooltip: 'Refresh',
+                            tooltip: AppLocalizations.of(context)!.commonRefresh,
                           ),
                         );
                       }
@@ -1222,7 +1223,7 @@ class _ZoomShiftCard extends StatelessWidget {
                                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: Text(
-                                  'View',
+                                  AppLocalizations.of(context)!.commonView,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -1236,7 +1237,7 @@ class _ZoomShiftCard extends StatelessWidget {
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               color: const Color(0xFF64748B),
-                              tooltip: 'Refresh',
+                              tooltip: AppLocalizations.of(context)!.commonRefresh,
                             ),
                           ],
                         ),
@@ -1252,7 +1253,7 @@ class _ZoomShiftCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                tooltip: 'Copy class link',
+                tooltip: AppLocalizations.of(context)!.copyClassLink,
                 onPressed: () => VideoCallService.copyJoinLink(context, shift),
                 icon: const Icon(Icons.link),
                 color: const Color(0xFF0E72ED),
@@ -1272,7 +1273,7 @@ class _ZoomShiftCard extends StatelessWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'This class does not have a meeting configured yet.',
+                                    AppLocalizations.of(context)!.thisClassDoesNotHaveA,
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1424,7 +1425,7 @@ void _showLiveKitParticipantsDialog(
           ),
           child: participants.isEmpty
               ? Text(
-                  'No one is in the room yet.',
+                  AppLocalizations.of(context)!.noOneIsInTheRoom,
                   style: GoogleFonts.inter(color: const Color(0xFF64748B)),
                 )
               : ListView.separated(
@@ -1480,7 +1481,7 @@ void _showLiveKitParticipantsDialog(
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Close',
+              AppLocalizations.of(context)!.commonClose,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ),
@@ -1516,7 +1517,7 @@ class _NoZoomShiftsState extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'No classes right now',
+              AppLocalizations.of(context)!.noClassesRightNow,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 20,
@@ -1526,7 +1527,7 @@ class _NoZoomShiftsState extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Your scheduled classes will appear here with a Join button (inactive until the class window opens).',
+              AppLocalizations.of(context)!.yourScheduledClassesWillAppearHere,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,
@@ -1623,7 +1624,7 @@ class _NoClassResultsCard extends StatelessWidget {
                 onPressed: onClear,
                 icon: const Icon(Icons.clear),
                 label: Text(
-                  'Clear filters',
+                  AppLocalizations.of(context)!.clearFilters,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -1647,7 +1648,7 @@ class _UnauthenticatedState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Please sign in to view your classes.',
+          AppLocalizations.of(context)!.pleaseSignInToViewYour,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 14,
@@ -1670,7 +1671,7 @@ class _ErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Unable to load classes.\n$message',
+          AppLocalizations.of(context)!.unableToLoadClassesNMessage,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 14,

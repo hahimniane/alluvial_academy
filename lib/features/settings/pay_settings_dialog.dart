@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/services/settings_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PaySettingsDialog extends StatefulWidget {
   const PaySettingsDialog({super.key});
@@ -65,7 +66,7 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
         children: [
           const Icon(Icons.attach_money, color: Colors.green),
           const SizedBox(width: 8),
-          Text('Pay Settings', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          Text(AppLocalizations.of(context)!.paySettings, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         ],
       ),
       content: Form(
@@ -75,7 +76,7 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Global Teacher Hourly Rate (USD)',
+              AppLocalizations.of(context)!.globalTeacherHourlyRateUsd,
               style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff6B7280)),
             ),
             const SizedBox(height: 8),
@@ -85,7 +86,7 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
               decoration: const InputDecoration(
                 prefixText: '\$',
                 border: OutlineInputBorder(),
-                hintText: '4.00',
+                hintText: AppLocalizations.of(context)!.400,
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Enter a rate';
@@ -106,14 +107,14 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: Text('Cancel', style: GoogleFonts.inter()),
+          child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter()),
         ),
         ElevatedButton(
           onPressed: _saving ? null : _save,
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff0386FF), foregroundColor: Colors.white),
           child: _saving
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
-              : Text('Save', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              : Text(AppLocalizations.of(context)!.commonSave, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         ),
       ],
     );

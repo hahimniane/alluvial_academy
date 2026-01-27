@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../chat/screens/chat_page.dart';
 import '../../time_clock/screens/time_clock_screen.dart';
 import './admin_dashboard_screen.dart';
@@ -247,7 +248,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   ),
                 ),
                 title: Text(
-                  'View Profile',
+                  AppLocalizations.of(context)!.settingsViewProfile,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -283,7 +284,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   ),
                 ),
                 title: Text(
-                  'Settings',
+                  AppLocalizations.of(context)!.settingsTitle,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -321,7 +322,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   ),
                 ),
                 title: Text(
-                  'Help & Support',
+                  AppLocalizations.of(context)!.settingsHelpSupport,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -354,7 +355,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                     ),
                   ),
                   title: Text(
-                    'Take App Tour',
+                    AppLocalizations.of(context)!.settingsTakeAppTour,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -362,7 +363,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    'Learn how to use the app',
+                    AppLocalizations.of(context)!.settingsLearnApp,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: const Color(0xFF6B7280),
@@ -394,7 +395,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   ),
                 ),
                 title: Text(
-                  'Sign Out',
+                  AppLocalizations.of(context)!.settingsSignOut,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -524,21 +525,21 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            'Sign Out',
+            AppLocalizations.of(context)!.settingsSignOut,
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w700,
               fontSize: 20,
             ),
           ),
           content: Text(
-            'Are you sure you want to sign out?',
+            AppLocalizations.of(context)!.settingsSignOutConfirm,
             style: GoogleFonts.inter(fontSize: 16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   color: const Color(0xff6B7280),
                   fontWeight: FontWeight.w600,
@@ -555,7 +556,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 ),
               ),
               child: Text(
-                'Sign Out',
+                AppLocalizations.of(context)!.settingsSignOut,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
             ),
@@ -610,7 +611,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Loading...',
+                AppLocalizations.of(context)!.commonLoading,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   color: const Color(0xff6B7280),
@@ -670,7 +671,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Alluwal Academy',
+                    AppLocalizations.of(context)!.appTitle,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../../../core/enums/shift_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Compact header for shift management screen (ConnectTeam-inspired)
 /// Height: 60px, contains essential controls only
@@ -43,7 +44,7 @@ class CompactShiftHeader extends StatelessWidget {
           const Icon(Icons.schedule, color: Color(0xff0386FF), size: 24),
           const SizedBox(width: 12),
           Text(
-            'Shifts',
+            AppLocalizations.of(context)!.navShifts,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -78,7 +79,7 @@ class CompactShiftHeader extends StatelessWidget {
           IconButton(
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh, color: Color(0xff6B7280)),
-            tooltip: 'Refresh',
+            tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
         ],
       ),
@@ -139,7 +140,7 @@ class CompactShiftHeader extends StatelessWidget {
               icon: const Icon(Icons.calendar_today, size: 18),
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
-              tooltip: 'Jump to date',
+              tooltip: AppLocalizations.of(context)!.jumpToDate,
             ),
           ),
         ],
@@ -160,7 +161,7 @@ class CompactShiftHeader extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'View options',
+              AppLocalizations.of(context)!.viewOptions,
               style: GoogleFonts.inter(fontSize: 14),
             ),
             const SizedBox(width: 4),
@@ -169,13 +170,13 @@ class CompactShiftHeader extends StatelessWidget {
         ),
       ),
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'grid', child: Text('Grid View')),
-        const PopupMenuItem(value: 'week', child: Text('Week Calendar')),
-        const PopupMenuItem(value: 'list', child: Text('List View')),
+        const PopupMenuItem(value: 'grid', child: Text(AppLocalizations.of(context)!.gridView)),
+        const PopupMenuItem(value: 'week', child: Text(AppLocalizations.of(context)!.weekCalendar)),
+        const PopupMenuItem(value: 'list', child: Text(AppLocalizations.of(context)!.listView)),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'teachers', child: Text('Teachers Only')),
-        const PopupMenuItem(value: 'leaders', child: Text('Leaders Only')),
-        const PopupMenuItem(value: 'all', child: Text('All Schedules')),
+        const PopupMenuItem(value: 'teachers', child: Text(AppLocalizations.of(context)!.teachersOnly)),
+        const PopupMenuItem(value: 'leaders', child: Text(AppLocalizations.of(context)!.leadersOnly)),
+        const PopupMenuItem(value: 'all', child: Text(AppLocalizations.of(context)!.allSchedules)),
       ],
     );
   }
@@ -193,7 +194,7 @@ class CompactShiftHeader extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Actions',
+              AppLocalizations.of(context)!.timesheetActions,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff0386FF),
@@ -225,7 +226,7 @@ class CompactShiftHeader extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: null, // Handled by popup
         icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add'),
+        label: Text(AppLocalizations.of(context)!.add),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xff0386FF),
           foregroundColor: Colors.white,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'landing_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EnrollmentSuccessPage extends StatelessWidget {
   const EnrollmentSuccessPage({super.key});
@@ -34,7 +35,7 @@ class EnrollmentSuccessPage extends StatelessWidget {
               FadeInSlide(
                 delay: 0.2,
                 child: Text(
-                  'Request Received!',
+                  AppLocalizations.of(context)!.requestReceived,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 32,
@@ -47,7 +48,7 @@ class EnrollmentSuccessPage extends StatelessWidget {
               FadeInSlide(
                 delay: 0.3,
                 child: Text(
-                  'Thank you for your interest in Alluvial Academy. Our team will review your request and contact you shortly to schedule your free trial.',
+                  AppLocalizations.of(context)!.thankYouForYourInterestIn2,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 18,
@@ -75,7 +76,7 @@ class EnrollmentSuccessPage extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Back to Home',
+                    AppLocalizations.of(context)!.backToHome,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

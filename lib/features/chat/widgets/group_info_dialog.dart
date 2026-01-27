@@ -4,6 +4,7 @@ import '../services/chat_service.dart';
 import '../models/chat_user.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class GroupInfoDialog extends StatefulWidget {
   final ChatUser groupChat;
@@ -124,7 +125,7 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
             // Creator info
             if (creatorName != null && !isLoading) ...[
               Text(
-                'Created by',
+                AppLocalizations.of(context)!.createdBy2,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -251,7 +252,7 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                'Admin',
+                                AppLocalizations.of(context)!.admin,
                                 style: GoogleFonts.inter(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,

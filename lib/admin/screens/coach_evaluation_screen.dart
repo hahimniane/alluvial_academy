@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/teacher_audit_full.dart';
 import '../../core/services/teacher_audit_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Windows 11 Fluent Design Colors
 class Win11Colors {
@@ -87,7 +88,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
         // Show success snackbar FIRST (before onSaved which reloads data)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Audit submitted successfully!'),
+            content: Text(AppLocalizations.of(context)!.auditSubmittedSuccessfully),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -101,7 +102,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context)!.errorE),
             backgroundColor: Colors.red,
           ),
         );
@@ -137,7 +138,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text('Loading evaluation factors...'),
+                      Text(AppLocalizations.of(context)!.loadingEvaluationFactors),
                     ],
                   ),
                 ),
@@ -195,7 +196,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Performance Evaluation',
+                      AppLocalizations.of(context)!.performanceEvaluation,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         fontSize: 18,
@@ -246,14 +247,14 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Score: ',
+                  AppLocalizations.of(context)!.score2,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: Win11Colors.textSecondary,
                   ),
                 ),
                 Text(
-                  '$totalScore / $maxScore',
+                  AppLocalizations.of(context)!.totalscoreMaxscore,
                   style: GoogleFonts.inter(
                     color: _getScoreColor(percentageScore),
                     fontWeight: FontWeight.bold,
@@ -384,7 +385,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Required: Rating below 9',
+                    AppLocalizations.of(context)!.requiredRatingBelow9,
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -443,7 +444,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
             ),
             child: Center(
               child: Text(
-                '$score',
+                AppLocalizations.of(context)!.score3,
                 style: GoogleFonts.inter(
                   color: isSelected ? Colors.white : Win11Colors.textMain,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -471,7 +472,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w500,
                 color: Win11Colors.textSecondary,
@@ -500,7 +501,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
                     ),
                   )
                 : Text(
-                    'Submit Evaluation',
+                    AppLocalizations.of(context)!.submitEvaluation,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,

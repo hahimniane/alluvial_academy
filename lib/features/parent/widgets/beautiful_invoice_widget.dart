@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
 import 'package:alluwalacademyadmin/core/services/invoice_data_service.dart';
 import 'package:alluwalacademyadmin/core/services/mock_company_service.dart' show CompanyInfo, AdminInfo;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Beautiful invoice display widget with modern blue theme
 class BeautifulInvoiceWidget extends StatefulWidget {
@@ -203,7 +204,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
           ),
           const SizedBox(width: 12),
           Text(
-            'Monthly Fees Payment',
+            AppLocalizations.of(context)!.monthlyFeesPayment,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -282,7 +283,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'From $parentDisplay for student(s): $studentDisplay',
+            AppLocalizations.of(context)!.fromParentdisplayForStudentSStudentdisplay,
             style: GoogleFonts.inter(
               fontSize: 15,
               color: const Color(0xFF111827),
@@ -291,7 +292,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
           ),
           const SizedBox(height: 8),
           Text(
-            'for the month(s) of $monthCovered',
+            AppLocalizations.of(context)!.forTheMonthSOfMonthcovered,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xFF6B7280),
@@ -314,7 +315,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
         ),
         child: Center(
           child: Text(
-            'No items on this invoice',
+            AppLocalizations.of(context)!.noItemsOnThisInvoice,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xFF6B7280),
@@ -348,7 +349,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
                 Expanded(
                   flex: 3,
                   child: Text(
-                    'Description',
+                    AppLocalizations.of(context)!.description,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -359,7 +360,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
                   Expanded(
                     child: Center(
                       child: Text(
-                        'Qty',
+                        AppLocalizations.of(context)!.qty,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -372,7 +373,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        'Price',
+                        AppLocalizations.of(context)!.price,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -385,7 +386,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        'Total',
+                        AppLocalizations.of(context)!.total,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -545,7 +546,7 @@ class _BeautifulInvoiceWidgetState extends State<BeautifulInvoiceWidget> {
           Row(
             children: [
               Text(
-                'Signature: ',
+                AppLocalizations.of(context)!.signature,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

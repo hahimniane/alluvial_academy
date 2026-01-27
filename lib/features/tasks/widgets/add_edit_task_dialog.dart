@@ -14,6 +14,7 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AddEditTaskDialog extends StatefulWidget {
   final Task? task;
@@ -227,11 +228,11 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Attachment'),
+        title: Text(AppLocalizations.of(context)!.deleteAttachment),
         content: Text('Are you sure you want to delete ${attachment.originalName}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.commonCancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -471,13 +472,13 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
                     // 3. DATE & TIME SECTION (Style "Grid" avec icônes)
                     // Only creators can edit dates and recurrence
                     if (_isCreator) ...[
-                      Text('SCHEDULE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF), letterSpacing: 1.0)),
+                      Text(AppLocalizations.of(context)!.schedule, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF), letterSpacing: 1.0)),
                       const SizedBox(height: 12),
                       _buildDateTimeGrid(),
                       const SizedBox(height: 16),
                       _buildRecurrenceSection(),
                     ] else ...[
-                      Text('SCHEDULE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF), letterSpacing: 1.0)),
+                      Text(AppLocalizations.of(context)!.schedule, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF), letterSpacing: 1.0)),
                       const SizedBox(height: 12),
                       _buildReadOnlyField('Due Date', DateFormat('MMM dd, yyyy • h:mm a').format(_dueDate)),
                       if (widget.task?.isRecurring == true) ...[
@@ -503,7 +504,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
                       TextButton.icon(
                         onPressed: () => setState(() => _showAdvanced = true),
                         icon: const Icon(Icons.add_circle_outline, size: 16),
-                        label: const Text('Add location & tags'),
+                        label: Text(AppLocalizations.of(context)!.addLocationTags),
                         style: TextButton.styleFrom(foregroundColor: const Color(0xff6B7280)),
                       ),
                     
@@ -573,7 +574,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
               controller: _titleController,
       style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w600, color: const Color(0xff111827)),
       decoration: InputDecoration(
-        hintText: 'What needs to be done?',
+        hintText: AppLocalizations.of(context)!.whatNeedsToBeDone,
         hintStyle: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w400, color: const Color(0xffD1D5DB)),
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
@@ -596,7 +597,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ASSIGNED TO', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF))),
+            Text(AppLocalizations.of(context)!.assignedTo2, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF))),
                     const SizedBox(height: 8),
             if (_assignedTo.isEmpty)
                     Row(
@@ -607,7 +608,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
                     child: const Icon(Icons.person_add_outlined, size: 16, color: Color(0xff6B7280)),
                   ),
                             const SizedBox(width: 8),
-                  Text('Select users', style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff6B7280))),
+                  Text(AppLocalizations.of(context)!.selectUsers, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff6B7280))),
                 ],
                       )
                     else
@@ -724,7 +725,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
           children: [
             const Icon(Icons.sort, size: 18, color: Color(0xff9CA3AF)),
             const SizedBox(width: 8),
-            Text('Description', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151))),
+            Text(AppLocalizations.of(context)!.description, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151))),
           ],
         ),
         const SizedBox(height: 8),
@@ -734,7 +735,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
           minLines: 2,
           style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff4B5563)),
           decoration: InputDecoration(
-            hintText: 'Add details, subtasks, or files...',
+            hintText: AppLocalizations.of(context)!.addDetailsSubtasksOrFiles,
             hintStyle: GoogleFonts.inter(fontSize: 14, color: const Color(0xffD1D5DB)),
             filled: true,
             fillColor: Colors.white,
@@ -789,14 +790,14 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
               children: [
                 const Icon(Icons.attach_file, size: 18, color: Color(0xff9CA3AF)),
                 const SizedBox(width: 8),
-                Text('Attachments', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151))),
+                Text(AppLocalizations.of(context)!.attachments, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff374151))),
               ],
             ),
             if (_isCreator)
               TextButton.icon(
                 onPressed: _pickAttachments,
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add File'),
+                label: Text(AppLocalizations.of(context)!.addFile),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
@@ -902,7 +903,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              'No attachments',
+              AppLocalizations.of(context)!.noAttachments,
               style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff9CA3AF)),
             ),
           ),
@@ -917,7 +918,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
       style: GoogleFonts.inter(fontSize: 14),
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.location_on_outlined, size: 18, color: Color(0xff9CA3AF)),
-        hintText: 'Add location',
+        hintText: AppLocalizations.of(context)!.addLocation,
         contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xffE5E7EB))),
       ),
@@ -939,12 +940,12 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
             )),
             if (_isCreator) // Only show add tag button for creators
               ActionChip(
-                label: Text('+ Add Tag', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff0386FF))),
+                label: Text(AppLocalizations.of(context)!.addTag, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff0386FF))),
                 backgroundColor: const Color(0xffEFF6FF),
                 onPressed: () {
                   // Logique simplifiée pour l'exemple
                    showDialog(context: context, builder: (c) => AlertDialog(
-                     title: const Text('Add Tag'),
+                     title: Text(AppLocalizations.of(context)!.addTag2),
                      content: TextField(controller: _labelController, onSubmitted: (v) {
                        setState(() => _labels.add(v));
                        _labelController.clear();
@@ -975,7 +976,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
               _saveAsDraft = true;
               _saveTask();
             },
-            child: Text('Save Draft', style: GoogleFonts.inter(color: const Color(0xff6B7280), fontWeight: FontWeight.w600)),
+            child: Text(AppLocalizations.of(context)!.saveDraft, style: GoogleFonts.inter(color: const Color(0xff6B7280), fontWeight: FontWeight.w600)),
           ),
           Row(
               children: [
@@ -986,7 +987,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
-                child: Text('Cancel', style: GoogleFonts.inter(color: const Color(0xff374151), fontWeight: FontWeight.w600)),
+                child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter(color: const Color(0xff374151), fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 12),
               ElevatedButton(
@@ -1026,7 +1027,7 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
             const Icon(Icons.repeat, size: 18, color: Color(0xff9CA3AF)),
             const SizedBox(width: 8),
             Text(
-              'Recurrence',
+              AppLocalizations.of(context)!.recurrence,
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -1225,7 +1226,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
         const SizedBox(width: 12),
         const Expanded(
           child: Text(
-            'Select Team Members',
+            AppLocalizations.of(context)!.selectTeamMembers,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -1249,7 +1250,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
       controller: _searchController,
       onChanged: (value) => setState(() => _searchQuery = value),
       decoration: InputDecoration(
-        hintText: 'Search by name or role...',
+        hintText: AppLocalizations.of(context)!.searchByNameOrRole,
         prefixIcon: const Icon(Icons.search, color: Color(0xff0386FF)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -1282,7 +1283,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
             Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No users found',
+              AppLocalizations.of(context)!.userNoUsersFound,
               style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
           ],
@@ -1385,7 +1386,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                   borderRadius: BorderRadius.circular(8)),
             ),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: TextStyle(
                   color: Colors.grey[600], fontWeight: FontWeight.w600),
             ),

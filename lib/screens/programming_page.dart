@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ProgrammingPage extends StatefulWidget {
   const ProgrammingPage({super.key});
@@ -60,7 +61,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                 border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.4)),
               ),
               child: Text(
-                '💻 Coding & Technology',
+                AppLocalizations.of(context)!.codingTechnology,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -73,7 +74,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Build the Future with Code',
+              AppLocalizations.of(context)!.buildTheFutureWithCode,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +91,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'From logical thinking for kids to professional development for adults. Master web, mobile, and software development with our expert-led courses.',
+                AppLocalizations.of(context)!.fromLogicalThinkingForKidsTo,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -141,7 +142,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Why Learn to Code?',
+          AppLocalizations.of(context)!.whyLearnToCode,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -150,7 +151,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Coding is the literacy of the digital age. Whether you want to solve complex problems, build your own apps, or start a new career, programming opens doors to endless possibilities.',
+          AppLocalizations.of(context)!.codingIsTheLiteracyOfThe,
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -275,7 +276,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
       child: Column(
         children: [
           Text(
-            'Learning Tracks',
+            AppLocalizations.of(context)!.learningTracks,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -397,7 +398,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Enroll Now'),
+                child: Text(AppLocalizations.of(context)!.enrollNow),
               ),
             ),
           ],
@@ -418,7 +419,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
       child: Column(
         children: [
           Text(
-            'Start Coding Today',
+            AppLocalizations.of(context)!.startCodingToday,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -429,7 +430,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Empower yourself with the skills of tomorrow',
+            AppLocalizations.of(context)!.empowerYourselfWithTheSkillsOf,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -454,7 +455,7 @@ class _ProgrammingPageState extends State<ProgrammingPage> {
               ),
             ),
             child: Text(
-              'Start Learning',
+              AppLocalizations.of(context)!.startLearning,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

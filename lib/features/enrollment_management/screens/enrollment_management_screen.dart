@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/enrollment_request.dart';
 import '../../../core/services/job_board_service.dart';
 import 'filled_opportunities_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EnrollmentManagementScreen extends StatefulWidget {
   const EnrollmentManagementScreen({super.key});
@@ -118,7 +119,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Student Applicants',
+                AppLocalizations.of(context)!.studentApplicants,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -126,7 +127,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
                 ),
               ),
               Text(
-                'Manage student applications and enrollment',
+                AppLocalizations.of(context)!.manageStudentApplicationsAndEnrollment,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xff6B7280),
@@ -155,7 +156,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
           _buildTabItem('Inbox', _inboxCount, Icons.inbox_rounded),
           _buildTabItem('Ready', _contactedCount, Icons.call_end_rounded),
           _buildTabItem('Live', _broadcastCount, Icons.sensors_rounded),
-          const Tab(text: 'Enrolled / Filled'),
+          const Tab(text: AppLocalizations.of(context)!.enrolledFilled),
         ],
       ),
     );
@@ -177,7 +178,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '$count',
+                AppLocalizations.of(context)!.count,
                 style: GoogleFonts.inter(
                     fontSize: 11, fontWeight: FontWeight.w700),
               ),
@@ -360,7 +361,7 @@ class _EnrollmentCard extends StatelessWidget {
                       size: 14, color: Color(0xff059669)),
                   const SizedBox(width: 8),
                   Text(
-                    'LIVE ON JOB BOARD',
+                    AppLocalizations.of(context)!.liveOnJobBoard,
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -390,7 +391,7 @@ class _EnrollmentCard extends StatelessWidget {
                     decoration: BoxDecoration(
                         color: Colors.blue[50],
                         borderRadius: BorderRadius.circular(4)),
-                    child: Text('ADULT STUDENT',
+                    child: Text(AppLocalizations.of(context)!.adultStudent,
                         style: GoogleFonts.inter(
                             fontSize: 10,
                             color: Colors.blue[700],
@@ -452,7 +453,7 @@ class _EnrollmentCard extends StatelessWidget {
                               _handleStatusChange(context, 'contacted'),
                           icon: const Icon(Icons.visibility_off_outlined,
                               size: 16),
-                          label: const Text('Un-broadcast'),
+                          label: Text(AppLocalizations.of(context)!.unBroadcast),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xffEF4444),
                             side: const BorderSide(color: Color(0xffEF4444)),
@@ -467,7 +468,7 @@ class _EnrollmentCard extends StatelessWidget {
                             _handleStatusChange(context, 'rejected'),
                         icon: const Icon(Icons.archive_outlined,
                             color: Colors.grey, size: 20),
-                        tooltip: 'Archive',
+                        tooltip: AppLocalizations.of(context)!.archive,
                         constraints: const BoxConstraints(),
                         padding: const EdgeInsets.all(12),
                       ),
@@ -574,7 +575,7 @@ class _EnrollmentCard extends StatelessWidget {
                     enrollment.whatsAppNumber!.isNotEmpty)
                   ListTile(
                     leading: const Icon(Icons.chat),
-                    title: const Text('WhatsApp'),
+                    title: Text(AppLocalizations.of(context)!.whatsapp),
                     onTap: () => launchUrl(
                         Uri.parse('https://wa.me/${enrollment.whatsAppNumber}')),
                   ),
@@ -603,7 +604,7 @@ class _EnrollmentCard extends StatelessWidget {
       await _handleStatusChange(context, 'contacted');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Marked as Contacted! Moved to Ready tab.')));
+            content: Text(AppLocalizations.of(context)!.markedAsContactedMovedToReady)));
       }
     }
     // 2. Contacted -> Broadcasted
@@ -616,12 +617,12 @@ class _EnrollmentCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Broadcast to Teachers?'),
-        content: const Text(
-            'This will make the opportunity visible on the Teacher Job Board immediately.'),
+        title: Text(AppLocalizations.of(context)!.broadcastToTeachers),
+        content: Text(
+            AppLocalizations.of(context)!.thisWillMakeTheOpportunityVisible),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context)!.commonCancel)),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -634,17 +635,17 @@ class _EnrollmentCard extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text(
-                            'Broadcast Live! Teachers can now see this.')),
+                            AppLocalizations.of(context)!.broadcastLiveTeachersCanNowSee)),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('Error: $e')));
+                      .showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.errorE)));
                 }
               }
             },
-            child: const Text('Broadcast Now'),
+            child: Text(AppLocalizations.of(context)!.broadcastNow),
           ),
         ],
       ),

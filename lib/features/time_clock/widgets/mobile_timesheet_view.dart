@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../models/timesheet_entry.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Mobile-friendly timesheet view using cards instead of table
 class MobileTimesheetView extends StatefulWidget {
@@ -287,7 +288,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
           Row(
             children: [
               Text(
-                'Timesheet',
+                AppLocalizations.of(context)!.timesheetTitle,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -549,7 +550,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                       onPressed: () => _submitEntry(entry),
                       icon: const Icon(Icons.send, size: 18),
                       label: Text(
-                        'Submit',
+                        AppLocalizations.of(context)!.timesheetSubmit,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -572,7 +573,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                       onPressed: () => _editEntry(entry),
                       icon: const Icon(Icons.edit, size: 18),
                       label: Text(
-                        'Edit',
+                        AppLocalizations.of(context)!.commonEdit,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -593,7 +594,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                       onPressed: () => _viewEntry(entry),
                       icon: const Icon(Icons.visibility, size: 18),
                       label: Text(
-                        'View',
+                        AppLocalizations.of(context)!.commonView,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -720,7 +721,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
             const Icon(Icons.send, color: Color(0xff10B981)),
             const SizedBox(width: 12),
             Text(
-              'Submit Timesheet',
+              AppLocalizations.of(context)!.submitTimesheet,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -729,20 +730,20 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
           ],
         ),
         content: Text(
-          'Submit this timesheet for admin review?',
+          AppLocalizations.of(context)!.timesheetSubmitConfirm,
           style: GoogleFonts.inter(fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xff10B981),
             ),
-            child: Text('Submit', style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.timesheetSubmit, style: GoogleFonts.inter()),
           ),
         ],
       ),
@@ -770,7 +771,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Timesheet submitted for review',
+                Text(AppLocalizations.of(context)!.timesheetSubmittedForReview,
                     style: GoogleFonts.inter()),
               ],
             ),
@@ -785,7 +786,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error submitting: $e', style: GoogleFonts.inter()),
+            content: Text(AppLocalizations.of(context)!.errorSubmittingE, style: GoogleFonts.inter()),
             backgroundColor: Colors.red,
           ),
         );
@@ -798,7 +799,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Edit functionality - Coming soon! Use web version to edit.',
+          AppLocalizations.of(context)!.editFunctionalityComingSoonUseWeb,
           style: GoogleFonts.inter(),
         ),
         backgroundColor: const Color(0xff0386FF),
@@ -848,7 +849,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
 
               // Title
               Text(
-                'Timesheet Details',
+                AppLocalizations.of(context)!.timesheetDetails2,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -875,7 +876,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
               if (entry.description.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
-                  'Description',
+                  AppLocalizations.of(context)!.description,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -915,7 +916,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
                     ),
                   ),
                   child: Text(
-                    'Close',
+                    AppLocalizations.of(context)!.commonClose,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

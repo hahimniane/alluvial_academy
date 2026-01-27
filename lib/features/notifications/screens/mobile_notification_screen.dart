@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class MobileNotificationScreen extends StatefulWidget {
   const MobileNotificationScreen({super.key});
@@ -81,7 +82,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
       setState(() => _isLoadingUsers = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading users: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingUsersE)),
         );
       }
     }
@@ -149,7 +150,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Notification Sent'),
+              title: Text(AppLocalizations.of(context)!.notificationSent),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,7 +179,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
+                  child: Text(AppLocalizations.of(context)!.commonOk),
                 ),
               ],
             ),
@@ -253,7 +254,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Select Users',
+                            AppLocalizations.of(context)!.selectUsers2,
                             style: GoogleFonts.inter(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -282,7 +283,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search users...',
+                      hintText: AppLocalizations.of(context)!.userSearchUsers,
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -444,7 +445,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Send Notification',
+          AppLocalizations.of(context)!.sendNotification,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -478,7 +479,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Send To',
+                      AppLocalizations.of(context)!.sendTo2,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -497,7 +498,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                             children: [
                               const Icon(Icons.people, size: 18),
                               const SizedBox(width: 4),
-                              const Text('Everyone'),
+                              Text(AppLocalizations.of(context)!.everyone),
                             ],
                           ),
                           selected: _recipientType == 'everyone',
@@ -519,7 +520,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                             children: [
                               const Icon(Icons.group, size: 18),
                               const SizedBox(width: 4),
-                              const Text('By Role'),
+                              Text(AppLocalizations.of(context)!.byRole),
                             ],
                           ),
                           selected: _recipientType == 'role',
@@ -540,7 +541,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                             children: [
                               const Icon(Icons.person, size: 18),
                               const SizedBox(width: 4),
-                              const Text('Individual'),
+                              Text(AppLocalizations.of(context)!.individual),
                             ],
                           ),
                           selected: _recipientType == 'individual',
@@ -564,17 +565,17 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                       DropdownButtonFormField<String>(
                         value: _selectedRole,
                         decoration: InputDecoration(
-                          labelText: 'Select Role',
+                          labelText: AppLocalizations.of(context)!.selectRole,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'teacher', child: Text('All Teachers')),
-                          DropdownMenuItem(value: 'student', child: Text('All Students')),
-                          DropdownMenuItem(value: 'parent', child: Text('All Parents')),
-                          DropdownMenuItem(value: 'admin', child: Text('All Admins')),
+                          DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.allTeachers)),
+                          DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.allStudents)),
+                          DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.allParents)),
+                          DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.allAdmins)),
                         ],
                         onChanged: (value) {
                           setState(() => _selectedRole = value);
@@ -635,7 +636,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                                 countryCode: '',
                                 mobilePhone: '',
                                 userType: '',
-                                title: '',
+                                title: AppLocalizations.of(context)!.text2,
                                 employmentStartDate: '',
                                 kioskCode: '',
                                 dateAdded: '',
@@ -690,7 +691,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Notification Content',
+                      AppLocalizations.of(context)!.notificationContent,
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -702,8 +703,8 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                     TextFormField(
                       controller: _titleController,
                       decoration: InputDecoration(
-                        labelText: 'Title',
-                        hintText: 'Enter notification title',
+                        labelText: AppLocalizations.of(context)!.profileTitle,
+                        hintText: AppLocalizations.of(context)!.enterNotificationTitle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -724,8 +725,8 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                       controller: _bodyController,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        labelText: 'Message',
-                        hintText: 'Enter notification message',
+                        labelText: AppLocalizations.of(context)!.message,
+                        hintText: AppLocalizations.of(context)!.enterNotificationMessage,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -773,7 +774,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                             const Icon(Icons.send, color: Colors.white, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              'Send Notification',
+                              AppLocalizations.of(context)!.sendNotification,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -801,7 +802,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Notifications will be sent instantly to all selected recipients who have the app installed.',
+                        AppLocalizations.of(context)!.notificationsWillBeSentInstantlyTo,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.blue[900],
@@ -831,7 +832,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
           countryCode: '',
           mobilePhone: '',
           userType: '',
-          title: '',
+          title: AppLocalizations.of(context)!.text2,
           employmentStartDate: '',
           kioskCode: '',
           dateAdded: '',

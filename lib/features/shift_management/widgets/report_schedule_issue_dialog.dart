@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Compact dialog for teachers to report schedule issues and fix timezone
 class ReportScheduleIssueDialog extends StatefulWidget {
@@ -69,7 +70,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
     if (_issueType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select an issue type'),
+          content: Text(AppLocalizations.of(context)!.pleaseSelectAnIssueType),
           backgroundColor: Colors.orange,
         ),
       );
@@ -159,7 +160,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context)!.errorE),
             backgroundColor: Colors.red,
           ),
         );
@@ -197,7 +198,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Report Schedule Issue',
+                    AppLocalizations.of(context)!.reportScheduleIssue,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -217,7 +218,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
 
             // Issue Type Selection
             Text(
-              'What\'s the issue?',
+              AppLocalizations.of(context)!.whatSTheIssue,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -238,7 +239,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
             // Timezone Selection (if timezone issue)
             if (_issueType == 'timezone') ...[
               Text(
-                'Select your correct timezone:',
+                AppLocalizations.of(context)!.selectYourCorrectTimezone,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -262,7 +263,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
             // Corrected Times (if incorrect time issue)
             if (_issueType == 'incorrect_time') ...[
               Text(
-                'What should the correct times be?',
+                AppLocalizations.of(context)!.whatShouldTheCorrectTimesBe,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -294,7 +295,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
 
             // Notes
             Text(
-              'Additional notes (optional):',
+              AppLocalizations.of(context)!.additionalNotesOptional,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -306,7 +307,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
               controller: _notesController,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Explain the issue...',
+                hintText: AppLocalizations.of(context)!.explainTheIssue,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -338,7 +339,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
                             strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
-                        'Submit',
+                        AppLocalizations.of(context)!.timesheetSubmit,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                         ),

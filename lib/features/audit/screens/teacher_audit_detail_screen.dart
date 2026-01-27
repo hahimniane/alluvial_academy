@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teacher_audit_full.dart';
 import '../../../core/services/teacher_audit_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Teacher's detailed audit view with ability to dispute/edit
 class TeacherAuditDetailScreen extends StatefulWidget {
@@ -97,7 +98,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
     final selected = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Select Month'),
+        title: Text(AppLocalizations.of(context)!.formSelectMonth),
         children: months.map((m) {
           final date = DateTime.parse('$m-01');
           return SimpleDialogOption(
@@ -124,7 +125,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'My Monthly Report',
+          AppLocalizations.of(context)!.myMonthlyReport,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         actions: [
@@ -138,18 +139,18 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadAudit,
-            tooltip: 'Refresh',
+            tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           tabs: const [
-            Tab(text: 'Overview', icon: Icon(Icons.dashboard)),
-            Tab(text: 'Classes', icon: Icon(Icons.school)),
-            Tab(text: 'Forms', icon: Icon(Icons.assignment)),
-            Tab(text: 'Payment', icon: Icon(Icons.payments)),
-            Tab(text: 'Dispute', icon: Icon(Icons.edit_note)),
+            Tab(text: AppLocalizations.of(context)!.overview, icon: Icon(Icons.dashboard)),
+            Tab(text: AppLocalizations.of(context)!.dashboardClasses, icon: Icon(Icons.school)),
+            Tab(text: AppLocalizations.of(context)!.navForms, icon: Icon(Icons.assignment)),
+            Tab(text: AppLocalizations.of(context)!.payment, icon: Icon(Icons.payments)),
+            Tab(text: AppLocalizations.of(context)!.dispute, icon: Icon(Icons.edit_note)),
           ],
         ),
       ),
@@ -185,7 +186,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Your audit report will be available once it has been finalized and reviewed.',
+            AppLocalizations.of(context)!.yourAuditReportWillBeAvailable,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(fontSize: 14, color: Colors.grey.shade500),
           ),
@@ -202,7 +203,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
           Icon(Icons.hourglass_empty, size: 64, color: Colors.orange.shade400),
           const SizedBox(height: 16),
           Text(
-            'Audit Under Review',
+            AppLocalizations.of(context)!.auditUnderReview,
             style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 8),
@@ -237,7 +238,7 @@ class _OverviewTab extends StatelessWidget {
           // Hours by Subject section
           if (audit.hoursTaughtBySubject.isNotEmpty) ...[
             Text(
-              'Hours by Subject',
+              AppLocalizations.of(context)!.hoursBySubject,
               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
@@ -256,7 +257,7 @@ class _OverviewTab extends StatelessWidget {
           // Issues section
           if (audit.issues.isNotEmpty) ...[
             Text(
-              'Issues & Flags',
+              AppLocalizations.of(context)!.issuesFlags,
               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
@@ -316,7 +317,7 @@ class _OverviewTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Overall Score',
+                  AppLocalizations.of(context)!.overallScore,
                   style: GoogleFonts.inter(
                     color: Colors.grey.shade600,
                     fontSize: 14,
@@ -396,7 +397,7 @@ class _OverviewTab extends StatelessWidget {
       children: [
         // Schedule section
         Text(
-          'Schedule',
+          AppLocalizations.of(context)!.shiftSchedule,
           style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
@@ -423,7 +424,7 @@ class _OverviewTab extends StatelessWidget {
 
         // Punctuality section
         Text(
-          'Punctuality',
+          AppLocalizations.of(context)!.punctuality,
           style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
@@ -450,7 +451,7 @@ class _OverviewTab extends StatelessWidget {
 
         // Form Compliance section
         Text(
-          'Form Compliance',
+          AppLocalizations.of(context)!.formCompliance,
           style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
@@ -507,28 +508,28 @@ class _OverviewTab extends StatelessWidget {
       childAspectRatio: 1.3,
       children: [
         _MetricCard(
-          title: 'Classes Completed',
+          title: AppLocalizations.of(context)!.classesCompleted,
           value: '${audit.totalClassesCompleted}/${audit.totalClassesScheduled}',
           subtitle: '${audit.completionRate.toStringAsFixed(0)}% completion',
           icon: Icons.school,
           color: Colors.green,
         ),
         _MetricCard(
-          title: 'Hours Taught',
+          title: AppLocalizations.of(context)!.hoursTaught,
           value: '${audit.totalHoursTaught.toStringAsFixed(1)}h',
           subtitle: '${audit.hoursTaughtBySubject.length} subjects',
           icon: Icons.schedule,
           color: Colors.blue,
         ),
         _MetricCard(
-          title: 'Punctuality',
+          title: AppLocalizations.of(context)!.punctuality,
           value: '${audit.punctualityRate.toStringAsFixed(0)}%',
           subtitle: '${audit.onTimeClockIns}/${audit.totalClockIns} on-time',
           icon: Icons.timer,
           color: audit.punctualityRate >= 80 ? Colors.green : Colors.orange,
         ),
         _MetricCard(
-          title: 'Forms',
+          title: AppLocalizations.of(context)!.navForms,
           value: '${audit.readinessFormsSubmitted}/${audit.readinessFormsRequired}',
           subtitle: '${audit.formComplianceRate.toStringAsFixed(0)}% compliance',
           icon: Icons.assignment,
@@ -695,7 +696,7 @@ class _ClassesTab extends StatelessWidget {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(
             child: Text(
-              'No classes found',
+              AppLocalizations.of(context)!.noClassesFound,
               style: GoogleFonts.inter(color: Colors.grey),
             ),
           );
@@ -946,7 +947,7 @@ class _PaymentTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Total Payment',
+                        AppLocalizations.of(context)!.totalPayment,
                         style: GoogleFonts.inter(color: Colors.grey.shade600),
                       ),
                       Text(
@@ -975,7 +976,7 @@ class _PaymentTab extends StatelessWidget {
 
           // Breakdown by subject
           Text(
-            'Payment by Subject',
+            AppLocalizations.of(context)!.paymentBySubject,
             style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
@@ -988,13 +989,13 @@ class _PaymentTab extends StatelessWidget {
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('No payment data available'),
+              child: Text(AppLocalizations.of(context)!.noPaymentDataAvailable),
             ),
           const SizedBox(height: 24),
 
           // Summary breakdown
           Text(
-            'Summary',
+            AppLocalizations.of(context)!.summary,
             style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
@@ -1123,7 +1124,7 @@ class _FormsTab extends StatelessWidget {
             Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'No forms submitted for this period',
+              AppLocalizations.of(context)!.noFormsSubmittedForThisPeriod,
               style: GoogleFonts.inter(fontSize: 16, color: Colors.grey.shade600),
             ),
           ],
@@ -1317,7 +1318,7 @@ class _FormCardState extends State<_FormCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Form Responses',
+                    AppLocalizations.of(context)!.formResponses2,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -1326,7 +1327,7 @@ class _FormCardState extends State<_FormCard> {
                   const SizedBox(height: 12),
                   if (responses.isEmpty)
                     Text(
-                      'No response data available',
+                      AppLocalizations.of(context)!.noResponseDataAvailable,
                       style: GoogleFonts.inter(
                         color: Colors.grey.shade600,
                         fontStyle: FontStyle.italic,
@@ -1463,7 +1464,7 @@ class _DisputeTabState extends State<_DisputeTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Dispute submitted successfully'),
+            content: Text(AppLocalizations.of(context)!.disputeSubmittedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -1473,7 +1474,7 @@ class _DisputeTabState extends State<_DisputeTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context)!.errorE),
             backgroundColor: Colors.red,
           ),
         );
@@ -1507,7 +1508,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'If you believe there\'s an error in your audit report, you can submit a dispute for review. Please provide detailed information.',
+                    AppLocalizations.of(context)!.ifYouBelieveThereSAn,
                     style: GoogleFonts.inter(color: Colors.blue.shade800),
                   ),
                 ),
@@ -1536,7 +1537,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Existing Dispute',
+                        AppLocalizations.of(context)!.existingDispute,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           color: _getDisputeStatusColor(existingDispute.status),
@@ -1567,7 +1568,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                   if (existingDispute.adminResponse.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
-                      'Admin Response:',
+                      AppLocalizations.of(context)!.adminResponse,
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     ),
                     Text(existingDispute.adminResponse),
@@ -1581,7 +1582,7 @@ class _DisputeTabState extends State<_DisputeTab> {
           // New dispute form
           if (existingDispute == null || existingDispute.status == 'rejected') ...[
             Text(
-              'Submit New Dispute',
+              AppLocalizations.of(context)!.submitNewDispute,
               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
@@ -1592,7 +1593,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                   DropdownButtonFormField<String>(
                     value: _selectedField,
                     decoration: const InputDecoration(
-                      labelText: 'Field to Dispute',
+                      labelText: AppLocalizations.of(context)!.fieldToDispute,
                       border: OutlineInputBorder(),
                     ),
                     items: _disputeFields.map((field) {
@@ -1609,8 +1610,8 @@ class _DisputeTabState extends State<_DisputeTab> {
                     controller: _reasonController,
                     maxLines: 4,
                     decoration: const InputDecoration(
-                      labelText: 'Reason for Dispute',
-                      hintText: 'Please explain why you believe this is incorrect...',
+                      labelText: AppLocalizations.of(context)!.reasonForDispute,
+                      hintText: AppLocalizations.of(context)!.pleaseExplainWhyYouBelieveThis,
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
@@ -1627,8 +1628,8 @@ class _DisputeTabState extends State<_DisputeTab> {
                   TextFormField(
                     controller: _suggestedValueController,
                     decoration: const InputDecoration(
-                      labelText: 'Suggested Correct Value (Optional)',
-                      hintText: 'What should the correct value be?',
+                      labelText: AppLocalizations.of(context)!.suggestedCorrectValueOptional,
+                      hintText: AppLocalizations.of(context)!.whatShouldTheCorrectValueBe,
                       border: OutlineInputBorder(),
                     ),
                   ),

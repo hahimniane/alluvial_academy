@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/widgets/performance_log_viewer.dart';
 import 'package:alluwalacademyadmin/core/widgets/performance_summary_dashboard.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FirestoreDebugScreen extends StatefulWidget {
   const FirestoreDebugScreen({super.key});
@@ -368,7 +369,7 @@ This helps us debug the login tracking system.''';
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Debug',
+          AppLocalizations.of(context)!.debug,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         backgroundColor: const Color(0xff0386FF),
@@ -404,7 +405,7 @@ This helps us debug the login tracking system.''';
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 childrenPadding: const EdgeInsets.only(top: 10),
                 title: Text(
-                  'Detailed performance logs',
+                  AppLocalizations.of(context)!.detailedPerformanceLogs,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -412,7 +413,7 @@ This helps us debug the login tracking system.''';
                   ),
                 ),
                 subtitle: Text(
-                  'Only if you need the raw events',
+                  AppLocalizations.of(context)!.onlyIfYouNeedTheRaw,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff6B7280),
@@ -433,7 +434,7 @@ This helps us debug the login tracking system.''';
                   children: [
                     const Icon(Icons.error, size: 64, color: Colors.red),
                     const SizedBox(height: 16),
-                    Text('Error: $error'),
+                    Text(AppLocalizations.of(context)!.errorError),
                   ],
                 ),
               )
@@ -478,7 +479,7 @@ This helps us debug the login tracking system.''';
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Email Test',
+                  AppLocalizations.of(context)!.emailTest,
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -499,7 +500,7 @@ This helps us debug the login tracking system.''';
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Email System (Web Compatible):',
+                    AppLocalizations.of(context)!.emailSystemWebCompatible,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -508,23 +509,23 @@ This helps us debug the login tracking system.''';
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '🌐 Method: Firebase Cloud Function → Hostinger SMTP',
+                    AppLocalizations.of(context)!.methodFirebaseCloudFunctionHostingerSmtp,
                     style: GoogleFonts.inter(
                         fontSize: 11, color: Colors.grey[600]),
                   ),
                   Text(
-                    '📧 From: support@alluwaleducationhub.org',
+                    AppLocalizations.of(context)!.fromSupportAlluwaleducationhubOrg,
                     style: GoogleFonts.inter(
                         fontSize: 11, color: Colors.grey[600]),
                   ),
                   Text(
-                    '📨 To: hassimiou.niane@maine.edu',
+                    AppLocalizations.of(context)!.toHassimiouNianeMaineEdu,
                     style: GoogleFonts.inter(
                         fontSize: 11, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Available Functions:',
+                    AppLocalizations.of(context)!.availableFunctions,
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -532,25 +533,25 @@ This helps us debug the login tracking system.''';
                     ),
                   ),
                   Text(
-                    '• Purple: Basic email test',
+                    AppLocalizations.of(context)!.purpleBasicEmailTest,
                     style:
                         GoogleFonts.inter(fontSize: 10, color: Colors.purple),
                   ),
                   Text(
-                    '• Orange: Task assignment notification',
+                    AppLocalizations.of(context)!.orangeTaskAssignmentNotification,
                     style:
                         GoogleFonts.inter(fontSize: 10, color: Colors.orange),
                   ),
                   Text(
-                    '• Green: Welcome email for new users',
+                    AppLocalizations.of(context)!.greenWelcomeEmailForNewUsers,
                     style: GoogleFonts.inter(fontSize: 10, color: Colors.green),
                   ),
                   Text(
-                    '• Blue: Task status update notification',
+                    AppLocalizations.of(context)!.blueTaskStatusUpdateNotification,
                     style: GoogleFonts.inter(fontSize: 10, color: Colors.blue),
                   ),
                   Text(
-                    '• Teal: Test last login update tracking',
+                    AppLocalizations.of(context)!.tealTestLastLoginUpdateTracking,
                     style: GoogleFonts.inter(fontSize: 10, color: Colors.teal),
                   ),
                 ],
@@ -579,7 +580,7 @@ This helps us debug the login tracking system.''';
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Send Test Email'),
+                        : Text(AppLocalizations.of(context)!.sendTestEmail),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -602,7 +603,7 @@ This helps us debug the login tracking system.''';
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Test Task Assignment'),
+                        : Text(AppLocalizations.of(context)!.testTaskAssignment),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -624,7 +625,7 @@ This helps us debug the login tracking system.''';
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Test Welcome Email'),
+                        : Text(AppLocalizations.of(context)!.testWelcomeEmail),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -646,7 +647,7 @@ This helps us debug the login tracking system.''';
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Test Status Update'),
+                        : Text(AppLocalizations.of(context)!.testStatusUpdate),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -668,7 +669,7 @@ This helps us debug the login tracking system.''';
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Test Login Tracking'),
+                        : Text(AppLocalizations.of(context)!.testLoginTracking),
                   ),
                 ),
               ],
@@ -756,7 +757,7 @@ This helps us debug the login tracking system.''';
             const SizedBox(height: 16),
             if (documents.isEmpty)
               Text(
-                'No documents found in this collection',
+                AppLocalizations.of(context)!.noDocumentsFoundInThisCollection,
                 style: GoogleFonts.inter(color: Colors.grey[600]),
               )
             else

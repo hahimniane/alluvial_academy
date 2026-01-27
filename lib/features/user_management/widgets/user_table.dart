@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class UserTable extends StatelessWidget {
   final List<AppUser> users;
@@ -20,11 +21,11 @@ class UserTable extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: DataTable(
           columns: const [
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Email')),
-            DataColumn(label: Text('Role')),
-            DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Actions')),
+            DataColumn(label: Text(AppLocalizations.of(context)!.userName)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.profileEmail)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.userRole)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.userStatus)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.timesheetActions)),
           ],
           rows: const [], // Will be populated later with actual user data
         ),

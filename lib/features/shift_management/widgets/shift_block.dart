@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/constants/shift_colors.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Color-coded shift block component for grid view
 /// Shows hover actions: edit (pencil), details (3 dots), and add (plus)
@@ -219,7 +220,7 @@ class _ShiftBlockState extends State<ShiftBlock> {
                       // 1. Edit Icon: Allow editing even if it's part of multiple shifts
                       if (widget.onEdit != null) // REMOVED: && !widget.showMultipleShiftsIndicator
                         Tooltip(
-                          message: 'Edit shift',
+                          message: AppLocalizations.of(context)!.shiftEditShift,
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
@@ -291,7 +292,7 @@ class _ShiftBlockState extends State<ShiftBlock> {
                       // Plus icon (add another shift for same teacher)
                       if (widget.onAddShift != null)
                         Tooltip(
-                          message: 'Add another shift',
+                          message: AppLocalizations.of(context)!.addAnotherShift,
                           child: Material(
                             color: const Color(0xff0386FF),
                             borderRadius: const BorderRadius.only(

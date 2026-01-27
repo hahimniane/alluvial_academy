@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class NavigationMenu extends StatelessWidget {
   final int selectedIndex;
@@ -19,19 +20,19 @@ class NavigationMenu extends StatelessWidget {
       destinations: const [
         NavigationRailDestination(
           icon: Icon(Icons.dashboard),
-          label: Text('Dashboard'),
+          label: Text(AppLocalizations.of(context)!.navDashboard),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.chat),
-          label: Text('Chat'),
+          label: Text(AppLocalizations.of(context)!.navChat),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.access_time),
-          label: Text('Time Clock'),
+          label: Text(AppLocalizations.of(context)!.navTimeClock),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.people),
-          label: Text('Users'),
+          label: Text(AppLocalizations.of(context)!.navUsers),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/models/teacher_audit_full.dart';
 import '../../core/services/teacher_audit_service.dart';
 import '../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Admin screen for managing subject hourly rates
 class SubjectRatesScreen extends StatefulWidget {
@@ -100,8 +101,8 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                     controller: nameController,
                     enabled: !isSaving,
                     decoration: const InputDecoration(
-                      labelText: 'Subject Name',
-                      hintText: 'e.g., Mathematics',
+                      labelText: AppLocalizations.of(context)!.subjectName,
+                      hintText: AppLocalizations.of(context)!.eGMathematics,
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -110,9 +111,9 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   enabled: !isSaving,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'Hourly Rate (\$)',
+                    labelText: AppLocalizations.of(context)!.hourlyRate,
                     prefixText: '\$ ',
-                    hintText: '15.00',
+                    hintText: AppLocalizations.of(context)!.1500,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -121,9 +122,9 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   enabled: !isSaving,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'Penalty per Missed Class (\$)',
+                    labelText: AppLocalizations.of(context)!.penaltyPerMissedClass,
                     prefixText: '\$ ',
-                    hintText: '5.00',
+                    hintText: AppLocalizations.of(context)!.500,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -132,9 +133,9 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   enabled: !isSaving,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'Bonus per Excellence (\$)',
+                    labelText: AppLocalizations.of(context)!.bonusPerExcellence,
                     prefixText: '\$ ',
-                    hintText: '10.00',
+                    hintText: AppLocalizations.of(context)!.1000,
                   ),
                 ),
                 if (isSaving) ...[
@@ -151,7 +152,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton(
               onPressed: isSaving
@@ -182,7 +183,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                               _loadRates();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Rate updated successfully'),
+                                  content: Text(AppLocalizations.of(context)!.rateUpdatedSuccessfully),
                                   duration: Duration(seconds: 2),
                                 ),
                               );
@@ -214,7 +215,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                         valueColor: AlwaysStoppedAnimation(Colors.white),
                       ),
                     )
-                  : const Text('Save'),
+                  : Text(AppLocalizations.of(context)!.commonSave),
             ),
           ],
         ),
@@ -227,14 +228,14 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Subject Hourly Rates',
+          AppLocalizations.of(context)!.subjectHourlyRates,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadRates,
-            tooltip: 'Refresh',
+            tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
@@ -244,7 +245,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   children: [
                     const Icon(Icons.speed, size: 20),
                     const SizedBox(width: 8),
-                    Text('Set Default Rates', style: GoogleFonts.inter()),
+                    Text(AppLocalizations.of(context)!.setDefaultRates, style: GoogleFonts.inter()),
                   ],
                 ),
                 onTap: () => Future.delayed(
@@ -257,7 +258,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   children: [
                     const Icon(Icons.sync, size: 20),
                     const SizedBox(width: 8),
-                    Text('Sync with Subjects', style: GoogleFonts.inter()),
+                    Text(AppLocalizations.of(context)!.syncWithSubjects, style: GoogleFonts.inter()),
                   ],
                 ),
                 onTap: () => Future.delayed(
@@ -270,7 +271,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () => _showEditDialog(null),
-            tooltip: 'Add Subject',
+            tooltip: AppLocalizations.of(context)!.addSubject,
           ),
         ],
       ),
@@ -306,7 +307,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Set hourly rates for each subject. These rates will be used to calculate teacher payments in the audit system.',
+                    AppLocalizations.of(context)!.setHourlyRatesForEachSubject,
                     style: GoogleFonts.inter(color: Colors.blue.shade800),
                   ),
                 ),
@@ -318,7 +319,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
           // Existing rates
           if (_rates.isNotEmpty) ...[
             Text(
-              'Configured Rates',
+              AppLocalizations.of(context)!.configuredRates,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -332,7 +333,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
           // Missing defaults
           if (missingDefaults.isNotEmpty) ...[
             Text(
-              'Available Subjects (Click to Configure)',
+              AppLocalizations.of(context)!.availableSubjectsClickToConfigure,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -367,7 +368,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                       size: 64, color: Colors.grey.shade400),
                   const SizedBox(height: 16),
                   Text(
-                    'No rates configured',
+                    AppLocalizations.of(context)!.noRatesConfigured,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       color: Colors.grey.shade600,
@@ -377,7 +378,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   ElevatedButton.icon(
                     onPressed: () => _showEditDialog(null),
                     icon: const Icon(Icons.add),
-                    label: const Text('Add First Rate'),
+                    label: Text(AppLocalizations.of(context)!.addFirstRate),
                   ),
                 ],
               ),
@@ -471,7 +472,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                       child: IconButton(
                         icon: const Icon(Icons.edit, size: 20),
                         onPressed: () => _showEditDialog(rate),
-                        tooltip: 'Edit',
+                        tooltip: AppLocalizations.of(context)!.commonEdit,
                       ),
                     ),
                   ],
@@ -511,11 +512,11 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Set Default Rates',
+          AppLocalizations.of(context)!.setDefaultRates,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'This will set default rates for all subjects:\n\n'
+          AppLocalizations.of(context)!.thisWillSetDefaultRatesFor
           '• English, Maths, Science, Programming: \$5.00/hr\n'
           '• Quran, Arabic, Hadith, Fiqh, Tutoring: \$4.00/hr\n\n'
           'Existing rates will be overwritten. Continue?',
@@ -524,7 +525,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -532,7 +533,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
               backgroundColor: const Color(0xff0386FF),
               foregroundColor: Colors.white,
             ),
-            child: const Text('Set Defaults'),
+            child: Text(AppLocalizations.of(context)!.setDefaults),
           ),
         ],
       ),
@@ -561,7 +562,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
         await _loadRates();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Updated default rates for $updated subjects'),
+            content: Text(AppLocalizations.of(context)!.updatedDefaultRatesForUpdatedSubjects),
             backgroundColor: Colors.green,
           ),
         );
@@ -571,7 +572,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context)!.errorE),
             backgroundColor: Colors.red,
           ),
         );
@@ -585,11 +586,11 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Sync with Subjects',
+          AppLocalizations.of(context)!.syncWithSubjects,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'This will update the defaultWage field in the subjects collection '
+          AppLocalizations.of(context)!.thisWillUpdateTheDefaultwageField
           'to match the hourly rates configured here. This ensures that when '
           'creating new shifts, the correct default rate is used.\n\n'
           'Continue?',
@@ -598,7 +599,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -606,7 +607,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
               backgroundColor: const Color(0xff0386FF),
               foregroundColor: Colors.white,
             ),
-            child: const Text('Sync'),
+            child: Text(AppLocalizations.of(context)!.sync),
           ),
         ],
       ),
@@ -663,7 +664,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Synced $synced subjects with rates'),
+            content: Text(AppLocalizations.of(context)!.syncedSyncedSubjectsWithRates),
             backgroundColor: Colors.green,
           ),
         );
@@ -673,7 +674,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context)!.errorE),
             backgroundColor: Colors.red,
           ),
         );

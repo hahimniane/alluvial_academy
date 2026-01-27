@@ -10,6 +10,7 @@ import '../../../core/services/user_role_service.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../time_clock/screens/time_clock_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 // --- WIDGETS INTERNES ---
 
@@ -210,7 +211,7 @@ class TimelineShiftCard extends StatelessWidget {
                             decoration: BoxDecoration(
                                 color: const Color(0xFFDCFCE7),
                                 borderRadius: BorderRadius.circular(4)),
-                            child: Text("ACTIVE",
+                            child: Text(AppLocalizations.of(context)!.active,
                                 style: GoogleFonts.inter(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -405,7 +406,7 @@ class _TeacherMobileHomeState extends State<TeacherMobileHome> {
 
                           // NEXT UP / TIMELINE HEADER
                           Text(
-                            "Schedule",
+                            AppLocalizations.of(context)!.shiftSchedule,
                             style: GoogleFonts.inter(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -462,7 +463,7 @@ class _TeacherMobileHomeState extends State<TeacherMobileHome> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Good Morning,',
+                AppLocalizations.of(context)!.goodMorning,
                 style: GoogleFonts.inter(
                     fontSize: 14, color: const Color(0xFF64748B)),
               ),
@@ -540,7 +541,7 @@ class _TeacherMobileHomeState extends State<TeacherMobileHome> {
                             color: Color(0xFF4ADE80), shape: BoxShape.circle)),
                     const SizedBox(width: 6),
                     Text(
-                      "CLOCKED IN",
+                      AppLocalizations.of(context)!.clockedIn,
                       style: GoogleFonts.inter(
                           color: Colors.white,
                           fontSize: 11,
@@ -590,7 +591,7 @@ class _TeacherMobileHomeState extends State<TeacherMobileHome> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text("Manage Shift",
+              child: Text(AppLocalizations.of(context)!.manageShift,
                   style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600, fontSize: 15)),
             ),
@@ -609,14 +610,14 @@ class _TeacherMobileHomeState extends State<TeacherMobileHome> {
             Icon(Icons.coffee_rounded, size: 48, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             Text(
-              "No classes scheduled today",
+              AppLocalizations.of(context)!.noClassesScheduledToday,
               style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF94A3B8)),
             ),
             Text(
-              "Enjoy your free time!",
+              AppLocalizations.of(context)!.dashboardEnjoyFreeTime,
               style: GoogleFonts.inter(
                   fontSize: 14, color: const Color(0xFF94A3B8)),
             ),

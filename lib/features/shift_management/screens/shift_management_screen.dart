@@ -31,6 +31,7 @@ import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 enum _DeleteShiftScope {
   single,
@@ -716,7 +717,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         backgroundColor: Color(0xffF8FAFC),
         body: Center(
           child: Text(
-            'Access restricted',
+            AppLocalizations.of(context)!.accessRestricted,
             style: TextStyle(
               fontSize: 16,
               color: Color(0xff6B7280),
@@ -832,7 +833,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         color: const Color(0xff374151),
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Search users or shifts...',
+                        hintText: AppLocalizations.of(context)!.searchUsersOrShifts,
                         hintStyle: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff9CA3AF),
@@ -1195,7 +1196,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                           onPressed: _showCreateShiftDialog,
                           icon: const Icon(Icons.add, size: 20),
                           label: Text(
-                            'Create Shift',
+                            AppLocalizations.of(context)!.createShift,
                             style:
                                 GoogleFonts.inter(fontWeight: FontWeight.w600),
                           ),
@@ -1232,7 +1233,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.subject,
                                       size: 20, color: Color(0xff0386FF)),
                                   SizedBox(width: 8),
-                                  Text('Manage Subjects'),
+                                  Text(AppLocalizations.of(context)!.manageSubjects),
                                 ],
                               ),
                             ),
@@ -1243,7 +1244,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.attach_money,
                                       size: 20, color: Colors.green),
                                   SizedBox(width: 8),
-                                  Text('Pay Settings'),
+                                  Text(AppLocalizations.of(context)!.paySettings),
                                 ],
                               ),
                             ),
@@ -1254,7 +1255,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                   Icon(Icons.access_time,
                                       size: 20, color: Colors.orange),
                                   SizedBox(width: 8),
-                                  Text('DST Time Adjustment'),
+                                  Text(AppLocalizations.of(context)!.dstTimeAdjustment),
                                 ],
                               ),
                             ),
@@ -1405,7 +1406,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 : null,
                             icon: const Icon(Icons.person_remove, size: 20),
                             label: Text(
-                              'Delete Teacher Shifts',
+                              AppLocalizations.of(context)!.deleteTeacherShifts,
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600),
                             ),
@@ -1501,7 +1502,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 6),
           Text(
-            '$title: ',
+            AppLocalizations.of(context)!.title,
             style: GoogleFonts.inter(
               fontSize: 12,
               color: color,
@@ -1551,7 +1552,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Live',
+                  AppLocalizations.of(context)!.live2,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1873,7 +1874,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
               child: Text(
-                'Shift Name',
+                AppLocalizations.of(context)!.shiftName,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1887,7 +1888,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
               child: Text(
-                'Teacher',
+                AppLocalizations.of(context)!.roleTeacher,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1901,7 +1902,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
               child: Text(
-                'Subject',
+                AppLocalizations.of(context)!.shiftSubject,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1915,7 +1916,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
               child: Text(
-                'Students',
+                AppLocalizations.of(context)!.shiftStudents,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1929,7 +1930,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
               child: Text(
-                'Schedule',
+                AppLocalizations.of(context)!.shiftSchedule,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1943,7 +1944,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.center,
               child: Text(
-                'Status',
+                AppLocalizations.of(context)!.userStatus,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1957,7 +1958,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerRight,
               child: Text(
-                'Payment',
+                AppLocalizations.of(context)!.payment,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -1971,7 +1972,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               padding: const EdgeInsets.all(16),
               alignment: Alignment.center,
               child: Text(
-                'Actions',
+                AppLocalizations.of(context)!.timesheetActions,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff374151),
@@ -2094,7 +2095,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No scheduled shifts found to edit.'),
+          content: Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToEdit),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2141,7 +2142,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (series == null || series.shifts.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to load series shifts.'),
+            content: Text(AppLocalizations.of(context)!.unableToLoadSeriesShifts),
             backgroundColor: Colors.red,
           ),
         );
@@ -2153,7 +2154,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to load series: $e'),
+          content: Text(AppLocalizations.of(context)!.failedToLoadSeriesE),
           backgroundColor: Colors.red,
         ),
       );
@@ -2175,7 +2176,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to load student shifts: $e'),
+          content: Text(AppLocalizations.of(context)!.failedToLoadStudentShiftsE),
           backgroundColor: Colors.red,
         ),
       );
@@ -2203,7 +2204,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to load time-range shifts: $e'),
+          content: Text(AppLocalizations.of(context)!.failedToLoadTimeRangeShifts),
           backgroundColor: Colors.red,
         ),
       );
@@ -2262,7 +2263,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         context: context,
         builder: (context) => AlertDialog(
           title: Text(
-            'Delete Shift',
+            AppLocalizations.of(context)!.deleteShift,
             style: GoogleFonts.inter(fontWeight: FontWeight.w600),
           ),
           content: Text(
@@ -2273,7 +2274,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(color: const Color(0xff6B7280)),
               ),
             ),
@@ -2284,7 +2285,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 foregroundColor: Colors.white,
               ),
               child: Text(
-                'Delete',
+                AppLocalizations.of(context)!.commonDelete,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
             ),
@@ -2309,7 +2310,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
             return AlertDialog(
               title: Text(
-                'Delete Shift',
+                AppLocalizations.of(context)!.deleteShift,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
               content: Column(
@@ -2332,7 +2333,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Checking recurring series…',
+                            AppLocalizations.of(context)!.checkingRecurringSeries,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xff6B7280),
@@ -2351,7 +2352,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                     )
                   else
                     Text(
-                      'This action cannot be undone.',
+                      AppLocalizations.of(context)!.userDeleteCannotUndo,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xff6B7280),
@@ -2363,7 +2364,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
-                    'Cancel',
+                    AppLocalizations.of(context)!.commonCancel,
                     style: GoogleFonts.inter(color: const Color(0xff6B7280)),
                   ),
                 ),
@@ -2371,7 +2372,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   onPressed: () =>
                       Navigator.pop(context, _DeleteShiftScope.single),
                   child: Text(
-                    'Delete this shift',
+                    AppLocalizations.of(context)!.deleteThisShift,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w700,
                       color: Colors.red,
@@ -2429,7 +2430,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content:
-                  Text('No scheduled shifts found to delete in this series.'),
+                  Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToDelete),
               backgroundColor: Colors.orange,
             ),
           );
@@ -2463,7 +2464,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error deleting shift: $e'),
+          content: Text(AppLocalizations.of(context)!.errorDeletingShiftE),
           backgroundColor: Colors.red,
         ),
       );
@@ -2496,7 +2497,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Delete Multiple Shifts',
+          AppLocalizations.of(context)!.deleteMultipleShifts,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
@@ -2507,7 +2508,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xff6B7280)),
             ),
           ),
@@ -2518,7 +2519,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               foregroundColor: Colors.white,
             ),
             child: Text(
-              'Delete All',
+              AppLocalizations.of(context)!.deleteAll,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ),
@@ -2550,7 +2551,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('All selected shifts deleted successfully'),
+              content: Text(AppLocalizations.of(context)!.allSelectedShiftsDeletedSuccessfully),
               backgroundColor: Colors.green,
             ),
           );
@@ -2561,7 +2562,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting shifts: $e'),
+              content: Text(AppLocalizations.of(context)!.errorDeletingShiftsE),
               backgroundColor: Colors.red,
             ),
           );
@@ -2580,7 +2581,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No shifts selected.'),
+          content: Text(AppLocalizations.of(context)!.noShiftsSelected),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2634,7 +2635,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         countryCode: '',
         mobilePhone: '',
         userType: 'teacher',
-        title: '',
+        title: AppLocalizations.of(context)!.text2,
         employmentStartDate: '',
         kioskCode: '',
         dateAdded: '',
@@ -2676,7 +2677,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Teacher ID not found'),
+            content: Text(AppLocalizations.of(context)!.teacherIdNotFound),
             backgroundColor: Colors.red,
           ),
         );
@@ -2723,7 +2724,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Delete All Teacher Shifts',
+                AppLocalizations.of(context)!.deleteAllTeacherShifts,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -2738,7 +2739,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to delete all shifts for:',
+              AppLocalizations.of(context)!.areYouSureYouWantTo7,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 color: const Color(0xff374151),
@@ -2809,7 +2810,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '$teacherShifts shifts will be permanently deleted. This action cannot be undone.',
+                      AppLocalizations.of(context)!.teachershiftsShiftsWillBePermanentlyDeleted,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: Colors.red,
@@ -2826,7 +2827,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(
                 color: const Color(0xff6B7280),
                 fontWeight: FontWeight.w600,
@@ -2838,7 +2839,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             onPressed: () => Navigator.pop(context, true),
             icon: const Icon(Icons.delete, size: 18),
             label: Text(
-              'Delete All ($teacherShifts)',
+              AppLocalizations.of(context)!.deleteAllTeachershifts,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
@@ -2891,7 +2892,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting teacher shifts: $e'),
+              content: Text(AppLocalizations.of(context)!.errorDeletingTeacherShiftsE),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),
@@ -2927,7 +2928,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               ),
               const SizedBox(width: 12),
               Text(
-                'Duplicate Week',
+                AppLocalizations.of(context)!.duplicateWeek,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -2940,13 +2941,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Copy all shifts from current week to another week.',
+                AppLocalizations.of(context)!.copyAllShiftsFromCurrentWeek,
                 style: GoogleFonts.inter(
                     fontSize: 14, color: const Color(0xff6B7280)),
               ),
               const SizedBox(height: 16),
               Text(
-                'Source Week:',
+                AppLocalizations.of(context)!.sourceWeek,
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600, fontSize: 13),
               ),
@@ -2964,7 +2965,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                'Target Week:',
+                AppLocalizations.of(context)!.targetWeek,
                 style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600, fontSize: 13),
               ),
@@ -3031,7 +3032,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton.icon(
               onPressed: () async {
@@ -3039,7 +3040,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 await _performDuplicateWeek(targetWeekStart);
               },
               icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Duplicate'),
+              label: Text(AppLocalizations.of(context)!.duplicate),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
@@ -3079,7 +3080,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -3112,7 +3113,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
             const SizedBox(width: 12),
             Text(
-              'Daylight Saving Time Adjustment',
+              AppLocalizations.of(context)!.daylightSavingTimeAdjustment,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -3138,7 +3139,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'This will adjust ALL future scheduled shifts by 1 hour',
+                      AppLocalizations.of(context)!.thisWillAdjustAllFutureScheduled,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: Colors.amber.shade900,
@@ -3151,7 +3152,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'Select Adjustment:',
+              AppLocalizations.of(context)!.selectAdjustment,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -3179,7 +3180,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Spring Forward (+1 hour)',
+                            AppLocalizations.of(context)!.springForward1Hour,
                             style: GoogleFonts.inter(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -3187,7 +3188,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             ),
                           ),
                           Text(
-                            'Move all shifts 1 hour later',
+                            AppLocalizations.of(context)!.moveAllShifts1HourLater,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xff6B7280),
@@ -3222,7 +3223,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Fall Back (-1 hour)',
+                            AppLocalizations.of(context)!.fallBack1Hour,
                             style: GoogleFonts.inter(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -3230,7 +3231,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             ),
                           ),
                           Text(
-                            'Move all shifts 1 hour earlier',
+                            AppLocalizations.of(context)!.moveAllShifts1HourEarlier,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xff6B7280),
@@ -3260,7 +3261,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Only scheduled shifts that haven\'t started yet will be adjusted. Completed or active shifts will not be affected.',
+                      AppLocalizations.of(context)!.onlyScheduledShiftsThatHavenT,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xff0386FF),
@@ -3277,7 +3278,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(
                 color: const Color(0xff6B7280),
                 fontWeight: FontWeight.w600,
@@ -3358,7 +3359,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'DST Adjustment Complete',
+                  AppLocalizations.of(context)!.dstAdjustmentComplete,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -3417,7 +3418,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Errors:',
+                          AppLocalizations.of(context)!.errors,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -3428,7 +3429,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         ...((result['errors'] as List)
                             .take(3)
                             .map((error) => Text(
-                                  '• $error',
+                                  AppLocalizations.of(context)!.error,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     color: Colors.red.shade700,
@@ -3453,7 +3454,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   foregroundColor: Colors.white,
                 ),
                 child: Text(
-                  'Done',
+                  AppLocalizations.of(context)!.commonDone,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -3471,7 +3472,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error adjusting shifts: $e'),
+            content: Text(AppLocalizations.of(context)!.errorAdjustingShiftsE),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
@@ -3666,7 +3667,7 @@ class ShiftDataSource extends DataGridSource {
                       ),
                     ),
                     child: Text(
-                      'Series',
+                      AppLocalizations.of(context)!.series,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -3769,7 +3770,7 @@ class ShiftDataSource extends DataGridSource {
         alignment: Alignment.center,
         padding: const EdgeInsets.all(16),
         child: Text(
-          'Select items',
+          AppLocalizations.of(context)!.selectItems,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: const Color(0xff6B7280),
@@ -3789,7 +3790,7 @@ class ShiftDataSource extends DataGridSource {
             onPressed: () => onViewDetails(shift),
             icon: const Icon(Icons.visibility, size: 20),
             color: const Color(0xff0386FF),
-            tooltip: 'View Details',
+            tooltip: AppLocalizations.of(context)!.shiftViewDetails,
           ),
           // Only show edit and delete buttons for admins
           if (isAdmin) ...[
@@ -3799,7 +3800,7 @@ class ShiftDataSource extends DataGridSource {
                 onPressed: () => onEditShift(shift),
                 icon: const Icon(Icons.edit, size: 20),
                 color: const Color(0xffF59E0B),
-                tooltip: 'Edit Shift',
+                tooltip: AppLocalizations.of(context)!.editShift,
               ),
               const SizedBox(width: 8),
             ],
@@ -3807,7 +3808,7 @@ class ShiftDataSource extends DataGridSource {
               onPressed: () => onDeleteShift(shift),
               icon: const Icon(Icons.delete, size: 20),
               color: const Color(0xffEF4444),
-              tooltip: 'Delete Shift',
+              tooltip: AppLocalizations.of(context)!.deleteShift,
             ),
           ],
         ],
@@ -3893,7 +3894,7 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Search Teachers',
+                    AppLocalizations.of(context)!.searchTeachers2,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -3919,7 +3920,7 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                 controller: _searchController,
                 style: GoogleFonts.inter(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Search by name or email...',
+                  hintText: AppLocalizations.of(context)!.searchByNameOrEmail,
                   hintStyle: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff9CA3AF),
@@ -3963,7 +3964,7 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No teachers found',
+                            AppLocalizations.of(context)!.noTeachersFound,
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               color: const Color(0xff6B7280),
@@ -3971,7 +3972,7 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Try adjusting your search',
+                            AppLocalizations.of(context)!.formTryAdjustingSearch,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: const Color(0xff9CA3AF),
@@ -4077,7 +4078,7 @@ class _TeacherSearchDialogState extends State<_TeacherSearchDialog> {
                   },
                   icon: const Icon(Icons.clear, size: 18),
                   label: Text(
-                    'Clear Selection',
+                    AppLocalizations.of(context)!.clearSelection,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                   style: TextButton.styleFrom(

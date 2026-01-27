@@ -20,6 +20,7 @@ import 'reschedule_shift_dialog.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
 import '../../../core/services/video_call_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
   final TeachingShift shift;
@@ -504,7 +505,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Auto-clocked out: Shift time ended'),
+          content: Text(AppLocalizations.of(context)!.autoClockedOutShiftTimeEnded),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 3),
         ),
@@ -594,7 +595,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     if (!VideoCallService.hasVideoCall(shift)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No video call is configured for this shift'),
+          content: Text(AppLocalizations.of(context)!.noVideoCallIsConfiguredFor),
           backgroundColor: Colors.orange,
         ),
       );
@@ -669,7 +670,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Unable to get location. Please enable location services.'),
+              content: Text(AppLocalizations.of(context)!.clockInLocationError),
               backgroundColor: Colors.red,
             ),
           );
@@ -693,7 +694,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Clocked in successfully!'),
+              content: Text(AppLocalizations.of(context)!.clockInSuccess),
               backgroundColor: Colors.green,
             ),
           );
@@ -713,7 +714,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -734,7 +735,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Unable to get location. Please enable location services.'),
+              content: Text(AppLocalizations.of(context)!.clockInLocationError),
               backgroundColor: Colors.red,
             ),
           );
@@ -809,7 +810,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -836,7 +837,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'This timesheet has been approved and can no longer be edited',
+                  AppLocalizations.of(context)!.thisTimesheetHasBeenApprovedAnd,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -938,7 +939,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Shift Details',
+                  AppLocalizations.of(context)!.shiftDetails,
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -963,7 +964,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             if (widget.shift.shiftStart.isAfter(DateTime.now()))
               IconButton(
                 icon: const Icon(Icons.schedule, color: Color(0xFF0386FF), size: 20),
-                tooltip: 'Reschedule shift',
+                tooltip: AppLocalizations.of(context)!.shiftReschedule,
                 onPressed: () async {
                   final result = await showDialog<bool>(
                     context: context,
@@ -977,7 +978,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               ),
             IconButton(
               icon: const Icon(Icons.report_problem, color: Color(0xFFF59E0B), size: 20),
-              tooltip: 'Report schedule issue',
+              tooltip: AppLocalizations.of(context)!.shiftReportIssue,
               onPressed: () async {
                 final result = await showDialog<bool>(
                   context: context,
@@ -1093,7 +1094,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final hours = duration.inMinutes / 60.0;
 
     return _buildSection(
-      title: "Schedule Information",
+      title: AppLocalizations.of(context)!.scheduleInformation,
       icon: Icons.calendar_today_outlined,
       children: [
         _detailRow("Date", DateFormat('EEEE, MMMM d, yyyy').format(widget.shift.shiftStart)),
@@ -1110,7 +1111,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   Widget _buildParticipantsSection() {
     return _buildSection(
-      title: "Participants",
+      title: AppLocalizations.of(context)!.participants,
       icon: Icons.people_outline,
       children: [
         _detailRow("Teacher", widget.shift.teacherName),
@@ -1264,7 +1265,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                                  const Icon(Icons.verified, size: 14, color: Color(0xFF059669)),
                                  const SizedBox(width: 6),
                                  Text(
-                                   'Admin Approved',
+                                   AppLocalizations.of(context)!.adminApproved,
                                    style: GoogleFonts.inter(
                                      fontSize: 11,
                                      fontWeight: FontWeight.w600,
@@ -1308,7 +1309,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             const SizedBox(width: 12),
             Expanded(
           child: Text(
-                "No timesheet record found for this past shift.",
+                AppLocalizations.of(context)!.noTimesheetRecordFoundForThis,
             style: GoogleFonts.inter(
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFFDC2626),
@@ -1455,7 +1456,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     }
     
     return _buildSection(
-      title: "Approval & Earnings",
+      title: AppLocalizations.of(context)!.approvalEarnings,
       icon: Icons.verified,
       children: [
         // Time zone toggle (optional - for admin viewing)
@@ -1543,7 +1544,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Estimated Earnings',
+                        AppLocalizations.of(context)!.estimatedEarnings,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xFF64748B),
@@ -1632,7 +1633,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Manager Notes',
+                        AppLocalizations.of(context)!.managerNotes,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1711,7 +1712,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     final newEndLocal = TimezoneUtils.convertToTimezone(newEnd.toDate(), _displayTimezone);
 
     return _buildSection(
-      title: "Modification History",
+      title: AppLocalizations.of(context)!.modificationHistory,
       icon: Icons.edit_note,
       children: [
         // Timezone selector for admins
@@ -1719,7 +1720,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           children: [
             Expanded(
               child: Text(
-                'Display Timezone:',
+                AppLocalizations.of(context)!.displayTimezone,
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1773,7 +1774,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   Icon(Icons.schedule, size: 16, color: Colors.red.shade700),
                   const SizedBox(width: 8),
                   Text(
-                    'Original Schedule',
+                    AppLocalizations.of(context)!.originalSchedule,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1823,7 +1824,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   Icon(Icons.schedule, size: 16, color: Colors.green.shade700),
                   const SizedBox(width: 8),
                   Text(
-                    'Modified Schedule',
+                    AppLocalizations.of(context)!.modifiedSchedule,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1868,7 +1869,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     Icon(Icons.note, size: 16, color: Colors.orange.shade700),
                     const SizedBox(width: 8),
                     Text(
-                      'Reason',
+                      AppLocalizations.of(context)!.reason,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1952,7 +1953,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                 Text(
-                        "Class Report Submitted",
+                        AppLocalizations.of(context)!.classReportSubmitted,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                           color: const Color(0xFF15803D),
@@ -2009,7 +2010,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 const SizedBox(width: 12),
           Expanded(
             child: Text(
-                    "Class Report Not Submitted",
+                    AppLocalizations.of(context)!.classReportNotSubmitted,
               style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFFD97706),
@@ -2044,7 +2045,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Form not found. Please contact admin. (ID: $formId)'),
+                          content: Text(AppLocalizations.of(context)!.formNotFoundPleaseContactAdmin),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -2073,7 +2074,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   }
                 },
                 icon: const Icon(Icons.assignment),
-                label: const Text("Fill Class Report Now"),
+                label: Text(AppLocalizations.of(context)!.fillClassReportNow),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD97706),
                   foregroundColor: Colors.white,
@@ -2115,7 +2116,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Class Report Submitted (Missed Shift)",
+                            AppLocalizations.of(context)!.classReportSubmittedMissedShift,
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF15803D),
@@ -2175,7 +2176,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Missed Shift - Class Report Required",
+                            AppLocalizations.of(context)!.missedShiftClassReportRequired,
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFFD97706),
@@ -2183,7 +2184,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "This shift was missed. Please fill out the readiness form to explain the reason.",
+                            AppLocalizations.of(context)!.thisShiftWasMissedPleaseFill,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFF92400E),
@@ -2218,7 +2219,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Form not found. Please contact admin. (ID: $formId)'),
+                              content: Text(AppLocalizations.of(context)!.formNotFoundPleaseContactAdmin),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -2247,7 +2248,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                       }
                     },
                     icon: const Icon(Icons.assignment),
-                    label: const Text("Fill Class Report Now"),
+                    label: Text(AppLocalizations.of(context)!.fillClassReportNow),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFD97706),
                       foregroundColor: Colors.white,
@@ -2286,7 +2287,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       children: [
         const SizedBox(height: 20),
         _buildSection(
-          title: 'Reported Issues',
+          title: AppLocalizations.of(context)!.reportedIssues,
           icon: Icons.report_problem,
           children: _issueReports.map((report) {
             final reportedAt = (report['reported_at'] as Timestamp).toDate();
@@ -2443,7 +2444,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
               child: Text(
-                "Close",
+                AppLocalizations.of(context)!.commonClose,
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w600,
                   color: const Color(0xFF64748B),
@@ -2517,7 +2518,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 onPressed: null, // Disabled
                 icon: const Icon(Icons.schedule),
                   label: Text(
-                  "Clock In (Not Yet)",
+                  AppLocalizations.of(context)!.clockInNotYet,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                 style: ElevatedButton.styleFrom(
@@ -2539,7 +2540,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   },
                 icon: const Icon(Icons.add_task),
                   label: Text(
-                  "Claim Shift",
+                  AppLocalizations.of(context)!.claimShift,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(

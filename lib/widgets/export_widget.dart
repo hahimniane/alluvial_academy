@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_constants.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ExportWidget extends StatelessWidget {
   const ExportWidget({
@@ -21,7 +22,7 @@ class ExportWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      child: Text('Export',
+      child: Text(AppLocalizations.of(context)!.commonExport,
           style: openSansHebrewTextStyle.copyWith(color: Colors.blue)),
     );
   }

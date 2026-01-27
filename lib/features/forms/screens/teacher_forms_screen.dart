@@ -16,6 +16,7 @@ import '../widgets/form_details_modal.dart';
 import '../screens/my_submissions_screen.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// New Teacher Forms Screen - Shows all form templates organized by category
 /// Categories: Teaching (daily/weekly/monthly), Feedback, Student Assessment, Administrative
@@ -385,7 +386,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Submit reports & feedback',
+                    AppLocalizations.of(context)!.submitReportsFeedback,
                     style: GoogleFonts.plusJakartaSans(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
@@ -430,7 +431,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           ),
         ),
         title: Text(
-          'Forms & Reports',
+          AppLocalizations.of(context)!.formsReports,
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -511,7 +512,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           Icon(Icons.cloud_off_rounded, size: 64, color: Colors.blueGrey.shade200),
           const SizedBox(height: 16),
           Text(
-            'Oops! Something went wrong',
+            AppLocalizations.of(context)!.errorSomethingWentWrong,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -520,7 +521,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
           ),
           TextButton(
             onPressed: _loadAllData,
-            child: const Text('Try Again'),
+            child: Text(AppLocalizations.of(context)!.errorTryAgain),
           ),
         ],
       ),
@@ -1077,7 +1078,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       AppLogger.error('Error loading submission: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading submission: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingSubmissionE)),
       );
     }
   }
@@ -1176,7 +1177,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'No responses found',
+                                AppLocalizations.of(context)!.noResponsesFound,
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   color: const Color(0xff64748B),
@@ -1410,7 +1411,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (shiftsWithFormStatus.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No recent shifts found to report on.')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.noRecentShiftsFoundToReport)),
         );
         return;
       }
@@ -1446,7 +1447,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                   ),
                 ),
                 Text(
-                  'Select a Shift',
+                  AppLocalizations.of(context)!.selectAShift,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1554,7 +1555,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                               trailing: hasForm
                                   ? IconButton(
                                       icon: const Icon(Icons.visibility, color: Color(0xff10B981)),
-                                      tooltip: 'View Form',
+                                      tooltip: AppLocalizations.of(context)!.viewForm,
                                       onPressed: () async {
                                         try {
                                           final formDoc = await FirebaseFirestore.instance
@@ -1603,7 +1604,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                                           await _handleShiftSelection(template, shiftId);
                                         },
                                         icon: const Icon(Icons.description_outlined, size: 16),
-                                        label: Text('Form', style: GoogleFonts.inter(fontSize: 12)),
+                                        label: Text(AppLocalizations.of(context)!.form, style: GoogleFonts.inter(fontSize: 12)),
                                         style: OutlinedButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(vertical: 8),
                                           side: BorderSide(color: Colors.blue.shade300),
@@ -1620,7 +1621,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                                         _showTimesheetForShift(shiftId, shiftData);
                                       },
                                       icon: const Icon(Icons.access_time, size: 16),
-                                      label: Text('Timesheet', style: GoogleFonts.inter(fontSize: 12)),
+                                      label: Text(AppLocalizations.of(context)!.timesheetTitle, style: GoogleFonts.inter(fontSize: 12)),
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(vertical: 8),
                                         side: BorderSide(color: Colors.green.shade300),
@@ -1637,7 +1638,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                                         _showShiftDetails(shiftId, shiftData);
                                       },
                                       icon: const Icon(Icons.info_outline, size: 16),
-                                      label: Text('Details', style: GoogleFonts.inter(fontSize: 12)),
+                                      label: Text(AppLocalizations.of(context)!.details, style: GoogleFonts.inter(fontSize: 12)),
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(vertical: 8),
                                         side: BorderSide(color: Colors.orange.shade300),
@@ -1664,7 +1665,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       debugPrint('Error fetching shifts: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading shifts: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingShiftsE)),
         );
       }
     }
@@ -1685,7 +1686,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (timesheetSnapshot.docs.isEmpty) {
         // No timesheet found - show message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No timesheet found for this shift. Clock in to create one.')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.noTimesheetFoundForThisShift)),
         );
         return;
       }
@@ -1708,7 +1709,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       AppLogger.error('Error loading timesheet: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading timesheet: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingTimesheetE)),
       );
     }
   }
@@ -1781,7 +1782,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       AppLogger.error('Error showing shift details: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading shift details: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingShiftDetailsE)),
       );
     }
   }

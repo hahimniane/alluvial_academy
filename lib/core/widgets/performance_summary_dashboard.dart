@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/performance_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PerformanceSummaryDashboard extends StatelessWidget {
   final String title;
@@ -78,12 +79,12 @@ class PerformanceSummaryDashboard extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: 'Clear performance logs',
+          tooltip: AppLocalizations.of(context)!.clearPerformanceLogs,
           onPressed: PerformanceLogger.clearLogs,
           icon: const Icon(Icons.delete_outline),
         ),
         IconButton(
-          tooltip: 'Copy summary',
+          tooltip: AppLocalizations.of(context)!.copySummary,
           onPressed:
               endedOps == 0 ? null : () => _copySummaryToClipboard(context),
           icon: const Icon(Icons.copy),
@@ -107,26 +108,26 @@ class PerformanceSummaryDashboard extends StatelessWidget {
         final isNarrow = constraints.maxWidth < 680;
         final children = <Widget>[
           _InsightCard(
-            title: 'Shifts',
-            subtitle: 'Time until shifts display',
+            title: AppLocalizations.of(context)!.navShifts,
+            subtitle: AppLocalizations.of(context)!.timeUntilShiftsDisplay,
             icon: Icons.calendar_month,
             content: _shiftInsight(shiftLoad),
           ),
           _InsightCard(
-            title: 'Payments',
-            subtitle: 'Actual payments background load',
+            title: AppLocalizations.of(context)!.payments,
+            subtitle: AppLocalizations.of(context)!.actualPaymentsBackgroundLoad,
             icon: Icons.payments_outlined,
             content: _paymentsInsight(payments),
           ),
           _InsightCard(
-            title: 'Timesheets',
-            subtitle: 'Time until timesheets display',
+            title: AppLocalizations.of(context)!.timesheets,
+            subtitle: AppLocalizations.of(context)!.timeUntilTimesheetsDisplay,
             icon: Icons.receipt_long,
             content: _timesheetsInsight(timesheetsInitial),
           ),
           _InsightCard(
-            title: 'Forms',
-            subtitle: 'Form list + response counts',
+            title: AppLocalizations.of(context)!.navForms,
+            subtitle: AppLocalizations.of(context)!.formListResponseCounts,
             icon: Icons.assignment_outlined,
             content: _formsInsight(forms),
           ),
@@ -276,7 +277,7 @@ class PerformanceSummaryDashboard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Slowest in current log buffer',
+                  AppLocalizations.of(context)!.slowestInCurrentLogBuffer,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff6B7280),
@@ -349,7 +350,7 @@ class PerformanceSummaryDashboard extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Performance summary copied',
+          AppLocalizations.of(context)!.performanceSummaryCopied,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         backgroundColor: const Color(0xff0386FF),
@@ -409,7 +410,7 @@ class PerformanceSummaryDashboard extends StatelessWidget {
 
   static Widget _noData() {
     return Text(
-      'No data yet',
+      AppLocalizations.of(context)!.noDataYet,
       style: GoogleFonts.inter(
         fontSize: 12,
         color: const Color(0xff9CA3AF),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/subject.dart';
 import '../../../core/services/subject_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SubjectManagementDialog extends StatefulWidget {
   const SubjectManagementDialog({super.key});
@@ -42,7 +43,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
           children: [
             const Icon(Icons.delete_forever, color: Color(0xFFEF4444)),
             const SizedBox(width: 8),
-            Text('Delete Subject', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            Text(AppLocalizations.of(context)!.deleteSubject, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ],
         ),
         content: Text(
@@ -52,7 +53,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -68,7 +69,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
             ),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.commonDelete),
           ),
         ],
       ),
@@ -153,7 +154,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Subject Management',
+                  AppLocalizations.of(context)!.subjectManagement,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -162,7 +163,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Add and manage subjects for shifts',
+                  AppLocalizations.of(context)!.addAndManageSubjectsForShifts,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xFF6B7280),
@@ -210,7 +211,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 },
                 style: GoogleFonts.inter(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Search subjects...',
+                  hintText: AppLocalizations.of(context)!.searchSubjects,
                   hintStyle: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xFF9CA3AF),
@@ -251,7 +252,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Add Subject',
+                      AppLocalizations.of(context)!.addSubject,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -266,7 +267,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
           const SizedBox(width: 12),
           FilterChip(
             label: Text(
-              'Show Inactive',
+              AppLocalizations.of(context)!.showInactive,
               style: GoogleFonts.inter(fontSize: 13),
             ),
             selected: _showInactive,
@@ -315,7 +316,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Error loading subjects',
+                  AppLocalizations.of(context)!.errorLoadingSubjects,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -370,7 +371,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 if (_searchQuery.isEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Click "Add Subject" to create your first subject',
+                    AppLocalizations.of(context)!.clickAddSubjectToCreateYour,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xFF9CA3AF),
@@ -485,7 +486,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                'Inactive',
+                                AppLocalizations.of(context)!.userInactive,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   color: const Color(0xFFEF4444),
@@ -565,7 +566,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                                   size: 18, color: Color(0xFF6B7280)),
                               const SizedBox(width: 8),
                               Text(
-                                'Edit',
+                                AppLocalizations.of(context)!.commonEdit,
                                 style: GoogleFonts.inter(fontSize: 14),
                               ),
                             ],
@@ -604,7 +605,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Delete Permanently',
+                                AppLocalizations.of(context)!.deletePermanently,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   color: const Color(0xFFEF4444),
@@ -690,7 +691,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
             ),
             const SizedBox(width: 12),
             Text(
-              'Add New Subject',
+              AppLocalizations.of(context)!.addNewSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ],
@@ -735,7 +736,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xFF6B7280)),
             ),
           ),
@@ -747,7 +748,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Please fill in all required fields'),
+                    content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -760,7 +761,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 if (wage == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please enter a valid wage amount'),
+                      content: Text(AppLocalizations.of(context)!.pleaseEnterAValidWageAmount),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -803,7 +804,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               ),
             ),
             child: Text(
-              'Add Subject',
+              AppLocalizations.of(context)!.addSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w500),
             ),
           ),
@@ -844,7 +845,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
             ),
             const SizedBox(width: 12),
             Text(
-              'Edit Subject',
+              AppLocalizations.of(context)!.editSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ],
@@ -886,7 +887,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xFF6B7280)),
             ),
           ),
@@ -898,7 +899,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Please fill in all required fields'),
+                    content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -911,7 +912,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 if (wage == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please enter a valid wage amount'),
+                      content: Text(AppLocalizations.of(context)!.pleaseEnterAValidWageAmount),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -945,7 +946,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               ),
             ),
             child: Text(
-              'Update Subject',
+              AppLocalizations.of(context)!.updateSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w500),
             ),
           ),

@@ -5,6 +5,7 @@ import 'package:alluwalacademyadmin/core/services/parent_service.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/subject_stat_card.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class StudentProgressTab extends StatefulWidget {
   final String studentId;
@@ -130,8 +131,8 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                 if (subjectStats.isEmpty) {
                   return _emptyCard(
                     icon: Icons.subject_rounded,
-                    title: 'No subject data',
-                    subtitle: 'Subject performance will appear here as your child attends classes.',
+                    title: AppLocalizations.of(context)!.noSubjectData,
+                    subtitle: AppLocalizations.of(context)!.subjectPerformanceWillAppearHereAs,
                   );
                 }
 
@@ -193,7 +194,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Overall Attendance',
+                      AppLocalizations.of(context)!.overallAttendance,
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -202,7 +203,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '$attendancePercent%',
+                      AppLocalizations.of(context)!.attendancepercent,
                       style: GoogleFonts.inter(
                         fontSize: 36,
                         fontWeight: FontWeight.w800,

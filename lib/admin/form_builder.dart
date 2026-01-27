@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import '../core/models/form_template.dart';
 import '../core/services/form_template_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 // --- MODELS ---
 enum QuestionType {
@@ -174,7 +175,7 @@ class FormBuilder extends StatefulWidget {
 
 class _FormBuilderState extends State<FormBuilder> {
   // Data
-  final TextEditingController _titleController = TextEditingController(text: 'Untitled Form');
+  final TextEditingController _titleController = TextEditingController(text: AppLocalizations.of(context)!.untitledForm);
   final TextEditingController _descriptionController = TextEditingController();
   List<FormQuestion> _questions = [];
   String _selectedThemeColor = '#673AB7';
@@ -211,7 +212,7 @@ class _FormBuilderState extends State<FormBuilder> {
         FormQuestion(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           type: QuestionType.shortAnswer,
-          title: '',
+          title: AppLocalizations.of(context)!.text2,
           required: false,
         ),
       ];
@@ -285,7 +286,7 @@ class _FormBuilderState extends State<FormBuilder> {
       _questions.add(FormQuestion(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         type: QuestionType.shortAnswer,
-        title: '',
+        title: AppLocalizations.of(context)!.text2,
         required: false,
       ));
     }
@@ -390,7 +391,7 @@ class _FormBuilderState extends State<FormBuilder> {
             Padding(
               padding: const EdgeInsets.only(right: 16),
                 child: Text(
-                'Unsaved changes',
+                AppLocalizations.of(context)!.unsavedChanges,
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ),
@@ -419,7 +420,7 @@ class _FormBuilderState extends State<FormBuilder> {
                       ),
                       if (c == _selectedThemeColor) ...[
                         const SizedBox(width: 8),
-                        const Text('Selected'),
+                        Text(AppLocalizations.of(context)!.selected),
                       ],
         ],
       ),
@@ -446,7 +447,7 @@ class _FormBuilderState extends State<FormBuilder> {
                   height: 16,
                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                 )
-              : const Text('Save'),
+              : Text(AppLocalizations.of(context)!.commonSave),
           ),
         ],
       ),
@@ -492,7 +493,7 @@ class _FormBuilderState extends State<FormBuilder> {
                     style: GoogleFonts.roboto(fontSize: 32, fontWeight: FontWeight.w400),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Untitled form',
+                      hintText: AppLocalizations.of(context)!.untitledForm2,
                       isDense: true,
                     ),
                     onTap: () => setState(() => _focusedQuestionIndex = null),
@@ -504,7 +505,7 @@ class _FormBuilderState extends State<FormBuilder> {
                     maxLines: null,
                     decoration: const InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Form description',
+                      hintText: AppLocalizations.of(context)!.formDescription2,
                       isDense: true,
                     ),
                     onTap: () => setState(() => _focusedQuestionIndex = null),
@@ -514,7 +515,7 @@ class _FormBuilderState extends State<FormBuilder> {
                   const SizedBox(height: 16),
                   
                   // SETTINGS SECTION
-                  Text('Form Settings', style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[700])),
+                  Text(AppLocalizations.of(context)!.formSettings, style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[700])),
                   const SizedBox(height: 16),
                   
                   // Frequency & Category Row
@@ -525,7 +526,7 @@ class _FormBuilderState extends State<FormBuilder> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Frequency', style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                            Text(AppLocalizations.of(context)!.frequency, style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
                             const SizedBox(height: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -558,7 +559,7 @@ class _FormBuilderState extends State<FormBuilder> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Category', style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                            Text(AppLocalizations.of(context)!.category, style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
                             const SizedBox(height: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -590,7 +591,7 @@ class _FormBuilderState extends State<FormBuilder> {
                   ),
                   
                   const SizedBox(height: 16),
-                  Text('Target Audience (Allowed Roles)', style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
+                  Text(AppLocalizations.of(context)!.targetAudienceAllowedRoles, style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[600])),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
@@ -698,33 +699,33 @@ class _FormBuilderState extends State<FormBuilder> {
                     children: [
           _SidebarItem(
             icon: Icons.add_circle_outline,
-            tooltip: 'Add question',
+            tooltip: AppLocalizations.of(context)!.addQuestion,
             onTap: () => _addQuestion(),
             color: Colors.grey[700]!,
           ),
           const Divider(height: 1, indent: 10, endIndent: 10),
           _SidebarItem(
             icon: Icons.text_fields,
-            tooltip: 'Add title',
+            tooltip: AppLocalizations.of(context)!.addTitle,
             onTap: () {},
             color: Colors.grey[700]!,
           ),
           _SidebarItem(
             icon: Icons.image_outlined,
-            tooltip: 'Add image',
+            tooltip: AppLocalizations.of(context)!.addImage,
             onTap: () {},
             color: Colors.grey[700]!,
           ),
           _SidebarItem(
             icon: Icons.smart_display_outlined,
-            tooltip: 'Add video',
+            tooltip: AppLocalizations.of(context)!.addVideo,
             onTap: () {},
             color: Colors.grey[700]!,
           ),
           const Divider(height: 1, indent: 10, endIndent: 10),
           _SidebarItem(
             icon: Icons.view_stream_outlined,
-            tooltip: 'Add section',
+            tooltip: AppLocalizations.of(context)!.addSection,
             onTap: () {},
             color: Colors.grey[700]!,
           ),
@@ -740,7 +741,7 @@ class _FormBuilderState extends State<FormBuilder> {
       final newQ = FormQuestion(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         type: QuestionType.shortAnswer,
-        title: '',
+        title: AppLocalizations.of(context)!.text2,
         required: false,
       );
       if (_focusedQuestionIndex != null) {
@@ -791,7 +792,7 @@ class _FormBuilderState extends State<FormBuilder> {
   Future<void> _saveForm() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a form title')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAFormTitle)),
       );
       return;
     }
@@ -870,7 +871,7 @@ class _FormBuilderState extends State<FormBuilder> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Form saved successfully! Previous versions deactivated.'),
+            content: Text(AppLocalizations.of(context)!.formSavedSuccessfullyPreviousVersionsDeactivated),
             backgroundColor: Colors.green,
           ),
         );
@@ -883,7 +884,7 @@ class _FormBuilderState extends State<FormBuilder> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving form: $e'),
+            content: Text(AppLocalizations.of(context)!.errorSavingFormE),
             backgroundColor: Colors.red,
           ),
         );
@@ -896,16 +897,16 @@ class _FormBuilderState extends State<FormBuilder> {
       final shouldLeave = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Unsaved changes'),
-          content: const Text('You have unsaved changes. Are you sure you want to leave?'),
+          title: Text(AppLocalizations.of(context)!.unsavedChanges),
+          content: Text(AppLocalizations.of(context)!.youHaveUnsavedChangesAreYou),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Leave'),
+              child: Text(AppLocalizations.of(context)!.leave),
             ),
           ],
         ),
@@ -1073,7 +1074,7 @@ class _QuestionCardState extends State<_QuestionCard> {
         ),
       ),
             if (widget.question.required)
-              const Text(' *', style: TextStyle(color: Colors.red, fontSize: 16)),
+              Text(AppLocalizations.of(context)!.text, style: TextStyle(color: Colors.red, fontSize: 16)),
           ],
         ),
         const SizedBox(height: 16),
@@ -1130,7 +1131,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                   controller: _titleController,
                   style: GoogleFonts.roboto(fontSize: 16),
                   decoration: const InputDecoration.collapsed(
-                    hintText: 'Question',
+                    hintText: AppLocalizations.of(context)!.formQuestion,
                   ),
                   onChanged: (v) {
                     widget.question.title = v;
@@ -1197,12 +1198,12 @@ class _QuestionCardState extends State<_QuestionCard> {
                     children: [
             IconButton(
               icon: const Icon(Icons.content_copy),
-              tooltip: 'Duplicate',
+              tooltip: AppLocalizations.of(context)!.duplicate,
               onPressed: widget.onDuplicate,
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete',
+              tooltip: AppLocalizations.of(context)!.commonDelete,
               onPressed: widget.onDelete,
             ),
             Container(
@@ -1211,7 +1212,7 @@ class _QuestionCardState extends State<_QuestionCard> {
               color: Colors.grey.shade300,
               margin: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            const Text('Required', style: TextStyle(fontSize: 13)),
+            Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(fontSize: 13)),
             Switch(
               value: widget.question.required,
               activeColor: widget.themeColor,
@@ -1322,7 +1323,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                   const SizedBox(width: 16),
                 const SizedBox(width: 12),
                     Text(
-                  'Add option',
+                  AppLocalizations.of(context)!.addOption,
                   style: TextStyle(color: Colors.grey[600]),
                     ),
                   ],
@@ -1346,7 +1347,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                 isExpanded: true,
                 items: [0, 1].map((v) => DropdownMenuItem(
                   value: v,
-                  child: Text('$v'),
+                  child: Text(AppLocalizations.of(context)!.v),
                 )).toList(),
                 onChanged: (v) {
                   if (v != null) {
@@ -1359,7 +1360,7 @@ class _QuestionCardState extends State<_QuestionCard> {
               ),
             ),
             const SizedBox(width: 16),
-            const Text('to'),
+            Text(AppLocalizations.of(context)!.to),
             const SizedBox(width: 16),
             // Max value
             SizedBox(
@@ -1370,7 +1371,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                 items: List.generate(9, (i) => i + 2)
                     .map((v) => DropdownMenuItem(
                       value: v,
-                      child: Text('$v'),
+                      child: Text(AppLocalizations.of(context)!.v),
                     ))
                     .toList(),
                 onChanged: (v) {
@@ -1397,7 +1398,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                   widget.onChanged();
                 },
                 decoration: InputDecoration(
-                  hintText: 'Label (optional)',
+                  hintText: AppLocalizations.of(context)!.labelOptional,
                   hintStyle: GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
                   border: const UnderlineInputBorder(),
                   prefix: Text(
@@ -1416,7 +1417,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                   widget.onChanged();
                 },
                 decoration: InputDecoration(
-                  hintText: 'Label (optional)',
+                  hintText: AppLocalizations.of(context)!.labelOptional,
                   hintStyle: GoogleFonts.roboto(fontSize: 12, color: Colors.grey),
                   border: const UnderlineInputBorder(),
                   prefix: Text(
@@ -1439,7 +1440,7 @@ class _QuestionCardState extends State<_QuestionCard> {
         return TextField(
           enabled: false,
           decoration: InputDecoration(
-            hintText: 'Short answer text',
+            hintText: AppLocalizations.of(context)!.shortAnswerText,
             hintStyle: TextStyle(color: Colors.grey[500]),
             border: isEditing
                 ? const UnderlineInputBorder(
@@ -1455,7 +1456,7 @@ class _QuestionCardState extends State<_QuestionCard> {
           enabled: false,
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: 'Long answer text',
+            hintText: AppLocalizations.of(context)!.longAnswerText,
             hintStyle: TextStyle(color: Colors.grey[500]),
             border: isEditing
                 ? const UnderlineInputBorder()
@@ -1494,7 +1495,7 @@ class _QuestionCardState extends State<_QuestionCard> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text('Select'),
+              Text(AppLocalizations.of(context)!.select),
               Icon(Icons.arrow_drop_down),
             ],
           ),
@@ -1519,7 +1520,7 @@ class _QuestionCardState extends State<_QuestionCard> {
           children: [
             Icon(Icons.calendar_today, color: Colors.grey.shade400),
             const SizedBox(width: 8),
-            Text('Date picker', style: GoogleFonts.roboto(color: Colors.grey.shade400)),
+            Text(AppLocalizations.of(context)!.datePicker, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
           ],
         );
       case QuestionType.time:
@@ -1527,7 +1528,7 @@ class _QuestionCardState extends State<_QuestionCard> {
           children: [
             Icon(Icons.access_time, color: Colors.grey.shade400),
             const SizedBox(width: 8),
-            Text('Time picker', style: GoogleFonts.roboto(color: Colors.grey.shade400)),
+            Text(AppLocalizations.of(context)!.timePicker, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
           ],
         );
       case QuestionType.fileUpload:
@@ -1542,7 +1543,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                       children: [
               Icon(Icons.cloud_upload_outlined, color: Colors.grey.shade400),
                         const SizedBox(width: 8),
-              Text('File upload', style: GoogleFonts.roboto(color: Colors.grey.shade400)),
+              Text(AppLocalizations.of(context)!.fileUpload, style: GoogleFonts.roboto(color: Colors.grey.shade400)),
             ],
           ),
         );
@@ -1551,7 +1552,7 @@ class _QuestionCardState extends State<_QuestionCard> {
           enabled: false,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            hintText: 'Number',
+            hintText: AppLocalizations.of(context)!.number,
             hintStyle: TextStyle(color: Colors.grey[500]),
             border: isEditing
                 ? const UnderlineInputBorder()

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/performance_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PerformanceLogViewer extends StatefulWidget {
   final String title;
@@ -99,7 +100,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
               ),
               const SizedBox(height: 2),
               Text(
-                'Shows PerformanceLogger START/CHECKPOINT/END events and aggregates.',
+                AppLocalizations.of(context)!.showsPerformanceloggerStartCheckpointEndEvents,
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   color: const Color(0xff6B7280),
@@ -115,7 +116,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            '$entryCount events',
+            AppLocalizations.of(context)!.entrycountEvents,
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -136,7 +137,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search by operation, id, metadata…',
+                  hintText: AppLocalizations.of(context)!.searchByOperationIdMetadata,
                   prefixIcon: const Icon(Icons.search),
                   isDense: true,
                   border: OutlineInputBorder(
@@ -157,12 +158,12 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
             ),
             const SizedBox(width: 10),
             IconButton(
-              tooltip: 'Clear logs',
+              tooltip: AppLocalizations.of(context)!.clearLogs,
               onPressed: () => setState(PerformanceLogger.clearLogs),
               icon: const Icon(Icons.delete_outline),
             ),
             IconButton(
-              tooltip: 'Copy summary',
+              tooltip: AppLocalizations.of(context)!.copySummary,
               onPressed: () => _copySummaryToClipboard(context),
               icon: const Icon(Icons.copy),
             ),
@@ -267,7 +268,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
         border: Border.all(color: color.withOpacity(0.18)),
       ),
       child: Text(
-        '$label: $value',
+        AppLocalizations.of(context)!.labelValue,
         style: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -284,7 +285,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Slowest (END)',
+          AppLocalizations.of(context)!.slowestEnd,
           style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -350,7 +351,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
           color: const Color(0xffF8FAFC),
         ),
         child: Text(
-          'No matching logs yet.',
+          AppLocalizations.of(context)!.noMatchingLogsYet,
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -437,7 +438,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
                   if (op.checkpoints.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Text(
-                      'Checkpoints',
+                      AppLocalizations.of(context)!.checkpoints,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -688,7 +689,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Performance summary copied to clipboard',
+          AppLocalizations.of(context)!.performanceSummaryCopiedToClipboard,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         backgroundColor: const Color(0xff0386FF),

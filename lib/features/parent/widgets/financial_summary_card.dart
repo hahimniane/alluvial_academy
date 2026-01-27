@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FinancialSummaryCard extends StatelessWidget {
   final double outstanding;
@@ -51,7 +52,7 @@ class FinancialSummaryCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Financial Summary',
+                  AppLocalizations.of(context)!.financialSummary,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -64,7 +65,7 @@ class FinancialSummaryCard extends StatelessWidget {
                   onPressed: onPayNow,
                   icon: const Icon(Icons.credit_card_rounded, size: 18),
                   label: Text(
-                    'Pay Now',
+                    AppLocalizations.of(context)!.payNow,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                   ),
                   style: ElevatedButton.styleFrom(

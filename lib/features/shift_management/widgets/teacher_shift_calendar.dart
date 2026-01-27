@@ -4,6 +4,7 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Calendar view of teacher shifts using Syncfusion SfCalendar
 class TeacherShiftCalendar extends StatefulWidget {
@@ -120,7 +121,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
       child: Row(
         children: [
           Text(
-            'Weekly Calendar',
+            AppLocalizations.of(context)!.weeklyCalendar,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -129,7 +130,7 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
           ),
           const Spacer(),
           IconButton(
-            tooltip: 'Today',
+            tooltip: AppLocalizations.of(context)!.dashboardToday,
             onPressed: () {
               _controller.displayDate = DateTime.now();
             },
@@ -137,14 +138,14 @@ class _TeacherShiftCalendarState extends State<TeacherShiftCalendar> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: 'Previous',
+            tooltip: AppLocalizations.of(context)!.previous,
             onPressed: () {
               _controller.backward!();
             },
             icon: const Icon(Icons.chevron_left),
           ),
           IconButton(
-            tooltip: 'Next',
+            tooltip: AppLocalizations.of(context)!.commonNext,
             onPressed: () {
               _controller.forward!();
             },

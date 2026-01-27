@@ -10,6 +10,7 @@ import 'features/parent/screens/parent_dashboard_layout.dart';
 import 'features/dashboard/screens/mobile_dashboard_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Check if running on native mobile platform
 bool get _isNativeMobile {
@@ -156,7 +157,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Loading user profile...',
+              AppLocalizations.of(context)!.loadingUserProfile,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 color: const Color(0xff6B7280),
@@ -182,7 +183,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Error Loading Profile',
+              AppLocalizations.of(context)!.errorLoadingProfile,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -191,7 +192,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Please try signing out and signing back in',
+              AppLocalizations.of(context)!.pleaseTrySigningOutAndSigning,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),
@@ -210,7 +211,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Sign Out'),
+              child: Text(AppLocalizations.of(context)!.settingsSignOut),
             ),
           ],
         ),
@@ -232,7 +233,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Account Not Set Up',
+              AppLocalizations.of(context)!.accountNotSetUp,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -241,7 +242,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Your account has not been set up by an administrator.\nPlease contact support.',
+              AppLocalizations.of(context)!.yourAccountHasNotBeenSet,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),
@@ -260,7 +261,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Sign Out'),
+              child: Text(AppLocalizations.of(context)!.settingsSignOut),
             ),
           ],
         ),
@@ -282,7 +283,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Unknown User Role',
+              AppLocalizations.of(context)!.unknownUserRole,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -310,7 +311,7 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Sign Out'),
+              child: Text(AppLocalizations.of(context)!.settingsSignOut),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/models/payment.dart';
 import 'package:alluwalacademyadmin/core/services/payment_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PaymentHistoryScreen extends StatelessWidget {
   final String parentId;
@@ -20,7 +21,7 @@ class PaymentHistoryScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF111827),
         elevation: 0,
-        title: Text('Payment History', style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        title: Text(AppLocalizations.of(context)!.paymentHistory, style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
       ),
       body: StreamBuilder<List<Payment>>(
         stream: PaymentService.getPaymentHistory(parentId, limit: 100),
@@ -83,7 +84,7 @@ class PaymentHistoryScreen extends StatelessWidget {
                     if (!context.mounted) return;
                     if (!doc.exists) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Invoice not found for this payment', style: GoogleFonts.inter())),
+                        SnackBar(content: Text(AppLocalizations.of(context)!.invoiceNotFoundForThisPayment, style: GoogleFonts.inter())),
                       );
                       return;
                     }

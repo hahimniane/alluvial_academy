@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Reusable dialog for editing teacher profile information
 class TeacherProfileEditDialog extends StatefulWidget {
@@ -73,7 +74,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load existing profile: $e'),
+            content: Text(AppLocalizations.of(context)!.failedToLoadExistingProfileE),
             backgroundColor: Colors.red,
           ),
         );
@@ -107,7 +108,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
             const SizedBox(width: 16),
             Expanded(
               child: Text(
-                'Loading Profile...',
+                AppLocalizations.of(context)!.loadingProfile,
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -128,7 +129,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Loading your existing profile information...',
+          AppLocalizations.of(context)!.loadingYourExistingProfileInformation,
           style: GoogleFonts.inter(
             fontSize: 14,
             color: const Color(0xff6B7280),
@@ -178,7 +179,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Complete Your Profile',
+                                  AppLocalizations.of(context)!.profileCompleteProfile,
                                   style: GoogleFonts.inter(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w700,
@@ -187,7 +188,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Help parents and students learn about your expertise',
+                                  AppLocalizations.of(context)!.profileHelpParents,
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
                                     color: const Color(0xff6B7280),
@@ -268,7 +269,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                                     horizontal: 16, vertical: 12),
                               ),
                               child: Text(
-                                'Cancel',
+                                AppLocalizations.of(context)!.commonCancel,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -306,7 +307,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'Saving...',
+                                          AppLocalizations.of(context)!.profileSaving,
                                           style: GoogleFonts.inter(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -315,7 +316,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                                       ],
                                     )
                                   : Text(
-                                      'Save Profile',
+                                      AppLocalizations.of(context)!.profileSaveProfile,
                                       style: GoogleFonts.inter(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -455,7 +456,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Profile saved successfully!',
+                        AppLocalizations.of(context)!.profileSavedSuccess,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -463,7 +464,7 @@ class _TeacherProfileEditDialogState extends State<TeacherProfileEditDialog> {
                         ),
                       ),
                       Text(
-                        'Profile $completionPercentage% complete',
+                        AppLocalizations.of(context)!.profileCompletionpercentageComplete,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.white.withOpacity(0.9),

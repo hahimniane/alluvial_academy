@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class InvoiceCard extends StatelessWidget {
   final Invoice invoice;
@@ -115,7 +116,7 @@ class InvoiceCard extends StatelessWidget {
                     onPressed: onPayNow,
                     icon: const Icon(Icons.credit_card_rounded, size: 18),
                     label: Text(
-                      'Pay Now',
+                      AppLocalizations.of(context)!.payNow,
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     ),
                     style: OutlinedButton.styleFrom(

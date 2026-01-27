@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class IslamicCoursesPage extends StatefulWidget {
   const IslamicCoursesPage({super.key});
@@ -60,7 +61,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
                 border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
               ),
               child: Text(
-                '🕌 Islamic Programs',
+                AppLocalizations.of(context)!.islamicPrograms,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -73,7 +74,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Immerse in the Profound\nDepths of Islamic Knowledge',
+              AppLocalizations.of(context)!.immerseInTheProfoundNdepthsOf,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +91,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
               child: Text(
-                'Our Islamic program is meticulously designed to immerse students in the profound depths of Islamic knowledge. Offering courses in more than six islamic subjects including: Arabic language, Quran, Hadith, Tawhid, Tafsir and more.',
+                AppLocalizations.of(context)!.ourIslamicProgramIsMeticulouslyDesigned,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -189,7 +190,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
           FadeInSlide(
             delay: 0.4,
             child: Text(
-              'Our Islamic Courses',
+              AppLocalizations.of(context)!.ourIslamicCourses,
               style: GoogleFonts.inter(
                 fontSize: 36,
                 fontWeight: FontWeight.w800,
@@ -361,7 +362,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
                   elevation: 0,
                 ),
                 child: Text(
-                  'Enroll Now',
+                  AppLocalizations.of(context)!.enrollNow,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -383,7 +384,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
       child: Column(
         children: [
           Text(
-            'Structured Learning Paths',
+            AppLocalizations.of(context)!.structuredLearningPaths,
             style: GoogleFonts.inter(
               fontSize: 36,
               fontWeight: FontWeight.w800,
@@ -479,7 +480,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
       child: Column(
         children: [
           Text(
-            'Start Your Child\'s Islamic Journey Today',
+            AppLocalizations.of(context)!.startYourChildSIslamicJourney,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -490,7 +491,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Join thousands of Muslim families worldwide',
+            AppLocalizations.of(context)!.joinThousandsOfMuslimFamiliesWorldwide,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 18,
@@ -516,7 +517,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
               ),
             ),
             child: Text(
-              'Book Free Trial Class',
+              AppLocalizations.of(context)!.bookFreeTrialClass,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -534,17 +535,17 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Enroll in $courseName',
+          AppLocalizations.of(context)!.enrollInCoursename,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'Thank you for your interest! Please contact us to schedule a consultation and begin your Islamic learning journey.',
+          AppLocalizations.of(context)!.thankYouForYourInterestPlease2,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
           ElevatedButton(
             onPressed: () {
@@ -554,7 +555,7 @@ class _IslamicCoursesPageState extends State<IslamicCoursesPage> {
               backgroundColor: const Color(0xff3B82F6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text('Contact Us', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.contactUs, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

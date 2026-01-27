@@ -8,6 +8,7 @@ import '../shared/widgets/fade_in_slide.dart';
 import '../core/models/enrollment_request.dart';
 import '../core/services/enrollment_service.dart';
 import 'enrollment_success_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 // Helper class for time ranges
 class _TimeRange {
@@ -688,7 +689,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                           borderRadius: BorderRadius.circular(100),
                         ),
                   child: Text(
-                          'CLASS SIGN UP',
+                          AppLocalizations.of(context)!.classSignUp,
                     style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -702,7 +703,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                     FadeInSlide(
                       delay: 0.15,
                       child: Text(
-                        'Class Sign Up',
+                        AppLocalizations.of(context)!.classSignUp2,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 38,
                       fontWeight: FontWeight.w800,
@@ -715,7 +716,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                 FadeInSlide(
                   delay: 0.2,
                   child: Text(
-                        'Quality Islamic education from anywhere in the world.\nConnect with expert teachers in your timezone.',
+                        AppLocalizations.of(context)!.qualityIslamicEducationFromAnywhereIn,
                     style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
@@ -972,7 +973,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                     if (_linkedParentData == null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        'Link your account to manage all students in one place',
+                        AppLocalizations.of(context)!.linkYourAccountToManageAll,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xff64748B),
@@ -1026,7 +1027,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                                 ),
                               ),
                               Text(
-                                'New student will be linked to your account',
+                                AppLocalizations.of(context)!.newStudentWillBeLinkedTo,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   color: const Color(0xff059669),
@@ -1043,7 +1044,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                 TextButton.icon(
                   onPressed: _unlinkParent,
                   icon: const Icon(Icons.close, size: 18),
-                  label: const Text('Unlink'),
+                  label: Text(AppLocalizations.of(context)!.unlink),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xffDC2626),
                     padding:
@@ -1059,7 +1060,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                   child: TextField(
                     controller: _parentIdentityController,
                     decoration: InputDecoration(
-                      hintText: 'Enter your email or kiosque code',
+                      hintText: AppLocalizations.of(context)!.enterYourEmailOrKiosqueCode,
                       hintStyle: GoogleFonts.inter(
                         color: const Color(0xff94A3B8),
                         fontSize: 14,
@@ -1104,7 +1105,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                                     color: Colors.white, size: 18),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Link',
+                                  AppLocalizations.of(context)!.link,
                                   style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -1287,7 +1288,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     // For adult students (role == 'Student'), use single student fields
     if (!isParentOrGuardian) {
       return _buildStepCard(
-        title: 'Your Information',
+        title: AppLocalizations.of(context)!.yourInformation,
         children: [
           _buildModernTextField(
             'Full Name',
@@ -1326,7 +1327,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     
     // For Parent/Guardian: show multi-student support
     return _buildStepCard(
-      title: 'Student(s) Information',
+      title: AppLocalizations.of(context)!.studentSInformation,
       children: [
         // Info banner for multi-student
         Container(
@@ -1342,7 +1343,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'You can add multiple students in one submission',
+                  AppLocalizations.of(context)!.youCanAddMultipleStudentsIn,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: const Color(0xff3B82F6),
@@ -1391,7 +1392,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           onPressed: _addStudent,
           icon: const Icon(Icons.add_rounded, size: 20),
           label: Text(
-            'Add Another Student',
+            AppLocalizations.of(context)!.addAnotherStudent,
             style: GoogleFonts.inter(fontWeight: FontWeight.w600),
           ),
           style: OutlinedButton.styleFrom(
@@ -1442,7 +1443,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                   onPressed: onRemove,
                   icon: const Icon(Icons.close_rounded, size: 20),
                   color: const Color(0xffEF4444),
-                  tooltip: 'Remove student',
+                  tooltip: AppLocalizations.of(context)!.removeStudent,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -1635,7 +1636,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     // For single student (adult) or first student
     if (!isParentOrGuardian || totalStudents == 1) {
       return _buildStepCard(
-        title: 'Program Details',
+        title: AppLocalizations.of(context)!.programDetails,
         children: [
           _buildProgramFields(
             subject: _selectedSubject,
@@ -1659,7 +1660,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     
     // For Parent/Guardian with multiple students - show program for each
     return _buildStepCard(
-      title: 'Program Details for Each Student',
+      title: AppLocalizations.of(context)!.programDetailsForEachStudent,
       children: [
         // Info banner
         Container(
@@ -1674,7 +1675,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Select a program for each student. Each will be enrolled separately.',
+                  AppLocalizations.of(context)!.selectAProgramForEachStudent,
                   style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff10B981), fontWeight: FontWeight.w500),
                 ),
               ),
@@ -1686,7 +1687,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
         // First student program
         _buildStudentProgramCard(
           studentIndex: 0,
-          studentName: _studentNameController.text.isNotEmpty ? _studentNameController.text : 'Student 1',
+          studentName: _studentNameController.text.isNotEmpty ? _studentNameController.text : AppLocalizations.of(context)!.student1,
           subject: _selectedSubject,
           onSubjectChanged: (v) {
             setState(() {
@@ -1753,7 +1754,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   Widget _buildStep3Schedule() {
     return _buildStepCard(
-      title: 'Schedule Preferences',
+      title: AppLocalizations.of(context)!.schedulePreferences,
       children: [
         // Timezone indicator
         Container(
@@ -1773,7 +1774,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your Timezone',
+                      AppLocalizations.of(context)!.yourTimezone,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1933,7 +1934,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Select duration and time of day to see available slots.',
+                    AppLocalizations.of(context)!.selectDurationAndTimeOfDay,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: const Color(0xff92400E),
@@ -1952,7 +1953,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
     
     return _buildStepCard(
-      title: 'Contact Information',
+      title: AppLocalizations.of(context)!.contactInformation,
       children: [
         // Role selection first
         _buildModernDropdown(
@@ -1987,7 +1988,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           controller: _whatsAppNumberController,
           key: ValueKey('wa_$_initialCountryCode'),
           decoration: InputDecoration(
-            hintText: 'WhatsApp Number',
+            hintText: AppLocalizations.of(context)!.whatsappNumber,
             hintStyle: GoogleFonts.inter(color: const Color(0xff94A3B8)),
             filled: true,
             fillColor: const Color(0xffF8FAFC),
@@ -2015,7 +2016,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           controller: _phoneController,
           key: ValueKey(_initialCountryCode), // Rebuild when country changes
           decoration: InputDecoration(
-            hintText: 'Phone Number',
+            hintText: AppLocalizations.of(context)!.userPhone,
             hintStyle: GoogleFonts.inter(color: const Color(0xff94A3B8)),
             filled: true,
             fillColor: const Color(0xffF8FAFC),
@@ -2054,7 +2055,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                         countryListTheme: CountryListThemeData(
                             borderRadius: BorderRadius.circular(16),
                           inputDecoration: InputDecoration(
-                            hintText: 'Search country',
+                            hintText: AppLocalizations.of(context)!.searchCountry,
                             prefixIcon: const Icon(Icons.search),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -2227,7 +2228,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           icon: const Icon(Icons.keyboard_arrow_down_rounded,
               color: Color(0xff94A3B8)),
           decoration: InputDecoration(
-            hintText: 'Select $label',
+            hintText: AppLocalizations.of(context)!.selectLabel,
             hintStyle: GoogleFonts.inter(
               color: const Color(0xff94A3B8),
               fontWeight: FontWeight.w400,

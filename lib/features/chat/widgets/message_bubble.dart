@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/chat_message.dart';
 import 'voice_message_player.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -549,7 +550,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               const Icon(Icons.emoji_emotions, color: Color(0xff6B7280)),
               const SizedBox(width: 12),
               Text(
-                'React',
+                AppLocalizations.of(context)!.chatReact,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
               ),
             ],
@@ -562,7 +563,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               const Icon(Icons.reply, color: Color(0xff6B7280)),
               const SizedBox(width: 12),
               Text(
-                'Reply',
+                AppLocalizations.of(context)!.chatReply,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
               ),
             ],
@@ -575,7 +576,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               const Icon(Icons.copy, color: Color(0xff6B7280)),
               const SizedBox(width: 12),
               Text(
-                'Copy',
+                AppLocalizations.of(context)!.commonCopy,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
               ),
             ],
@@ -588,7 +589,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               const Icon(Icons.forward, color: Color(0xff6B7280)),
               const SizedBox(width: 12),
               Text(
-                'Forward',
+                AppLocalizations.of(context)!.chatForward,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
               ),
             ],
@@ -632,7 +633,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Message copied to clipboard',
+              AppLocalizations.of(context)!.chatCopied,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xff10B981),

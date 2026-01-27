@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/landing_page_content.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FeaturesSectionEditor extends StatelessWidget {
   final List<FeatureContent> features;
@@ -19,7 +20,7 @@ class FeaturesSectionEditor extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Features Section Editor',
+            AppLocalizations.of(context)!.featuresSectionEditor,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -28,7 +29,7 @@ class FeaturesSectionEditor extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Features editor coming soon...',
+            AppLocalizations.of(context)!.featuresEditorComingSoon,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xff6B7280),

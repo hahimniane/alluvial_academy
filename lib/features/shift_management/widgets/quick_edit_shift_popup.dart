@@ -7,6 +7,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import '../../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Quick edit popup for modifying shift times and basic info
 /// More streamlined than the full CreateShiftDialog
@@ -103,7 +104,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Quick Edit',
+                        AppLocalizations.of(context)!.quickEdit,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -183,9 +184,9 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             TextField(
               controller: _notesController,
               decoration: InputDecoration(
-                labelText: 'Notes',
+                labelText: AppLocalizations.of(context)!.shiftNotes,
                 labelStyle: GoogleFonts.inter(fontSize: 13),
-                hintText: 'Add notes...',
+                hintText: AppLocalizations.of(context)!.shiftAddNotes,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -206,7 +207,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                   onPressed: _confirmDelete,
                   icon: const Icon(Icons.delete_outline,
                       size: 16, color: Colors.red),
-                  label: Text('Delete',
+                  label: Text(AppLocalizations.of(context)!.commonDelete,
                       style:
                           GoogleFonts.inter(fontSize: 12, color: Colors.red)),
                   style: OutlinedButton.styleFrom(
@@ -223,7 +224,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                     widget.onOpenFullEditor();
                   },
                   child: Text(
-                    'More options...',
+                    AppLocalizations.of(context)!.moreOptions,
                     style: GoogleFonts.inter(
                         fontSize: 12, color: const Color(0xff6B7280)),
                   ),
@@ -251,7 +252,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
                                 AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : Text('Save',
+                      : Text(AppLocalizations.of(context)!.commonSave,
                           style: GoogleFonts.inter(
                               fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
@@ -269,7 +270,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         Icon(icon, size: 16, color: const Color(0xff9CA3AF)),
         const SizedBox(width: 8),
         Text(
-          '$label: ',
+          AppLocalizations.of(context)!.label,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: const Color(0xff6B7280),
@@ -374,7 +375,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         Row(
           children: [
             Text(
-              'Timezone',
+              AppLocalizations.of(context)!.profileTimezone,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -383,7 +384,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             ),
             const SizedBox(width: 8),
             Tooltip(
-              message: 'The timezone for the times below',
+              message: AppLocalizations.of(context)!.theTimezoneForTheTimesBelow,
               child: Icon(
                 Icons.info_outline,
                 size: 14,
@@ -433,7 +434,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             Row(
               children: [
                 Text(
-                  '$label: ',
+                  AppLocalizations.of(context)!.label,
                   style: GoogleFonts.inter(
                       fontSize: 12, color: const Color(0xff6B7280)),
                 ),
@@ -466,16 +467,16 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Delete Shift?',
+        title: Text(AppLocalizations.of(context)!.deleteShift2,
             style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         content: Text(
-          'This will permanently delete this shift. This action cannot be undone.',
+          AppLocalizations.of(context)!.thisWillPermanentlyDeleteThisShift,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -483,7 +484,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
               await _deleteShift();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -499,14 +500,14 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         widget.onDeleted();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Shift deleted'), backgroundColor: Colors.green),
+              content: Text(AppLocalizations.of(context)!.shiftDeleted), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       AppLogger.error('Error deleting shift: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -561,14 +562,14 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Shift updated'), backgroundColor: Colors.green),
+              content: Text(AppLocalizations.of(context)!.shiftUpdated), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       AppLogger.error('Error updating shift: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
         );
       }
     } finally {

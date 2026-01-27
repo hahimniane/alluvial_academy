@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class UserSelectionDialog extends StatefulWidget {
   final List<String> selectedUserIds;
@@ -136,7 +137,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Select Users',
+                          AppLocalizations.of(context)!.selectUsers2,
                           style: GoogleFonts.inter(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
@@ -145,7 +146,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Filter form responses by user',
+                          AppLocalizations.of(context)!.filterFormResponsesByUser,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: Colors.white.withOpacity(0.8),
@@ -178,7 +179,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Selection Method',
+                          AppLocalizations.of(context)!.selectionMethod,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -201,7 +202,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                             ),
                             Flexible(
                               child: Text(
-                                'Select by user group (e.g., all students)',
+                                AppLocalizations.of(context)!.selectByUserGroupEG,
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   color: const Color(0xff1E40AF),
@@ -225,7 +226,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                             ),
                             Flexible(
                               child: Text(
-                                'Select individual users',
+                                AppLocalizations.of(context)!.selectIndividualUsers,
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   color: const Color(0xff1E40AF),
@@ -264,7 +265,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                             TextField(
                               controller: _searchController,
                               decoration: InputDecoration(
-                                hintText: 'Search users...',
+                                hintText: AppLocalizations.of(context)!.userSearchUsers,
                                 prefixIcon: const Icon(Icons.search),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -305,7 +306,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           child: Text(
-                            'Cancel',
+                            AppLocalizations.of(context)!.commonCancel,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: const Color(0xff6B7280),
@@ -323,7 +324,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                             foregroundColor: Colors.white,
                           ),
                           child: Text(
-                            'Apply',
+                            AppLocalizations.of(context)!.commonApply,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,

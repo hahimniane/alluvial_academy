@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
@@ -136,11 +137,17 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     });
   }
 
-  String _getGreeting() {
+  String _getGreeting(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (l10n == null) {
+      if (hour < 12) return 'Good Morning';
+      if (hour < 17) return 'Good Afternoon';
+      return 'Good Evening';
+    }
+    if (hour < 12) return l10n.greetingMorning;
+    if (hour < 17) return l10n.greetingAfternoon;
+    return l10n.greetingEvening;
   }
 
   Future<void> _loadData() async {
@@ -461,7 +468,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           if (!fallbackLaunched && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Could not open $url'),
+                content: Text(AppLocalizations.of(context)!.couldNotOpenUrl),
                 backgroundColor: Colors.red,
               ),
             );
@@ -476,7 +483,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Could not open $url'),
+                content: Text(AppLocalizations.of(context)!.couldNotOpenUrl),
                 backgroundColor: Colors.red,
               ),
             );
@@ -512,7 +519,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildStatsRow(),
+                  child: _buildStatsRow(context),
                 ),
                 const SizedBox(height: 8),
                 Padding(
@@ -537,7 +544,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 // ORDER: Next Class → My Tasks → Quick Access
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildUpcomingSection(),
+                  child: _buildUpcomingSection(context),
                 ),
                 const SizedBox(height: 24),
                 if (_recentTasks.isNotEmpty) ...[
@@ -549,7 +556,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 ],
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildQuickAccessSection(),
+                  child: _buildQuickAccessSection(context),
                 ),
                 const SizedBox(height: 24),
                 // Islamic Resources Section
@@ -585,7 +592,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _getGreeting(),
+                  _getGreeting(context),
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -650,27 +657,28 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
         children: [
           _buildStatCard(
             icon: Icons.access_time_filled,
             value: '${_hoursThisWeek.toStringAsFixed(1)}h',
-            label: 'This Week',
+            label: l10n?.dashboardThisWeek ?? 'This Week',
             color: const Color(0xFF10B981),
           ),
           const SizedBox(width: 12),
           _buildStatCard(
             icon: Icons.school,
             value: '$_classesThisWeek',
-            label: 'Classes',
+            label: l10n?.dashboardClasses ?? 'Classes',
             color: const Color(0xFF8B5CF6),
           ),
           const SizedBox(width: 12),
           _buildStatCard(
             icon: Icons.attach_money,
             value: '\$${_earningsThisWeek.toStringAsFixed(2)}',
-            label: 'Approved',
+            label: l10n?.dashboardApproved ?? 'Approved',
             color: const Color(0xFF10B981),
           ),
         ],
@@ -726,7 +734,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   const Icon(Icons.pending, size: 12, color: Color(0xFF78350F)),
                   const SizedBox(width: 4),
                   Text(
-                    '$_pendingApprovals',
+                    AppLocalizations.of(context)!.pendingapprovals,
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -868,7 +876,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Complete your forms from recent shifts',
+                    AppLocalizations.of(context)!.readinessFormComplete,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: Colors.white.withOpacity(0.9),
@@ -938,7 +946,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pending Readiness Forms',
+                          AppLocalizations.of(context)!.readinessFormPending,
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -946,7 +954,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                           ),
                         ),
                         Text(
-                          'Select a shift to fill out its form',
+                          AppLocalizations.of(context)!.readinessFormSelectShift,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: const Color(0xFF64748B),
@@ -979,7 +987,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'All forms completed!',
+                              AppLocalizations.of(context)!.readinessFormAllComplete,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1092,7 +1100,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                'Missed',
+                                                AppLocalizations.of(context)!.shiftMissed,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.w600,
@@ -1206,7 +1214,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     if (shiftId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Error: Missing shift information'),
+          content: Text(AppLocalizations.of(context)!.errorMissingShiftInformation),
           backgroundColor: Colors.red,
         ),
       );
@@ -1273,7 +1281,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Error: Could not load form template. Please try again.'),
+              content: Text(AppLocalizations.of(context)!.errorCouldNotLoadFormTemplate),
               backgroundColor: Colors.red,
             ),
           );
@@ -1302,7 +1310,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading form: $e'),
+            content: Text(AppLocalizations.of(context)!.errorLoadingFormE),
             backgroundColor: Colors.red,
           ),
         );
@@ -1342,7 +1350,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Active Session',
+                  AppLocalizations.of(context)!.dashboardActiveSession,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1357,7 +1365,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'IN PROGRESS',
+                  AppLocalizations.of(context)!.dashboardInProgress,
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1399,7 +1407,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 elevation: 0,
               ),
               child: Text(
-                'View Session',
+                AppLocalizations.of(context)!.dashboardViewSession,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
             ),
@@ -1428,7 +1436,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'My Tasks',
+                  AppLocalizations.of(context)!.dashboardMyTasks,
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -1445,7 +1453,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 );
               },
               child: Text(
-                'See All',
+                AppLocalizations.of(context)!.dashboardSeeAll,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1554,7 +1562,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     );
   }
 
-  Widget _buildUpcomingSection() {
+  Widget _buildUpcomingSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1562,7 +1571,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Next Class',
+              l10n?.dashboardNextClass ?? 'Next Class',
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -1577,7 +1586,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 );
               },
               child: Text(
-                'See All',
+                l10n?.dashboardSeeAll ?? 'See All',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1591,7 +1600,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _upcomingShifts.isEmpty
-                ? _buildEmptyUpcoming()
+                ? _buildEmptyUpcoming(context)
                 : _buildUpcomingCard(_upcomingShifts.first),
       ],
     );
@@ -1798,7 +1807,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               child: OutlinedButton.icon(
                 onPressed: _cancelProgrammedClockIn,
                 icon: const Icon(Icons.close, size: 16),
-                label: Text('Cancel Programming', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                label: Text(AppLocalizations.of(context)!.clockInCancelProgramming, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF64748B),
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1819,7 +1828,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         child: ElevatedButton.icon(
           onPressed: () => _handleClockIn(shift),
           icon: const Icon(Icons.login, size: 18),
-          label: Text('Clock In Now', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          label: Text(AppLocalizations.of(context)!.clockInNow, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF10B981),
             foregroundColor: Colors.white,
@@ -1839,7 +1848,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         child: ElevatedButton.icon(
           onPressed: () => _startProgrammedClockIn(shift),
           icon: const Icon(Icons.schedule, size: 18),
-          label: Text('Program Clock-In', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          label: Text(AppLocalizations.of(context)!.clockInProgram, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF3B82F6),
             foregroundColor: Colors.white,
@@ -1911,7 +1920,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Too early to clock in. Please wait for the programming window (1 minute before shift).'),
+          content: Text(AppLocalizations.of(context)!.clockInTooEarly),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2040,7 +2049,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Programming cancelled'),
+          content: Text(AppLocalizations.of(context)!.clockInCancelled),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
         ),
@@ -2054,7 +2063,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Not authenticated'), backgroundColor: Colors.red),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated), backgroundColor: Colors.red),
         );
         return;
       }
@@ -2082,7 +2091,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to get location. Please enable location services.'),
+            content: Text(AppLocalizations.of(context)!.clockInLocationError),
             backgroundColor: Colors.red,
           ),
         );
@@ -2139,7 +2148,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       debugPrint('❌ Home: Error clocking in: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
       );
       
       // Clear programmed state on error
@@ -2152,7 +2161,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
   }
 
-  Widget _buildEmptyUpcoming() {
+  Widget _buildEmptyUpcoming(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
@@ -2172,7 +2182,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No Upcoming Classes',
+            l10n?.dashboardNoUpcomingClasses ?? 'No Upcoming Classes',
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -2181,7 +2191,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Enjoy your free time!',
+            l10n?.dashboardEnjoyFreeTime ?? 'Enjoy your free time!',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xFF94A3B8),
@@ -2192,12 +2202,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     );
   }
 
-  Widget _buildQuickAccessSection() {
+  Widget _buildQuickAccessSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Quick Access',
+          l10n?.dashboardQuickAccess ?? 'Quick Access',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -2211,7 +2222,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             children: [
               _buildCompactQuickAccessCard(
                 icon: Icons.article_outlined,
-                label: 'Forms',
+                label: l10n?.navForms ?? 'Forms',
                 color: const Color(0xFFEC4899),
                 onTap: () {
                   Navigator.push(
@@ -2225,7 +2236,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               const SizedBox(width: 12),
               _buildCompactQuickAccessCard(
                 icon: Icons.assignment_outlined,
-                label: 'Assignments',
+                label: l10n?.dashboardAssignments ?? 'Assignments',
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
                   Navigator.push(
@@ -2239,7 +2250,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               const SizedBox(width: 12),
               _buildCompactQuickAccessCard(
                 icon: Icons.description_outlined,
-                label: 'My Forms',
+                label: l10n?.dashboardMyForms ?? 'My Forms',
                 color: const Color(0xFF10B981),
                 onTap: () {
                   Navigator.push(
@@ -2344,7 +2355,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Islamic Resources',
+                AppLocalizations.of(context)!.dashboardIslamicResources,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,

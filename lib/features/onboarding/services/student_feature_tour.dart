@@ -5,6 +5,7 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import '../../../core/services/onboarding_service.dart';
 import '../../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Manages the student feature tour using coach marks
 class StudentFeatureTour {
@@ -113,7 +114,7 @@ class StudentFeatureTour {
                 return _buildTooltipContent(
                   icon: Icons.school_rounded,
                   iconColor: const Color(0xFF0E72ED),
-                  title: 'Your Classes',
+                  title: AppLocalizations.of(context)!.yourClasses,
                   description:
                       'This is your main screen! Here you\'ll see all your upcoming classes and can join them when it\'s time.',
                   stepNumber: currentStep,
@@ -147,7 +148,7 @@ class StudentFeatureTour {
                 return _buildTooltipContent(
                   icon: Icons.videocam_rounded,
                   iconColor: const Color(0xFF10B981),
-                  title: 'Class Cards',
+                  title: AppLocalizations.of(context)!.classCards,
                   description:
                       'Each card shows your class details. When the "Join" button appears, tap it to enter your live class!',
                   stepNumber: currentStep,
@@ -218,7 +219,7 @@ class StudentFeatureTour {
                 return _buildTooltipContent(
                   icon: Icons.chat_bubble_rounded,
                   iconColor: const Color(0xFF8B5CF6),
-                  title: 'Messages',
+                  title: AppLocalizations.of(context)!.chatMessages,
                   description:
                       'Stay connected with your teachers and classmates. Send messages and get help when you need it.',
                   stepNumber: currentStep,
@@ -252,7 +253,7 @@ class StudentFeatureTour {
                 return _buildTooltipContent(
                   icon: Icons.task_alt_rounded,
                   iconColor: const Color(0xFF10B981),
-                  title: 'Tasks',
+                  title: AppLocalizations.of(context)!.navTasks,
                   description:
                       'Keep track of your homework and assignments here. Stay organized and never miss a deadline!',
                   stepNumber: currentStep,
@@ -285,7 +286,7 @@ class StudentFeatureTour {
                 return _buildTooltipContent(
                   icon: Icons.person_rounded,
                   iconColor: const Color(0xFFF59E0B),
-                  title: 'Your Profile & Settings',
+                  title: AppLocalizations.of(context)!.yourProfileSettings,
                   description:
                       'Tap here to view your profile, change settings, get help, or sign out. You can also restart this tour anytime from here!',
                   stepNumber: currentStep,
@@ -360,7 +361,7 @@ class StudentFeatureTour {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '$stepNumber of $totalSteps',
+                  AppLocalizations.of(context)!.stepnumberOfTotalsteps,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -375,7 +376,7 @@ class StudentFeatureTour {
           
           // Title
           Text(
-            'Understanding Class Colors',
+            AppLocalizations.of(context)!.understandingClassColors,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -386,7 +387,7 @@ class StudentFeatureTour {
           const SizedBox(height: 8),
           
           Text(
-            'Each class card has a color that tells you its status:',
+            AppLocalizations.of(context)!.eachClassCardHasAColor,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xFF6B7280),
@@ -446,7 +447,7 @@ class StudentFeatureTour {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Got it!',
+                    AppLocalizations.of(context)!.gotIt,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -557,7 +558,7 @@ class StudentFeatureTour {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '$stepNumber of $totalSteps',
+                  AppLocalizations.of(context)!.stepnumberOfTotalsteps,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

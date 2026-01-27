@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class MathPage extends StatefulWidget {
   const MathPage({super.key});
@@ -60,7 +61,7 @@ class _MathPageState extends State<MathPage> {
                 border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
               ),
               child: Text(
-                '∑ Mathematics Program',
+                AppLocalizations.of(context)!.mathematicsProgram,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -73,7 +74,7 @@ class _MathPageState extends State<MathPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Master Mathematics with\nConfidence & Clarity',
+              AppLocalizations.of(context)!.masterMathematicsWithNconfidenceClarity,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +91,7 @@ class _MathPageState extends State<MathPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'From basic arithmetic to advanced calculus, our comprehensive math program helps students build a strong foundation and excel in their studies.',
+                AppLocalizations.of(context)!.fromBasicArithmeticToAdvancedCalculus,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -141,7 +142,7 @@ class _MathPageState extends State<MathPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Why Choose Our Math Program?',
+          AppLocalizations.of(context)!.whyChooseOurMathProgram,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -150,7 +151,7 @@ class _MathPageState extends State<MathPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Mathematics is more than just numbers; it\'s a way of thinking. Our expert tutors use engaging methods to make complex concepts easy to understand, fostering a love for problem-solving.',
+          AppLocalizations.of(context)!.mathematicsIsMoreThanJustNumbers,
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -275,7 +276,7 @@ class _MathPageState extends State<MathPage> {
       child: Column(
         children: [
           Text(
-            'Topics We Cover',
+            AppLocalizations.of(context)!.topicsWeCover,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -397,7 +398,7 @@ class _MathPageState extends State<MathPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Enroll Now'),
+                child: Text(AppLocalizations.of(context)!.enrollNow),
               ),
             ),
           ],
@@ -418,7 +419,7 @@ class _MathPageState extends State<MathPage> {
       child: Column(
         children: [
           Text(
-            'Unlock Your Math Potential Today',
+            AppLocalizations.of(context)!.unlockYourMathPotentialToday,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -429,7 +430,7 @@ class _MathPageState extends State<MathPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Join thousands of students excelling in mathematics',
+            AppLocalizations.of(context)!.joinThousandsOfStudentsExcellingIn,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -454,7 +455,7 @@ class _MathPageState extends State<MathPage> {
               ),
             ),
             child: Text(
-              'Start Learning',
+              AppLocalizations.of(context)!.startLearning,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

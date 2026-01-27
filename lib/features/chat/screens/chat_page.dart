@@ -9,6 +9,7 @@ import '../screens/chat_screen.dart';
 import '../screens/group_creation_screen.dart';
 import '../../../core/services/user_role_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../l10n/app_localizations.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -188,28 +189,33 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
           const SizedBox(width: 20),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Messages',
-                  style: GoogleFonts.inter(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff111827),
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Connect and collaborate with your team',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: const Color(0xff6B7280),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+            child: Builder(
+              builder: (context) {
+                final l10n = AppLocalizations.of(context);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n?.chatMessages ?? 'Messages',
+                      style: GoogleFonts.inter(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xff111827),
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n?.chatConnectTeam ?? 'Connect and collaborate with your team',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        color: const Color(0xff6B7280),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -250,14 +256,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
-        tabs: const [
+        tabs: [
           Tab(
             height: 44,
-            text: 'Recent Chats',
+            text: AppLocalizations.of(context)?.chatRecentChats ?? 'Recent Chats',
           ),
           Tab(
             height: 44,
-            text: 'My Contacts',
+            text: AppLocalizations.of(context)?.chatMyContacts ?? 'My Contacts',
           ),
         ],
       ),
@@ -265,6 +271,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildModernSearchBar() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: TextField(
@@ -274,7 +281,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           color: const Color(0xff111827),
         ),
         decoration: InputDecoration(
-          hintText: 'Search conversations and users...',
+          hintText: l10n?.chatSearchConversations ?? 'Search conversations and users...',
           hintStyle: GoogleFonts.inter(
             color: const Color(0xff9CA3AF),
             fontSize: 16,
@@ -372,11 +379,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 .toList();
 
         if (filteredChats.isEmpty) {
+          final l10n = AppLocalizations.of(context);
           return _buildEmptyState(
-            _searchQuery.isEmpty ? 'No conversations yet' : 'No chats found',
+            _searchQuery.isEmpty 
+                ? (l10n?.chatNoConversations ?? 'No conversations yet') 
+                : (l10n?.chatNoChatsFound ?? 'No chats found'),
             _searchQuery.isEmpty
-                ? 'Start a conversation by browsing all users'
-                : 'Try a different search term',
+                ? (l10n?.chatStartConversation ?? 'Start a conversation by browsing all users')
+                : (l10n?.chatTryDifferentSearch ?? 'Try a different search term'),
             Icons.chat_bubble_outline,
           );
         }
@@ -560,7 +570,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           Text(
-            'Loading messages...',
+            AppLocalizations.of(context)!.loadingMessages,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -657,7 +667,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 32),
             Text(
-              'Something went wrong',
+              AppLocalizations.of(context)!.somethingWentWrong,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -718,7 +728,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ),
         icon: const Icon(Icons.group_add, size: 22),
         label: Text(
-          'Create Group',
+          AppLocalizations.of(context)?.chatCreateGroup ?? 'Create Group',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
             fontSize: 15,

@@ -6,6 +6,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../widgets/shift_details_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AvailableShiftsScreen extends StatefulWidget {
   const AvailableShiftsScreen({super.key});
@@ -80,7 +81,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
             const Icon(Icons.add_task, color: Color(0xff10B981)),
             const SizedBox(width: 12),
             Text(
-              'Claim Shift',
+              AppLocalizations.of(context)!.claimShift,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -93,7 +94,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to claim this shift?',
+              AppLocalizations.of(context)!.areYouSureYouWantTo8,
               style: GoogleFonts.inter(fontSize: 16),
             ),
             const SizedBox(height: 16),
@@ -136,7 +137,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(
                 color: const Color(0xff6B7280),
                 fontWeight: FontWeight.w500,
@@ -153,7 +154,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
               ),
             ),
             child: Text(
-              'Claim Shift',
+              AppLocalizations.of(context)!.claimShift,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ),
@@ -189,7 +190,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '✅ Shift claimed successfully! Check "My Shifts" to see it.',
+                AppLocalizations.of(context)!.shiftClaimedSuccessfullyCheckMyShifts,
                 style: GoogleFonts.inter(),
               ),
               backgroundColor: const Color(0xff10B981),
@@ -205,7 +206,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '❌ Failed to claim shift. Please try again.',
+                AppLocalizations.of(context)!.failedToClaimShiftPleaseTry,
                 style: GoogleFonts.inter(),
               ),
               backgroundColor: const Color(0xffEF4444),
@@ -222,7 +223,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text(
-          'Available Shifts',
+          AppLocalizations.of(context)!.availableShifts,
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w700,
             color: const Color(0xff111827),
@@ -235,7 +236,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadAvailableShifts,
-            tooltip: 'Refresh',
+            tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
         ],
       ),
@@ -276,7 +277,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Available Shifts',
+              AppLocalizations.of(context)!.noAvailableShifts,
               style: GoogleFonts.inter(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -285,7 +286,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'There are currently no published shifts available from other teachers.',
+              AppLocalizations.of(context)!.thereAreCurrentlyNoPublishedShifts,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,
@@ -297,7 +298,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
               onPressed: _loadAvailableShifts,
               icon: const Icon(Icons.refresh),
               label: Text(
-                'Refresh',
+                AppLocalizations.of(context)!.commonRefresh,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
@@ -381,7 +382,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'AVAILABLE',
+                          AppLocalizations.of(context)!.available,
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -530,7 +531,7 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
                         ),
                       ),
                       child: Text(
-                        'View Details',
+                        AppLocalizations.of(context)!.shiftViewDetails,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

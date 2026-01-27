@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'employee_model.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AdminEmployeeDataSource extends DataGridSource {
   AdminEmployeeDataSource({
@@ -75,14 +76,14 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.edit,
                     color: Colors.blue,
                     onTap: () => onEditUser(employee),
-                    tooltip: 'Edit User',
+                    tooltip: AppLocalizations.of(context)!.userEditUser,
                   ),
                 if (employee.isAdminTeacher)
                   _buildActionButton(
                     icon: Icons.remove_moderator,
                     color: Colors.red,
                     onTap: () => onRevokeAdmin(employee),
-                    tooltip: 'Revoke Admin Privileges',
+                    tooltip: AppLocalizations.of(context)!.revokeAdminPrivileges,
                   ),
                 // Archive/Restore buttons
                 if (employee.isActive)
@@ -90,21 +91,21 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.archive,
                     color: Colors.orange,
                     onTap: () => onDeactivateUser(employee),
-                    tooltip: 'Archive User',
+                    tooltip: AppLocalizations.of(context)!.archiveUser,
                   ),
                 if (!employee.isActive)
                   _buildActionButton(
                     icon: Icons.restore,
                     color: Colors.green,
                     onTap: () => onActivateUser(employee),
-                    tooltip: 'Restore User',
+                    tooltip: AppLocalizations.of(context)!.restoreUser,
                   ),
                 if (employee.isActive)
                   _buildActionButton(
                     icon: Icons.delete_outline,
                     color: Colors.red,
                     onTap: () => onDeleteUser(employee),
-                    tooltip: 'Archive & Permanently Delete',
+                    tooltip: AppLocalizations.of(context)!.archivePermanentlyDelete,
                     isDestructive: true,
                   ),
                 if (!employee.isActive)
@@ -112,7 +113,7 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.delete_forever,
                     color: Colors.red,
                     onTap: () => onDeleteUser(employee),
-                    tooltip: 'Permanently Delete User',
+                    tooltip: AppLocalizations.of(context)!.permanentlyDeleteUser,
                     isDestructive: true,
                   ),
                 if (!employee.isAdminTeacher)
@@ -120,7 +121,7 @@ class AdminEmployeeDataSource extends DataGridSource {
                     icon: Icons.admin_panel_settings,
                     color: Colors.grey,
                     onTap: () {}, // No action available for full admins
-                    tooltip: 'Full Admin',
+                    tooltip: AppLocalizations.of(context)!.fullAdmin,
                   ),
               ],
             ),

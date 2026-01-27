@@ -42,6 +42,7 @@ import 'role_based_dashboard.dart';
 import 'features/dashboard/widgets/custom_sidebar.dart';
 
 import 'core/constants/dashboard_constants.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -171,7 +172,7 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Sign Out',
+                AppLocalizations.of(context)!.settingsSignOut,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -181,7 +182,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
           content: Text(
-            'Are you sure you want to sign out? You\'ll need to log in again to access your account.',
+            AppLocalizations.of(context)!.areYouSureYouWantTo,
             style: GoogleFonts.inter(
               fontSize: 16,
               color: const Color(0xff6B7280),
@@ -194,7 +195,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 foregroundColor: const Color(0xff6B7280),
               ),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -214,7 +215,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
               child: Text(
-                'Sign Out',
+                AppLocalizations.of(context)!.settingsSignOut,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -299,7 +300,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Change Password',
+                    AppLocalizations.of(context)!.changePassword,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -317,7 +318,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Please enter your current password and choose a new one.',
+                        AppLocalizations.of(context)!.pleaseEnterYourCurrentPasswordAnd,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff6B7280),
@@ -327,7 +328,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                       // Current Password
                       Text(
-                        'Current Password',
+                        AppLocalizations.of(context)!.currentPassword,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -345,7 +346,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: 'Enter current password',
+                          hintText: AppLocalizations.of(context)!.enterCurrentPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureCurrentPassword
@@ -384,7 +385,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                       // New Password
                       Text(
-                        'New Password',
+                        AppLocalizations.of(context)!.newPassword,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -405,7 +406,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: 'Enter new password',
+                          hintText: AppLocalizations.of(context)!.enterNewPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureNewPassword
@@ -443,7 +444,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                       // Confirm Password
                       Text(
-                        'Confirm New Password',
+                        AppLocalizations.of(context)!.confirmNewPassword,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -464,7 +465,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: 'Confirm new password',
+                          hintText: AppLocalizations.of(context)!.confirmNewPassword2,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscureConfirmPassword
@@ -515,7 +516,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Password Requirements:',
+                              AppLocalizations.of(context)!.passwordRequirements,
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -524,7 +525,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '• At least 6 characters long\n• Use a strong, unique password\n• Consider using a mix of letters, numbers, and symbols',
+                              AppLocalizations.of(context)!.atLeast6CharactersLongN,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 color: const Color(0xff374151),
@@ -551,7 +552,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     foregroundColor: const Color(0xff6B7280),
                   ),
                   child: Text(
-                    'Cancel',
+                    AppLocalizations.of(context)!.commonCancel,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -588,7 +589,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                             color: Colors.white),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'Password changed successfully!',
+                                          AppLocalizations.of(context)!.passwordChangedSuccessfully,
                                           style: GoogleFonts.inter(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,
@@ -631,7 +632,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                         )
                       : Text(
-                          'Change Password',
+                          AppLocalizations.of(context)!.changePassword,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -754,7 +755,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Delete Account',
+                    AppLocalizations.of(context)!.deleteAccount,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -772,7 +773,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+                        AppLocalizations.of(context)!.areYouSureYouWantTo2,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff6B7280),
@@ -780,7 +781,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Confirm Password',
+                        AppLocalizations.of(context)!.confirmPassword,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -798,7 +799,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: 'Enter your password',
+                          hintText: AppLocalizations.of(context)!.loginEnterPassword,
                           suffixIcon: IconButton(
                             icon: Icon(
                               obscurePassword
@@ -848,7 +849,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     foregroundColor: const Color(0xff6B7280),
                   ),
                   child: Text(
-                    'Cancel',
+                    AppLocalizations.of(context)!.commonCancel,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -893,7 +894,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                         )
                       : Text(
-                          'Delete Account',
+                          AppLocalizations.of(context)!.deleteAccount,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1106,7 +1107,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const Icon(Icons.lock, color: Color(0xff0386FF)),
                 const SizedBox(width: 8),
                 Text(
-                  'Change Password',
+                  AppLocalizations.of(context)!.changePassword,
                   style: openSansHebrewTextStyle.copyWith(
                     color: const Color(0xff374151),
                   ),
@@ -1121,7 +1122,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const Icon(Icons.delete_forever, color: Colors.red),
                 const SizedBox(width: 8),
                 Text(
-                  'Delete Account',
+                  AppLocalizations.of(context)!.deleteAccount,
                   style: openSansHebrewTextStyle.copyWith(
                     color: Colors.red,
                   ),
@@ -1137,7 +1138,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const Icon(Icons.logout, color: Colors.red),
                 const SizedBox(width: 8),
                 Text(
-                  'Sign Out',
+                  AppLocalizations.of(context)!.settingsSignOut,
                   style: openSansHebrewTextStyle.copyWith(color: Colors.red),
                 ),
               ],
@@ -1258,7 +1259,7 @@ class _DashboardPageState extends State<DashboardPage> {
         minHeight: 12,
       ),
       child: Text(
-        '1',
+        AppLocalizations.of(context)!.1,
         style:
             openSansHebrewTextStyle.copyWith(fontSize: 10, color: Colors.white),
         textAlign: TextAlign.center,

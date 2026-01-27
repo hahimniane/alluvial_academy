@@ -15,6 +15,7 @@ import '../../../core/models/enhanced_recurrence.dart';
 import '../../../core/enums/shift_enums.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TaskDetailsView extends StatefulWidget {
   final Task task;
@@ -241,7 +242,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                       const Icon(Icons.repeat, size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
-                        'Recurring',
+                        AppLocalizations.of(context)!.recurring,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -397,7 +398,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Upcoming Occurrences',
+                      AppLocalizations.of(context)!.upcomingOccurrences,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -503,7 +504,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Description',
+          AppLocalizations.of(context)!.description,
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -543,7 +544,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         Row(
           children: [
             Text(
-              'Attachments',
+              AppLocalizations.of(context)!.attachments,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -621,7 +622,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No attachments yet',
+                  AppLocalizations.of(context)!.noAttachmentsYet,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff94A3B8),
@@ -630,7 +631,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Add files to share resources or completed work',
+                  AppLocalizations.of(context)!.addFilesToShareResourcesOr,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff94A3B8),
@@ -718,7 +719,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
               IconButton(
                 onPressed: () => _downloadFile(attachment),
                 icon: const Icon(Icons.download),
-                tooltip: 'Download',
+                tooltip: AppLocalizations.of(context)!.download,
                 iconSize: 20,
                 color: const Color(0xff0386FF),
               ),
@@ -726,7 +727,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 IconButton(
                   onPressed: () => _removeAttachment(attachment),
                   icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Remove',
+                  tooltip: AppLocalizations.of(context)!.remove,
                   iconSize: 20,
                   color: Colors.red.shade400,
                 ),
@@ -742,7 +743,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Update Status',
+          AppLocalizations.of(context)!.updateStatus,
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -810,7 +811,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Progress Notes',
+          AppLocalizations.of(context)!.progressNotes,
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -872,7 +873,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 ),
               ),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1064,7 +1065,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 8),
                 Text(
-                  'Failed to update task. Please try again.',
+                  AppLocalizations.of(context)!.failedToUpdateTaskPleaseTry,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -1105,7 +1106,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'No files selected',
+                AppLocalizations.of(context)!.noFilesSelected,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w500),
               ),
               backgroundColor: Colors.orange,
@@ -1178,7 +1179,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Text(
-                  '$successfulUploads file(s) uploaded successfully!',
+                  AppLocalizations.of(context)!.successfuluploadsFileSUploadedSuccessfully,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -1237,18 +1238,18 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Attachment'),
+        title: Text(AppLocalizations.of(context)!.removeAttachment),
         content: Text(
             'Are you sure you want to remove "${attachment.originalName}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(AppLocalizations.of(context)!.remove),
           ),
         ],
       ),
@@ -1286,7 +1287,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                   const Icon(Icons.check_circle, color: Colors.white),
                   const SizedBox(width: 8),
                   Text(
-                    'Attachment removed successfully!',
+                    AppLocalizations.of(context)!.attachmentRemovedSuccessfully,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       color: Colors.white,

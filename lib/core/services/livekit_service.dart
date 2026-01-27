@@ -19,6 +19,7 @@ import 'livekit_session_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/environment_utils.dart';
 import '../utils/picture_in_picture.dart'
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
     if (dart.library.io) '../utils/picture_in_picture_stub.dart' as pip;
 
 /// LiveKit join token response from Cloud Functions
@@ -253,15 +254,15 @@ class LiveKitService {
             children: [
               Icon(Icons.videocam_off, color: Colors.orange, size: 28),
               SizedBox(width: 12),
-              Expanded(child: Text('Permissions Required')),
+              Expanded(child: Text(AppLocalizations.of(context)!.permissionsRequired)),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Camera and microphone access are needed to join video classes.',
+              Text(
+                AppLocalizations.of(context)!.cameraAndMicrophoneAccessAreNeeded,
                 style: TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 16),
@@ -277,7 +278,7 @@ class LiveKitService {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Please enable permissions in Settings to continue.',
+                        AppLocalizations.of(context)!.pleaseEnablePermissionsInSettingsTo,
                         style: TextStyle(fontSize: 13, color: Colors.black87),
                       ),
                     ),
@@ -289,7 +290,7 @@ class LiveKitService {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton.icon(
               onPressed: () async {
@@ -297,7 +298,7 @@ class LiveKitService {
                 if (ctx.mounted) Navigator.pop(ctx, false);
               },
               icon: const Icon(Icons.settings, size: 18),
-              label: const Text('Open Settings'),
+              label: Text(AppLocalizations.of(context)!.openSettings),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0E72ED),
                 foregroundColor: Colors.white,
@@ -322,17 +323,17 @@ class LiveKitService {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
               SizedBox(width: 12),
-              Expanded(child: Text('Permissions Denied')),
+              Expanded(child: Text(AppLocalizations.of(context)!.permissionsDenied)),
             ],
           ),
-          content: const Text(
-            'Camera and microphone permissions are required to join video classes. '
+          content: Text(
+            AppLocalizations.of(context)!.cameraAndMicrophonePermissionsAreRequired
             'Please grant these permissions when prompted.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
+              child: Text(AppLocalizations.of(context)!.commonOk),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -344,7 +345,7 @@ class LiveKitService {
                 backgroundColor: const Color(0xFF0E72ED),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Try Again'),
+              child: Text(AppLocalizations.of(context)!.errorTryAgain),
             ),
           ],
         ),
@@ -753,7 +754,7 @@ class LiveKitService {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(width: 20),
-                Expanded(child: Text('Connecting to class...')),
+                Expanded(child: Text(AppLocalizations.of(context)!.connectingToClass)),
               ],
             ),
           ),
@@ -1032,7 +1033,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'Teacher Not Here?',
+                  AppLocalizations.of(context)!.teacherNotHere,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -1042,8 +1043,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Your teacher hasn\'t joined the class yet. Would you like to report this to the administrators?',
+              Text(
+                AppLocalizations.of(context)!.yourTeacherHasnTJoinedThe,
                 style: TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 16),
@@ -1058,7 +1059,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                     Icon(Icons.timer_outlined, size: 20, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      'Auto-sending report in 30 seconds...',
+                      AppLocalizations.of(context)!.autoSendingReportIn30Seconds,
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
@@ -1073,7 +1074,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 setState(() => _noShowDialogShown = false);
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Teacher Arrived'),
+              child: Text(AppLocalizations.of(context)!.teacherArrived),
             ),
             ElevatedButton(
               onPressed: () {
@@ -1085,7 +1086,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 backgroundColor: Colors.orange.shade600,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Report Now'),
+              child: Text(AppLocalizations.of(context)!.reportNow),
             ),
           ],
         ),
@@ -1126,7 +1127,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'No Students Yet?',
+                  AppLocalizations.of(context)!.noStudentsYet,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -1136,8 +1137,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'No students have joined the class yet. Would you like to report this to the administrators?',
+              Text(
+                AppLocalizations.of(context)!.noStudentsHaveJoinedTheClass,
                 style: TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 16),
@@ -1152,7 +1153,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                     Icon(Icons.timer_outlined, size: 20, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      'Auto-sending report in 30 seconds...',
+                      AppLocalizations.of(context)!.autoSendingReportIn30Seconds,
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ],
@@ -1167,7 +1168,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 setState(() => _studentNoShowDialogShown = false);
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Student Joined'),
+              child: Text(AppLocalizations.of(context)!.studentJoined),
             ),
             ElevatedButton(
               onPressed: () {
@@ -1179,7 +1180,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 backgroundColor: Colors.orange.shade600,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Report Now'),
+              child: Text(AppLocalizations.of(context)!.reportNow),
             ),
           ],
         ),
@@ -1226,7 +1227,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to send report. Please try again.'),
+            content: Text(AppLocalizations.of(context)!.failedToSendReportPleaseTry),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1967,7 +1968,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     if (!widget.isTeacher) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Only teachers can share their screen'),
+          content: Text(AppLocalizations.of(context)!.onlyTeachersCanShareTheirScreen),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2034,12 +2035,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     final shouldLeave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Leave Class?'),
-        content: const Text('Are you sure you want to leave this class?'),
+        title: Text(AppLocalizations.of(context)!.leaveClass),
+        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo4),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -2047,7 +2048,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Leave'),
+            child: Text(AppLocalizations.of(context)!.leave),
           ),
         ],
       ),
@@ -2157,7 +2158,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 ),
                 actions: [
                   IconButton(
-                    tooltip: 'Participants',
+                    tooltip: AppLocalizations.of(context)!.participants,
                     onPressed: _room == null ? null : _showParticipantsDialog,
                     icon: Stack(
                       clipBehavior: Clip.none,
@@ -2176,7 +2177,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                 border: Border.all(color: Colors.white24),
                               ),
                               child: Text(
-                                '$participantCount',
+                                AppLocalizations.of(context)!.participantcount,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -2203,13 +2204,13 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                     ),
                   if (activeScreenShare != null)
                     IconButton(
-                      tooltip: 'Fullscreen',
+                      tooltip: AppLocalizations.of(context)!.fullscreen,
                       onPressed: _enterScreenShareFullscreen,
                       icon: const Icon(Icons.fullscreen, color: Colors.white),
                     ),
                   if (widget.isTeacher)
                     IconButton(
-                      tooltip: 'Mute all',
+                      tooltip: AppLocalizations.of(context)!.muteAll,
                       onPressed: _room == null || !hasRemoteParticipants
                           ? null
                           : _confirmMuteAll,
@@ -2546,7 +2547,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                       const Icon(Icons.menu_book, color: Color(0xff0386FF)),
                       const SizedBox(width: 12),
                       Text(
-                        'Quran',
+                        AppLocalizations.of(context)!.quran,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: const Color(0xff111827),
@@ -2554,7 +2555,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                       ),
                       const Spacer(),
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: AppLocalizations.of(context)!.commonClose,
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
                       ),
@@ -2585,21 +2586,21 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Mute everyone?'),
+          title: Text(AppLocalizations.of(context)!.muteEveryone),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('This will mute all participants (except you).'),
+              Text(AppLocalizations.of(context)!.thisWillMuteAllParticipantsExcept),
               const SizedBox(height: 12),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: allowUnmute,
                 onChanged: (value) => setDialogState(
                     () => allowUnmute = value == null ? true : value),
-                title: const Text('Allow participants to unmute'),
-                subtitle: const Text(
-                  'Turn off to keep participants muted until you allow unmute again.',
+                title: Text(AppLocalizations.of(context)!.allowParticipantsToUnmute),
+                subtitle: Text(
+                  AppLocalizations.of(context)!.turnOffToKeepParticipantsMuted,
                 ),
               ),
             ],
@@ -2607,7 +2608,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, allowUnmute),
@@ -2615,7 +2616,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Mute all'),
+              child: Text(AppLocalizations.of(context)!.muteAll),
             ),
           ],
         ),
@@ -2702,7 +2703,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                   ),
                   if (widget.isTeacher)
                     IconButton(
-                      tooltip: 'Mute all',
+                      tooltip: AppLocalizations.of(context)!.muteAll,
                       onPressed: () async {
                         Navigator.pop(context);
                         await _confirmMuteAll();
@@ -2723,7 +2724,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               content: SizedBox(
                 width: 520,
                 child: participants.isEmpty
-                    ? const Text('No participants')
+                    ? Text(AppLocalizations.of(context)!.noParticipants)
                     : ListView.separated(
                         shrinkWrap: true,
                         itemCount: participants.length,
@@ -2778,7 +2779,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                     !_isModeratorMessage(participant)) ...[
                                   const SizedBox(width: 6),
                                   PopupMenuButton<String>(
-                                    tooltip: 'Actions',
+                                    tooltip: AppLocalizations.of(context)!.timesheetActions,
                                     onSelected: (value) async {
                                       if (value == 'mute') {
                                         try {
@@ -2800,15 +2801,15 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                         final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (context) => AlertDialog(
-                                            title: const Text('Unmute participant?'),
+                                            title: Text(AppLocalizations.of(context)!.unmuteParticipant),
                                             content: Text(
-                                              'Enable $displayName microphone?',
+                                              AppLocalizations.of(context)!.enableDisplaynameMicrophone,
                                             ),
                                             actions: [
                                               TextButton(
                                                 onPressed: () =>
                                                     Navigator.pop(context, false),
-                                                child: const Text('Cancel'),
+                                                child: Text(AppLocalizations.of(context)!.commonCancel),
                                               ),
                                               ElevatedButton(
                                                 onPressed: () =>
@@ -2818,7 +2819,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                                       const Color(0xff0386FF),
                                                   foregroundColor: Colors.white,
                                                 ),
-                                                child: const Text('Unmute'),
+                                                child: Text(AppLocalizations.of(context)!.unmute),
                                               ),
                                             ],
                                           ),
@@ -2857,16 +2858,16 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                         final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (context) => AlertDialog(
-                                            title: const Text(
-                                                'Remove participant?'),
+                                            title: Text(
+                                                AppLocalizations.of(context)!.removeParticipant),
                                             content: Text(
-                                              'Remove $displayName from the meeting?',
+                                              AppLocalizations.of(context)!.removeDisplaynameFromTheMeeting,
                                             ),
                                             actions: [
                                               TextButton(
                                                 onPressed: () => Navigator.pop(
                                                     context, false),
-                                                child: const Text('Cancel'),
+                                                child: Text(AppLocalizations.of(context)!.commonCancel),
                                               ),
                                               ElevatedButton(
                                                 onPressed: () => Navigator.pop(
@@ -2875,7 +2876,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                                   backgroundColor: Colors.red,
                                                   foregroundColor: Colors.white,
                                                 ),
-                                                child: const Text('Remove'),
+                                                child: Text(AppLocalizations.of(context)!.remove),
                                               ),
                                             ],
                                           ),
@@ -2913,19 +2914,19 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                       ),
                                       const PopupMenuItem(
                                         value: 'kick',
-                                        child: Text('Remove'),
+                                        child: Text(AppLocalizations.of(context)!.remove),
                                       ),
                                       if (canPiP)
                                         const PopupMenuItem(
                                           value: 'pip',
-                                          child: Text('Picture-in-picture'),
+                                          child: Text(AppLocalizations.of(context)!.pictureInPicture),
                                         ),
                                     ],
                                   ),
                                 ] else if (!isLocal && canPiP) ...[
                                   const SizedBox(width: 6),
                                   IconButton(
-                                    tooltip: 'Picture-in-picture',
+                                    tooltip: AppLocalizations.of(context)!.pictureInPicture,
                                     onPressed: () => _togglePictureInPicture(
                                       identity: participant.identity,
                                     ),
@@ -2942,7 +2943,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
+                  child: Text(AppLocalizations.of(context)!.commonClose),
                 ),
               ],
             );
@@ -3061,7 +3062,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             CircularProgressIndicator(color: Colors.white),
             SizedBox(height: 20),
             Text(
-              'Connecting to class...',
+              AppLocalizations.of(context)!.connectingToClass,
               style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
           ],
@@ -3088,7 +3089,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 _attemptReconnect(null);
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: Text(AppLocalizations.of(context)!.commonRetry),
             ),
           ],
         ),
@@ -3098,7 +3099,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     if (_room == null) {
       return const Center(
         child: Text(
-          'Not connected',
+          AppLocalizations.of(context)!.notConnected,
           style: TextStyle(color: Colors.white70),
         ),
       );
@@ -3180,7 +3181,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 child: screenShareTrack == null
                     ? const Center(
                         child: Text(
-                          'Starting screen share…',
+                          AppLocalizations.of(context)!.startingScreenShare,
                           style: TextStyle(color: Colors.white70, fontSize: 16),
                         ),
                       )
@@ -3380,7 +3381,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                     children: [
                       _FullscreenActionButton(
                         icon: Icons.arrow_back,
-                        tooltip: 'Leave',
+                        tooltip: AppLocalizations.of(context)!.leave,
                         onPressed: _leaveCall,
                       ),
                       Row(
@@ -3397,19 +3398,19 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                           const SizedBox(width: 8),
                           _FullscreenActionButton(
                             icon: Icons.menu_book,
-                            tooltip: 'Quran',
+                            tooltip: AppLocalizations.of(context)!.quran,
                             onPressed: _openQuranDialog,
                           ),
                           const SizedBox(width: 8),
                           _FullscreenActionButton(
                             icon: Icons.refresh,
-                            tooltip: 'Reset zoom',
+                            tooltip: AppLocalizations.of(context)!.resetZoom,
                             onPressed: _resetScreenShareTransform,
                           ),
                           const SizedBox(width: 8),
                           _FullscreenActionButton(
                             icon: Icons.fullscreen_exit,
-                            tooltip: 'Exit fullscreen',
+                            tooltip: AppLocalizations.of(context)!.exitFullscreen,
                             onPressed: _exitScreenShareFullscreen,
                           ),
                         ],
@@ -3457,7 +3458,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     if (participants.isEmpty) {
       return const Center(
         child: Text(
-          'Waiting for others to join...',
+          AppLocalizations.of(context)!.waitingForOthersToJoin,
           style: TextStyle(color: Colors.white70, fontSize: 16),
         ),
       );
@@ -3745,7 +3746,7 @@ class _ParticipantTile extends StatelessWidget {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            'Sharing',
+                            AppLocalizations.of(context)!.sharing,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -3938,7 +3939,7 @@ class _ParticipantsOverlayChip extends StatelessWidget {
               Icon(Icons.people, color: Colors.white, size: 16),
               SizedBox(width: 8),
               Text(
-                'Participants',
+                AppLocalizations.of(context)!.participants,
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -4015,7 +4016,7 @@ class _ParticipantsOverlayWindow extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       constraints:
                           const BoxConstraints(minWidth: 32, minHeight: 32),
-                      tooltip: 'Hide',
+                      tooltip: AppLocalizations.of(context)!.hide,
                     ),
                   ],
                 ),
@@ -4027,7 +4028,7 @@ class _ParticipantsOverlayWindow extends StatelessWidget {
                 child: participants.isEmpty
                     ? const Center(
                         child: Text(
-                          'No participants yet',
+                          AppLocalizations.of(context)!.noParticipantsYet,
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                           textAlign: TextAlign.center,
                         ),

@@ -2,6 +2,7 @@ import 'package:alluwalacademyadmin/widgets/export_widget.dart';
 import 'package:flutter/material.dart';
 import '../../features/user_management/screens/add_user_screen.dart';
 import '../../core/constants/app_constants.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class HeaderWidget extends StatelessWidget {
   final Function(String) onSearchChanged;
@@ -50,7 +51,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.people, color: Colors.grey, size: 20),
                         SizedBox(width: 8),
-                        Text('All Users',
+                        Text(AppLocalizations.of(context)!.allUsers,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -61,7 +62,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.school, color: Color(0xff0386FF), size: 20),
                         SizedBox(width: 8),
-                        Text('Teachers',
+                        Text(AppLocalizations.of(context)!.teachers2,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -72,7 +73,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.person, color: Color(0xff00d084), size: 20),
                         SizedBox(width: 8),
-                        Text('Students',
+                        Text(AppLocalizations.of(context)!.shiftStudents,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -84,7 +85,7 @@ class HeaderWidget extends StatelessWidget {
                         Icon(Icons.admin_panel_settings,
                             color: Color(0xffFF9A6C), size: 20),
                         SizedBox(width: 8),
-                        Text('Admins',
+                        Text(AppLocalizations.of(context)!.admins,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -96,7 +97,7 @@ class HeaderWidget extends StatelessWidget {
                         Icon(Icons.family_restroom,
                             color: Color(0xff9333EA), size: 20),
                         SizedBox(width: 8),
-                        Text('Parents',
+                        Text(AppLocalizations.of(context)!.parents,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -110,7 +111,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.check_circle, color: Colors.green, size: 20),
                         SizedBox(width: 8),
-                        Text('Active Users',
+                        Text(AppLocalizations.of(context)!.activeUsers,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -121,7 +122,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.archive, color: Colors.red, size: 20),
                         SizedBox(width: 8),
-                        Text('Archived Users',
+                        Text(AppLocalizations.of(context)!.archivedUsers,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -132,7 +133,7 @@ class HeaderWidget extends StatelessWidget {
                       children: [
                         Icon(Icons.login, color: Colors.orange, size: 20),
                         SizedBox(width: 8),
-                        Text('Never Logged In',
+                        Text(AppLocalizations.of(context)!.neverLoggedIn,
                             style: TextStyle(color: Color(0xff2D3748))),
                       ],
                     ),
@@ -151,7 +152,7 @@ class HeaderWidget extends StatelessWidget {
                     children: [
                       Icon(Icons.filter_list, color: Colors.blue, size: 18),
                       SizedBox(width: 8),
-                      Text('Filter', style: TextStyle(color: Colors.blue)),
+                      Text(AppLocalizations.of(context)!.filter, style: TextStyle(color: Colors.blue)),
                     ],
                   ),
                 ),
@@ -164,7 +165,7 @@ class HeaderWidget extends StatelessWidget {
               child: TextField(
                 maxLines: 1,
                 decoration: InputDecoration(
-                  hintText: 'Search',
+                  hintText: AppLocalizations.of(context)!.commonSearch,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -197,7 +198,7 @@ class HeaderWidget extends StatelessWidget {
                 children: [
                   Icon(Icons.login, color: Colors.white),
                   SizedBox(width: 5),
-                  Text('Users didn\'t log in yet',
+                  Text(AppLocalizations.of(context)!.usersDidnTLogInYet,
                       style: TextStyle(color: Colors.white)),
                 ],
               ),
@@ -216,7 +217,7 @@ class HeaderWidget extends StatelessWidget {
                   children: [
                     Icon(Icons.family_restroom, color: Colors.white),
                     SizedBox(width: 5),
-                    Text('Filter by Parent',
+                    Text(AppLocalizations.of(context)!.filterByParent,
                         style: TextStyle(color: Colors.white)),
                   ],
                 ),
@@ -227,7 +228,7 @@ class HeaderWidget extends StatelessWidget {
                 _showAddUsersBottomSheet(context);
               },
               icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Add users',
+              label: Text(AppLocalizations.of(context)!.addUsers,
                   style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,

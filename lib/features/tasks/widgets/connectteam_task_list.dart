@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/task.dart';
 import '../../../core/enums/task_enums.dart';
 import '../../../core/utils/connecteam_style.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// ConnectTeam-style task list grouped by assignee
 /// Displays tasks in a table format with status, labels, dates
@@ -52,7 +53,7 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
           _buildTableHeader(),
           Expanded(
             child: widget.tasks.isEmpty 
-                ? Center(child: Text('No tasks found', style: ConnecteamStyle.cellText))
+                ? Center(child: Text(AppLocalizations.of(context)!.noTasksFound, style: ConnecteamStyle.cellText))
                 : ListView.separated(
                     padding: const EdgeInsets.only(bottom: 80.0), // Space for FAB
                     itemCount: widget.tasks.length,
@@ -108,10 +109,10 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                   )
                 : const SizedBox(),
           ),
-          Expanded(flex: 4, child: Text("TASK NAME", style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 2, child: Text("STATUS", style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 2, child: Text("DUE DATE", style: ConnecteamStyle.tableHeader)),
-          Expanded(flex: 1, child: Text("PRIORITY", style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName2, style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.status, style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.dueDate2, style: ConnecteamStyle.tableHeader)),
+          Expanded(flex: 1, child: Text(AppLocalizations.of(context)!.priority2, style: ConnecteamStyle.tableHeader)),
         ],
       ),
     );
@@ -182,7 +183,7 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                         ),
                         if (task.isDraft)
                           Text(
-                            'Draft',
+                            AppLocalizations.of(context)!.timesheetDraft,
                             style: GoogleFonts.inter(
                               fontSize: 10,
                               color: Colors.orange,
@@ -196,7 +197,7 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                               Icon(Icons.repeat, size: 10, color: ConnecteamStyle.primaryBlue),
                               const SizedBox(width: 2),
                               Text(
-                                'Recurring',
+                                AppLocalizations.of(context)!.recurring,
                                 style: GoogleFonts.inter(
                                   fontSize: 10,
                                   color: ConnecteamStyle.primaryBlue,

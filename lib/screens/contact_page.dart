@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ContactPage extends StatefulWidget {
   const ContactPage({super.key});
@@ -44,7 +45,7 @@ class _ContactPageState extends State<ContactPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Message sent successfully! We will contact you soon.'),
+            content: Text(AppLocalizations.of(context)!.messageSentSuccessfullyWeWillContact),
             backgroundColor: Colors.green,
           ),
         );
@@ -56,7 +57,7 @@ class _ContactPageState extends State<ContactPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error sending message: $e'),
+            content: Text(AppLocalizations.of(context)!.errorSendingMessageE),
             backgroundColor: Colors.red,
           ),
         );
@@ -99,7 +100,7 @@ class _ContactPageState extends State<ContactPage> {
       child: Column(
         children: [
           Text(
-            'Get in Touch',
+            AppLocalizations.of(context)!.getInTouch,
             style: GoogleFonts.inter(
               fontSize: 48,
               fontWeight: FontWeight.w800,
@@ -108,7 +109,7 @@ class _ContactPageState extends State<ContactPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'We\'d love to hear from you. Send us a message and we\'ll respond as soon as possible.',
+            AppLocalizations.of(context)!.weDLoveToHearFrom,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 18,
@@ -171,7 +172,7 @@ class _ContactPageState extends State<ContactPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Send Message',
+              AppLocalizations.of(context)!.sendMessage,
               style: GoogleFonts.inter(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -218,7 +219,7 @@ class _ContactPageState extends State<ContactPage> {
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                        'Send Message',
+                        AppLocalizations.of(context)!.sendMessage,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -276,7 +277,7 @@ class _ContactPageState extends State<ContactPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Contact Information',
+          AppLocalizations.of(context)!.contactInformation,
           style: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -300,7 +301,7 @@ class _ContactPageState extends State<ContactPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'FAQs',
+                AppLocalizations.of(context)!.faqs,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -309,7 +310,7 @@ class _ContactPageState extends State<ContactPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Check our Frequently Asked Questions for quick answers to common queries about enrollment, classes, and more.',
+                AppLocalizations.of(context)!.checkOurFrequentlyAskedQuestionsFor,
                 style: GoogleFonts.inter(
                   color: const Color(0xff1E3A8A),
                   height: 1.5,

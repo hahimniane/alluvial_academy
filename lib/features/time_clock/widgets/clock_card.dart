@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ClockCard extends StatelessWidget {
   const ClockCard({super.key});
@@ -10,8 +11,8 @@ class ClockCard extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const Text(
-              '12:00:00 PM',
+            Text(
+              AppLocalizations.of(context)!.120000Pm,
               style: TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
@@ -25,7 +26,7 @@ class ClockCard extends StatelessWidget {
                   onPressed: () {
                     // Implement clock in
                   },
-                  child: const Text('Clock In'),
+                  child: Text(AppLocalizations.of(context)!.clockIn),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -34,7 +35,7 @@ class ClockCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                   ),
-                  child: const Text('Clock Out'),
+                  child: Text(AppLocalizations.of(context)!.clockOut),
                 ),
               ],
             ),

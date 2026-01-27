@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SendNotificationScreen extends StatefulWidget {
   const SendNotificationScreen({super.key});
@@ -85,7 +86,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       if (!mounted) return;
       setState(() => _isLoadingUsers = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading users: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingUsersE)),
       );
     }
   }
@@ -117,13 +118,13 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
     if (_recipientType == 'individual' || _recipientType == 'selected') {
       if (_selectedUserIds.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one recipient')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneRecipient)),
         );
         return;
       }
     } else if (_recipientType == 'role' && _selectedRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a role')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectARole)),
       );
       return;
     }
@@ -211,19 +212,19 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Notification Results'),
+              title: Text(AppLocalizations.of(context)!.notificationResults),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Total Recipients: ${results['totalRecipients']}'),
                   const SizedBox(height: 8),
-                  Text('Push Notifications:'),
+                  Text(AppLocalizations.of(context)!.pushNotifications),
                   Text('  ✓ Success: ${results['fcmSuccess']}'),
                   Text('  ✗ Failed: ${results['fcmFailed']}'),
                   if (_sendEmail) ...[
                     const SizedBox(height: 8),
-                    Text('Email Notifications:'),
+                    Text(AppLocalizations.of(context)!.emailNotifications),
                     Text('  ✓ Sent: ${results['emailsSent']}'),
                     Text('  ✗ Failed: ${results['emailsFailed']}'),
                   ],
@@ -232,7 +233,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
+                  child: Text(AppLocalizations.of(context)!.commonOk),
                 ),
               ],
             ),
@@ -251,7 +252,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error sending notification: $e'),
+            content: Text(AppLocalizations.of(context)!.errorSendingNotificationE),
             backgroundColor: Colors.red,
           ),
         );
@@ -269,7 +270,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Send Notification',
+          AppLocalizations.of(context)!.sendNotification,
           style: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -307,7 +308,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Compose Notification',
+                        AppLocalizations.of(context)!.composeNotification,
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
@@ -318,7 +319,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       
                       // Recipient Type Selection
                       Text(
-                        'Send to',
+                        AppLocalizations.of(context)!.sendTo,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -335,7 +336,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                           children: [
                             RadioListTile<String>(
                               title: Text(
-                                'Individual User',
+                                AppLocalizations.of(context)!.individualUser,
                                 style: GoogleFonts.inter(fontSize: 14),
                               ),
                               value: 'individual',
@@ -351,7 +352,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                             const Divider(height: 1),
                             RadioListTile<String>(
                               title: Text(
-                                'All Users in Role',
+                                AppLocalizations.of(context)!.allUsersInRole,
                                 style: GoogleFonts.inter(fontSize: 14),
                               ),
                               value: 'role',
@@ -366,7 +367,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                             const Divider(height: 1),
                             RadioListTile<String>(
                               title: Text(
-                                'Selected Users',
+                                AppLocalizations.of(context)!.selectedUsers,
                                 style: GoogleFonts.inter(fontSize: 14),
                               ),
                               value: 'selected',
@@ -386,7 +387,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       if (_recipientType == 'role') ...[
                         const SizedBox(height: 16),
                         Text(
-                          'Select Role',
+                          AppLocalizations.of(context)!.selectRole,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -397,7 +398,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                         DropdownButtonFormField<String>(
                           value: _selectedRole,
                           decoration: InputDecoration(
-                            hintText: 'Choose a role',
+                            hintText: AppLocalizations.of(context)!.chooseARole,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: const BorderSide(color: Color(0xffE5E7EB)),
@@ -408,10 +409,10 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                             ),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'teacher', child: Text('Teachers')),
-                            DropdownMenuItem(value: 'student', child: Text('Students')),
-                            DropdownMenuItem(value: 'parent', child: Text('Parents')),
-                            DropdownMenuItem(value: 'admin', child: Text('Admins')),
+                            DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers2)),
+                            DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.shiftStudents)),
+                            DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.parents)),
+                            DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.admins)),
                           ],
                           onChanged: (value) {
                             setState(() => _selectedRole = value);
@@ -429,7 +430,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       
                       // Notification Title
                       Text(
-                        'Notification Title',
+                        AppLocalizations.of(context)!.notificationTitle,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -440,7 +441,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       TextFormField(
                         controller: _titleController,
                         decoration: InputDecoration(
-                          hintText: 'Enter notification title',
+                          hintText: AppLocalizations.of(context)!.enterNotificationTitle,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(color: Color(0xffE5E7EB)),
@@ -462,7 +463,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       
                       // Notification Body
                       Text(
-                        'Notification Message',
+                        AppLocalizations.of(context)!.notificationMessage,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -474,7 +475,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                         controller: _bodyController,
                         maxLines: 6,
                         decoration: InputDecoration(
-                          hintText: 'Enter notification message',
+                          hintText: AppLocalizations.of(context)!.enterNotificationMessage,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(color: Color(0xffE5E7EB)),
@@ -497,11 +498,11 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       // Send Email Option
                       CheckboxListTile(
                         title: Text(
-                          'Also send as email notification',
+                          AppLocalizations.of(context)!.alsoSendAsEmailNotification,
                           style: GoogleFonts.inter(fontSize: 14),
                         ),
                         subtitle: Text(
-                          'Recipients will receive both push notification and email',
+                          AppLocalizations.of(context)!.recipientsWillReceiveBothPushNotification,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xff6B7280),
@@ -538,7 +539,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                                   ),
                                 )
                               : Text(
-                                  'Send Notification',
+                                  AppLocalizations.of(context)!.sendNotification,
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -587,7 +588,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       // Search and Filter
                       TextField(
                         decoration: InputDecoration(
-                          hintText: 'Search users...',
+                          hintText: AppLocalizations.of(context)!.userSearchUsers,
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -611,15 +612,15 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                         ),
                         child: DropdownButton<String?>(
                           value: _selectedRole,
-                          hint: const Text('Filter by role'),
+                          hint: Text(AppLocalizations.of(context)!.filterByRole),
                           isExpanded: true,
                           underline: const SizedBox(),
                           items: const [
-                            DropdownMenuItem(value: null, child: Text('All Roles')),
-                            DropdownMenuItem(value: 'teacher', child: Text('Teachers')),
-                            DropdownMenuItem(value: 'student', child: Text('Students')),
-                            DropdownMenuItem(value: 'parent', child: Text('Parents')),
-                            DropdownMenuItem(value: 'admin', child: Text('Admins')),
+                            DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allRoles)),
+                            DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers2)),
+                            DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.shiftStudents)),
+                            DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.parents)),
+                            DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.admins)),
                           ],
                           onChanged: (value) {
                             setState(() {

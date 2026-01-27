@@ -9,6 +9,7 @@ import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_quick_stats_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/class_card.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class StudentOverviewTab extends StatefulWidget {
   final String studentId;
@@ -92,8 +93,8 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                 if (classes.isEmpty) {
                   return _emptyCard(
                     icon: Icons.calendar_today_rounded,
-                    title: 'No classes today',
-                    subtitle: 'Your child has no scheduled classes for today.',
+                    title: AppLocalizations.of(context)!.noClassesToday,
+                    subtitle: AppLocalizations.of(context)!.yourChildHasNoScheduledClasses,
                   );
                 }
 
@@ -130,8 +131,8 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                 if (previewClasses.isEmpty) {
                   return _emptyCard(
                     icon: Icons.calendar_month_rounded,
-                    title: 'No upcoming classes',
-                    subtitle: 'Your child has no upcoming classes scheduled.',
+                    title: AppLocalizations.of(context)!.noUpcomingClasses,
+                    subtitle: AppLocalizations.of(context)!.yourChildHasNoUpcomingClasses,
                   );
                 }
 
@@ -186,8 +187,8 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                     if (lastCompletedTask == null && lastClass == null) {
                       return _emptyCard(
                         icon: Icons.history_rounded,
-                        title: 'No recent activity',
-                        subtitle: 'Activity will appear here as your child completes classes and tasks.',
+                        title: AppLocalizations.of(context)!.noRecentActivity,
+                        subtitle: AppLocalizations.of(context)!.activityWillAppearHereAsYour,
                       );
                     }
 
@@ -197,7 +198,7 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                           _recentActivityItem(
                             icon: Icons.school_rounded,
                             iconColor: const Color(0xFF16A34A),
-                            title: 'Last class completed',
+                            title: AppLocalizations.of(context)!.lastClassCompleted,
                             subtitle: DateFormat('MMM dd, yyyy • h:mm a').format(lastClass.shiftStart),
                             detail: lastClass.subjectDisplayName ?? lastClass.subject.toString(),
                           ),
@@ -206,7 +207,7 @@ class _StudentOverviewTabState extends State<StudentOverviewTab> {
                           _recentActivityItem(
                             icon: Icons.assignment_turned_in_rounded,
                             iconColor: const Color(0xFF0386FF),
-                            title: 'Last task completed',
+                            title: AppLocalizations.of(context)!.lastTaskCompleted,
                             subtitle: lastCompletedTask.completedAt != null
                                 ? DateFormat('MMM dd, yyyy').format(lastCompletedTask.completedAt!.toDate())
                                 : 'Recently',

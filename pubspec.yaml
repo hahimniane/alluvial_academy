@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -47,6 +49,7 @@ dependencies:
   # Weekly/Timeline calendar view for shifts
   syncfusion_flutter_calendar: ^32.1.19
   intl_phone_field: ^3.2.0
+  intl: ^0.20.2
   provider: ^6.1.2
   csv: ^6.0.0
   universal_html: ^2.2.4
@@ -129,6 +132,7 @@ flutter_launcher_icons:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

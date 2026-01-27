@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/invoice.dart';
 import 'invoice_data_service.dart';
 import 'mock_company_service.dart' show CompanyInfo, AdminInfo;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Service for generating PDF invoices
 class InvoicePdfService {
@@ -94,7 +95,7 @@ class InvoicePdfService {
           ),
           child: pw.Center(
             child: pw.Text(
-              'AEH',
+              AppLocalizations.of(context)!.aeh,
               style: pw.TextStyle(
                 fontSize: 20,
                 fontWeight: pw.FontWeight.bold,
@@ -156,7 +157,7 @@ class InvoicePdfService {
         borderRadius: pw.BorderRadius.circular(8),
       ),
       child: pw.Text(
-        'Monthly Fees Payment',
+        AppLocalizations.of(context)!.monthlyFeesPayment,
         style: pw.TextStyle(
           fontSize: 18,
           fontWeight: pw.FontWeight.bold,
@@ -228,7 +229,7 @@ class InvoicePdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'From $parentName for student(s): $studentName',
+            AppLocalizations.of(context)!.fromParentnameForStudentSStudentname,
             style: pw.TextStyle(
               fontSize: 13,
               color: PdfColors.grey900,
@@ -237,7 +238,7 @@ class InvoicePdfService {
           ),
           pw.SizedBox(height: 8),
           pw.Text(
-            'for the month(s) of $month',
+            AppLocalizations.of(context)!.forTheMonthSOfMonth,
             style: pw.TextStyle(
               fontSize: 12,
               color: PdfColors.grey600,
@@ -259,7 +260,7 @@ class InvoicePdfService {
         ),
         child: pw.Center(
           child: pw.Text(
-            'No items on this invoice',
+            AppLocalizations.of(context)!.noItemsOnThisInvoice,
             style: pw.TextStyle(
               fontSize: 12,
               color: PdfColors.grey600,
@@ -390,7 +391,7 @@ class InvoicePdfService {
           pw.Row(
             children: [
               pw.Text(
-                'Signature: ',
+                AppLocalizations.of(context)!.signature,
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/quran_models.dart';
 import '../../../core/services/quran_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class QuranReader extends StatefulWidget {
   final int initialSurahNumber;
@@ -89,7 +90,7 @@ class _QuranReaderState extends State<QuranReader> {
   Widget build(BuildContext context) {
     if (_loadError != null) {
       return _QuranErrorState(
-        title: 'Unable to load Quran',
+        title: AppLocalizations.of(context)!.unableToLoadQuran,
         message: _loadError!,
         onRetry: () => _loadSurahs(forceRefresh: true),
       );
@@ -197,7 +198,7 @@ class _QuranReaderState extends State<QuranReader> {
 
               if (snapshot.hasError) {
                 return _QuranErrorState(
-                  title: 'Unable to load surah',
+                  title: AppLocalizations.of(context)!.unableToLoadSurah,
                   message: '${snapshot.error}',
                   onRetry: () {
                     setState(() {
@@ -212,7 +213,7 @@ class _QuranReaderState extends State<QuranReader> {
 
               final content = snapshot.data;
               if (content == null) {
-                return const Center(child: Text('No data'));
+                return const Center(child: Text(AppLocalizations.of(context)!.noData));
               }
 
               return ListView.builder(
@@ -276,8 +277,8 @@ class _SurahAutocomplete extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           decoration: InputDecoration(
-            labelText: 'Surah',
-            hintText: 'Search by name or number',
+            labelText: AppLocalizations.of(context)!.surah,
+            hintText: AppLocalizations.of(context)!.searchByNameOrNumber,
             prefixIcon: const Icon(Icons.search),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -467,7 +468,7 @@ class _QuranErrorState extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(AppLocalizations.of(context)!.commonRetry),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff0386FF),
                     foregroundColor: Colors.white,

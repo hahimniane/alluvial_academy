@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/form_labels_cache_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Reusable form details modal for teachers
 class FormDetailsModal {
@@ -37,7 +38,7 @@ class FormDetailsModal {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Form Details',
+                        AppLocalizations.of(context)!.formDetails,
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -242,7 +243,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Loading shift information...',
+                      AppLocalizations.of(context)!.loadingShiftInformation,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.grey.shade600,
@@ -264,7 +265,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Shift Information (Autofilled)',
+                      AppLocalizations.of(context)!.shiftInformationAutofilled,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -311,7 +312,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
           const SizedBox(height: 8),
           // Form Responses Section
           Text(
-            'Form Responses',
+            AppLocalizations.of(context)!.formResponses2,
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -334,7 +335,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Text(
-                'No responses',
+                AppLocalizations.of(context)!.noResponses,
                 style: GoogleFonts.inter(
                   color: Colors.grey.shade400,
                   fontSize: 11,
@@ -410,7 +411,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
   Widget _formatResponseValue(dynamic value) {
     if (value == null) {
       return Text(
-        '—',
+        AppLocalizations.of(context)!.text5,
         style: GoogleFonts.inter(
           fontSize: 12,
           color: Colors.grey.shade400,
@@ -421,7 +422,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     if (value is String) {
       if (value.isEmpty) {
         return Text(
-          '—',
+          AppLocalizations.of(context)!.text5,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: Colors.grey.shade400,

@@ -5,6 +5,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/models/subject.dart';
 import 'create_shift_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ShiftFilterPanel extends StatefulWidget {
   final List<Employee> teachers;
@@ -138,7 +139,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Filters',
+            AppLocalizations.of(context)!.filters,
             style: GoogleFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -199,7 +200,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Status',
+            AppLocalizations.of(context)!.userStatus,
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -237,7 +238,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                   widget.onClear();
                 },
                 child: Text(
-                  'Clear all',
+                  AppLocalizations.of(context)!.clearAll2,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: const Color(0xff6B7280),
@@ -267,7 +268,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                   ),
                 ),
                 child: Text(
-                  'Apply',
+                  AppLocalizations.of(context)!.commonApply,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -307,7 +308,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
       builder: (context) => EmployeeSelectionDialog(
         employees: widget.teachers,
         selectedIds: _teacherId == null ? <String>{} : <String>{_teacherId!},
-        title: 'Select Teacher',
+        title: AppLocalizations.of(context)!.selectTeacher,
         idSelector: (t) => t.documentId,
       ),
     );
@@ -323,7 +324,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
       builder: (context) => EmployeeSelectionDialog(
         employees: widget.students,
         selectedIds: _studentId == null ? <String>{} : <String>{_studentId!},
-        title: 'Select Student',
+        title: AppLocalizations.of(context)!.selectStudent,
         idSelector: (s) => s.documentId,
       ),
     );
@@ -337,7 +338,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
     final selected = await showDialog<Subject>(
       context: context,
       builder: (context) => _SearchSelectDialog<Subject>(
-        title: 'Select Subject',
+        title: AppLocalizations.of(context)!.selectSubject,
         items: widget.subjects,
         selected: _getSelectedSubject(),
         itemLabel: (s) => s.displayName,
@@ -546,7 +547,7 @@ class _SearchSelectDialogState<T> extends State<_SearchSelectDialog<T>> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search...',
+                hintText: AppLocalizations.of(context)!.search,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),

@@ -8,6 +8,7 @@ import '../../../core/services/shift_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'create_shift_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class BulkEditShiftDialog extends StatefulWidget {
   final List<TeachingShift> shifts;
@@ -137,7 +138,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Bulk Edit Shifts',
+                      AppLocalizations.of(context)!.bulkEditShifts,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -182,7 +183,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Changes will update the recurring template. All future shifts in this series will use the new settings.',
+                      AppLocalizations.of(context)!.changesWillUpdateTheRecurringTemplate,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -208,7 +209,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
       child: ExpansionTile(
         initiallyExpanded: false,
         title: Text(
-          'Selected shifts',
+          AppLocalizations.of(context)!.selectedShifts,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -239,7 +240,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                   },
                 ),
                 Text(
-                  'Select all',
+                  AppLocalizations.of(context)!.selectAll,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -305,7 +306,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Changes to apply',
+          AppLocalizations.of(context)!.changesToApply,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -314,9 +315,9 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         ),
         const SizedBox(height: 10),
         _buildToggleSection(
-          title: 'Time',
+          title: AppLocalizations.of(context)!.shiftTime,
           subtitle:
-              'Set a new start/end time for each selected shift (date stays the same).',
+              AppLocalizations.of(context)!.setANewStartEndTime,
           value: _changeTime,
           onChanged: (v) => setState(() => _changeTime = v),
           child: Column(
@@ -366,8 +367,8 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         ),
         const SizedBox(height: 10),
         _buildToggleSection(
-          title: 'Teacher',
-          subtitle: 'Change the assigned teacher for all selected shifts.',
+          title: AppLocalizations.of(context)!.roleTeacher,
+          subtitle: AppLocalizations.of(context)!.changeTheAssignedTeacherForAll,
           value: _changeTeacher,
           onChanged: (v) => setState(() => _changeTeacher = v),
           child: _PickerField(
@@ -380,8 +381,8 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         ),
         const SizedBox(height: 10),
         _buildToggleSection(
-          title: 'Students',
-          subtitle: 'Replace the student list for all selected shifts.',
+          title: AppLocalizations.of(context)!.shiftStudents,
+          subtitle: AppLocalizations.of(context)!.replaceTheStudentListForAll,
           value: _changeStudents,
           onChanged: (v) => setState(() => _changeStudents = v),
           child: _PickerField(
@@ -394,8 +395,8 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         ),
         const SizedBox(height: 10),
         _buildToggleSection(
-          title: 'Subject',
-          subtitle: 'Change the subject for all selected shifts.',
+          title: AppLocalizations.of(context)!.shiftSubject,
+          subtitle: AppLocalizations.of(context)!.changeTheSubjectForAllSelected,
           value: _changeSubject,
           onChanged: (v) => setState(() => _changeSubject = v),
           child: _PickerField(
@@ -406,14 +407,14 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         ),
         const SizedBox(height: 10),
         _buildToggleSection(
-          title: 'Notes',
-          subtitle: 'Set notes for all selected shifts (blank clears).',
+          title: AppLocalizations.of(context)!.shiftNotes,
+          subtitle: AppLocalizations.of(context)!.setNotesForAllSelectedShifts,
           value: _updateNotes,
           onChanged: (v) => setState(() => _updateNotes = v),
           child: TextField(
             controller: _notesController,
             decoration: InputDecoration(
-              hintText: 'Enter notes…',
+              hintText: AppLocalizations.of(context)!.enterNotes,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xffE2E8F0)),
@@ -514,7 +515,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                     Navigator.pop(context);
                   },
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xff6B7280),
@@ -525,7 +526,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
           TextButton(
             onPressed: _isSaving ? null : _previewChanges,
             child: Text(
-              'Preview',
+              AppLocalizations.of(context)!.preview,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
                 color: const Color(0xff0386FF),
@@ -553,7 +554,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                     ),
                   )
                 : Text(
-                    'Apply',
+                    AppLocalizations.of(context)!.commonApply,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                   ),
           ),
@@ -570,7 +571,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Preview changes',
+          AppLocalizations.of(context)!.previewChanges,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: Text(
@@ -582,7 +583,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
         ],
       ),
@@ -621,7 +622,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         Row(
           children: [
             Text(
-              'Timezone',
+              AppLocalizations.of(context)!.profileTimezone,
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -631,7 +632,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
             const SizedBox(width: 6),
             Tooltip(
               message:
-                  'Times will be applied in this timezone for all selected shifts.',
+                  AppLocalizations.of(context)!.timesWillBeAppliedInThis,
               child: const Icon(
                 Icons.info_outline,
                 size: 14,
@@ -673,7 +674,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Selected shifts use multiple timezones. Applying time changes will set all selected shifts to $safeValue.',
+                      AppLocalizations.of(context)!.selectedShiftsUseMultipleTimezonesApplying,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xff92400E),
@@ -694,7 +695,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
     if (updates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Select at least one change to apply.'),
+          content: Text(AppLocalizations.of(context)!.selectAtLeastOneChangeTo),
           backgroundColor: Colors.orange,
         ),
       );
@@ -722,7 +723,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Update Recurring Template?',
+                AppLocalizations.of(context)!.updateRecurringTemplate,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
@@ -735,7 +736,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'This will update the recurring template. Changes will affect:',
+                AppLocalizations.of(context)!.thisWillUpdateTheRecurringTemplate,
                 style: GoogleFonts.inter(fontSize: 14),
               ),
               const SizedBox(height: 12),
@@ -747,7 +748,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
               const SizedBox(height: 8),
               _buildConfirmationItem(
                 icon: Icons.repeat,
-                text: 'All future shifts in this series',
+                text: AppLocalizations.of(context)!.allFutureShiftsInThisSeries,
                 color: const Color(0xff0386FF),
               ),
               const SizedBox(height: 16),
@@ -767,7 +768,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'The daily scheduler will generate new shifts using the updated template settings.',
+                        AppLocalizations.of(context)!.theDailySchedulerWillGenerateNew,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xff92400E),
@@ -783,7 +784,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff6B7280),
@@ -802,7 +803,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                 ),
               ),
               child: Text(
-                'Yes, Update Template',
+                AppLocalizations.of(context)!.yesUpdateTemplate,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w700),
               ),
             ),
@@ -828,7 +829,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(
-              'Conflicts detected',
+              AppLocalizations.of(context)!.conflictsDetected,
               style: GoogleFonts.inter(fontWeight: FontWeight.w700),
             ),
             content: Text(
@@ -838,12 +839,12 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Apply anyway'),
+                child: Text(AppLocalizations.of(context)!.applyAnyway),
               ),
             ],
           ),
@@ -878,7 +879,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Bulk update failed: $e'),
+              content: Text(AppLocalizations.of(context)!.bulkUpdateFailedE),
               backgroundColor: Colors.red),
         );
       }
@@ -916,7 +917,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         selectedIds: _selectedTeacher == null
             ? <String>{}
             : <String>{_selectedTeacher!.documentId},
-        title: 'Select Teacher',
+        title: AppLocalizations.of(context)!.selectTeacher,
         idSelector: (t) => t.documentId,
       ),
     );
@@ -928,7 +929,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
     final selected = await showDialog<Subject>(
       context: context,
       builder: (context) => _SearchSelectDialog<Subject>(
-        title: 'Select Subject',
+        title: AppLocalizations.of(context)!.selectSubject,
         items: widget.subjects,
         selected: _selectedSubject,
         itemLabel: (s) => s.displayName,
@@ -945,7 +946,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
         employees: widget.students,
         selectedIds: Set<String>.from(_selectedStudentIds),
         multiSelect: true,
-        title: 'Select Students',
+        title: AppLocalizations.of(context)!.selectStudents,
         idSelector: (s) => s.documentId,
       ),
     );
@@ -1129,7 +1130,7 @@ class _SearchSelectDialogState<T> extends State<_SearchSelectDialog<T>> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search...',
+                hintText: AppLocalizations.of(context)!.search,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),

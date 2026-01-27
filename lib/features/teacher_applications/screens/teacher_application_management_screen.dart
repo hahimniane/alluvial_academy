@@ -11,6 +11,7 @@ import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TeacherApplicationManagementScreen extends StatefulWidget {
   const TeacherApplicationManagementScreen({super.key});
@@ -177,7 +178,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: You must be logged in')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.errorYouMustBeLoggedIn)),
         );
         return;
       }
@@ -194,7 +195,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Status updated to $newStatus'),
+            content: Text(AppLocalizations.of(context)!.statusUpdatedToNewstatus),
             backgroundColor: Colors.green,
           ),
         );
@@ -203,7 +204,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating status: $e'),
+            content: Text(AppLocalizations.of(context)!.errorUpdatingStatusE),
             backgroundColor: Colors.red,
           ),
         );
@@ -262,7 +263,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorExportingE)),
         );
       }
     }
@@ -275,7 +276,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
         backgroundColor: Color(0xffF8FAFC),
         body: Center(
           child: Text(
-            'Access restricted',
+            AppLocalizations.of(context)!.accessRestricted,
             style: TextStyle(
               fontSize: 16,
               color: Color(0xff6B7280),
@@ -320,7 +321,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
               Text(
-                'Teacher Applicants',
+                AppLocalizations.of(context)!.teacherApplicants,
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -349,7 +350,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
                 });
               },
               icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Mark as Reviewed'),
+              label: Text(AppLocalizations.of(context)!.markAsReviewed),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff8B5CF6),
                 foregroundColor: Colors.white,
@@ -360,7 +361,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
           IconButton(
             onPressed: _exportApplications,
             icon: const Icon(Icons.download),
-            tooltip: 'Export to CSV',
+            tooltip: AppLocalizations.of(context)!.exportToCsv,
           ),
         ],
       ),
@@ -407,7 +408,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
                   _applyFilter(_selectedFilter);
                 });
               },
-              child: const Text('Clear'),
+              child: Text(AppLocalizations.of(context)!.commonClear),
             ),
           ],
         ],
@@ -423,7 +424,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
           Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            'No applications found',
+            AppLocalizations.of(context)!.noApplicationsFound,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.grey.shade600,
@@ -639,7 +640,7 @@ class ApplicationDataSource extends DataGridSource {
                 IconButton(
                   icon: const Icon(Icons.visibility, size: 18),
                   onPressed: () => onViewDetails(app),
-                  tooltip: 'View Details',
+                  tooltip: AppLocalizations.of(context)!.shiftViewDetails,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -649,10 +650,10 @@ class ApplicationDataSource extends DataGridSource {
                   constraints: const BoxConstraints(),
                   onSelected: (value) => onStatusUpdate(app.id!, value),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'Reviewed', child: Text('Mark as Reviewed')),
-                    const PopupMenuItem(value: 'Approved', child: Text('Approve')),
-                    const PopupMenuItem(value: 'Rejected', child: Text('Reject')),
-                    const PopupMenuItem(value: 'Pending', child: Text('Mark as Pending')),
+                    const PopupMenuItem(value: 'Reviewed', child: Text(AppLocalizations.of(context)!.markAsReviewed)),
+                    const PopupMenuItem(value: 'Approved', child: Text(AppLocalizations.of(context)!.approve)),
+                    const PopupMenuItem(value: 'Rejected', child: Text(AppLocalizations.of(context)!.reject)),
+                    const PopupMenuItem(value: 'Pending', child: Text(AppLocalizations.of(context)!.markAsPending)),
                   ],
                 ),
               ],
@@ -695,7 +696,7 @@ class _ApplicationDetailsDialog extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Application Details',
+                      AppLocalizations.of(context)!.applicationDetails,
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -772,7 +773,7 @@ class _ApplicationDetailsDialog extends StatelessWidget {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
+                    child: Text(AppLocalizations.of(context)!.commonClose),
                   ),
                 ],
               ),

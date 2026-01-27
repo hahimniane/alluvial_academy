@@ -22,6 +22,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_screen.dart';
 import '../../profile/widgets/teacher_profile_edit_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
@@ -465,7 +466,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome back, $firstName! 👋',
+                  AppLocalizations.of(context)!.welcomeBackFirstname,
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -474,7 +475,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You\'re signed in as $roleDisplay',
+                  AppLocalizations.of(context)!.youReSignedInAsRoledisplay,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -702,7 +703,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                     ),
                     Text(
-                      '$firstName 👋',
+                      AppLocalizations.of(context)!.firstname,
                       style: GoogleFonts.inter(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -711,7 +712,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'You’re managing $roleDisplay',
+                      AppLocalizations.of(context)!.youReManagingRoledisplay,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: Colors.white.withOpacity(0.75),
@@ -784,7 +785,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Platform uptime',
+                        AppLocalizations.of(context)!.platformUptime,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.white.withOpacity(0.75),
@@ -810,7 +811,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     borderRadius: BorderRadius.circular(40),
                   ),
                   child: Text(
-                    'Avg response $responseRate',
+                    AppLocalizations.of(context)!.avgResponseResponserate,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1099,7 +1100,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Assalamu Alaikum!',
+                      AppLocalizations.of(context)!.assalamuAlaikum,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -1328,7 +1329,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildDefaultDashboard() {
     return const Center(
-      child: Text('Loading dashboard...'),
+      child: Text(AppLocalizations.of(context)!.loadingDashboard),
     );
   }
 
@@ -1361,7 +1362,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Admin Dashboard',
+                  AppLocalizations.of(context)!.adminDashboard,
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
@@ -1406,7 +1407,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 _loadUserData();
               },
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Refresh Data'),
+              label: Text(AppLocalizations.of(context)!.refreshData),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xff0F172A),
@@ -1465,7 +1466,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Key Performance Indicators',
+          AppLocalizations.of(context)!.keyPerformanceIndicators,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -1723,7 +1724,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'User Analytics',
+          AppLocalizations.of(context)!.userAnalytics,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -1775,7 +1776,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Row(
             children: [
               Text(
-                'User Distribution',
+                AppLocalizations.of(context)!.userDistribution,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -1784,7 +1785,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const Spacer(),
               Text(
-                'Total: $totalUsers users',
+                AppLocalizations.of(context)!.totalTotalusersUsers,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -1836,7 +1837,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
             Text(
-              '$count',
+              AppLocalizations.of(context)!.count,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1883,7 +1884,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Active Users',
+            AppLocalizations.of(context)!.activeUsers,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -1958,7 +1959,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Row(
             children: [
               Text(
-                'System Performance',
+                AppLocalizations.of(context)!.systemPerformance,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -1985,7 +1986,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'All Systems Operational',
+                      AppLocalizations.of(context)!.allSystemsOperational,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -2109,7 +2110,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Uptime',
+                      AppLocalizations.of(context)!.uptime,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2138,7 +2139,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Avg response time $responseTime ms',
+                      AppLocalizations.of(context)!.avgResponseTimeResponsetimeMs,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color:
@@ -2177,7 +2178,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'System load',
+                        AppLocalizations.of(context)!.systemLoad,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: theme.textTheme.bodySmall?.color
@@ -2414,7 +2415,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Open',
+                  AppLocalizations.of(context)!.open,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2475,7 +2476,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           MaterialPageRoute(
             builder: (context) => Scaffold(
               appBar: AppBar(
-                title: const Text('System Settings'),
+                title: Text(AppLocalizations.of(context)!.systemSettings2),
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 foregroundColor: Colors.black,
@@ -2494,19 +2495,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 'Add New User':
         // Navigate to add user screen
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Navigating to Add New User...')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToAddNewUser)),
         );
         break;
       case 'Create Form':
         // Navigate to form builder
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Navigating to Form Builder...')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToFormBuilder)),
         );
         break;
       case 'View Reports':
         // Navigate to reports
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Navigating to Reports...')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToReports)),
         );
         break;
       case 'Export Form Responses':
@@ -2514,7 +2515,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$action feature coming soon!')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.actionFeatureComingSoon)),
         );
     }
   }
@@ -2590,7 +2591,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
               icon: const Icon(Icons.launch_rounded, size: 16),
               label: Text(
-                'Open activity log',
+                AppLocalizations.of(context)!.openActivityLog,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2623,7 +2624,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'System Health',
+            AppLocalizations.of(context)!.systemHealth,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -2648,7 +2649,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: Column(
               children: [
                 Text(
-                  'Last System Check',
+                  AppLocalizations.of(context)!.lastSystemCheck,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff6B7280),
@@ -2656,7 +2657,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '2 minutes ago',
+                  AppLocalizations.of(context)!.2MinutesAgo,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -2741,7 +2742,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Quick Actions',
+                AppLocalizations.of(context)!.quickActions,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -2873,7 +2874,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Recent Activity',
+                AppLocalizations.of(context)!.recentActivity,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -2882,7 +2883,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const Spacer(),
               Text(
-                'Last 24 hours',
+                AppLocalizations.of(context)!.last24Hours,
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   color: const Color(0xff6B7280),
@@ -2929,7 +2930,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 // Navigate to full activity log
               },
               child: Text(
-                'View All Activity',
+                AppLocalizations.of(context)!.viewAllActivity,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -3357,7 +3358,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'System Overview',
+            AppLocalizations.of(context)!.systemOverview,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -3437,7 +3438,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'My Classes',
+            AppLocalizations.of(context)!.myClasses,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3511,7 +3512,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Upcoming Tasks',
+            AppLocalizations.of(context)!.upcomingTasks,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3586,7 +3587,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Student Progress Overview',
+            AppLocalizations.of(context)!.studentProgressOverview,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3648,7 +3649,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'My Assignments',
+            AppLocalizations.of(context)!.myAssignments,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3720,7 +3721,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'My Progress',
+            AppLocalizations.of(context)!.myProgress,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3791,7 +3792,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'School Announcements',
+            AppLocalizations.of(context)!.schoolAnnouncements,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3859,7 +3860,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'My Children',
+            AppLocalizations.of(context)!.myChildren,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -3904,7 +3905,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
                 Text(
-                  '$grade • $performance',
+                  AppLocalizations.of(context)!.gradePerformance,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff6b7280),
@@ -3936,7 +3937,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'School Updates',
+            AppLocalizations.of(context)!.schoolUpdates,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -4010,7 +4011,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Parent Resources',
+            AppLocalizations.of(context)!.parentResources,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -4108,7 +4109,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Could not open $url'),
+              content: Text(AppLocalizations.of(context)!.couldNotOpenUrl),
               backgroundColor: Colors.red,
             ),
           );
@@ -4119,7 +4120,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error opening link'),
+            content: Text(AppLocalizations.of(context)!.errorOpeningLink),
             backgroundColor: Colors.red,
           ),
         );
@@ -4250,7 +4251,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Loading prayer times...',
+                  AppLocalizations.of(context)!.loadingPrayerTimes,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -4528,7 +4529,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '$performance%',
+                AppLocalizations.of(context)!.performance,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -4637,7 +4638,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Assalamu Alaikum, $firstName! 🕌',
+                  AppLocalizations.of(context)!.assalamuAlaikumFirstname,
                   style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -4646,7 +4647,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'May Allah bless your teaching efforts today',
+                  AppLocalizations.of(context)!.mayAllahBlessYourTeachingEfforts,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -4823,7 +4824,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'My Islamic Classes',
+                AppLocalizations.of(context)!.myIslamicClasses,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -4884,7 +4885,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         color: const Color(0xff6B7280),
                       ),
                     ),
-                    const Text(' • '),
+                    Text(AppLocalizations.of(context)!.text6),
                     Text(
                       nextClass,
                       style: GoogleFonts.inter(
@@ -4908,7 +4909,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '$progress%',
+                      AppLocalizations.of(context)!.progress,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -5054,7 +5055,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         color: const Color(0xff6B7280),
                       ),
                     ),
-                    const Text(' • '),
+                    Text(AppLocalizations.of(context)!.text6),
                     Text(
                       timeText,
                       style: GoogleFonts.inter(
@@ -5225,7 +5226,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Teacher Profile',
+                AppLocalizations.of(context)!.teacherProfile,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -5265,7 +5266,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
                 Text(
-                  'Islamic Studies Teacher',
+                  AppLocalizations.of(context)!.islamicStudiesTeacher,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -5301,7 +5302,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       builder: (context, snapshot) {
                         final percentage = snapshot.data ?? 0;
                         return Text(
-                          'Profile $percentage% Complete',
+                          AppLocalizations.of(context)!.profilePercentageComplete,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -5314,7 +5315,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Complete your profile to appear on the public teachers page and attract more students.',
+                  AppLocalizations.of(context)!.completeYourProfileToAppearOn,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff92400E),
@@ -5334,7 +5335,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                     ),
                     child: Text(
-                      'Complete Profile',
+                      AppLocalizations.of(context)!.completeProfile,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -5384,7 +5385,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Islamic Calendar',
+                AppLocalizations.of(context)!.islamicCalendar,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -5441,7 +5442,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
           // Upcoming Islamic Events
           Text(
-            'Upcoming Events',
+            AppLocalizations.of(context)!.upcomingEvents,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -5472,7 +5473,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               final events = snapshot.data ?? [];
               if (events.isEmpty) {
                 return Text(
-                  'No upcoming events',
+                  AppLocalizations.of(context)!.noUpcomingEvents,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff6B7280),
@@ -5562,7 +5563,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Quick Actions',
+                AppLocalizations.of(context)!.quickActions,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -5634,7 +5635,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'My Students Overview',
+                AppLocalizations.of(context)!.myStudentsOverview,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -5646,7 +5647,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 onPressed: _showAssignmentDialog,
                 icon: const Icon(Icons.add, size: 16),
                 label: Text(
-                  'Add Assignment',
+                  AppLocalizations.of(context)!.addAssignment,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -5683,7 +5684,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Row(
             children: [
               Text(
-                'My Students',
+                AppLocalizations.of(context)!.myStudents,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -5703,7 +5704,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '$count total',
+                      AppLocalizations.of(context)!.countTotal,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -5744,7 +5745,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           color: Colors.red, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        'Error loading students',
+                        AppLocalizations.of(context)!.errorLoadingStudents,
                         style:
                             GoogleFonts.inter(fontSize: 14, color: Colors.red),
                       ),
@@ -5771,7 +5772,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'No Known Students Yet',
+                        AppLocalizations.of(context)!.noKnownStudentsYet,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -5780,7 +5781,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Students will appear here after you clock in for teaching sessions',
+                        AppLocalizations.of(context)!.studentsWillAppearHereAfterYou,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 14,
@@ -5883,7 +5884,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ),
           Text(
-            '$score%',
+            AppLocalizations.of(context)!.score,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -5929,7 +5930,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Recent Lessons',
+                AppLocalizations.of(context)!.recentLessons,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -6090,7 +6091,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 12),
           Text(
-            'No Recent Lessons',
+            AppLocalizations.of(context)!.noRecentLessons,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -6148,7 +6149,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   children: [
                     Flexible(
                       child: Text(
-                        'Student: $student',
+                        AppLocalizations.of(context)!.studentStudent,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xff6B7280),
@@ -6157,7 +6158,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         maxLines: 1,
                       ),
                     ),
-                    const Text(' • '),
+                    Text(AppLocalizations.of(context)!.text6),
                     Text(
                       time,
                       style: GoogleFonts.inter(
@@ -6209,7 +6210,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Islamic Resources',
+                AppLocalizations.of(context)!.dashboardIslamicResources,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -6376,7 +6377,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     if (_selectedStudents.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select at least one student'),
+          content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
           backgroundColor: Colors.red,
         ),
       );
@@ -6592,7 +6593,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                             horizontal: 24, vertical: 12),
                       ),
                       child: Text(
-                        'Cancel',
+                        AppLocalizations.of(context)!.commonCancel,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -6722,7 +6723,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Due Date (Optional)',
+          AppLocalizations.of(context)!.dueDateOptional,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -6753,7 +6754,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
             color: const Color(0xff111827),
           ),
           decoration: InputDecoration(
-            hintText: 'Select due date',
+            hintText: AppLocalizations.of(context)!.selectDueDate,
             hintStyle: GoogleFonts.inter(
               color: const Color(0xff9CA3AF),
               fontSize: 14,
@@ -6786,7 +6787,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Assign To Students',
+          AppLocalizations.of(context)!.assignToStudents,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -6805,7 +6806,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               border: Border.all(color: const Color(0xffD1D5DB)),
             ),
             child: Text(
-              'No students available in the system.',
+              AppLocalizations.of(context)!.noStudentsAvailableInTheSystem,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),
@@ -6857,7 +6858,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         Row(
           children: [
             Text(
-              'Attachments (Optional)',
+              AppLocalizations.of(context)!.attachmentsOptional,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -6902,7 +6903,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'No attachments added',
+                  AppLocalizations.of(context)!.noAttachmentsAdded,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -7046,7 +7047,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content:
-                  Text('File attachment is only supported on web platform'),
+                  Text(AppLocalizations.of(context)!.fileAttachmentIsOnlySupportedOn),
               backgroundColor: Colors.orange,
             ),
           );
@@ -7061,7 +7062,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Failed to add file: $e')),
+                Expanded(child: Text(AppLocalizations.of(context)!.failedToAddFileE)),
               ],
             ),
             backgroundColor: Colors.red,
@@ -7173,7 +7174,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load assignments: $e'),
+            content: Text(AppLocalizations.of(context)!.failedToLoadAssignmentsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -7212,7 +7213,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    'My Assignments',
+                    AppLocalizations.of(context)!.myAssignments,
                     style: GoogleFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
@@ -7255,7 +7256,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No Assignments Yet',
+            AppLocalizations.of(context)!.noAssignmentsYet,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -7264,7 +7265,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create your first assignment to get started',
+            AppLocalizations.of(context)!.createYourFirstAssignmentToGet,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xff9CA3AF),
@@ -7345,7 +7346,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'OVERDUE',
+                          AppLocalizations.of(context)!.overdue,
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -7375,7 +7376,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                       children: [
                         Icon(Icons.edit, size: 18),
                         SizedBox(width: 8),
-                        Text('Edit'),
+                        Text(AppLocalizations.of(context)!.commonEdit),
                       ],
                     ),
                   ),
@@ -7385,7 +7386,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                       children: [
                         Icon(Icons.delete, size: 18, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
+                        Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),
@@ -7456,7 +7457,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
             const Divider(height: 1, color: Color(0xffE5E7EB)),
             const SizedBox(height: 12),
             Text(
-              'Attached Files:',
+              AppLocalizations.of(context)!.attachedFiles2,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -7537,7 +7538,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error opening file: $e'),
+            content: Text(AppLocalizations.of(context)!.errorOpeningFileE),
             backgroundColor: Colors.red,
           ),
         );
@@ -7666,7 +7667,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Delete Assignment',
+          AppLocalizations.of(context)!.deleteAssignment,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
@@ -7676,7 +7677,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -7691,21 +7692,21 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Assignment deleted successfully'),
+                    content: Text(AppLocalizations.of(context)!.assignmentDeletedSuccessfully),
                     backgroundColor: Color(0xff10B981),
                   ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Failed to delete assignment: $e'),
+                    content: Text(AppLocalizations.of(context)!.failedToDeleteAssignmentE),
                     backgroundColor: Colors.red,
                   ),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

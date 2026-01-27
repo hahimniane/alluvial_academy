@@ -16,6 +16,7 @@ import '../../../core/enums/shift_enums.dart';
 import 'subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class CreateShiftDialog extends StatefulWidget {
   final TeachingShift? shift; // For editing existing shift
@@ -921,7 +922,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Configure Islamic education teaching schedule',
+                  AppLocalizations.of(context)!.configureIslamicEducationTeachingSchedule,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -1016,7 +1017,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Selected: $selectedTeacherName',
+                    AppLocalizations.of(context)!.selectedSelectedteachername,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1038,7 +1039,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
-                    'Change',
+                    AppLocalizations.of(context)!.change,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: const Color(0xff0386FF),
@@ -1086,7 +1087,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                     color: Color(0xff0386FF), size: 20),
                                 onPressed: null, // Visual indicator only
                                 tooltip:
-                                    'Teacher selected: $selectedTeacherName',
+                                    AppLocalizations.of(context)!.teacherSelectedSelectedteachername,
                               )
                             : null,
                         contentPadding: const EdgeInsets.symmetric(
@@ -1122,14 +1123,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     ? const Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text('Loading...'),
+                          child: Text(AppLocalizations.of(context)!.commonLoading),
                         ),
                       )
                     : filteredUsers.isEmpty
                         ? const Center(
                             child: Padding(
                               padding: EdgeInsets.all(16),
-                              child: Text('No users found'),
+                              child: Text(AppLocalizations.of(context)!.userNoUsersFound),
                             ),
                           )
                         : ListView.builder(
@@ -1279,7 +1280,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Please select a teacher',
+              AppLocalizations.of(context)!.pleaseSelectATeacher,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: Colors.red,
@@ -1295,7 +1296,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Schedule Type *',
+          AppLocalizations.of(context)!.scheduleType,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -1307,22 +1308,22 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           segments: [
             ButtonSegment<ShiftCategory>(
               value: ShiftCategory.teaching,
-              label: const Text('Teacher Class'),
+              label: Text(AppLocalizations.of(context)!.teacherClass),
               icon: const Icon(Icons.school, size: 18),
             ),
             ButtonSegment<ShiftCategory>(
               value: ShiftCategory.leadership,
-              label: const Text('Leader Duty'),
+              label: Text(AppLocalizations.of(context)!.leaderDuty),
               icon: const Icon(Icons.admin_panel_settings, size: 18),
             ),
             ButtonSegment<ShiftCategory>(
               value: ShiftCategory.meeting,
-              label: const Text('Meeting'),
+              label: Text(AppLocalizations.of(context)!.meeting),
               icon: const Icon(Icons.groups, size: 18),
             ),
             ButtonSegment<ShiftCategory>(
               value: ShiftCategory.training,
-              label: const Text('Training'),
+              label: Text(AppLocalizations.of(context)!.training),
               icon: const Icon(Icons.school_outlined, size: 18),
             ),
           ],
@@ -1371,7 +1372,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Duty Type *',
+          AppLocalizations.of(context)!.dutyType,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -1382,7 +1383,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         DropdownButtonFormField<String>(
           value: _selectedLeaderRole,
           decoration: InputDecoration(
-            hintText: 'Select duty type',
+            hintText: AppLocalizations.of(context)!.selectDutyType,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -1429,7 +1430,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Students *',
+          AppLocalizations.of(context)!.students,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -1453,7 +1454,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Some students on this shift could not be resolved. Please re-select students before saving so they can see the class.',
+                    AppLocalizations.of(context)!.someStudentsOnThisShiftCould,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1623,7 +1624,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     ? const Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: Text('Loading students...'),
+                          child: Text(AppLocalizations.of(context)!.loadingStudents),
                         ),
                       )
                     : ListView.builder(
@@ -1731,7 +1732,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                   children: [
                                                     TextSpan(
                                                       text:
-                                                          'ID: $displayStudentCode ',
+                                                          AppLocalizations.of(context)!.idDisplaystudentcode,
                                                       style: GoogleFonts.inter(
                                                         fontSize: 12,
                                                         color: const Color(
@@ -1741,7 +1742,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                       ),
                                                     ),
                                                     TextSpan(
-                                                      text: '• ',
+                                                      text: AppLocalizations.of(context)!.text9,
                                                       style: GoogleFonts.inter(
                                                         fontSize: 12,
                                                         color: const Color(
@@ -1779,7 +1780,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Please select at least one student',
+              AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: Colors.red,
@@ -1797,7 +1798,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         Row(
           children: [
             Text(
-              'Subject *',
+              AppLocalizations.of(context)!.subject,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1814,7 +1815,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               },
               icon: const Icon(Icons.settings, size: 16),
               label: Text(
-                'Manage Subjects',
+                AppLocalizations.of(context)!.manageSubjects,
                 style: GoogleFonts.inter(fontSize: 12),
               ),
               style: TextButton.styleFrom(
@@ -1928,7 +1929,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         const SizedBox(height: 16),
         // Hourly Rate Field
         Text(
-          'Hourly Rate (USD)',
+          AppLocalizations.of(context)!.hourlyRateUsd,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -1941,7 +1942,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             prefixText: '\$',
-            hintText: 'Auto-filled from subject or leave empty for default',
+            hintText: AppLocalizations.of(context)!.autoFilledFromSubjectOrLeave,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xffD1D5DB)),
@@ -2065,7 +2066,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         Row(
           children: [
             Text(
-              'Timezone',
+              AppLocalizations.of(context)!.profileTimezone,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -2074,7 +2075,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             ),
             const SizedBox(width: 8),
             Tooltip(
-              message: 'The timezone used for the start and end times below.',
+              message: AppLocalizations.of(context)!.theTimezoneUsedForTheStart,
               child: Icon(
                 Icons.info_outline,
                 size: 16,
@@ -2151,7 +2152,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                       foregroundColor: const Color(0xff10B981),
                     ),
                     child: Text(
-                      'Use',
+                      AppLocalizations.of(context)!.use,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -2200,7 +2201,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Schedule *',
+          AppLocalizations.of(context)!.schedule2,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2231,7 +2232,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         Row(
           children: [
             Text(
-              'Date',
+              AppLocalizations.of(context)!.timesheetDate,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xff6B7280),
@@ -2248,7 +2249,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Pre-filled',
+                    AppLocalizations.of(context)!.preFilled,
                     style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xff0386FF),
@@ -2418,7 +2419,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               const Icon(Icons.swap_horiz, size: 20, color: Color(0xff6B7280)),
               const SizedBox(width: 8),
               Text(
-                'Time Conversion Preview',
+                AppLocalizations.of(context)!.timeConversionPreview,
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -2460,7 +2461,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'This shift spans two days in your timezone',
+                        AppLocalizations.of(context)!.thisShiftSpansTwoDaysIn,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
@@ -2497,7 +2498,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'This shift spans two days in the teacher\'s timezone',
+                        AppLocalizations.of(context)!.thisShiftSpansTwoDaysIn2,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
@@ -2539,7 +2540,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Pre-filled',
+                    AppLocalizations.of(context)!.preFilled,
                     style: GoogleFonts.inter(
                       fontSize: 9,
                       color: const Color(0xff0386FF),
@@ -2617,7 +2618,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text('-'),
+              child: Text(AppLocalizations.of(context)!.text8),
             ),
             Expanded(
               child: InkWell(
@@ -2689,7 +2690,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recurrence Settings',
+          AppLocalizations.of(context)!.recurrenceSettings,
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -2740,7 +2741,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               activeColor: const Color(0xff0386FF),
             ),
             Text(
-              'Use custom shift name',
+              AppLocalizations.of(context)!.useCustomShiftName,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -2754,7 +2755,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           TextFormField(
             controller: _customNameController,
             decoration: InputDecoration(
-              hintText: 'Enter custom shift name',
+              hintText: AppLocalizations.of(context)!.enterCustomShiftName,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(color: Color(0xffD1D5DB)),
@@ -2780,7 +2781,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Notes',
+          AppLocalizations.of(context)!.shiftNotes,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2792,7 +2793,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           controller: _notesController,
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: 'Add any additional notes or instructions...',
+            hintText: AppLocalizations.of(context)!.addAnyAdditionalNotesOrInstructions,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xffD1D5DB)),
@@ -2824,7 +2825,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Video Provider',
+          AppLocalizations.of(context)!.videoProvider,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2897,7 +2898,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           TextButton(
             onPressed: _isLoading ? null : () => Navigator.pop(context),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(
                 color: const Color(0xff6B7280),
                 fontWeight: FontWeight.w500,
@@ -2940,7 +2941,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content:
-                Text('Please select at least one student for teaching shifts'),
+                Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent2),
             backgroundColor: Colors.red,
           ),
         );
@@ -2950,7 +2951,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (_selectedLeaderRole == null || _selectedLeaderRole!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please select a duty type for leader schedules'),
+            content: Text(AppLocalizations.of(context)!.pleaseSelectADutyTypeFor),
             backgroundColor: Colors.red,
           ),
         );
@@ -2966,7 +2967,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     if (endMinutes == startMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Shift end time must be different from start time'),
+          content: Text(AppLocalizations.of(context)!.shiftEndTimeMustBeDifferent),
           backgroundColor: Colors.red,
         ),
       );
@@ -3314,7 +3315,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving shift: $e'),
+            content: Text(AppLocalizations.of(context)!.errorSavingShiftE),
             backgroundColor: Colors.red,
           ),
         );
@@ -3464,7 +3465,7 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                     controller: _searchController,
                     onChanged: (v) => setState(() => _searchQuery = v),
                     decoration: InputDecoration(
-                      hintText: 'Search...',
+                      hintText: AppLocalizations.of(context)!.search,
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8)),
@@ -3547,7 +3548,7 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'ID: $code',
+                                      AppLocalizations.of(context)!.idCode,
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: const Color(0xff059669),
@@ -3592,7 +3593,7 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context)!.commonCancel),
                 ),
                 if (widget.multiSelect) ...[
                   const SizedBox(width: 12),

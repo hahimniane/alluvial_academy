@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'core/services/user_role_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 class TestRoleSystemScreen extends StatefulWidget {
   const TestRoleSystemScreen({super.key});
 
@@ -20,7 +21,7 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Role System Test'),
+        title: Text(AppLocalizations.of(context)!.roleSystemTest),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
@@ -35,8 +36,8 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Current User Info',
+                    Text(
+                      AppLocalizations.of(context)!.currentUserInfo,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -51,15 +52,15 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
                     Text('Role: ${currentUserRole ?? "Not loaded"}'),
                     const SizedBox(height: 8),
                     if (currentUserData != null) ...[
-                      const Text('User Data:',
+                      Text(AppLocalizations.of(context)!.userData,
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       for (final entry in currentUserData!.entries)
                         Text('${entry.key}: ${entry.value}'),
                     ] else
-                      const Text('User Data: Not loaded'),
+                      Text(AppLocalizations.of(context)!.userDataNotLoaded),
                     if (error != null) ...[
                       const SizedBox(height: 8),
-                      Text('Error: $error',
+                      Text(AppLocalizations.of(context)!.errorError,
                           style: const TextStyle(color: Colors.red)),
                     ],
                   ],
@@ -77,12 +78,12 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Load User Role'),
+                      : Text(AppLocalizations.of(context)!.loadUserRole),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
                   onPressed: _testRoleChecks,
-                  child: const Text('Test Role Checks'),
+                  child: Text(AppLocalizations.of(context)!.testRoleChecks),
                 ),
               ],
             ),
@@ -103,7 +104,7 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
                       ),
                       const SizedBox(height: 8),
                       ...UserRoleService.getAvailableFeatures(currentUserRole!)
-                          .map((feature) => Text('• $feature')),
+                          .map((feature) => Text(AppLocalizations.of(context)!.feature)),
                     ],
                   ),
                 ),
@@ -145,7 +146,7 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
   Future<void> _testRoleChecks() async {
     if (currentUserRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Load user role first')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.loadUserRoleFirst)),
       );
       return;
     }
@@ -158,21 +159,21 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Role Check Results'),
+        title: Text(AppLocalizations.of(context)!.roleCheckResults),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Is Admin: $isAdmin'),
-            Text('Is Teacher: $isTeacher'),
-            Text('Is Student: $isStudent'),
-            Text('Is Parent: $isParent'),
+            Text(AppLocalizations.of(context)!.isAdminIsadmin),
+            Text(AppLocalizations.of(context)!.isTeacherIsteacher),
+            Text(AppLocalizations.of(context)!.isStudentIsstudent),
+            Text(AppLocalizations.of(context)!.isParentIsparent),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(AppLocalizations.of(context)!.commonOk),
           ),
         ],
       ),

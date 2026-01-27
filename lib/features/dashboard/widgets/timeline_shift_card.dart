@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TimelineShiftCard extends StatelessWidget {
   final TeachingShift shift;
@@ -267,7 +268,7 @@ class TimelineShiftCard extends StatelessWidget {
               onPressed: onCancelProgram,
               icon: const Icon(Icons.close, size: 16),
               label: Text(
-                "Cancel",
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
@@ -334,7 +335,7 @@ class TimelineShiftCard extends StatelessWidget {
         onPressed: onTap,
         icon: const Icon(Icons.visibility_outlined, size: 18),
         label: Text(
-          "View Details",
+          AppLocalizations.of(context)!.shiftViewDetails,
           style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         style: OutlinedButton.styleFrom(

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/enhanced_recurrence.dart';
 import '../../core/enums/shift_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EnhancedRecurrencePicker extends StatefulWidget {
   final EnhancedRecurrence initialRecurrence;
@@ -65,7 +66,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
       child: DropdownButtonFormField<EnhancedRecurrenceType>(
         initialValue: _recurrence.type,
         decoration: const InputDecoration(
-          labelText: 'Recurrence Type',
+          labelText: AppLocalizations.of(context)!.recurrenceType,
           border: InputBorder.none,
           contentPadding: EdgeInsets.all(16),
           prefixIcon: Icon(Icons.repeat, color: Color(0xff0386FF)),
@@ -131,7 +132,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Daily Recurrence Settings',
+            AppLocalizations.of(context)!.dailyRecurrenceSettings,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -140,7 +141,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Exclude Days of Week',
+            AppLocalizations.of(context)!.excludeDaysOfWeek,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -176,7 +177,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
           Row(
             children: [
               Text(
-                'Exclude Specific Dates',
+                AppLocalizations.of(context)!.excludeSpecificDates,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -187,7 +188,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
               TextButton.icon(
                 onPressed: _addExcludedDate,
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add Date'),
+                label: Text(AppLocalizations.of(context)!.addDate),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xff0386FF),
                 ),
@@ -232,7 +233,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Weekly Recurrence Settings',
+            AppLocalizations.of(context)!.weeklyRecurrenceSettings,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -241,7 +242,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Select Days of Week',
+            AppLocalizations.of(context)!.selectDaysOfWeek,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -290,7 +291,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Monthly Recurrence Settings',
+            AppLocalizations.of(context)!.monthlyRecurrenceSettings,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -299,7 +300,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Select Days of Month',
+            AppLocalizations.of(context)!.selectDaysOfMonth,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -374,7 +375,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Yearly Recurrence Settings',
+            AppLocalizations.of(context)!.yearlyRecurrenceSettings,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -383,7 +384,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Select Months',
+            AppLocalizations.of(context)!.selectMonths,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -464,7 +465,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
           Row(
             children: [
               Text(
-                'End Date (Optional)',
+                AppLocalizations.of(context)!.endDateOptional,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -477,7 +478,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
                   onPressed: () {
                     _updateRecurrence(_recurrence.copyWith(endDate: null));
                   },
-                  child: const Text('Clear'),
+                  child: Text(AppLocalizations.of(context)!.commonClear),
                 ),
             ],
           ),

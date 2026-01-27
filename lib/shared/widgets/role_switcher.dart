@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/user_role_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class RoleSwitcher extends StatefulWidget {
   final Function(String)? onRoleChanged;
@@ -131,7 +132,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
                     children: [
                       Icon(Icons.info, color: Colors.white, size: 20),
                       SizedBox(width: 8),
-                      Text('Admin privileges have been revoked'),
+                      Text(AppLocalizations.of(context)!.adminPrivilegesHaveBeenRevoked),
                     ],
                   ),
                   backgroundColor: Colors.orange,
@@ -231,7 +232,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to switch role. Please try again.'),
+            content: Text(AppLocalizations.of(context)!.failedToSwitchRolePleaseTry),
             backgroundColor: Colors.red,
           ),
         );

@@ -12,6 +12,7 @@ import '../../../core/services/location_service.dart';
 import '../../../utility_functions/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TimesheetTable extends StatefulWidget {
   final List<dynamic>? clockInEntries;
@@ -229,8 +230,8 @@ class _TimesheetTableState extends State<TimesheetTable>
           // Show a more helpful message for cache errors
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text(
-                'Browser cache issue detected. Please refresh the page (Ctrl+Shift+R or Cmd+Shift+R).',
+              content: Text(
+                AppLocalizations.of(context)!.browserCacheIssueDetectedPleaseRefresh,
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 8),
@@ -254,7 +255,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error loading timesheet data: $e'),
+              content: Text(AppLocalizations.of(context)!.errorLoadingTimesheetDataE),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 5),
             ),
@@ -358,7 +359,7 @@ class _TimesheetTableState extends State<TimesheetTable>
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Entry updated successfully'),
+                  content: Text(AppLocalizations.of(context)!.entryUpdatedSuccessfully),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -368,7 +369,7 @@ class _TimesheetTableState extends State<TimesheetTable>
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Error updating entry: $e'),
+                  content: Text(AppLocalizations.of(context)!.errorUpdatingEntryE),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -395,7 +396,7 @@ class _TimesheetTableState extends State<TimesheetTable>
             ),
             const SizedBox(width: 12),
             Text(
-              'Submit for Review',
+              AppLocalizations.of(context)!.timesheetSubmitForReview,
               style: constants.openSansHebrewTextStyle.copyWith(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -408,7 +409,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to submit this timesheet entry for admin review?',
+              AppLocalizations.of(context)!.areYouSureYouWantTo9,
               style: constants.openSansHebrewTextStyle.copyWith(fontSize: 14),
             ),
             const SizedBox(height: 16),
@@ -441,7 +442,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Once submitted, you cannot edit this entry until it\'s reviewed.',
+                      AppLocalizations.of(context)!.onceSubmittedYouCannotEditThis,
                       style: constants.openSansHebrewTextStyle.copyWith(
                         fontSize: 12,
                         color: Colors.amber.shade700,
@@ -456,7 +457,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -464,7 +465,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Submit for Review'),
+            child: Text(AppLocalizations.of(context)!.timesheetSubmitForReview),
           ),
         ],
       ),
@@ -498,7 +499,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
-                Text('Timesheet submitted for review successfully!'),
+                Text(AppLocalizations.of(context)!.timesheetSubmittedSuccess),
               ],
             ),
             backgroundColor: Colors.green,
@@ -518,7 +519,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Error submitting timesheet: $e'),
+                Text(AppLocalizations.of(context)!.errorSubmittingTimesheetE),
               ],
             ),
             backgroundColor: Colors.red,
@@ -537,7 +538,7 @@ class _TimesheetTableState extends State<TimesheetTable>
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Timesheet Entry Details',
+          AppLocalizations.of(context)!.timesheetDetails,
           style: constants.openSansHebrewTextStyle.copyWith(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -566,7 +567,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
         ],
       ),
@@ -626,7 +627,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               ),
               const SizedBox(width: 6),
               Text(
-                'Location Information',
+                AppLocalizations.of(context)!.locationInformation,
                 style: constants.openSansHebrewTextStyle.copyWith(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -639,7 +640,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           if (entry.clockInLatitude != null &&
               entry.clockInLongitude != null) ...[
             Text(
-              '📍 Clock-in Location:',
+              AppLocalizations.of(context)!.clockInLocation,
               style: constants.openSansHebrewTextStyle.copyWith(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -656,7 +657,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Text(
-                    'Loading location...',
+                    AppLocalizations.of(context)!.timesheetLocationLoading,
                     style: constants.openSansHebrewTextStyle.copyWith(
                       fontSize: 12,
                       color: const Color(0xff6B7280),
@@ -678,7 +679,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               entry.clockOutLongitude != null) ...[
             const SizedBox(height: 8),
             Text(
-              '📍 Clock-out Location:',
+              AppLocalizations.of(context)!.clockOutLocation,
               style: constants.openSansHebrewTextStyle.copyWith(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -695,7 +696,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Text(
-                    'Loading location...',
+                    AppLocalizations.of(context)!.timesheetLocationLoading,
                     style: constants.openSansHebrewTextStyle.copyWith(
                       fontSize: 12,
                       color: const Color(0xff6B7280),
@@ -718,7 +719,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               (entry.clockOutLatitude == null ||
                   entry.clockOutLongitude == null)) ...[
             Text(
-              '⚠️ Location information was not captured for this session',
+              AppLocalizations.of(context)!.locationInformationWasNotCapturedFor,
               style: constants.openSansHebrewTextStyle.copyWith(
                 fontSize: 12,
                 color: Colors.orange.shade700,
@@ -752,7 +753,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'My Timesheet',
+                  AppLocalizations.of(context)!.timesheetMyTimesheet,
                   style: constants.openSansHebrewTextStyle.copyWith(
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
@@ -801,7 +802,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Date',
+                                child: Text(AppLocalizations.of(context)!.timesheetDate,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -819,7 +820,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Student',
+                                child: Text(AppLocalizations.of(context)!.roleStudent,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -837,7 +838,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Start',
+                                child: Text(AppLocalizations.of(context)!.timesheetStart,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -855,7 +856,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('End',
+                                child: Text(AppLocalizations.of(context)!.timesheetEnd,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -873,7 +874,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Total Hours',
+                                child: Text(AppLocalizations.of(context)!.timesheetTotalHours,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -891,7 +892,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Clock-in Location',
+                                child: Text(AppLocalizations.of(context)!.timesheetClockInLocation,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -909,7 +910,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Clock-out Location',
+                                child: Text(AppLocalizations.of(context)!.timesheetClockOutLocation,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -927,7 +928,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: const Text('Status',
+                                child: Text(AppLocalizations.of(context)!.userStatus,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -937,7 +938,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                               label: Container(
                                 padding: const EdgeInsets.all(8.0),
                                 alignment: Alignment.center,
-                                child: const Text('Actions',
+                                child: Text(AppLocalizations.of(context)!.timesheetActions,
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -1036,7 +1037,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         );
       },
       icon: const Icon(Icons.file_download, size: 16),
-      label: const Text('Export'),
+      label: Text(AppLocalizations.of(context)!.commonExport),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xffF3F4F6),
         foregroundColor: const Color(0xff111827),
@@ -1057,13 +1058,13 @@ class _TimesheetTableState extends State<TimesheetTable>
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Submit All Drafts'),
+            title: Text(AppLocalizations.of(context)!.submitAllDrafts),
             content: Text(
                 'Submit ${drafts.length} draft entr${drafts.length == 1 ? 'y' : 'ies'} for review?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
@@ -1071,7 +1072,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                   backgroundColor: const Color(0xff0386FF),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Submit'),
+                child: Text(AppLocalizations.of(context)!.timesheetSubmit),
               ),
             ],
           ),
@@ -1114,7 +1115,7 @@ class _TimesheetTableState extends State<TimesheetTable>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Submission failed: $e'),
+                content: Text(AppLocalizations.of(context)!.submissionFailedE),
                 backgroundColor: Colors.red,
               ),
             );
@@ -1399,7 +1400,7 @@ class TimesheetDataSource extends DataGridSource {
                 IconButton(
                   onPressed: () => onEdit?.call(entry),
                   icon: const Icon(Icons.edit, size: 16),
-                  tooltip: 'Edit',
+                  tooltip: AppLocalizations.of(context)!.commonEdit,
                   constraints: const BoxConstraints(
                     minWidth: 32,
                     minHeight: 32,
@@ -1409,7 +1410,7 @@ class TimesheetDataSource extends DataGridSource {
                 IconButton(
                   onPressed: () => onSubmit?.call(entry),
                   icon: const Icon(Icons.send, size: 16, color: Colors.blue),
-                  tooltip: 'Submit for Review',
+                  tooltip: AppLocalizations.of(context)!.timesheetSubmitForReview,
                   constraints: const BoxConstraints(
                     minWidth: 32,
                     minHeight: 32,
@@ -1418,7 +1419,7 @@ class TimesheetDataSource extends DataGridSource {
               IconButton(
                 onPressed: () => onView?.call(entry),
                 icon: const Icon(Icons.visibility, size: 16),
-                tooltip: 'View Details',
+                tooltip: AppLocalizations.of(context)!.shiftViewDetails,
                 constraints: const BoxConstraints(
                   minWidth: 32,
                   minHeight: 32,
@@ -1481,7 +1482,7 @@ class TimesheetDataSource extends DataGridSource {
             ),
             const SizedBox(width: 4),
             Text(
-              'Not captured',
+              AppLocalizations.of(context)!.timesheetLocationNotCaptured,
               style: constants.openSansHebrewTextStyle.copyWith(
                 fontSize: 11,
                 color: Colors.grey[600],
@@ -1897,7 +1898,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             Icon(Icons.calendar_today, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
-              'Date',
+              AppLocalizations.of(context)!.timesheetDate,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -1983,7 +1984,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             Icon(Icons.person, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
-              'Student',
+              AppLocalizations.of(context)!.roleStudent,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -2008,7 +2009,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 const SizedBox(width: 12),
-                Text('Loading students...',
+                Text(AppLocalizations.of(context)!.loadingStudents,
                     style: TextStyle(color: Colors.grey.shade600)),
               ],
             ),
@@ -2028,7 +2029,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                   child: TextFormField(
                     controller: _searchController,
                     decoration: const InputDecoration(
-                      hintText: 'Search students...',
+                      hintText: AppLocalizations.of(context)!.searchStudents,
                       prefixIcon: Icon(Icons.search, color: Color(0xff0386FF)),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.all(16),
@@ -2103,7 +2104,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                         ? Container(
                             padding: const EdgeInsets.all(16),
                             child: Text(
-                              'No students found',
+                              AppLocalizations.of(context)!.noStudentsFound,
                               style: TextStyle(color: Colors.grey.shade600),
                               textAlign: TextAlign.center,
                             ),
@@ -2176,7 +2177,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     width: double.infinity,
                     padding: const EdgeInsets.only(top: 8, left: 16),
                     child: Text(
-                      'Please select a student',
+                      AppLocalizations.of(context)!.pleaseSelectAStudent,
                       style: TextStyle(
                         color: Colors.red.shade600,
                         fontSize: 12,
@@ -2260,7 +2261,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             Icon(Icons.coffee, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
-              'Break Duration',
+              AppLocalizations.of(context)!.breakDuration,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -2293,7 +2294,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               items: [0, 15, 30, 45, 60, 90].map((minutes) {
                 return DropdownMenuItem(
                   value: minutes,
-                  child: Text('$minutes minutes'),
+                  child: Text(AppLocalizations.of(context)!.minutesMinutes),
                 );
               }).toList(),
             ),
@@ -2312,7 +2313,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             Icon(Icons.notes, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
-              'Description (Optional)',
+              AppLocalizations.of(context)!.chatGroupDescription,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -2329,7 +2330,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             controller: _descriptionController,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'Enter lesson details, notes, or observations...',
+              hintText: AppLocalizations.of(context)!.enterLessonDetailsNotesOrObservations,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -2360,7 +2361,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             Icon(Icons.location_on, size: 16, color: Color(0xff10B981)),
             SizedBox(width: 8),
             Text(
-              'Location Information (Required)',
+              AppLocalizations.of(context)!.locationInformationRequired,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -2438,8 +2439,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               if (!_isGettingLocation && _currentLocation == null)
                 TextButton(
                   onPressed: _getCurrentLocation,
-                  child: const Text(
-                    'Retry',
+                  child: Text(
+                    AppLocalizations.of(context)!.commonRetry,
                     style: TextStyle(
                       color: Color(0xff10B981),
                       fontSize: 12,
@@ -2485,7 +2486,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Total Teaching Hours',
+                  AppLocalizations.of(context)!.totalTeachingHours,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade700,
@@ -2531,7 +2532,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Location is mandatory for all timesheet entries. Please wait for location or grant permission.',
+                    AppLocalizations.of(context)!.locationIsMandatoryForAllTimesheet,
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.red.shade700,
@@ -2555,8 +2556,8 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Cancel',
+                child: Text(
+                  AppLocalizations.of(context)!.commonCancel,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -2637,7 +2638,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     if (_selectedStudent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select a student'),
+          content: Text(AppLocalizations.of(context)!.pleaseSelectAStudent),
           backgroundColor: Colors.red,
         ),
       );
@@ -2649,7 +2650,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Location is mandatory. Please wait for location to be captured or grant location permission.'),
+              AppLocalizations.of(context)!.locationIsMandatoryPleaseWaitFor),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 4),
         ),
@@ -2687,7 +2688,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     if (_selectedStudent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select a student'),
+          content: Text(AppLocalizations.of(context)!.pleaseSelectAStudent),
           backgroundColor: Colors.red,
         ),
       );
@@ -2699,7 +2700,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Location is mandatory. Please wait for location to be captured or grant location permission.'),
+              AppLocalizations.of(context)!.locationIsMandatoryPleaseWaitFor),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 4),
         ),

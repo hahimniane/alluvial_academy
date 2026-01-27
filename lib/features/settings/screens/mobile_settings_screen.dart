@@ -4,8 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/profile_picture_service.dart';
+import '../../../core/services/language_service.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/services/onboarding_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
@@ -56,6 +58,125 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
   
   bool get _isStudent => _userRole == 'student';
 
+  String _languageLabel(AppLocalizations l10n, Locale locale) {
+    switch (locale.languageCode) {
+      case 'fr':
+        return l10n.languageFrench;
+      case 'ar':
+        return l10n.languageArabic;
+      case 'en':
+      default:
+        return l10n.languageEnglish;
+    }
+  }
+
+  void _showLanguagePicker(
+    BuildContext context,
+    LanguageService languageService,
+  ) {
+    try {
+      final l10n = AppLocalizations.of(context)!;
+      final currentLocale =
+          languageService.locale ?? Localizations.localeOf(context);
+
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetContext) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.selectLanguageTitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildLanguageOption(
+                    context: sheetContext,
+                    label: l10n.languageEnglish,
+                    value: const Locale('en'),
+                    groupValue: currentLocale,
+                    onSelected: (locale) =>
+                        _applyLocale(sheetContext, languageService, locale),
+                  ),
+                  _buildLanguageOption(
+                    context: sheetContext,
+                    label: l10n.languageFrench,
+                    value: const Locale('fr'),
+                    groupValue: currentLocale,
+                    onSelected: (locale) =>
+                        _applyLocale(sheetContext, languageService, locale),
+                  ),
+                  // Arabic disabled for now - RTL support needed
+                  // _buildLanguageOption(
+                  //   context: sheetContext,
+                  //   label: l10n.languageArabic,
+                  //   value: const Locale('ar'),
+                  //   groupValue: currentLocale,
+                  //   onSelected: (locale) =>
+                  //       _applyLocale(sheetContext, languageService, locale),
+                  // ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Error showing language picker: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingLanguageSettingsPleaseRestart)),
+      );
+    }
+  }
+
+  void _applyLocale(
+    BuildContext context,
+    LanguageService languageService,
+    Locale locale,
+  ) {
+    languageService.setLocale(locale);
+    Navigator.pop(context);
+  }
+
+  Widget _buildLanguageOption({
+    required BuildContext context,
+    required String label,
+    required Locale value,
+    required Locale groupValue,
+    required ValueChanged<Locale> onSelected,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF111827),
+        ),
+      ),
+      trailing: Radio<Locale>(
+        value: value,
+        groupValue: groupValue,
+        onChanged: (locale) {
+          if (locale != null) onSelected(locale);
+        },
+      ),
+      onTap: () => onSelected(value),
+    );
+  }
+
   Future<void> _uploadProfilePicture(ImageSource source) async {
     setState(() => _isUploadingPicture = true);
     
@@ -80,7 +201,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Profile picture updated successfully!',
+              AppLocalizations.of(context)!.profilePictureUpdatedSuccessfully,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xff10B981),
@@ -97,7 +218,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to upload profile picture. Please try again.',
+              AppLocalizations.of(context)!.failedToUploadProfilePicturePlease,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xffEF4444),
@@ -118,7 +239,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Profile picture removed successfully!',
+              AppLocalizations.of(context)!.profilePictureRemovedSuccessfully,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xff10B981),
@@ -133,7 +254,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to remove profile picture. Please try again.',
+              AppLocalizations.of(context)!.failedToRemoveProfilePicturePlease,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xffEF4444),
@@ -173,7 +294,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  'Change Profile Picture',
+                  AppLocalizations.of(context)!.changeProfilePicture,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -198,7 +319,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   ),
                 ),
                 title: Text(
-                  'Choose from Gallery',
+                  AppLocalizations.of(context)!.chooseFromGallery,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -225,7 +346,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   ),
                 ),
                 title: Text(
-                  'Take a Photo',
+                  AppLocalizations.of(context)!.takeAPhoto,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -253,7 +374,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                     ),
                   ),
                 title: Text(
-                  'Remove Picture',
+                  AppLocalizations.of(context)!.removePicture,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -304,7 +425,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             const SizedBox(height: 20),
             
             Text(
-              'Help & Support',
+              AppLocalizations.of(context)!.settingsHelpSupport,
               style: GoogleFonts.inter(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -315,22 +436,22 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             
             _buildHelpItem(
               icon: Icons.book_outlined,
-              title: 'How to Join a Class',
+              title: AppLocalizations.of(context)!.howToJoinAClass,
               description: 'Tap on any upcoming class card and click "Join Class" when it\'s time.',
             ),
             _buildHelpItem(
               icon: Icons.notifications_outlined,
-              title: 'Getting Notifications',
+              title: AppLocalizations.of(context)!.gettingNotifications,
               description: 'Enable notifications in Settings to get reminders before your classes.',
             ),
             _buildHelpItem(
               icon: Icons.video_call_outlined,
-              title: 'During Class',
+              title: AppLocalizations.of(context)!.duringClass,
               description: 'Use the mic and camera buttons to control your audio and video.',
             ),
             _buildHelpItem(
               icon: Icons.chat_outlined,
-              title: 'Chat Feature',
+              title: AppLocalizations.of(context)!.chatFeature,
               description: 'Send messages to your teacher using the Chat tab.',
             ),
             
@@ -341,7 +462,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
               child: ElevatedButton.icon(
                 onPressed: _contactSupport,
                 icon: const Icon(Icons.mail_outline),
-                label: const Text('Contact Support'),
+                label: Text(AppLocalizations.of(context)!.contactSupport),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff0386FF),
                   foregroundColor: Colors.white,
@@ -446,14 +567,14 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Alluwal Academy',
+                  AppLocalizations.of(context)!.appTitle,
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
-                  'Version 1.0.0',
+                  AppLocalizations.of(context)!.version100,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xff6B7280),
@@ -468,7 +589,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Alluwal Academy is a Quran education platform that connects students with qualified teachers for online Islamic learning.',
+              AppLocalizations.of(context)!.alluwalAcademyIsAQuranEducation,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff4B5563),
@@ -477,7 +598,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '© 2024 Alluwal Education Hub',
+              AppLocalizations.of(context)!.2024AlluwalEducationHub,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xff9CA3AF),
@@ -488,7 +609,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
         ],
       ),
@@ -529,7 +650,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Privacy Policy',
+                      AppLocalizations.of(context)!.settingsPrivacyPolicy,
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -552,32 +673,32 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildPrivacySection(
-                        title: 'Information We Collect',
-                        content: 'We collect information you provide directly, including your name, email, and profile information. We also collect data about your class attendance and learning progress.',
+                        title: AppLocalizations.of(context)!.informationWeCollect,
+                        content: AppLocalizations.of(context)!.weCollectInformationYouProvideDirectly,
                       ),
                       _buildPrivacySection(
-                        title: 'How We Use Your Information',
-                        content: 'Your information is used to provide our educational services, send class notifications, and improve your learning experience. We never sell your personal data.',
+                        title: AppLocalizations.of(context)!.howWeUseYourInformation,
+                        content: AppLocalizations.of(context)!.yourInformationIsUsedToProvide,
                       ),
                       _buildPrivacySection(
-                        title: 'Data Security',
-                        content: 'We implement industry-standard security measures to protect your data. All communications are encrypted and we regularly audit our security practices.',
+                        title: AppLocalizations.of(context)!.dataSecurity,
+                        content: AppLocalizations.of(context)!.weImplementIndustryStandardSecurityMeasures,
                       ),
                       _buildPrivacySection(
-                        title: 'Children\'s Privacy',
-                        content: 'We are committed to protecting children\'s privacy. Parent or guardian consent is required for users under 13, and we collect only necessary information.',
+                        title: AppLocalizations.of(context)!.childrenSPrivacy,
+                        content: AppLocalizations.of(context)!.weAreCommittedToProtectingChildren,
                       ),
                       _buildPrivacySection(
-                        title: 'Your Rights',
-                        content: 'You have the right to access, correct, or delete your personal information. Contact us at support@alluwaleducationhub.org for any privacy-related requests.',
+                        title: AppLocalizations.of(context)!.yourRights,
+                        content: AppLocalizations.of(context)!.youHaveTheRightToAccess,
                       ),
                       _buildPrivacySection(
-                        title: 'Contact Us',
-                        content: 'For privacy questions or concerns, email us at support@alluwaleducationhub.org or contact our support team through the app.',
+                        title: AppLocalizations.of(context)!.contactUs,
+                        content: AppLocalizations.of(context)!.forPrivacyQuestionsOrConcernsEmail,
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Last updated: January 2024',
+                        AppLocalizations.of(context)!.lastUpdatedJanuary2024,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xff9CA3AF),
@@ -638,7 +759,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Email: support@alluwaleducationhub.org',
+                AppLocalizations.of(context)!.emailSupportAlluwaleducationhubOrg,
                 style: GoogleFonts.inter(),
               ),
               backgroundColor: const Color(0xff0386FF),
@@ -647,7 +768,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                 label: 'Copy',
                 textColor: Colors.white,
                 onPressed: () {
-                  Clipboard.setData(const ClipboardData(text: 'support@alluwaleducationhub.org'));
+                  Clipboard.setData(const ClipboardData(text: AppLocalizations.of(context)!.supportAlluwaleducationhubOrg));
                 },
               ),
             ),
@@ -661,6 +782,18 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) {
+      // Localization not ready yet - show loading
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final languageService = context.watch<LanguageService>();
+    final currentLocale =
+        languageService.locale ?? Localizations.localeOf(context);
+    final languageSubtitle = _languageLabel(l10n, currentLocale);
+
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -672,7 +805,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            'Settings',
+            l10n.settingsTitle,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -698,7 +831,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Settings',
+          l10n.settingsTitle,
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -729,7 +862,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
               child: Column(
                 children: [
                   Text(
-                    'PROFILE',
+                    l10n.profileHeader,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -831,7 +964,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                     onPressed: _showProfilePictureOptions,
                     icon: const Icon(Icons.edit, size: 18),
                     label: Text(
-                      'Change Profile Picture',
+                      AppLocalizations.of(context)!.changeProfilePicture,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -868,7 +1001,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'APP SETTINGS',
+                      l10n.appSettingsHeader,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -879,8 +1012,8 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   ),
                   _buildSettingsTile(
                     icon: Icons.notifications_outlined,
-                    title: 'Notifications',
-                    subtitle: 'Manage notification preferences',
+                    title: l10n.notificationsTitle,
+                    subtitle: l10n.notificationsSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -893,10 +1026,10 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   const Divider(height: 1, indent: 56),
                   _buildSettingsTile(
                     icon: Icons.language_outlined,
-                    title: 'Language',
-                    subtitle: 'English',
+                    title: l10n.languageTitle,
+                    subtitle: languageSubtitle,
                     onTap: () {
-                      // Navigate to language settings
+                      _showLanguagePicker(context, languageService);
                     },
                   ),
                   const Divider(height: 1, indent: 56),
@@ -927,7 +1060,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'SUPPORT',
+                      l10n.supportHeader,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -938,38 +1071,38 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   ),
                   _buildSettingsTile(
                     icon: Icons.help_outline,
-                    title: 'Help & Support',
-                    subtitle: 'Get help using the app',
+                    title: AppLocalizations.of(context)!.settingsHelpSupport,
+                    subtitle: AppLocalizations.of(context)!.getHelpUsingTheApp,
                     onTap: _showHelpDialog,
                   ),
                   const Divider(height: 1, indent: 56),
                   if (_isStudent) ...[
                     _buildSettingsTile(
                       icon: Icons.explore_outlined,
-                      title: 'Take App Tour',
-                      subtitle: 'Learn how to use the app',
+                      title: AppLocalizations.of(context)!.settingsTakeAppTour,
+                      subtitle: AppLocalizations.of(context)!.settingsLearnApp,
                       onTap: _startAppTour,
                     ),
                     const Divider(height: 1, indent: 56),
                   ],
                   _buildSettingsTile(
                     icon: Icons.info_outline,
-                    title: 'About',
-                    subtitle: 'Version and app information',
+                    title: AppLocalizations.of(context)!.profileAbout,
+                    subtitle: AppLocalizations.of(context)!.versionAndAppInformation,
                     onTap: _showAboutDialog,
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildSettingsTile(
                     icon: Icons.policy_outlined,
-                    title: 'Privacy Policy',
-                    subtitle: 'Read our privacy policy',
+                    title: AppLocalizations.of(context)!.settingsPrivacyPolicy,
+                    subtitle: AppLocalizations.of(context)!.readOurPrivacyPolicy,
                     onTap: _showPrivacyPolicy,
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildSettingsTile(
                     icon: Icons.mail_outline,
-                    title: 'Contact Us',
-                    subtitle: 'Send us an email',
+                    title: AppLocalizations.of(context)!.contactUs,
+                    subtitle: AppLocalizations.of(context)!.sendUsAnEmail,
                     onTap: _contactSupport,
                   ),
                 ],
@@ -1040,7 +1173,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             ),
           ),
           title: Text(
-            'Dark Mode',
+            AppLocalizations.of(context)!.settingsDarkMode,
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w500,

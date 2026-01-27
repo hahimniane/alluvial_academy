@@ -9,6 +9,7 @@ import '../../../core/services/video_call_service.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Admin Classes Screen - Shows all classes and allows admins to join any class
 class AdminClassesScreen extends StatefulWidget {
@@ -150,7 +151,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
         elevation: 0,
         backgroundColor: Colors.white,
         title: Text(
-          'All Classes',
+          AppLocalizations.of(context)!.allClasses,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -205,7 +206,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadClasses,
-            child: const Text('Retry'),
+            child: Text(AppLocalizations.of(context)!.commonRetry),
           ),
         ],
       ),
@@ -373,7 +374,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '$participantCount in class',
+                            AppLocalizations.of(context)!.participantcountInClass,
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -487,7 +488,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Live Participants',
+                            AppLocalizations.of(context)!.liveParticipants,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -592,7 +593,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                       ] else if (presence != null && presence.participants.isEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
-                          'No one has joined yet',
+                          AppLocalizations.of(context)!.noOneHasJoinedYet,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xFF64748B),
@@ -606,7 +607,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                 // Tap for more details hint
                 const SizedBox(height: 6),
                 Text(
-                  'Tap and hold for more details',
+                  AppLocalizations.of(context)!.tapAndHoldForMoreDetails,
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     color: const Color(0xFF94A3B8),
@@ -789,7 +790,7 @@ class _ClassDetailsSheet extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'LIVE',
+                                AppLocalizations.of(context)!.live,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

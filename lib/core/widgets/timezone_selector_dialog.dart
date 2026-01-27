@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/timezone_utils.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TimezoneSelectorDialog extends StatefulWidget {
   final String? initialTimezone;
@@ -140,7 +141,7 @@ class _TimezoneSelectorDialogState extends State<TimezoneSelectorDialog> {
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
-        hintText: 'Search by city, timezone ID, or abbreviation…',
+        hintText: AppLocalizations.of(context)!.searchByCityTimezoneIdOr,
         prefixIcon: const Icon(Icons.search),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

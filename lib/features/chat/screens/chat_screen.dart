@@ -15,6 +15,7 @@ import '../widgets/message_bubble.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ChatScreen extends StatefulWidget {
   final ChatUser chatUser;
@@ -367,7 +368,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
         child: Text(
-          'Online',
+          AppLocalizations.of(context)!.chatOnline,
           style: GoogleFonts.inter(
             fontSize: 10,
             color: const Color(0xff10B981),
@@ -447,7 +448,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Error loading messages',
+                  AppLocalizations.of(context)!.chatErrorLoadingMessages,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: const Color(0xff374151),
@@ -480,7 +481,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Start the conversation',
+                  AppLocalizations.of(context)!.startTheConversation,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -544,7 +545,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'You can only message users you have a teaching relationship with',
+                AppLocalizations.of(context)!.chatTeachingRelationshipOnly,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xffDC2626),
@@ -601,170 +602,170 @@ class _ChatScreenState extends State<ChatScreen> {
           // Message input row
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Attachment button
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.add,
-                    color: Color(0xff6B7280),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: (value) => _handleAttachment(value),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'photo',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.photo, color: Color(0xff059669)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Photo',
-                            style: GoogleFonts.inter(
-                                color: const Color(0xff374151)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'camera',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.camera_alt,
-                              color: Color(0xff0386FF)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Camera',
-                            style: GoogleFonts.inter(
-                                color: const Color(0xff374151)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'file',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.insert_drive_file,
-                              color: Color(0xff6366F1)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Document',
-                            style: GoogleFonts.inter(
-                                color: const Color(0xff374151)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'location',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_on,
-                              color: Color(0xffEF4444)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Location',
-                            style: GoogleFonts.inter(
-                                color: const Color(0xff374151)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(width: 8),
-
-                // Message input field
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(maxHeight: 120),
-                    decoration: BoxDecoration(
-                      color: const Color(0xffF9FAFB),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: const Color(0xffE5E7EB),
-                        width: 1,
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      focusNode: _messageFocusNode,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: const Color(0xff111827),
-                      ),
-                      decoration: InputDecoration(
-                        hintText: _replyingTo != null
-                            ? 'Reply to ${_replyingTo!.senderName}...'
-                            : 'Type a message...',
-                        hintStyle: GoogleFonts.inter(
-                          color: const Color(0xff9CA3AF),
-                          fontSize: 16,
+            child: _isRecording
+                ? _buildRecordingControls()
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Attachment button
+                      PopupMenuButton<String>(
+                        icon: const Icon(
+                          Icons.add,
+                          color: Color(0xff6B7280),
                         ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        onSelected: (value) => _handleAttachment(value),
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'photo',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.photo, color: Color(0xff059669)),
+                                const SizedBox(width: 12),
+                                Text(
+                                  AppLocalizations.of(context)!.chatPhoto,
+                                  style: GoogleFonts.inter(
+                                      color: const Color(0xff374151)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'camera',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.camera_alt,
+                                    color: Color(0xff0386FF)),
+                                const SizedBox(width: 12),
+                                Text(
+                                  AppLocalizations.of(context)!.chatCamera,
+                                  style: GoogleFonts.inter(
+                                      color: const Color(0xff374151)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'file',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.insert_drive_file,
+                                    color: Color(0xff6366F1)),
+                                const SizedBox(width: 12),
+                                Text(
+                                  AppLocalizations.of(context)!.chatDocument,
+                                  style: GoogleFonts.inter(
+                                      color: const Color(0xff374151)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'location',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on,
+                                    color: Color(0xffEF4444)),
+                                const SizedBox(width: 12),
+                                Text(
+                                  AppLocalizations.of(context)!.chatLocation,
+                                  style: GoogleFonts.inter(
+                                      color: const Color(0xff374151)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // Message input field
+                      Expanded(
+                        child: Container(
+                          constraints: const BoxConstraints(maxHeight: 120),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffF9FAFB),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: const Color(0xffE5E7EB),
+                              width: 1,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _messageController,
+                            focusNode: _messageFocusNode,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              color: const Color(0xff111827),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: _replyingTo != null
+                                  ? 'Reply to ${_replyingTo!.senderName}...'
+                                  : 'Type a message...',
+                              hintStyle: GoogleFonts.inter(
+                                color: const Color(0xff9CA3AF),
+                                fontSize: 16,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            maxLines: null,
+                            textCapitalization: TextCapitalization.sentences,
+                            onSubmitted: (value) => _sendMessage(),
+                            onChanged: (text) {
+                              setState(() {
+                                _isComposing = text.trim().isNotEmpty;
+                              });
+                            },
+                          ),
                         ),
                       ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (value) => _sendMessage(),
-                      onChanged: (text) {
-                        setState(() {
-                          _isComposing = text.trim().isNotEmpty;
-                        });
-                      },
-                    ),
-                  ),
-                ),
 
-                const SizedBox(width: 8),
+                      const SizedBox(width: 8),
 
-                // Voice/Send button
-                _isRecording
-                    ? _buildRecordingControls()
-                    : _isComposing
-                        ? AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            child: IconButton(
-                              onPressed: _sendMessage,
-                              style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xff0386FF),
-                                shape: const CircleBorder(),
+                      // Voice/Send button
+                      _isComposing
+                          ? AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              child: IconButton(
+                                onPressed: _sendMessage,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: const Color(0xff0386FF),
+                                  shape: const CircleBorder(),
+                                  padding: const EdgeInsets.all(12),
+                                ),
+                                icon: const Icon(
+                                  Icons.send,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            )
+                          : GestureDetector(
+                              onLongPressStart: (_) => _startRecording(),
+                              onLongPressEnd: (_) => _stopRecordingAndSend(),
+                              onTap: () => _showRecordingHint(),
+                              child: Container(
                                 padding: const EdgeInsets.all(12),
-                              ),
-                              icon: const Icon(
-                                Icons.send,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          )
-                        : GestureDetector(
-                            onLongPressStart: (_) => _startRecording(),
-                            onLongPressEnd: (_) => _stopRecordingAndSend(),
-                            onTap: () => _showRecordingHint(),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(
-                                color: Color(0xffE5E7EB),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.mic,
-                                color: Color(0xff6B7280),
-                                size: 20,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xffE5E7EB),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.mic,
+                                  color: Color(0xff6B7280),
+                                  size: 20,
+                                ),
                               ),
                             ),
-                          ),
-              ],
-            ),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -922,7 +923,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildRecordingControls() {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
         // Cancel button
         IconButton(
@@ -930,54 +930,77 @@ class _ChatScreenState extends State<ChatScreen> {
           style: IconButton.styleFrom(
             backgroundColor: Colors.red.shade50,
             shape: const CircleBorder(),
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
           ),
           icon: Icon(
             Icons.delete,
             color: Colors.red.shade400,
-            size: 20,
+            size: 22,
           ),
         ),
-        const SizedBox(width: 8),
         
-        // Recording indicator
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.red.shade50,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withOpacity(0.5),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
+        // Recording indicator - takes remaining space
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Pulsing red dot
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.5, end: 1.0),
+                  duration: const Duration(milliseconds: 600),
+                  builder: (context, value, child) {
+                    return Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(value),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(value * 0.5),
+                            blurRadius: 6,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onEnd: () {
+                    // This creates a continuous animation effect
+                    if (mounted && _isRecording) {
+                      setState(() {});
+                    }
+                  },
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _formatRecordingDuration(_recordingDuration),
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.red,
+                const SizedBox(width: 12),
+                Text(
+                  AppLocalizations.of(context)!.chatRecording,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red.shade700,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  _formatRecordingDuration(_recordingDuration),
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 8),
         
         // Send button
         IconButton(
@@ -990,7 +1013,7 @@ class _ChatScreenState extends State<ChatScreen> {
           icon: const Icon(
             Icons.send,
             color: Colors.white,
-            size: 20,
+            size: 22,
           ),
         ),
       ],
@@ -1209,7 +1232,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'You don\'t have permission to message this user',
+            AppLocalizations.of(context)!.youDonTHavePermissionTo,
             style: GoogleFonts.inter(),
           ),
           backgroundColor: const Color(0xffEF4444),
@@ -1277,18 +1300,18 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Delete Message',
+          AppLocalizations.of(context)!.chatDeleteMessage,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'Are you sure you want to delete this message?',
+          AppLocalizations.of(context)!.chatDeleteMessageConfirm,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xff6B7280)),
             ),
           ),
@@ -1299,7 +1322,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Message deletion not yet implemented',
+                    AppLocalizations.of(context)!.messageDeletionNotYetImplemented,
                     style: GoogleFonts.inter(),
                   ),
                   backgroundColor: const Color(0xffF59E0B),
@@ -1307,7 +1330,7 @@ class _ChatScreenState extends State<ChatScreen> {
               );
             },
             child: Text(
-              'Delete',
+              AppLocalizations.of(context)!.commonDelete,
               style: GoogleFonts.inter(color: Colors.red),
             ),
           ),
@@ -1321,7 +1344,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Message forwarding not yet implemented',
+          AppLocalizations.of(context)!.messageForwardingNotYetImplemented,
           style: GoogleFonts.inter(),
         ),
         backgroundColor: const Color(0xffF59E0B),
@@ -1334,7 +1357,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Reaction added: $reaction',
+          AppLocalizations.of(context)!.reactionAddedReaction,
           style: GoogleFonts.inter(),
         ),
         backgroundColor: const Color(0xff10B981),
@@ -1348,18 +1371,18 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Clear Chat',
+          AppLocalizations.of(context)!.chatClearChat,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'Are you sure you want to clear this chat? This action cannot be undone.',
+          AppLocalizations.of(context)!.chatClearChatConfirm,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xff6B7280)),
             ),
           ),
@@ -1369,7 +1392,7 @@ class _ChatScreenState extends State<ChatScreen> {
               // TODO: Implement clear chat functionality
             },
             child: Text(
-              'Clear',
+              AppLocalizations.of(context)!.commonClear,
               style: GoogleFonts.inter(color: Colors.red),
             ),
           ),
@@ -1383,7 +1406,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Block User',
+          AppLocalizations.of(context)!.chatBlockUser,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
@@ -1394,7 +1417,7 @@ class _ChatScreenState extends State<ChatScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xff6B7280)),
             ),
           ),
@@ -1404,7 +1427,7 @@ class _ChatScreenState extends State<ChatScreen> {
               // TODO: Implement block user functionality
             },
             child: Text(
-              'Block',
+              AppLocalizations.of(context)!.block,
               style: GoogleFonts.inter(color: Colors.red),
             ),
           ),
@@ -1422,7 +1445,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const Icon(Icons.clear_all, color: Color(0xff6B7280)),
             const SizedBox(width: 12),
             Text(
-              'Clear Chat',
+              AppLocalizations.of(context)!.chatClearChat,
               style: GoogleFonts.inter(color: const Color(0xff374151)),
             ),
           ],
@@ -1440,7 +1463,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const Icon(Icons.info_outline, color: Color(0xff6B7280)),
               const SizedBox(width: 12),
               Text(
-                'Group Info',
+                AppLocalizations.of(context)!.groupInfo,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
               ),
             ],
@@ -1457,7 +1480,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const Icon(Icons.person_add, color: Color(0xff059669)),
               const SizedBox(width: 12),
               Text(
-                'Add Members',
+                AppLocalizations.of(context)!.chatAddMembers,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
               ),
             ],
@@ -1474,7 +1497,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const Icon(Icons.block, color: Colors.red),
               const SizedBox(width: 12),
               Text(
-                'Block User',
+                AppLocalizations.of(context)!.chatBlockUser,
                 style: GoogleFonts.inter(color: Colors.red),
               ),
             ],
@@ -1527,7 +1550,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Group Information',
+          AppLocalizations.of(context)!.chatGroupInfo,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Column(
@@ -1554,7 +1577,7 @@ class _ChatScreenState extends State<ChatScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Close',
+              AppLocalizations.of(context)!.commonClose,
               style: GoogleFonts.inter(color: const Color(0xff0386FF)),
             ),
           ),
@@ -1632,7 +1655,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(
-        'Add Members',
+        AppLocalizations.of(context)!.chatAddMembers,
         style: GoogleFonts.inter(fontWeight: FontWeight.w600),
       ),
       content: SizedBox(
@@ -1651,7 +1674,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
 
             if (snapshot.hasError) {
               return const Center(
-                child: Text('Error loading users'),
+                child: Text(AppLocalizations.of(context)!.errorLoadingUsers),
               );
             }
 
@@ -1663,7 +1686,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
 
             if (availableUsers.isEmpty) {
               return const Center(
-                child: Text('No users available to add'),
+                child: Text(AppLocalizations.of(context)!.noUsersAvailableToAdd),
               );
             }
 
@@ -1723,7 +1746,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            'Cancel',
+            AppLocalizations.of(context)!.commonCancel,
             style: GoogleFonts.inter(color: const Color(0xff6B7280)),
           ),
         ),
@@ -1747,7 +1770,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Failed to add members'),
+                          content: Text(AppLocalizations.of(context)!.failedToAddMembers),
                           backgroundColor: Colors.red,
                         ),
                       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/subject.dart';
 import '../../../core/services/subject_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SubjectManagementScreen extends StatefulWidget {
   const SubjectManagementScreen({super.key});
@@ -63,7 +64,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Subject Management',
+                AppLocalizations.of(context)!.subjectManagement,
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -72,7 +73,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Manage subjects for shift creation',
+                AppLocalizations.of(context)!.manageSubjectsForShiftCreation,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xFF6B7280),
@@ -85,7 +86,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
             onPressed: () => _showAddSubjectDialog(),
             icon: const Icon(Icons.add, size: 20),
             label: Text(
-              'Add Subject',
+              AppLocalizations.of(context)!.addSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w500),
             ),
             style: ElevatedButton.styleFrom(
@@ -122,7 +123,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 });
               },
               decoration: InputDecoration(
-                hintText: 'Search subjects...',
+                hintText: AppLocalizations.of(context)!.searchSubjects,
                 hintStyle: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xFF9CA3AF),
@@ -156,7 +157,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
           const SizedBox(width: 16),
           FilterChip(
             label: Text(
-              'Show Inactive',
+              AppLocalizations.of(context)!.showInactive,
               style: GoogleFonts.inter(fontSize: 14),
             ),
             selected: _showInactive,
@@ -225,7 +226,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 if (_searchQuery.isEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Click "Add Subject" to create your first subject',
+                    AppLocalizations.of(context)!.clickAddSubjectToCreateYour,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xFF9CA3AF),
@@ -317,7 +318,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Inactive',
+                  AppLocalizations.of(context)!.userInactive,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xFFEF4444),
@@ -362,7 +363,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                           size: 20, color: Color(0xFF6B7280)),
                       const SizedBox(width: 8),
                       Text(
-                        'Edit',
+                        AppLocalizations.of(context)!.commonEdit,
                         style: GoogleFonts.inter(fontSize: 14),
                       ),
                     ],
@@ -416,7 +417,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Add New Subject',
+          AppLocalizations.of(context)!.addNewSubject,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: SingleChildScrollView(
@@ -426,8 +427,8 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               TextField(
                 controller: displayNameController,
                 decoration: InputDecoration(
-                  labelText: 'Display Name *',
-                  hintText: 'e.g., Quran Studies',
+                  labelText: AppLocalizations.of(context)!.displayName,
+                  hintText: AppLocalizations.of(context)!.eGQuranStudies,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -438,9 +439,9 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
-                  labelText: 'Internal Name *',
-                  hintText: 'e.g., quran_studies',
-                  helperText: 'Use lowercase with underscores',
+                  labelText: AppLocalizations.of(context)!.internalName,
+                  hintText: AppLocalizations.of(context)!.eGQuranStudies2,
+                  helperText: AppLocalizations.of(context)!.useLowercaseWithUnderscores,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -451,8 +452,8 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               TextField(
                 controller: arabicNameController,
                 decoration: InputDecoration(
-                  labelText: 'Arabic Name (Optional)',
-                  hintText: 'e.g., دراسات القرآن',
+                  labelText: AppLocalizations.of(context)!.arabicNameOptional,
+                  hintText: AppLocalizations.of(context)!.eG,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -464,8 +465,8 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 controller: descriptionController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: 'Description (Optional)',
-                  hintText: 'Brief description of the subject',
+                  labelText: AppLocalizations.of(context)!.chatGroupDescription,
+                  hintText: AppLocalizations.of(context)!.briefDescriptionOfTheSubject,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -479,7 +480,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xFF6B7280)),
             ),
           ),
@@ -491,7 +492,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               if (displayName.isEmpty || name.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Please fill in all required fields'),
+                    content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -522,14 +523,14 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Subject "$displayName" added successfully'),
+                    content: Text(AppLocalizations.of(context)!.subjectDisplaynameAddedSuccessfully),
                     backgroundColor: Colors.green,
                   ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Error adding subject: $e'),
+                    content: Text(AppLocalizations.of(context)!.errorAddingSubjectE),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -540,7 +541,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               foregroundColor: Colors.white,
             ),
             child: Text(
-              'Add Subject',
+              AppLocalizations.of(context)!.addSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w500),
             ),
           ),
@@ -562,7 +563,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Edit Subject',
+          AppLocalizations.of(context)!.editSubject,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: SingleChildScrollView(
@@ -572,7 +573,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               TextField(
                 controller: displayNameController,
                 decoration: InputDecoration(
-                  labelText: 'Display Name *',
+                  labelText: AppLocalizations.of(context)!.displayName,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -583,8 +584,8 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
-                  labelText: 'Internal Name *',
-                  helperText: 'Use lowercase with underscores',
+                  labelText: AppLocalizations.of(context)!.internalName,
+                  helperText: AppLocalizations.of(context)!.useLowercaseWithUnderscores,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -595,7 +596,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               TextField(
                 controller: arabicNameController,
                 decoration: InputDecoration(
-                  labelText: 'Arabic Name (Optional)',
+                  labelText: AppLocalizations.of(context)!.arabicNameOptional,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -607,7 +608,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 controller: descriptionController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: 'Description (Optional)',
+                  labelText: AppLocalizations.of(context)!.chatGroupDescription,
                   labelStyle: GoogleFonts.inter(fontSize: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -621,7 +622,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(color: const Color(0xFF6B7280)),
             ),
           ),
@@ -633,7 +634,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               if (displayName.isEmpty || name.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Please fill in all required fields'),
+                    content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -656,14 +657,14 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content:
-                        Text('Subject "$displayName" updated successfully'),
+                        Text(AppLocalizations.of(context)!.subjectDisplaynameUpdatedSuccessfully),
                     backgroundColor: Colors.green,
                   ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Error updating subject: $e'),
+                    content: Text(AppLocalizations.of(context)!.errorUpdatingSubjectE),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -674,7 +675,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
               foregroundColor: Colors.white,
             ),
             child: Text(
-              'Update Subject',
+              AppLocalizations.of(context)!.updateSubject,
               style: GoogleFonts.inter(fontWeight: FontWeight.w500),
             ),
           ),
@@ -699,7 +700,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error updating subject status: $e'),
+          content: Text(AppLocalizations.of(context)!.errorUpdatingSubjectStatusE),
           backgroundColor: Colors.red,
         ),
       );
@@ -720,7 +721,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error reordering subjects: $e'),
+          content: Text(AppLocalizations.of(context)!.errorReorderingSubjectsE),
           backgroundColor: Colors.red,
         ),
       );

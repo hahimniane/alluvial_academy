@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/notification_preferences_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -78,7 +79,7 @@ class _NotificationPreferencesScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Notification preferences saved!',
+              AppLocalizations.of(context)!.notificationPreferencesSaved,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xff10B981),
@@ -94,7 +95,7 @@ class _NotificationPreferencesScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to save preferences. Please try again.',
+              AppLocalizations.of(context)!.failedToSavePreferencesPleaseTry,
               style: GoogleFonts.inter(),
             ),
             backgroundColor: const Color(0xffEF4444),
@@ -121,7 +122,7 @@ class _NotificationPreferencesScreenState
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            'Notification Preferences',
+            AppLocalizations.of(context)!.notificationPreferences,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -148,7 +149,7 @@ class _NotificationPreferencesScreenState
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Notification Preferences',
+          AppLocalizations.of(context)!.notificationPreferences,
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -200,7 +201,7 @@ class _NotificationPreferencesScreenState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'SHIFT REMINDERS',
+                                AppLocalizations.of(context)!.shiftReminders,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -210,7 +211,7 @@ class _NotificationPreferencesScreenState
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Get notified before your shift starts',
+                                AppLocalizations.of(context)!.getNotifiedBeforeYourShiftStarts,
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   color: Theme.of(context)
@@ -242,7 +243,7 @@ class _NotificationPreferencesScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Notify me before shift',
+                            AppLocalizations.of(context)!.notifyMeBeforeShift,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -321,7 +322,7 @@ class _NotificationPreferencesScreenState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'TASK REMINDERS',
+                                AppLocalizations.of(context)!.taskReminders,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -331,7 +332,7 @@ class _NotificationPreferencesScreenState
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Get notified before task due date',
+                                AppLocalizations.of(context)!.getNotifiedBeforeTaskDueDate,
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   color: Theme.of(context)
@@ -363,7 +364,7 @@ class _NotificationPreferencesScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Notify me before due date',
+                            AppLocalizations.of(context)!.notifyMeBeforeDueDate,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -438,7 +439,7 @@ class _NotificationPreferencesScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'CHAT MESSAGES',
+                            AppLocalizations.of(context)!.chatMessages2,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -448,7 +449,7 @@ class _NotificationPreferencesScreenState
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Get notified when you receive messages',
+                            AppLocalizations.of(context)!.getNotifiedWhenYouReceiveMessages,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: Theme.of(context)
@@ -494,7 +495,7 @@ class _NotificationPreferencesScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Notifications help you stay on top of your shifts and tasks. You can adjust these settings anytime.',
+                      AppLocalizations.of(context)!.notificationsHelpYouStayOnTop,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: const Color(0xff6B7280),

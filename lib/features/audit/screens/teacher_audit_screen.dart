@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teacher_audit_metrics.dart';
 import '../../../core/services/audit_metrics_service.dart';
 import '../../../core/services/pilot_flag_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Teacher's personal audit dashboard
 /// Shows their performance metrics, details by class, and improvement areas
@@ -174,7 +175,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'My Performance Audit',
+          AppLocalizations.of(context)!.myPerformanceAudit,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.white,
@@ -194,7 +195,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
                   const Icon(Icons.science, size: 16, color: Color(0xff8B5CF6)),
                   const SizedBox(width: 4),
                   Text(
-                    'Pilot',
+                    AppLocalizations.of(context)!.pilot,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -234,10 +235,10 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           unselectedLabelColor: const Color(0xff6B7280),
           indicatorColor: const Color(0xff0386FF),
           tabs: const [
-            Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
-            Tab(icon: Icon(Icons.calendar_today), text: 'Classes'),
-            Tab(icon: Icon(Icons.access_time), text: 'Clock-Ins'),
-            Tab(icon: Icon(Icons.description), text: 'Forms'),
+            Tab(icon: Icon(Icons.dashboard), text: AppLocalizations.of(context)!.overview),
+            Tab(icon: Icon(Icons.calendar_today), text: AppLocalizations.of(context)!.dashboardClasses),
+            Tab(icon: Icon(Icons.access_time), text: AppLocalizations.of(context)!.clockIns),
+            Tab(icon: Icon(Icons.description), text: AppLocalizations.of(context)!.navForms),
           ],
         ),
       ),
@@ -275,7 +276,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           ElevatedButton.icon(
             onPressed: _loadData,
             icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
+            label: Text(AppLocalizations.of(context)!.commonRetry),
           ),
         ],
       ),
@@ -290,7 +291,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           Icon(Icons.analytics_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
-            'No audit data for $_selectedMonth',
+            AppLocalizations.of(context)!.noAuditDataForSelectedmonth,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -299,7 +300,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Your performance data will appear here\nafter the audit is computed.',
+            AppLocalizations.of(context)!.yourPerformanceDataWillAppearHere,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 14,
@@ -381,7 +382,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
 
           // Score Breakdown
           Text(
-            'Score Breakdown',
+            AppLocalizations.of(context)!.scoreBreakdown,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -398,7 +399,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
 
           // Quick Stats Grid
           Text(
-            'Quick Stats',
+            AppLocalizations.of(context)!.quickStats,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -426,7 +427,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           if (m.flags.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text(
-              '🚩 Issues to Address',
+              AppLocalizations.of(context)!.issuesToAddress,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -854,7 +855,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Center(
-            child: Text('📝', style: TextStyle(fontSize: 20)),
+            child: Text(AppLocalizations.of(context)!.text7, style: TextStyle(fontSize: 20)),
           ),
         ),
         title: Text(

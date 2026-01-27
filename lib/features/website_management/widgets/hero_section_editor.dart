@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/landing_page_content.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class HeroSectionEditor extends StatefulWidget {
   final HeroSectionContent content;
@@ -97,7 +98,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Hero Section Editor',
+                    AppLocalizations.of(context)!.heroSectionEditor,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -106,7 +107,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Edit the main landing page hero section content',
+                    AppLocalizations.of(context)!.editTheMainLandingPageHero,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xff6B7280),
@@ -114,7 +115,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                   ),
                   const SizedBox(height: 32),
                   _buildFieldSection(
-                    title: 'Badge Text',
+                    title: AppLocalizations.of(context)!.badgeText,
                     description: 'The small badge text at the top of the hero section',
                     controller: _badgeController,
                     maxLines: 2,
@@ -122,7 +123,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                   ),
                   const SizedBox(height: 24),
                   _buildFieldSection(
-                    title: 'Main Headline',
+                    title: AppLocalizations.of(context)!.mainHeadline,
                     description: 'The primary headline that grabs attention',
                     controller: _headlineController,
                     maxLines: 3,
@@ -131,7 +132,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                   ),
                   const SizedBox(height: 24),
                   _buildFieldSection(
-                    title: 'Subtitle',
+                    title: AppLocalizations.of(context)!.subtitle,
                     description: 'Supporting text that explains your value proposition',
                     controller: _subtitleController,
                     maxLines: 4,
@@ -142,7 +143,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                     children: [
                       Expanded(
                         child: _buildFieldSection(
-                          title: 'Primary Button',
+                          title: AppLocalizations.of(context)!.primaryButton,
                           description: 'Main call-to-action button text',
                           controller: _primaryButtonController,
                           maxLines: 1,
@@ -152,7 +153,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: _buildFieldSection(
-                          title: 'Secondary Button',
+                          title: AppLocalizations.of(context)!.secondaryButton,
                           description: 'Secondary action button text',
                           controller: _secondaryButtonController,
                           maxLines: 1,
@@ -163,7 +164,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                   ),
                   const SizedBox(height: 24),
                   _buildFieldSection(
-                    title: 'Trust Indicator',
+                    title: AppLocalizations.of(context)!.trustIndicator,
                     description: 'Text that builds trust and credibility',
                     controller: _trustIndicatorController,
                     maxLines: 2,
@@ -194,7 +195,7 @@ class _HeroSectionEditorState extends State<HeroSectionEditor> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Live Preview',
+                    AppLocalizations.of(context)!.livePreview,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,

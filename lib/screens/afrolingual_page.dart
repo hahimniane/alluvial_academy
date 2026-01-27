@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AfrolingualPage extends StatefulWidget {
   const AfrolingualPage({super.key});
@@ -60,7 +61,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                 border: Border.all(color: const Color(0xffF59E0B).withOpacity(0.2)),
               ),
               child: Text(
-                '🌍 Global Languages Program',
+                AppLocalizations.of(context)!.globalLanguagesProgram,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -73,7 +74,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Master English & African\nIndigenous Languages',
+              AppLocalizations.of(context)!.masterEnglishAfricanNindigenousLanguages,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +91,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'From mastering English grammar and vocabulary to exploring the rich linguistic heritage of Africa, our comprehensive language programs are tailored for success.',
+                AppLocalizations.of(context)!.fromMasteringEnglishGrammarAndVocabulary,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -141,7 +142,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Language Excellence',
+          AppLocalizations.of(context)!.languageExcellence,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -150,7 +151,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Our language programs are designed to build confidence and fluency. Whether you need academic support in English or want to connect with African culture through language, we have the perfect course for you.',
+          AppLocalizations.of(context)!.ourLanguageProgramsAreDesignedTo,
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -274,7 +275,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
       child: Column(
         children: [
           Text(
-            'Languages We Offer',
+            AppLocalizations.of(context)!.languagesWeOffer,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -425,7 +426,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Enroll Now'),
+                child: Text(AppLocalizations.of(context)!.enrollNow),
               ),
             ),
           ],
@@ -446,7 +447,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
       child: Column(
         children: [
           Text(
-            'Begin Your Language Journey',
+            AppLocalizations.of(context)!.beginYourLanguageJourney,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -457,7 +458,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Connect with the world through language',
+            AppLocalizations.of(context)!.connectWithTheWorldThroughLanguage,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -484,7 +485,7 @@ class _AfrolingualPageState extends State<AfrolingualPage> {
               ),
             ),
             child: Text(
-              'Start Learning',
+              AppLocalizations.of(context)!.startLearning,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

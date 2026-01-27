@@ -7,6 +7,7 @@ import 'teacher_application_screen.dart';
 import 'leadership_application_screen.dart';
 import 'contact_page.dart';
 import 'dart:async';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TeachersPage extends StatefulWidget {
   const TeachersPage({super.key});
@@ -23,7 +24,7 @@ class _TeachersPageState extends State<TeachersPage> {
   final List<Teacher> _teachers = [
     Teacher(
       name: 'Ibrahim M. Baldee',
-      title: 'Teacher / Ustaz',
+      title: AppLocalizations.of(context)!.teacherUstaz,
       bio: 'Ustaz Ibrahim is a Liberian international student currently based in Saudi Arabia. He completed the memorization of the Holy Qur\'an in 2012 and studied Tajweed in depth, memorizing many Tajweed texts. He has been teaching Qur\'an since 2012 and finds teaching among the most pleasant acts. He looks forward to meeting new students. (University of Madinah. Languages: Pular, English, Arabic)',
       specialties: ['Pular', 'English', 'Arabic'],
       imagePath: 'assets/teachers/ibrahim_baldee.jpg',
@@ -31,7 +32,7 @@ class _TeachersPageState extends State<TeachersPage> {
     ),
     Teacher(
       name: 'Elham Shifa',
-      title: 'Teacher / Ustaza',
+      title: AppLocalizations.of(context)!.teacherUstaza,
       bio: 'Elham is pursuing a degree in Islamic Psychology at Ankara University (Turkey). Originally from Ethiopia, she has been teaching for several years. Learning and teaching the Qur\'an to understand Allah\'s message has always been her life goal, inspired by the hadith: "The best of you are those who learn the Qur\'an and teach it." (Languages: English, Arabic)',
       specialties: ['English', 'Arabic'],
       imagePath: 'assets/teachers/elham_shifa.jpg',
@@ -39,7 +40,7 @@ class _TeachersPageState extends State<TeachersPage> {
     ),
     Teacher(
       name: 'Mohammed Kosiah',
-      title: 'Teacher / Ustaz',
+      title: AppLocalizations.of(context)!.teacherUstaz,
       bio: 'Brother Kosiah graduated from Kahatain Children Village Islamic Mission (2016) with foundations in Islam and secular education. He has delivered sermons and public talks since 5th grade and is active in youth/community development programs. He recently graduated from the intensive Arabic Institute of the Islamic University of Madinah and studies Economics at the same university. (Languages: Mandingo, French, English, Arabic)',
       specialties: ['Mandingo', 'French', 'English'],
       imagePath: 'assets/teachers/mohammed_kosiah.jpg',
@@ -47,7 +48,7 @@ class _TeachersPageState extends State<TeachersPage> {
     ),
     Teacher(
       name: 'Ustaz Abdul Hadee Balde',
-      title: 'Teacher / Ustaz',
+      title: AppLocalizations.of(context)!.teacherUstaz,
       bio: 'Abdul Hadee graduated as valedictorian from Fanima Islamic School System and is a Hafiz from a renowned mission in Conakry, Guinea. Born in Ivory Coast and raised in Liberia, he later moved to Guinea for Islamic studies and earned a diploma. (King Khalid University. Languages: English, Arabic, Pular)',
       specialties: ['English', 'Arabic', 'Pular'],
       imagePath: 'assets/teachers/abdul_hadee_balde.jpg',
@@ -55,7 +56,7 @@ class _TeachersPageState extends State<TeachersPage> {
     ),
     Teacher(
       name: 'Ousman Cham',
-      title: 'Teacher',
+      title: AppLocalizations.of(context)!.roleTeacher,
       bio: 'Ousman is a graduate of Muslim Congress High School (Liberia) and studies at the Islamic University of Madinah (Department of Dawah). His passion for learning and teaching Islam began in childhood while listening to lectures from imams and preachers. He loves teaching Qur\'an for its great reward in this world and the Hereafter. (Languages: Pular, English, Arabic)',
       specialties: ['Pular', 'English', 'Arabic'],
       imagePath: 'assets/teachers/ousman_cham.jpg',
@@ -182,7 +183,7 @@ class _TeachersPageState extends State<TeachersPage> {
                 border: Border.all(color: const Color(0xff3B82F6).withOpacity(0.2)),
               ),
               child: Text(
-                '👨‍🏫 Qualified Islamic Educators',
+                AppLocalizations.of(context)!.qualifiedIslamicEducators,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -195,7 +196,7 @@ class _TeachersPageState extends State<TeachersPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Learn from Certified\nIslamic Scholars',
+              AppLocalizations.of(context)!.learnFromCertifiedNislamicScholars,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 40,
@@ -211,7 +212,7 @@ class _TeachersPageState extends State<TeachersPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'Our teachers are certified Islamic scholars with years of experience in teaching Quran, Arabic, and Islamic studies to students worldwide.',
+                AppLocalizations.of(context)!.ourTeachersAreCertifiedIslamicScholars,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 16,
@@ -420,7 +421,7 @@ class _TeachersPageState extends State<TeachersPage> {
       child: Column(
         children: [
           Text(
-            'Why Choose Our Teachers?',
+            AppLocalizations.of(context)!.whyChooseOurTeachers,
             style: GoogleFonts.inter(
               fontSize: 36,
               fontWeight: FontWeight.w800,
@@ -511,7 +512,7 @@ class _TeachersPageState extends State<TeachersPage> {
       child: Column(
         children: [
           Text(
-            'TEACH FOR US',
+            AppLocalizations.of(context)!.teachForUs,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -527,8 +528,8 @@ class _TeachersPageState extends State<TeachersPage> {
               children: [
                 TabBar(
                   tabs: const [
-                    Tab(text: 'Become a Teacher'),
-                    Tab(text: 'Career'),
+                    Tab(text: AppLocalizations.of(context)!.becomeATeacher),
+                    Tab(text: AppLocalizations.of(context)!.career),
                   ],
                   labelColor: Colors.white,
                   unselectedLabelColor: Colors.white.withOpacity(0.7),
@@ -553,7 +554,7 @@ class _TeachersPageState extends State<TeachersPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Want to Become a Teacher?',
+                            AppLocalizations.of(context)!.wantToBecomeATeacher,
                             style: GoogleFonts.inter(
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
@@ -563,7 +564,7 @@ class _TeachersPageState extends State<TeachersPage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Join our team of dedicated Islamic educators and help spread knowledge',
+                            AppLocalizations.of(context)!.joinOurTeamOfDedicatedIslamic,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 16,
@@ -581,7 +582,7 @@ class _TeachersPageState extends State<TeachersPage> {
                               );
                             },
                             icon: const Icon(Icons.person_add_rounded, size: 24),
-                            label: const Text('Apply to Teach'),
+                            label: Text(AppLocalizations.of(context)!.applyToTeach),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: const Color(0xff3B82F6),
@@ -598,7 +599,7 @@ class _TeachersPageState extends State<TeachersPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Join Our Leadership Team',
+                            AppLocalizations.of(context)!.joinOurLeadershipTeam,
                             style: GoogleFonts.inter(
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
@@ -608,7 +609,7 @@ class _TeachersPageState extends State<TeachersPage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Lead, inspire, and make a lasting impact',
+                            AppLocalizations.of(context)!.leadInspireAndMakeALasting,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 16,
@@ -626,7 +627,7 @@ class _TeachersPageState extends State<TeachersPage> {
                               );
                             },
                             icon: const Icon(Icons.group_add_rounded, size: 24),
-                            label: const Text('Apply for Leadership'),
+                            label: Text(AppLocalizations.of(context)!.applyForLeadership),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: const Color(0xff10B981),

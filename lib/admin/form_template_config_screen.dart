@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/models/form_template.dart';
 import '../core/services/form_template_service.dart';
 import '../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Admin screen for managing form templates
 /// Allows viewing, creating, and setting active templates for each frequency type
@@ -59,7 +60,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading templates: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingTemplatesE)),
         );
       }
     }
@@ -93,7 +94,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Active template updated!'),
+            content: Text(AppLocalizations.of(context)!.activeTemplateUpdated),
             backgroundColor: Colors.green,
           ),
         );
@@ -101,7 +102,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE)),
         );
       }
     }
@@ -115,7 +116,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Default templates created!'),
+            content: Text(AppLocalizations.of(context)!.defaultTemplatesCreated),
             backgroundColor: Colors.green,
           ),
         );
@@ -124,7 +125,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE)),
         );
       }
     }
@@ -138,7 +139,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          'Form Templates',
+          AppLocalizations.of(context)!.formTemplates,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -149,12 +150,12 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xff64748B)),
             onPressed: _loadTemplates,
-            tooltip: 'Refresh',
+            tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline, color: Color(0xff0386FF)),
             onPressed: _createDefaultTemplates,
-            tooltip: 'Create Default Templates',
+            tooltip: AppLocalizations.of(context)!.createDefaultTemplates,
           ),
         ],
         bottom: TabBar(
@@ -164,9 +165,9 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
           indicatorColor: const Color(0xff0386FF),
           labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
           tabs: const [
-            Tab(text: 'Daily Reports'),
-            Tab(text: 'Weekly'),
-            Tab(text: 'Monthly'),
+            Tab(text: AppLocalizations.of(context)!.dailyReports),
+            Tab(text: AppLocalizations.of(context)!.weekly),
+            Tab(text: AppLocalizations.of(context)!.monthly),
           ],
         ),
       ),
@@ -204,7 +205,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'No templates for this frequency',
+              AppLocalizations.of(context)!.noTemplatesForThisFrequency,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 color: const Color(0xff64748B),
@@ -214,7 +215,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
             ElevatedButton.icon(
               onPressed: _createDefaultTemplates,
               icon: const Icon(Icons.add),
-              label: const Text('Create Default Templates'),
+              label: Text(AppLocalizations.of(context)!.createDefaultTemplates),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
@@ -312,7 +313,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'ACTIVE',
+                                AppLocalizations.of(context)!.active,
                                 style: GoogleFonts.inter(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -408,8 +409,8 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
                           ),
                           if (field.required) ...[
                             const SizedBox(width: 4),
-                            const Text(
-                              '*',
+                            Text(
+                              AppLocalizations.of(context)!.text10,
                               style: TextStyle(
                                 color: Color(0xffEF4444),
                                 fontWeight: FontWeight.bold,
@@ -470,7 +471,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
                   TextButton.icon(
                     onPressed: () => _setActiveTemplate(frequency, template.id),
                     icon: const Icon(Icons.check_circle_outline, size: 18),
-                    label: const Text('Set as Active'),
+                    label: Text(AppLocalizations.of(context)!.setAsActive),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xff0386FF),
                     ),
@@ -478,7 +479,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
                 TextButton.icon(
                   onPressed: () => _showTemplateDetails(template),
                   icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('View Details'),
+                  label: Text(AppLocalizations.of(context)!.shiftViewDetails),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xff64748B),
                   ),
@@ -625,7 +626,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  'Required',
+                                  AppLocalizations.of(context)!.commonRequired,
                                   style: GoogleFonts.inter(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w500,

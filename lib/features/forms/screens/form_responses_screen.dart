@@ -9,6 +9,7 @@ import '../../../core/utils/performance_logger.dart';
 import '../widgets/form_submissions_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FormResponsesScreen extends StatefulWidget {
   const FormResponsesScreen({super.key});
@@ -244,7 +245,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     if (_filteredFormIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No form responses to export'),
+          content: Text(AppLocalizations.of(context)!.noFormResponsesToExport),
           backgroundColor: Colors.orange,
         ),
       );
@@ -284,7 +285,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Export failed: $e'),
+          content: Text(AppLocalizations.of(context)!.exportFailedE),
           backgroundColor: Colors.red,
       ),
     );
@@ -358,7 +359,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search by form or creator',
+                hintText: AppLocalizations.of(context)!.searchByFormOrCreator,
                 prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xff64748B)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -375,7 +376,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
             ElevatedButton.icon(
             onPressed: _exportResponses,
             icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: const Text('Export'),
+            label: Text(AppLocalizations.of(context)!.commonExport),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
@@ -808,7 +809,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
           ),
           const SizedBox(height: 24),
                           Text(
-            'No form responses found',
+            AppLocalizations.of(context)!.noFormResponsesFound,
                             style: GoogleFonts.inter(
               fontSize: 20,
                               fontWeight: FontWeight.w600,

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ExportHelpers {
   static bool _isExporting = false;
@@ -38,7 +39,7 @@ class ExportHelpers {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'No data found to export.',
+            AppLocalizations.of(context)!.noDataFoundToExport,
             style: GoogleFonts.openSans(color: Colors.white),
           ),
           backgroundColor: Colors.orange,
@@ -70,7 +71,7 @@ class ExportHelpers {
               ),
               const SizedBox(width: 12),
               Text(
-                'Export Data',
+                AppLocalizations.of(context)!.exportData,
                 style: GoogleFonts.openSans(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -84,7 +85,7 @@ class ExportHelpers {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Choose your preferred export format:',
+                AppLocalizations.of(context)!.chooseYourPreferredExportFormat,
                 style: GoogleFonts.openSans(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -119,7 +120,7 @@ class ExportHelpers {
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.openSans(
                   color: const Color(0xff6B7280),
                   fontWeight: FontWeight.w600,

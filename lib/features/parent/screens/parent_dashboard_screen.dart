@@ -19,6 +19,7 @@ import 'package:alluwalacademyadmin/features/parent/widgets/children_list_widget
 import 'package:alluwalacademyadmin/features/parent/widgets/financial_summary_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/invoice_card.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/student_detail_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   final String? parentId;
@@ -79,7 +80,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         backgroundColor: const Color(0xFFF8FAFC),
         body: Center(
           child: Text(
-            'Unable to load parent account. Please sign out and sign in again.',
+            AppLocalizations.of(context)!.unableToLoadParentAccountPlease,
             style: GoogleFonts.inter(color: const Color(0xFF6B7280)),
           ),
         ),
@@ -140,8 +141,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   Expanded(
                     child: _quickAction(
                       icon: Icons.receipt_long_rounded,
-                      title: 'Invoices',
-                      subtitle: 'View and pay',
+                      title: AppLocalizations.of(context)!.invoices,
+                      subtitle: AppLocalizations.of(context)!.viewAndPay,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -155,8 +156,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   Expanded(
                     child: _quickAction(
                       icon: Icons.payments_rounded,
-                      title: 'Payments',
-                      subtitle: 'History',
+                      title: AppLocalizations.of(context)!.payments,
+                      subtitle: AppLocalizations.of(context)!.history,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -197,7 +198,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               ),
               const SizedBox(height: 20),
               _sectionHeader(
-                title: 'Recent Invoices',
+                title: AppLocalizations.of(context)!.recentInvoices,
                 actionLabel: 'See all',
                 onAction: () {
                   Navigator.of(context).push(
@@ -221,8 +222,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   if (invoices.isEmpty) {
                     return _emptyCard(
                       icon: Icons.receipt_long_rounded,
-                      title: 'No invoices yet',
-                      subtitle: 'When invoices are created, they will appear here.',
+                      title: AppLocalizations.of(context)!.noInvoicesYet,
+                      subtitle: AppLocalizations.of(context)!.whenInvoicesAreCreatedTheyWill,
                     );
                   }
                   return Column(
@@ -257,7 +258,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               ),
               const SizedBox(height: 20),
               _sectionHeader(
-                title: 'Recent Payments',
+                title: AppLocalizations.of(context)!.recentPayments,
                 actionLabel: 'See all',
                 onAction: () {
                   Navigator.of(context).push(
@@ -281,8 +282,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   if (payments.isEmpty) {
                     return _emptyCard(
                       icon: Icons.payments_rounded,
-                      title: 'No payments yet',
-                      subtitle: 'Payment history will appear once you pay an invoice.',
+                      title: AppLocalizations.of(context)!.noPaymentsYet,
+                      subtitle: AppLocalizations.of(context)!.paymentHistoryWillAppearOnceYou,
                     );
                   }
                   return _paymentsList(payments);
@@ -437,7 +438,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               if (!mounted) return;
               if (!doc.exists) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Invoice not found for this payment', style: GoogleFonts.inter())),
+                  SnackBar(content: Text(AppLocalizations.of(context)!.invoiceNotFoundForThisPayment, style: GoogleFonts.inter())),
                 );
                 return;
               }

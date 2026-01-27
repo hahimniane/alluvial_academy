@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/services/form_labels_cache_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
 /// Now supports month filtering for better organization
@@ -137,7 +138,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading submissions: $e'),
+            content: Text(AppLocalizations.of(context)!.errorLoadingSubmissionsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -194,7 +195,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
               child: Row(
                 children: [
                   Text(
-                    'Select Month',
+                    AppLocalizations.of(context)!.formSelectMonth,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -217,7 +218,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 color: _showAllMonths ? const Color(0xff0386FF) : const Color(0xff64748B),
               ),
               title: Text(
-                'All Time',
+                AppLocalizations.of(context)!.timesheetAllTime,
                 style: GoogleFonts.inter(
                   fontWeight: _showAllMonths ? FontWeight.w600 : FontWeight.w400,
                   color: _showAllMonths ? const Color(0xff0386FF) : const Color(0xff1E293B),
@@ -272,7 +273,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'Current',
+                              AppLocalizations.of(context)!.formCurrentMonth,
                               style: GoogleFonts.inter(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
@@ -349,7 +350,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          'My Form Submissions',
+          AppLocalizations.of(context)!.formMySubmissions,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -429,7 +430,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                       _loadMySubmissions();
                     },
                     child: Text(
-                      'View All',
+                      AppLocalizations.of(context)!.formViewAll,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -448,7 +449,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search by form name or status',
+                hintText: AppLocalizations.of(context)!.formSearchByName,
                 hintStyle: GoogleFonts.inter(color: const Color(0xff94A3B8)),
                 prefixIcon: const Icon(Icons.search, color: Color(0xff64748B)),
                 filled: true,
@@ -652,7 +653,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '$completedCount completed',
+                                  AppLocalizations.of(context)!.completedcountCompleted,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
@@ -802,7 +803,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                       ),
                       const Spacer(),
                       Text(
-                        'Tap to view',
+                        AppLocalizations.of(context)!.formTapToView,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xff0386FF),
@@ -1002,7 +1003,7 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Read Only',
+                                      AppLocalizations.of(context)!.formReadOnly,
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1054,7 +1055,7 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'No responses recorded',
+                                  AppLocalizations.of(context)!.noResponsesRecorded,
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,

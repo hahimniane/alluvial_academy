@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Beautiful mobile-optimized login screen
 class MobileLoginScreen extends StatefulWidget {
@@ -75,36 +76,37 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
         AppLogger.info('AuthService login succeeded for uid=${user.uid}');
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'user-deactivated':
-          errorMessage =
-              'Your account has been archived. Please contact an administrator for assistance.';
-          break;
-        case 'user-not-found':
-          errorMessage = 'No account found with this ${_useStudentIdLogin ? "Student ID" : "email"}.';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Incorrect password. Please try again.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Please enter a valid email address.';
-          break;
-        case 'user-disabled':
-          errorMessage = 'This account has been disabled.';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'Too many failed attempts. Please wait and try again.';
-          break;
-        default:
-          errorMessage = 'Login failed. Please try again.';
-      }
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        String errorMessage;
+        switch (e.code) {
+          case 'user-deactivated':
+            errorMessage = l10n.loginAccountArchived;
+            break;
+          case 'user-not-found':
+            errorMessage = _useStudentIdLogin ? l10n.loginNoAccountStudentId : l10n.loginNoAccountEmail;
+            break;
+          case 'wrong-password':
+            errorMessage = l10n.loginIncorrectPassword;
+            break;
+          case 'invalid-email':
+            errorMessage = l10n.loginInvalidEmailFormat;
+            break;
+          case 'user-disabled':
+            errorMessage = l10n.loginAccountDisabled;
+            break;
+          case 'too-many-requests':
+            errorMessage = l10n.loginTooManyAttempts;
+            break;
+          default:
+            errorMessage = l10n.loginFailed;
+        }
         _showErrorSnackBar(errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('An unexpected error occurred.');
+        final l10n = AppLocalizations.of(context)!;
+        _showErrorSnackBar(l10n.loginUnexpectedError);
       }
     } finally {
       if (mounted) {
@@ -129,6 +131,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
@@ -173,7 +176,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Welcome Back',
+                          l10n.loginWelcomeBack,
                           style: GoogleFonts.inter(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
@@ -183,7 +186,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Sign in to continue',
+                          l10n.loginSignInContinue,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -225,7 +228,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 children: [
                                   Expanded(
                                     child: _buildLoginModeButton(
-                                      'Email',
+                                      l10n.loginEmail,
                                       !_useStudentIdLogin,
                                       () {
                                         setState(() {
@@ -237,7 +240,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                   ),
                                   Expanded(
                                     child: _buildLoginModeButton(
-                                      'Student ID',
+                                      l10n.loginStudentId,
                                       _useStudentIdLogin,
                                       () {
                                         setState(() {
@@ -254,7 +257,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
 
                             // Email/Student ID Field
                             Text(
-                              _useStudentIdLogin ? 'Student ID' : 'Email',
+                              _useStudentIdLogin ? l10n.loginStudentId : l10n.loginEmail,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -274,8 +277,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                               ),
                               decoration: InputDecoration(
                                 hintText: _useStudentIdLogin
-                                    ? 'Enter your student ID'
-                                    : 'Enter your email',
+                                    ? l10n.loginEnterStudentId
+                                    : l10n.loginEnterEmail,
                                 hintStyle: GoogleFonts.inter(
                                   color: const Color(0xff9CA3AF),
                                 ),
@@ -317,11 +320,11 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'This field is required';
+                                  return l10n.loginFieldRequired;
                                 }
                                 if (!_useStudentIdLogin &&
                                     !value.contains('@')) {
-                                  return 'Please enter a valid email';
+                                  return l10n.loginInvalidEmail;
                                 }
                                 return null;
                               },
@@ -330,7 +333,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
 
                             // Password Field
                             Text(
-                              'Password',
+                              l10n.loginPassword,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -348,7 +351,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 color: const Color(0xff111827),
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Enter your password',
+                                hintText: l10n.loginEnterPassword,
                                 hintStyle: GoogleFonts.inter(
                                   color: const Color(0xff9CA3AF),
                                 ),
@@ -403,7 +406,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Password is required';
+                                  return l10n.loginPasswordRequired;
                                 }
                                 return null;
                               },
@@ -437,7 +440,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                         ),
                                       )
                                     : Text(
-                                        'Sign In',
+                                        l10n.loginSignIn,
                                         style: GoogleFonts.inter(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
@@ -454,7 +457,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                     if (!keyboardVisible) ...[
                       const SizedBox(height: 24),
                       Text(
-                        'Alluvial Education Hub',
+                        l10n.loginAlluvialHub,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: const Color(0xff9CA3AF),

@@ -9,6 +9,7 @@ import '../../../core/services/onboarding_service.dart';
 import '../widgets/teacher_profile_edit_dialog.dart';
 import '../../settings/screens/mobile_settings_screen.dart';
 import '../../onboarding/services/student_feature_tour.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   const TeacherProfileScreen({super.key});
@@ -352,7 +353,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 size: 20),
               const SizedBox(width: 8),
               Text(
-                'About',
+                AppLocalizations.of(context)!.profileAbout,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -425,8 +426,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         children: [
           _buildMenuItem(
             icon: Icons.settings_outlined,
-            title: 'Settings',
-            subtitle: 'Notifications, privacy, theme',
+            title: AppLocalizations.of(context)!.settingsTitle,
+            subtitle: AppLocalizations.of(context)!.notificationsPrivacyTheme,
             onTap: () {
               HapticFeedback.lightImpact();
               Navigator.push(
@@ -441,8 +442,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           if (isStudent) ...[
             _buildMenuItem(
               icon: Icons.tour_rounded,
-              title: 'Take App Tour',
-              subtitle: 'Learn how to use the app',
+              title: AppLocalizations.of(context)!.settingsTakeAppTour,
+              subtitle: AppLocalizations.of(context)!.settingsLearnApp,
               iconColor: const Color(0xFF0E72ED),
               onTap: () {
                 HapticFeedback.mediumImpact();
@@ -455,8 +456,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           
           _buildMenuItem(
             icon: Icons.help_outline_rounded,
-            title: 'Help & Support',
-            subtitle: 'Get help, contact us',
+            title: AppLocalizations.of(context)!.settingsHelpSupport,
+            subtitle: AppLocalizations.of(context)!.getHelpContactUs,
             onTap: () {
               HapticFeedback.lightImpact();
               _showHelpDialog();
@@ -465,8 +466,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           _buildDivider(),
           _buildMenuItem(
             icon: Icons.privacy_tip_outlined,
-            title: 'Privacy Policy',
-            subtitle: 'How we protect your data',
+            title: AppLocalizations.of(context)!.settingsPrivacyPolicy,
+            subtitle: AppLocalizations.of(context)!.settingsPrivacySubtitle,
             onTap: () {
               HapticFeedback.lightImpact();
               _showPrivacyPolicy();
@@ -581,7 +582,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Sign Out',
+                        AppLocalizations.of(context)!.settingsSignOut,
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -589,7 +590,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         ),
                       ),
                       Text(
-                        'Log out of your account',
+                        AppLocalizations.of(context)!.logOutOfYourAccount,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xFFEF4444).withOpacity(0.7),
@@ -618,17 +619,17 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Sign Out',
+          AppLocalizations.of(context)!.settingsSignOut,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Are you sure you want to sign out of your account?',
+          AppLocalizations.of(context)!.areYouSureYouWantTo6,
           style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF64748B)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.inter(color: const Color(0xFF64748B))),
+            child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter(color: const Color(0xFF64748B))),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -643,7 +644,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text('Sign Out', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            child: Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -684,12 +685,12 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Help & Support',
+              AppLocalizations.of(context)!.settingsHelpSupport,
               style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Need help? We\'re here for you.',
+              AppLocalizations.of(context)!.needHelpWeReHereFor,
               style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B)),
             ),
             const SizedBox(height: 24),
@@ -763,14 +764,14 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Privacy Policy',
+              AppLocalizations.of(context)!.settingsPrivacyPolicy,
               style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
-                  'Your privacy is important to us. This Privacy Policy explains how we collect, use, and protect your personal information when you use Alluvial Academy.\n\n'
+                  AppLocalizations.of(context)!.yourPrivacyIsImportantToUs
                   '1. Information We Collect\n'
                   'We collect information you provide directly to us, such as your name, email address, and profile information.\n\n'
                   '2. How We Use Your Information\n'

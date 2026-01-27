@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/sidebar_model.dart';
 import '../services/sidebar_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class CustomSidebar extends StatefulWidget {
   final int selectedIndex;
@@ -143,7 +144,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Menu',
+            AppLocalizations.of(context)!.menu,
             style: GoogleFonts.inter(
               fontSize: 14, // Reduced from 16
               fontWeight: FontWeight.w600,
@@ -153,7 +154,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
           IconButton(
             icon: const Icon(Icons.chevron_left, color: Color(0xFF6B7280), size: 20),
             onPressed: widget.onToggleCollapse,
-            tooltip: 'Collapse Sidebar',
+            tooltip: AppLocalizations.of(context)!.collapseSidebar,
             padding: EdgeInsets.zero, // Remove default padding
             constraints: const BoxConstraints(
               minWidth: 32,
@@ -179,7 +180,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
         },
         icon: const Icon(Icons.restore, size: 14, color: Color(0xFF9CA3AF)),
         label: Text(
-          'Reset Layout',
+          AppLocalizations.of(context)!.resetLayout,
           style: GoogleFonts.inter(
             fontSize: 11, // Reduced from 12
             color: const Color(0xFF9CA3AF),
@@ -399,7 +400,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              'Expand',
+                              AppLocalizations.of(context)!.expand,
                               style: GoogleFonts.inter(
                                 fontSize: 10,
                                 color: Colors.white,

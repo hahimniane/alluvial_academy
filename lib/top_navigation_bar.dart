@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TopNavigationBar extends StatelessWidget {
   const TopNavigationBar({super.key});
@@ -17,8 +18,8 @@ class TopNavigationBar extends StatelessWidget {
                 height: 30,
               ),
               const SizedBox(width: 10),
-              const Text(
-                'connecteam',
+              Text(
+                AppLocalizations.of(context)!.connecteam,
                 style: TextStyle(
                   color: Colors.blue,
                   fontSize: 24,
@@ -30,7 +31,7 @@ class TopNavigationBar extends StatelessWidget {
                 width: 200,
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: 'Search anything',
+                    hintText: AppLocalizations.of(context)!.searchAnything,
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20.0),
@@ -42,17 +43,17 @@ class TopNavigationBar extends StatelessWidget {
           ),
           Row(
             children: [
-              const Text(
-                'The Small Business Plan',
+              Text(
+                AppLocalizations.of(context)!.theSmallBusinessPlan,
                 style: TextStyle(color: Colors.purple),
               ),
               const SizedBox(width: 20),
-              const Text(
-                'Live webinars',
+              Text(
+                AppLocalizations.of(context)!.liveWebinars,
                 style: TextStyle(color: Colors.blue),
               ),
               const SizedBox(width: 20),
-              const Text('Help'),
+              Text(AppLocalizations.of(context)!.help),
               const SizedBox(width: 10),
               const Icon(Icons.arrow_drop_down),
               const SizedBox(width: 20),
@@ -73,8 +74,8 @@ class TopNavigationBar extends StatelessWidget {
                         minWidth: 12,
                         minHeight: 12,
                       ),
-                      child: const Text(
-                        '5',
+                      child: Text(
+                        AppLocalizations.of(context)!.5,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 8,
@@ -101,8 +102,8 @@ class TopNavigationBar extends StatelessWidget {
                         minWidth: 12,
                         minHeight: 12,
                       ),
-                      child: const Text(
-                        '1',
+                      child: Text(
+                        AppLocalizations.of(context)!.1,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 8,
@@ -116,10 +117,10 @@ class TopNavigationBar extends StatelessWidget {
               const SizedBox(width: 20),
               const CircleAvatar(
                 backgroundColor: Colors.teal,
-                child: Text('HN'),
+                child: Text(AppLocalizations.of(context)!.hn),
               ),
               const SizedBox(width: 10),
-              const Text('Hassimiou Niane'),
+              Text(AppLocalizations.of(context)!.hassimiouNiane),
               const Icon(Icons.arrow_drop_down),
             ],
           ),

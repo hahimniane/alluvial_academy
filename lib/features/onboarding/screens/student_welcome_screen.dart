@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../../core/services/onboarding_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Welcome onboarding slides for new students
 class StudentWelcomeScreen extends StatefulWidget {
@@ -26,32 +27,32 @@ class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
     _OnboardingPage(
       icon: Icons.school_rounded,
       iconColor: const Color(0xFF0E72ED),
-      title: 'Welcome to Alluvial Academy',
-      subtitle: 'Your Islamic education journey starts here',
+      title: AppLocalizations.of(context)!.welcomeToAlluvialAcademy,
+      subtitle: AppLocalizations.of(context)!.yourIslamicEducationJourneyStartsHere,
       description:
           'Join live classes with qualified teachers, learn at your own pace, and grow in knowledge.',
     ),
     _OnboardingPage(
       icon: Icons.videocam_rounded,
       iconColor: const Color(0xFF10B981),
-      title: 'Join Live Classes',
-      subtitle: 'Interactive learning experience',
+      title: AppLocalizations.of(context)!.joinLiveClasses,
+      subtitle: AppLocalizations.of(context)!.interactiveLearningExperience,
       description:
           'See your upcoming classes, join with one tap when it\'s time, and learn directly from your teachers.',
     ),
     _OnboardingPage(
       icon: Icons.notifications_active_rounded,
       iconColor: const Color(0xFFF59E0B),
-      title: 'Never Miss a Class',
-      subtitle: 'Stay on track with reminders',
+      title: AppLocalizations.of(context)!.neverMissAClass,
+      subtitle: AppLocalizations.of(context)!.stayOnTrackWithReminders,
       description:
           'Get notified before your classes start so you\'re always prepared and ready to learn.',
     ),
     _OnboardingPage(
       icon: Icons.rocket_launch_rounded,
       iconColor: const Color(0xFF8B5CF6),
-      title: 'You\'re All Set!',
-      subtitle: 'Let\'s get started',
+      title: AppLocalizations.of(context)!.youReAllSet,
+      subtitle: AppLocalizations.of(context)!.letSGetStarted,
       description:
           'We\'ll show you around the app so you know exactly where everything is. Ready?',
     ),
@@ -99,7 +100,7 @@ class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
                 child: TextButton(
                   onPressed: _completeOnboarding,
                   child: Text(
-                    'Skip',
+                    AppLocalizations.of(context)!.formSkip,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,

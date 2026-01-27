@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/chat_user.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ChatUserListItem extends StatelessWidget {
   final ChatUser user;
@@ -255,7 +256,7 @@ class ChatUserListItem extends StatelessWidget {
               ),
             ),
             child: Text(
-              'Group Chat',
+              AppLocalizations.of(context)!.groupChat,
               style: GoogleFonts.inter(
                 fontSize: 11,
                 color: const Color(0xff059669),

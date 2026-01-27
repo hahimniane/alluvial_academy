@@ -6,6 +6,7 @@ import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
 import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/task_card.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class StudentTasksTab extends StatefulWidget {
   final String studentId;
@@ -90,7 +91,7 @@ class _StudentTasksTabState extends State<StudentTasksTab> {
                 if (filteredTasks.isEmpty) {
                   return _emptyCard(
                     icon: Icons.assignment_rounded,
-                    title: 'No tasks found',
+                    title: AppLocalizations.of(context)!.noTasksFound,
                     subtitle: _filterStatus == 'all'
                         ? 'Your child has no tasks assigned.'
                         : 'No tasks match the selected filter.',

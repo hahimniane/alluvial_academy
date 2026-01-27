@@ -17,6 +17,7 @@ import 'features/forms/widgets/form_details_modal.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/models/form_template.dart';
 import 'package:alluwalacademyadmin/core/services/form_template_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FormScreen extends StatefulWidget {
   final String? timesheetId;
@@ -173,7 +174,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Form not found (ID: $formId). Please contact admin.'),
+                content: Text(AppLocalizations.of(context)!.formNotFoundIdFormidPlease),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 5),
               ),
@@ -462,7 +463,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
-          'Public',
+          AppLocalizations.of(context)!.public,
           style: GoogleFonts.inter(
             fontSize: 9,
             fontWeight: FontWeight.w500,
@@ -551,7 +552,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Active Forms',
+                              AppLocalizations.of(context)!.activeForms,
                               style: GoogleFonts.inter(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -577,7 +578,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         ),
                         child: TextField(
                           decoration: InputDecoration(
-                            hintText: 'Search active forms...',
+                            hintText: AppLocalizations.of(context)!.searchActiveForms,
                             hintStyle: GoogleFonts.inter(
                               color: const Color(0xff6B7280),
                               fontSize: 14,
@@ -746,7 +747,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           // Check auth state before processing
                           if (FirebaseAuth.instance.currentUser == null) {
                             return const Center(
-                              child: Text('Please sign in to view forms'),
+                              child: Text(AppLocalizations.of(context)!.pleaseSignInToViewForms),
                             );
                           }
 
@@ -756,7 +757,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 .toString()
                                 .contains('permission-denied')) {
                               return const Center(
-                                child: Text('Please sign in to access forms'),
+                                child: Text(AppLocalizations.of(context)!.pleaseSignInToAccessForms),
                               );
                             }
                             return Center(
@@ -897,7 +898,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Available Forms',
+                          AppLocalizations.of(context)!.availableForms,
                           style: GoogleFonts.inter(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
@@ -916,7 +917,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     ),
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Search forms...',
+                        hintText: AppLocalizations.of(context)!.searchForms,
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xff6B7280),
                           fontSize: 14,
@@ -1071,7 +1072,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     builder: (context, responsesSnapshot) {
                       if (FirebaseAuth.instance.currentUser == null) {
                         return const Center(
-                          child: Text('Please sign in to view forms'),
+                          child: Text(AppLocalizations.of(context)!.pleaseSignInToViewForms),
                         );
                       }
 
@@ -1080,7 +1081,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             .toString()
                             .contains('permission-denied')) {
                           return const Center(
-                            child: Text('Please sign in to access forms'),
+                            child: Text(AppLocalizations.of(context)!.pleaseSignInToAccessForms),
                           );
                         }
                         return Center(
@@ -1192,7 +1193,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           if (hasSubmitted) ...[
                             const SizedBox(height: 2),
                             Text(
-                              'Submitted',
+                              AppLocalizations.of(context)!.submitted,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
@@ -1215,7 +1216,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           ),
                         ),
                         child: Text(
-                          'Completed',
+                          AppLocalizations.of(context)!.formCompleted,
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -1290,7 +1291,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 24),
             Text(
-              'Select a Form to Get Started',
+              AppLocalizations.of(context)!.selectAFormToGetStarted,
               style: GoogleFonts.inter(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -1299,7 +1300,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 12),
             Text(
-              'Choose a form from the sidebar to fill out and submit.\nYour responses will be saved automatically.',
+              AppLocalizations.of(context)!.chooseAFormFromTheSidebar,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,
@@ -1429,7 +1430,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Form Already Submitted',
+                                AppLocalizations.of(context)!.formAlreadySubmitted,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -1437,7 +1438,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 ),
                               ),
                               Text(
-                                'You have already submitted this form. You can submit it again if needed.',
+                                AppLocalizations.of(context)!.youHaveAlreadySubmittedThisForm,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   color: const Color(0xff059669),
@@ -1479,7 +1480,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'No form fields are currently visible',
+                                        AppLocalizations.of(context)!.noFormFieldsAreCurrentlyVisible,
                                         style: GoogleFonts.inter(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -1491,7 +1492,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Possible causes:\n'
+                                  AppLocalizations.of(context)!.possibleCausesN
                                   '• This form may not have any fields configured\n'
                                   '• There may be a network connection issue\n'
                                   '• Your user permissions may have changed\n'
@@ -1504,7 +1505,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 if (kDebugMode) ...[
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Debug info:\n'
+                                    AppLocalizations.of(context)!.debugInfoN
                                     'Form ID: $selectedFormId\n'
                                     'User ID: $_currentUserId\n'
                                     'User Role: $_currentUserRole\n'
@@ -1651,7 +1652,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                           const SizedBox(width: 12),
                                           Flexible(
                                             child: Text(
-                                              'Submitting...',
+                                              AppLocalizations.of(context)!.submitting,
                                               style: GoogleFonts.inter(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
@@ -1668,7 +1669,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                           const SizedBox(width: 8),
                                           Flexible(
                                             child: Text(
-                                              'Submit Form',
+                                              AppLocalizations.of(context)!.submitForm,
                                               style: GoogleFonts.inter(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
@@ -1701,7 +1702,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        'Reset',
+                                        AppLocalizations.of(context)!.commonReset,
                                         style: GoogleFonts.inter(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
@@ -1749,7 +1750,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                         const SizedBox(width: 12),
                                         Flexible(
                                           child: Text(
-                                            'Submitting...',
+                                            AppLocalizations.of(context)!.submitting,
                                             style: GoogleFonts.inter(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
@@ -1766,7 +1767,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                         const SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
-                                            'Submit Form',
+                                            AppLocalizations.of(context)!.submitForm,
                                             style: GoogleFonts.inter(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
@@ -1799,7 +1800,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                   const SizedBox(width: 8),
                                   Flexible(
                                     child: Text(
-                                      'Reset',
+                                      AppLocalizations.of(context)!.commonReset,
                                       style: GoogleFonts.inter(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -1891,7 +1892,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             children: [
                               if (required)
                                 const TextSpan(
-                                  text: ' *',
+                                  text: AppLocalizations.of(context)!.text,
                                   style: TextStyle(color: Colors.red),
                                 ),
                             ],
@@ -2222,7 +2223,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'No options available',
+                          AppLocalizations.of(context)!.noOptionsAvailable,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -2231,7 +2232,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'The form creator has not added any options for this field.',
+                          AppLocalizations.of(context)!.theFormCreatorHasNotAdded,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xff9CA3AF),
@@ -2258,7 +2259,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Please select at least one option for $label',
+                    AppLocalizations.of(context)!.pleaseSelectAtLeastOneOption,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: const Color(0xffEF4444),
@@ -2414,7 +2415,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             activeColor: const Color(0xff0386FF),
           ),
           Text(
-            'Yes',
+            AppLocalizations.of(context)!.commonYes,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xff111827),
@@ -2434,7 +2435,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             activeColor: const Color(0xff0386FF),
           ),
           Text(
-            'No',
+            AppLocalizations.of(context)!.commonNo,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xff111827),
@@ -2699,7 +2700,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 TextButton(
                   onPressed: () => _pickImage(fieldKey, controller),
                   child: Text(
-                    'Change',
+                    AppLocalizations.of(context)!.change,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -2741,7 +2742,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Click to upload image',
+                    AppLocalizations.of(context)!.clickToUploadImage,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -2750,7 +2751,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'JPG, PNG, GIF up to 10MB',
+                    AppLocalizations.of(context)!.jpgPngGifUpTo10mb,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xff6B7280),
@@ -2764,7 +2765,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         if (required && !hasImage) ...[
           const SizedBox(height: 8),
           Text(
-            'This field is required',
+            AppLocalizations.of(context)!.loginFieldRequired,
             style: GoogleFonts.inter(
               fontSize: 12,
               color: const Color(0xffEF4444),
@@ -2868,7 +2869,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Signature captured',
+                        AppLocalizations.of(context)!.signatureCaptured,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -2883,7 +2884,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               TextButton(
                 onPressed: () => _pickSignature(fieldKey, controller),
                 child: Text(
-                  'Change',
+                  AppLocalizations.of(context)!.change,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2925,7 +2926,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Click to add signature',
+                    AppLocalizations.of(context)!.clickToAddSignature,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -2933,7 +2934,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   Text(
-                    'Upload image or use signature pad',
+                    AppLocalizations.of(context)!.uploadImageOrUseSignaturePad,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: const Color(0xff6B7280),
@@ -2947,7 +2948,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         if (required && !hasSignature) ...[
           const SizedBox(height: 8),
           Text(
-            'This field is required',
+            AppLocalizations.of(context)!.loginFieldRequired,
             style: GoogleFonts.inter(
               fontSize: 12,
               color: const Color(0xffEF4444),
@@ -2968,7 +2969,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           Text(
-            'Loading forms...',
+            AppLocalizations.of(context)!.loadingForms,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xff6B7280),
@@ -3022,7 +3023,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 24),
           Text(
-            'No active forms found',
+            AppLocalizations.of(context)!.noActiveFormsFound,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -3054,7 +3055,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
               },
               icon: const Icon(Icons.clear, size: 16),
               label: Text(
-                'Clear search',
+                AppLocalizations.of(context)!.clearSearch,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -3246,7 +3247,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     final fields = formData['fields'] as Map<String, dynamic>?;
     if (fields != null) {
       fields.forEach((fieldId, fieldData) {
-        fieldControllers[fieldId] = TextEditingController(text: '');
+        fieldControllers[fieldId] = TextEditingController(text: AppLocalizations.of(context)!.text2);
       });
     }
   }
@@ -3464,15 +3465,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('No Classes Available'),
-            content: const Text(
-              'You have no completed or missed classes available for reporting.\n\n'
+            title: Text(AppLocalizations.of(context)!.noClassesAvailable),
+            content: Text(
+              AppLocalizations.of(context)!.youHaveNoCompletedOrMissed
               'If you are trying to submit a report for an older class, please contact your admin.',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(AppLocalizations.of(context)!.commonOk),
               ),
             ],
           ),
@@ -3484,15 +3485,15 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Select Class'),
+          title: Text(AppLocalizations.of(context)!.selectClass),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Please select which class this report is for:',
+                Text(
+                  AppLocalizations.of(context)!.pleaseSelectWhichClassThisReport,
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
@@ -3512,11 +3513,11 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
 
                       return ListTile(
                         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('$dateStr • $type'),
+                        subtitle: Text(AppLocalizations.of(context)!.datestrType),
                         trailing: hasForm
                             ? IconButton(
                                 icon: const Icon(Icons.visibility, color: Color(0xff10B981)),
-                                tooltip: 'View Form',
+                                tooltip: AppLocalizations.of(context)!.viewForm,
                                 onPressed: () async {
                                   // Load form details and show modal
                                   try {
@@ -3564,7 +3565,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, null),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
           ],
         ),
@@ -4065,14 +4066,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         context: context,
         builder: (context) => AlertDialog(
           title: Text(
-            'Form Already Submitted',
+            AppLocalizations.of(context)!.formAlreadySubmitted,
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w600,
               color: const Color(0xff111827),
             ),
           ),
           content: Text(
-            'You have already submitted this form. Do you want to submit it again? This will create a new response.',
+            AppLocalizations.of(context)!.youHaveAlreadySubmittedThisForm2,
             style: GoogleFonts.inter(
               color: const Color(0xff6B7280),
             ),
@@ -4081,7 +4082,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   color: const Color(0xff6B7280),
                   fontWeight: FontWeight.w500,
@@ -4095,7 +4096,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 foregroundColor: Colors.white,
               ),
               child: Text(
-                'Submit Again',
+                AppLocalizations.of(context)!.submitAgain,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w500,
                 ),
@@ -4183,7 +4184,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: Text(
-                      'Image Upload Failed',
+                      AppLocalizations.of(context)!.imageUploadFailed,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         color: const Color(0xff111827),
@@ -4199,7 +4200,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(false),
                         child: Text(
-                          'Try Again',
+                          AppLocalizations.of(context)!.errorTryAgain,
                           style: GoogleFonts.inter(
                             color: const Color(0xff6B7280),
                             fontWeight: FontWeight.w500,
@@ -4213,7 +4214,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                           foregroundColor: Colors.white,
                         ),
                         child: Text(
-                          'Submit Without Image',
+                          AppLocalizations.of(context)!.submitWithoutImage,
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w500,
                           ),

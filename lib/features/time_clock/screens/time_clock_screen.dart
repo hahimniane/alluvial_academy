@@ -43,6 +43,7 @@ import '../../../form_screen.dart';
 import 'dart:convert';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Main time clock screen widget - stateful to manage clock-in/out sessions
 class TimeClockScreen extends StatefulWidget {
@@ -679,7 +680,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content:
-            Text('Session already closed by system. Timer has been reset.'),
+            Text(AppLocalizations.of(context)!.sessionAlreadyClosedBySystemTimer),
         backgroundColor: Colors.orange,
         duration: Duration(seconds: 4),
       ),
@@ -1037,8 +1038,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'No Active Shift',
+            Text(
+              AppLocalizations.of(context)!.noActiveShift,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -1062,7 +1063,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Text(
-                  'Please contact your supervisor if you believe this is an error.',
+                  AppLocalizations.of(context)!.pleaseContactYourSupervisorIfYou,
                   style: TextStyle(
                     fontSize: 14,
                     fontStyle: FontStyle.italic,
@@ -1081,8 +1082,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'OK',
+            child: Text(
+              AppLocalizations.of(context)!.commonOk,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -1124,8 +1125,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Already Clocked In',
+            Text(
+              AppLocalizations.of(context)!.alreadyClockedIn,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -1175,8 +1176,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Would you like to clock out now?',
+            Text(
+              AppLocalizations.of(context)!.wouldYouLikeToClockOut,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
@@ -1190,8 +1191,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
-            child: const Text(
-              'Cancel',
+            child: Text(
+              AppLocalizations.of(context)!.commonCancel,
               style: TextStyle(
                 fontSize: 15,
                 color: Colors.grey,
@@ -1210,8 +1211,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'Clock Out',
+            child: Text(
+              AppLocalizations.of(context)!.clockOut,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -1305,13 +1306,13 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Location Error'),
-          content: Text('Unable to get your location: $e\n\n'
+          title: Text(AppLocalizations.of(context)!.locationError),
+          content: Text(AppLocalizations.of(context)!.unableToGetYourLocationE
               'Would you like to proceed without location tracking?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton(
               onPressed: () {
@@ -1323,7 +1324,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   neighborhood: 'Unknown',
                 ));
               },
-              child: const Text('Proceed Anyway'),
+              child: Text(AppLocalizations.of(context)!.proceedAnyway),
             ),
           ],
         ),
@@ -1533,7 +1534,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Shift ended - clock-out recorded'),
+            content: Text(AppLocalizations.of(context)!.shiftEndedClockOutRecorded),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
           ),
@@ -1768,7 +1769,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       _debugLog('No current shift for clock-in', isError: true);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No valid shift found for clock-in'),
+          content: Text(AppLocalizations.of(context)!.noValidShiftFoundForClock),
           backgroundColor: Colors.red,
         ),
       );
@@ -2126,7 +2127,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                               children: [
                                 OutlinedButton(
                                   onPressed: _cancelProgrammedStart,
-                                  child: const Text('Cancel'),
+                                  child: Text(AppLocalizations.of(context)!.commonCancel),
                                 ),
                                 if (_timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error')) ...[
                                   const SizedBox(width: 16),
@@ -2138,7 +2139,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                       _startTeachingSession(isAutoStart: true);
                                     },
                                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff10B981)),
-                                    child: const Text('Retry Now', style: TextStyle(color: Colors.white)),
+                                    child: Text(AppLocalizations.of(context)!.retryNow, style: TextStyle(color: Colors.white)),
                                   ),
                                 ]
                               ],
@@ -2164,7 +2165,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                         child: Column(
                           children: [
                             Text(
-                              'Teaching: $_selectedStudentName',
+                              AppLocalizations.of(context)!.teachingSelectedstudentname,
                               style: GoogleFonts.inter(
                                 fontSize: _isMobile ? 14 : 16,
                                 fontWeight: FontWeight.w600,
@@ -2207,7 +2208,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Auto-logout in $_timeUntilAutoLogout',
+                                      AppLocalizations.of(context)!.autoLogoutInTimeuntilautologout,
                                       style: GoogleFonts.inter(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
@@ -2331,7 +2332,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Processing...',
+                    AppLocalizations.of(context)!.processing,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -2404,7 +2405,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Shift Completed',
+                AppLocalizations.of(context)!.shiftCompleted2,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -2427,7 +2428,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'Would you like to complete the Readiness Form now?',
+              AppLocalizations.of(context)!.wouldYouLikeToCompleteThe,
               style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -2446,7 +2447,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             child: Text(
-              'Later',
+              AppLocalizations.of(context)!.later,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF6B7280),
@@ -2464,7 +2465,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
               ),
             ),
             child: Text(
-              'Complete Now',
+              AppLocalizations.of(context)!.completeNow,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
               ),
@@ -2504,7 +2505,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       
       await NotificationService().showLocalNotification(
         id: timesheetId.hashCode,
-        title: 'Readiness Form Required',
+        title: AppLocalizations.of(context)!.readinessFormRequired2,
         body: 'Please complete your Readiness Form for "${shift.displayName}"',
         payload: jsonEncode({
           'type': 'form_required',

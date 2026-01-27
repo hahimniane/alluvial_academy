@@ -17,6 +17,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/utils/connecteam_style.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
@@ -338,7 +339,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       color: Colors.white,
       child: Row(
         children: [
-          Text("Tasks", style: ConnecteamStyle.headerTitle),
+          Text(AppLocalizations.of(context)!.navTasks, style: ConnecteamStyle.headerTitle),
           const SizedBox(width: 12),
           // Search Bar (Pill shaped) - Made flexible for mobile
           Expanded(
@@ -358,7 +359,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   });
                 },
                 decoration: const InputDecoration(
-                  hintText: "Search tasks...",
+                  hintText: AppLocalizations.of(context)!.searchTasks,
                   prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.only(top: 8),
@@ -520,7 +521,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     const Icon(Icons.clear, size: 16, color: Colors.red),
                     const SizedBox(width: 4),
                     Text(
-                      'Clear All',
+                      AppLocalizations.of(context)!.clearAll,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -610,7 +611,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           TextButton.icon(
             onPressed: () => _showBulkStatusChange(),
             icon: const Icon(Icons.flag_outlined, size: 16),
-            label: const Text('Change Status'),
+            label: Text(AppLocalizations.of(context)!.changeStatus),
             style: TextButton.styleFrom(
               foregroundColor: ConnecteamStyle.primaryBlue,
             ),
@@ -620,7 +621,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           TextButton.icon(
             onPressed: () => _showBulkPriorityChange(),
             icon: const Icon(Icons.priority_high, size: 16),
-            label: const Text('Change Priority'),
+            label: Text(AppLocalizations.of(context)!.changePriority),
             style: TextButton.styleFrom(
               foregroundColor: ConnecteamStyle.primaryBlue,
             ),
@@ -630,7 +631,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           TextButton.icon(
             onPressed: () => _showBulkDeleteConfirmation(),
             icon: const Icon(Icons.delete_outline, size: 16),
-            label: const Text('Delete'),
+            label: Text(AppLocalizations.of(context)!.commonDelete),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
@@ -695,7 +696,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
           const SizedBox(width: 12),
           Text(
-            'Quick Tasks',
+            AppLocalizations.of(context)!.quickTasks,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -815,7 +816,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             child: TextField(
               onChanged: (value) => setState(() => _searchQuery = value),
               decoration: InputDecoration(
-                hintText: 'Search',
+                hintText: AppLocalizations.of(context)!.commonSearch,
                 hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF), fontSize: 13),
                 prefixIcon: const Icon(Icons.search, color: Color(0xff9CA3AF), size: 18),
                 border: InputBorder.none,
@@ -833,7 +834,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             ElevatedButton.icon(
               onPressed: () => _showAddEditTaskDialog(),
               icon: const Icon(Icons.add, size: 18),
-              label: Text('Add Task', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+              label: Text(AppLocalizations.of(context)!.addTask, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff0386FF),
                 foregroundColor: Colors.white,
@@ -859,7 +860,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Group by',
+              AppLocalizations.of(context)!.groupBy,
               style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff6B7280)),
             ),
             const SizedBox(width: 4),
@@ -872,10 +873,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         ),
       ),
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'none', child: Text('None')),
-        const PopupMenuItem(value: 'assignee', child: Text('Assigned to')),
-        const PopupMenuItem(value: 'status', child: Text('Status')),
-        const PopupMenuItem(value: 'priority', child: Text('Priority')),
+        const PopupMenuItem(value: 'none', child: Text(AppLocalizations.of(context)!.commonNone)),
+        const PopupMenuItem(value: 'assignee', child: Text(AppLocalizations.of(context)!.assignedTo)),
+        const PopupMenuItem(value: 'status', child: Text(AppLocalizations.of(context)!.userStatus)),
+        const PopupMenuItem(value: 'priority', child: Text(AppLocalizations.of(context)!.priority)),
       ],
     );
   }
@@ -1000,7 +1001,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade700),
               const SizedBox(width: 4),
               Text(
-                '$overdueTasks overdue',
+                AppLocalizations.of(context)!.overduetasksOverdue,
                 style: TextStyle(
                   color: Colors.red.shade700,
                   fontSize: 12,
@@ -1070,7 +1071,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       child: TextField(
         onChanged: (value) => setState(() => _searchQuery = value),
         decoration: InputDecoration(
-          hintText: 'Search tasks...',
+          hintText: AppLocalizations.of(context)!.searchTasks,
           hintStyle: TextStyle(color: Colors.grey[400]),
           prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
           border: InputBorder.none,
@@ -1085,8 +1086,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Filters',
+        Text(
+          AppLocalizations.of(context)!.filters,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -1604,8 +1605,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       await showDialog<void>(
         context: context,
         builder: (_) => task_filters.UserSelectionDialog(
-          title: 'Select Assigned By',
-          subtitle: 'Choose an admin or promoted teacher',
+          title: AppLocalizations.of(context)!.selectAssignedBy,
+          subtitle: AppLocalizations.of(context)!.chooseAnAdminOrPromotedTeacher,
           availableUsers: options,
           selectedUserIds:
               _filterAssignedByUserId != null ? [_filterAssignedByUserId!] : [],
@@ -1652,8 +1653,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       await showDialog<void>(
         context: context,
         builder: (_) => task_filters.UserSelectionDialog(
-          title: 'Select Assigned To',
-          subtitle: 'Choose users to assign this task to',
+          title: AppLocalizations.of(context)!.selectAssignedTo,
+          subtitle: AppLocalizations.of(context)!.chooseUsersToAssignThisTask,
           availableUsers: options,
           selectedUserIds: _filterAssignedToUserIds,
           allowMultiple: true,
@@ -1739,7 +1740,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please wait while we load your tasks',
+                  AppLocalizations.of(context)!.pleaseWaitWhileWeLoadYour,
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 14,
@@ -1751,7 +1752,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     _loadUserRoleAndTasks();
                   },
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(AppLocalizations.of(context)!.commonRetry),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xff0386FF),
                   ),
@@ -1788,7 +1789,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                           AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
                     ),
                     SizedBox(height: 16),
-                    Text('Connecting to task database...'),
+                    Text(AppLocalizations.of(context)!.connectingToTaskDatabase),
                   ],
                 ),
               ),
@@ -1810,7 +1811,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Error loading tasks',
+                      AppLocalizations.of(context)!.errorLoadingTasks,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -1830,7 +1831,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     ElevatedButton.icon(
                       onPressed: () => _loadUserRoleAndTasks(),
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: Text(AppLocalizations.of(context)!.commonRetry),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xff0386FF),
                         foregroundColor: Colors.white,
@@ -2093,9 +2094,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'edit', child: Text('Edit Task')),
+        const PopupMenuItem(value: 'edit', child: Text(AppLocalizations.of(context)!.editTask)),
         if (canDelete)
-          const PopupMenuItem(value: 'delete', child: Text('Delete Task')),
+          const PopupMenuItem(value: 'delete', child: Text(AppLocalizations.of(context)!.deleteTask)),
       ],
     );
   }
@@ -2312,7 +2313,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   radius: 16,
                   backgroundColor: const Color(0xff0386FF),
                   child: Text(
-                    '+$remainingCount',
+                    AppLocalizations.of(context)!.remainingcount,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -2471,7 +2472,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context)!.commonClose),
           ),
         ],
       ),
@@ -2535,7 +2536,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ElevatedButton.icon(
                 onPressed: () => _showAddEditTaskDialog(),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Create Task'),
+                label: Text(AppLocalizations.of(context)!.createTask),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff0386FF),
                   foregroundColor: Colors.white,
@@ -2576,8 +2577,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No tasks found',
+            Text(
+              AppLocalizations.of(context)!.noTasksFound,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -2586,7 +2587,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Try adjusting your filters or search term',
+              AppLocalizations.of(context)!.tryAdjustingYourFiltersOrSearch,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -2617,7 +2618,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
-            'The view contains',
+            AppLocalizations.of(context)!.theViewContains,
             style: GoogleFonts.inter(
               fontSize: 13,
               color: const Color(0xff6B7280),
@@ -2779,7 +2780,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'High',
+                                AppLocalizations.of(context)!.high,
                                 style: GoogleFonts.inter(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -3081,7 +3082,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                       ),
                     ),
                     // Sub-tasks count
-                    const Text('--', style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    Text(AppLocalizations.of(context)!.text3, style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
                     // Labels display
                     if (task.labels.isNotEmpty)
                       ...task.labels.take(2).map((label) => Container(
@@ -3154,7 +3155,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             Icon(Icons.add_circle_outline, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
-              'Add task',
+              AppLocalizations.of(context)!.addTask2,
               style: TextStyle(
                 color: Color(0xff0386FF),
                 fontWeight: FontWeight.w500,
@@ -3208,7 +3209,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       AppLogger.error('Error toggling task status: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating task: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingTaskE)),
         );
       }
     }
@@ -3219,14 +3220,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       await _taskService.archiveTask(task.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Task archived')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.taskArchived)),
         );
       }
     } catch (e) {
       AppLogger.error('Error archiving task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error archiving task: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorArchivingTaskE)),
         );
       }
     }
@@ -3237,14 +3238,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       await _taskService.unarchiveTask(task.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Task unarchived')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.taskUnarchived)),
         );
       }
     } catch (e) {
       AppLogger.error('Error unarchiving task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error unarchiving task: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorUnarchivingTaskE)),
         );
       }
     }
@@ -3311,12 +3312,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Filter by Status', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.filterByStatus, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text('All Statuses'),
+              title: Text(AppLocalizations.of(context)!.allStatuses),
               leading: Radio<TaskStatus?>(
                 value: null,
                 groupValue: _selectedStatus,
@@ -3353,12 +3354,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Filter by Priority', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.filterByPriority, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text('All Priorities'),
+              title: Text(AppLocalizations.of(context)!.allPriorities),
               leading: Radio<TaskPriority?>(
                 value: null,
                 groupValue: _selectedPriority,
@@ -3398,8 +3399,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     await showDialog(
       context: context,
       builder: (context) => task_filters.UserSelectionDialog(
-        title: 'Filter by Assigned To',
-        subtitle: 'Select users to filter tasks',
+        title: AppLocalizations.of(context)!.filterByAssignedTo,
+        subtitle: AppLocalizations.of(context)!.selectUsersToFilterTasks,
         availableUsers: users.map<Map<String, dynamic>>((u) => {
           'id': u.id,
           'name': u.name,
@@ -3427,8 +3428,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     await showDialog(
       context: context,
       builder: (context) => task_filters.UserSelectionDialog(
-        title: 'Filter by Assigned By',
-        subtitle: 'Select user who created the tasks',
+        title: AppLocalizations.of(context)!.filterByAssignedBy,
+        subtitle: AppLocalizations.of(context)!.selectUserWhoCreatedTheTasks,
         availableUsers: users.map<Map<String, dynamic>>((u) => {
           'id': u.id,
           'name': u.name,
@@ -3486,11 +3487,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Filter by Labels', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+          title: Text(AppLocalizations.of(context)!.filterByLabels, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
           content: SizedBox(
             width: double.maxFinite,
             child: allLabels.isEmpty
-                ? const Text('No labels available')
+                ? Text(AppLocalizations.of(context)!.noLabelsAvailable)
                 : ListView.builder(
                     shrinkWrap: true,
                     itemCount: allLabels.length,
@@ -3516,14 +3517,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             TextButton(
               onPressed: () {
                 setState(() => _filterLabels = selectedLabels);
                 Navigator.pop(context);
               },
-              child: const Text('Apply'),
+              child: Text(AppLocalizations.of(context)!.commonApply),
             ),
           ],
         ),
@@ -3541,12 +3542,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Filter Recurring Tasks', style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.filterRecurringTasks, style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text('All Tasks'),
+              title: Text(AppLocalizations.of(context)!.allTasks),
               leading: Radio<bool?>(
                 value: null,
                 groupValue: _filterRecurring,
@@ -3557,7 +3558,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
             ListTile(
-              title: const Text('Recurring Only'),
+              title: Text(AppLocalizations.of(context)!.recurringOnly),
               leading: Radio<bool?>(
                 value: true,
                 groupValue: _filterRecurring,
@@ -3568,7 +3569,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               ),
             ),
             ListTile(
-              title: const Text('One-time Only'),
+              title: Text(AppLocalizations.of(context)!.oneTimeOnly),
               leading: Radio<bool?>(
                 value: false,
                 groupValue: _filterRecurring,
@@ -3642,12 +3643,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Tasks'),
+        title: Text(AppLocalizations.of(context)!.deleteTasks),
         content: Text('Are you sure you want to delete ${_selectedTaskIds.length} task(s)? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -3655,7 +3656,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               await _bulkDeleteTasks();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.commonDelete),
           ),
         ],
       ),
@@ -3679,14 +3680,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Updated $selectedCount task(s)')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.updatedSelectedcountTaskS)),
         );
       }
     } catch (e) {
       AppLogger.error('Error bulk changing status: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating tasks: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingTasksE)),
         );
       }
     }
@@ -3709,14 +3710,14 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Updated $selectedCount task(s)')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.updatedSelectedcountTaskS)),
         );
       }
     } catch (e) {
       AppLogger.error('Error bulk changing priority: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating tasks: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingTasksE)),
         );
       }
     }
@@ -3727,7 +3728,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You must be logged in to delete tasks'),
+          content: Text(AppLocalizations.of(context)!.youMustBeLoggedInTo),
           backgroundColor: Colors.red,
         ),
       );
@@ -3756,7 +3757,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     if (tasksToDelete.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You can only delete tasks you created'),
+          content: Text(AppLocalizations.of(context)!.youCanOnlyDeleteTasksYou),
           backgroundColor: Colors.red,
         ),
       );
@@ -3827,7 +3828,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       child: FloatingActionButton.extended(
         backgroundColor: ConnecteamStyle.primaryBlue,
         label: Text(
-          "Add Task",
+          AppLocalizations.of(context)!.addTask,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         icon: const Icon(Icons.add),
@@ -3843,7 +3844,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             children: [
               const Icon(Icons.add_task, size: 20),
               const SizedBox(width: 12),
-              Text('Add single task', style: GoogleFonts.inter()),
+              Text(AppLocalizations.of(context)!.addSingleTask, style: GoogleFonts.inter()),
             ],
           ),
         ),
@@ -3853,7 +3854,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
             children: [
               const Icon(Icons.post_add, size: 20),
               const SizedBox(width: 12),
-              Text('Add multiple tasks', style: GoogleFonts.inter()),
+              Text(AppLocalizations.of(context)!.addMultipleTasks, style: GoogleFonts.inter()),
             ],
           ),
         ),
@@ -3904,7 +3905,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     if (!canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Only the task creator can delete this task'),
+          content: Text(AppLocalizations.of(context)!.onlyTheTaskCreatorCanDelete),
           backgroundColor: Colors.red,
         ),
       );
@@ -3915,12 +3916,12 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Delete Task'),
+        title: Text(AppLocalizations.of(context)!.deleteTask),
         content: Text('Are you sure you want to delete "${task.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -3930,7 +3931,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Task deleted successfully'),
+                      content: Text(AppLocalizations.of(context)!.taskDeletedSuccessfully),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -3948,7 +3949,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.commonDelete),
           ),
         ],
       ),

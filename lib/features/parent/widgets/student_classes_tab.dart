@@ -6,6 +6,7 @@ import 'package:alluwalacademyadmin/core/services/parent_service.dart';
 import 'package:alluwalacademyadmin/core/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/class_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/attendance_calendar.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class StudentClassesTab extends StatefulWidget {
   final String studentId;
@@ -151,8 +152,8 @@ class _StudentClassesTabState extends State<StudentClassesTab> {
         if (upcoming.isEmpty) {
           return _emptyCard(
             icon: Icons.calendar_month_rounded,
-            title: 'No upcoming classes',
-            subtitle: 'Your child has no upcoming classes scheduled.',
+            title: AppLocalizations.of(context)!.noUpcomingClasses,
+            subtitle: AppLocalizations.of(context)!.yourChildHasNoUpcomingClasses,
           );
         }
 
@@ -185,8 +186,8 @@ class _StudentClassesTabState extends State<StudentClassesTab> {
         if (history.isEmpty) {
           return _emptyCard(
             icon: Icons.history_rounded,
-            title: 'No class history',
-            subtitle: 'Completed classes will appear here.',
+            title: AppLocalizations.of(context)!.noClassHistory,
+            subtitle: AppLocalizations.of(context)!.completedClassesWillAppearHere,
           );
         }
 

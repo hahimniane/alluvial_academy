@@ -6,6 +6,7 @@ import '../models/task.dart';
 import '../services/task_comment_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TaskCommentsSection extends StatefulWidget {
   final Task task;
@@ -109,17 +110,17 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Comment'),
-        content: const Text('Are you sure you want to delete this comment?'),
+        title: Text(AppLocalizations.of(context)!.deleteComment),
+        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo5),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.commonDelete),
           ),
         ],
       ),
@@ -131,7 +132,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Comment deleted successfully'),
+              content: Text(AppLocalizations.of(context)!.commentDeletedSuccessfully),
               backgroundColor: Colors.green,
             ),
           );
@@ -207,7 +208,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                     ),
                     if (comment.isEdited)
                       Text(
-                        'Edited',
+                        AppLocalizations.of(context)!.edited,
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 11,
@@ -233,7 +234,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                         children: [
                           Icon(Icons.edit, size: 16),
                           SizedBox(width: 8),
-                          Text('Edit'),
+                          Text(AppLocalizations.of(context)!.commonEdit),
                         ],
                       ),
                     ),
@@ -243,7 +244,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                         children: [
                           Icon(Icons.delete, size: 16, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
+                          Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -295,7 +296,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                 Icon(Icons.edit, size: 16, color: Colors.orange[600]),
                 const SizedBox(width: 8),
                 Text(
-                  'Editing comment',
+                  AppLocalizations.of(context)!.editingComment,
                   style: TextStyle(
                     color: Colors.orange[600],
                     fontSize: 12,
@@ -305,7 +306,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                 const Spacer(),
                 TextButton(
                   onPressed: _cancelEditing,
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context)!.commonCancel),
                 ),
               ],
             ),
@@ -379,8 +380,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
               color: Color(0xff0386FF),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Comments',
+            Text(
+              AppLocalizations.of(context)!.comments,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -399,7 +400,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '$commentCount',
+                    AppLocalizations.of(context)!.commentcount,
                     style: const TextStyle(
                       color: Color(0xff0386FF),
                       fontWeight: FontWeight.w600,
@@ -459,7 +460,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No comments yet',
+                      AppLocalizations.of(context)!.noCommentsYet,
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 16,
@@ -468,7 +469,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Be the first to leave a comment on this task.',
+                      AppLocalizations.of(context)!.beTheFirstToLeaveA,
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 14,

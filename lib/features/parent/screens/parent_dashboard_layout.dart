@@ -13,6 +13,7 @@ import 'parent_invoices_screen.dart';
 import 'payment_history_screen.dart';
 import 'parent_profile_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Parent Dashboard Layout with sidebar navigation
 class ParentDashboardLayout extends StatefulWidget {
@@ -87,7 +88,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
       case 4:
         return const ParentProfileScreen();
       case 5:
-        return const RoleSettingsScreen(title: 'Parent Settings');
+        return const RoleSettingsScreen(title: AppLocalizations.of(context)!.parentSettings);
       default:
         return const _AccessDeniedScreen();
     }
@@ -151,7 +152,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Color(0xFF111827)),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          tooltip: 'Menu',
+          tooltip: AppLocalizations.of(context)!.menu,
         ),
         title: _buildLogo(),
         actions: [
@@ -193,7 +194,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
           ),
           const SizedBox(width: 12),
           Text(
-            'Alluwal Academy',
+            AppLocalizations.of(context)!.appTitle,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -251,7 +252,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
                 children: [
                   const Icon(Icons.person, size: 20, color: Color(0xFF6B7280)),
                   const SizedBox(width: 12),
-                  Text('Profile', style: GoogleFonts.inter()),
+                  Text(AppLocalizations.of(context)!.profile, style: GoogleFonts.inter()),
                 ],
               ),
             ),
@@ -261,7 +262,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
                 children: [
                   const Icon(Icons.logout, size: 20, color: Color(0xFFDC2626)),
                   const SizedBox(width: 12),
-                  Text('Sign Out', style: GoogleFonts.inter(color: const Color(0xFFDC2626))),
+                  Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter(color: const Color(0xFFDC2626))),
                 ],
               ),
             ),
@@ -282,15 +283,15 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Sign Out', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         content: Text(
-          'Are you sure you want to sign out?',
+          AppLocalizations.of(context)!.settingsSignOutConfirm,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel', style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.commonCancel, style: GoogleFonts.inter()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -298,7 +299,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             ),
-            child: Text('Sign Out', style: GoogleFonts.inter()),
+            child: Text(AppLocalizations.of(context)!.settingsSignOut, style: GoogleFonts.inter()),
           ),
         ],
       ),
@@ -344,7 +345,7 @@ class _AccessDeniedScreen extends StatelessWidget {
       color: Color(0xFFF8FAFC),
       child: Center(
         child: Text(
-          'Access restricted',
+          AppLocalizations.of(context)!.accessRestricted,
           style: TextStyle(
             fontSize: 16,
             color: Color(0xFF6B7280),

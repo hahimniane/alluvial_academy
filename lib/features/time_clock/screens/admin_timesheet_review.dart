@@ -11,6 +11,7 @@ import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 // Admin system timezone - all times displayed in this timezone for consistency
 const String ADMIN_SYSTEM_TIMEZONE = 'UTC';
@@ -826,7 +827,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Edited Timesheets Detected',
+                    AppLocalizations.of(context)!.editedTimesheetsDetected,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -888,7 +889,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'By continuing, you will approve both the edits and the timesheets.',
+                          AppLocalizations.of(context)!.byContinuingYouWillApproveBoth,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xFF1E3A8A),
@@ -904,7 +905,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
                 child: Text(
-                  'Cancel',
+                  AppLocalizations.of(context)!.commonCancel,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -915,7 +916,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   foregroundColor: Colors.white,
                 ),
                 child: Text(
-                  'Approve All',
+                  AppLocalizations.of(context)!.approveAll,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -944,7 +945,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       color: Colors.green, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text('Bulk Approve Timesheets',
+                Text(AppLocalizations.of(context)!.bulkApproveTimesheets,
                     style: GoogleFonts.inter(
                         fontSize: 18, fontWeight: FontWeight.w600)),
               ],
@@ -1009,7 +1010,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
@@ -1017,7 +1018,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Approve All'),
+                child: Text(AppLocalizations.of(context)!.approveAll),
               ),
             ],
           ),
@@ -1042,7 +1043,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               child: const Icon(Icons.cancel, color: Colors.red, size: 20),
             ),
             const SizedBox(width: 12),
-            Text('Bulk Reject Timesheets',
+            Text(AppLocalizations.of(context)!.bulkRejectTimesheets,
                 style: GoogleFonts.inter(
                     fontSize: 18, fontWeight: FontWeight.w600)),
           ],
@@ -1051,7 +1052,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'You are about to reject $count timesheets. Please provide a reason:',
+              AppLocalizations.of(context)!.youAreAboutToRejectCount,
               style: GoogleFonts.inter(fontSize: 14),
             ),
             const SizedBox(height: 16),
@@ -1059,7 +1060,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               controller: controller,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Enter reason for rejection...',
+                hintText: AppLocalizations.of(context)!.enterReasonForRejection,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1070,7 +1071,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1082,7 +1083,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Reject All'),
+            child: Text(AppLocalizations.of(context)!.rejectAll),
           ),
         ],
       ),
@@ -1163,18 +1164,18 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Approve Consolidated Shift'),
+          title: Text(AppLocalizations.of(context)!.approveConsolidatedShift),
           content: Text(
               'This will approve all ${timesheet.childEntries!.length} entries for this shift.\n\nTotal Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+                child: Text(AppLocalizations.of(context)!.commonCancel)),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green, foregroundColor: Colors.white),
-              child: const Text('Approve All'),
+              child: Text(AppLocalizations.of(context)!.approveAll),
             ),
           ],
         ),
@@ -1396,7 +1397,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Timesheet Was Edited',
+                    AppLocalizations.of(context)!.timesheetWasEdited,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -1430,7 +1431,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                   color: Color(0xFFD97706), size: 18),
                               const SizedBox(width: 8),
                               Text(
-                                'Reason for Edit:',
+                                AppLocalizations.of(context)!.reasonForEdit,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -1455,7 +1456,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
 
                   // Comparison Table
                   Text(
-                    'Data Comparison:',
+                    AppLocalizations.of(context)!.dataComparison,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -1482,7 +1483,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Field',
+                                  AppLocalizations.of(context)!.field,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1492,7 +1493,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                               Expanded(
                                 child: Text(
-                                  'Original',
+                                  AppLocalizations.of(context)!.original,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1503,7 +1504,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                               Expanded(
                                 child: Text(
-                                  'Edited',
+                                  AppLocalizations.of(context)!.edited,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1542,7 +1543,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'By approving, you accept the edited times and the timesheet will be approved.',
+                            AppLocalizations.of(context)!.byApprovingYouAcceptTheEdited,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xFF1E3A8A),
@@ -1559,7 +1560,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
                 child: Text(
-                  'Cancel',
+                  AppLocalizations.of(context)!.commonCancel,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -1570,7 +1571,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   foregroundColor: Colors.white,
                 ),
                 child: Text(
-                  'Approve Edit & Continue',
+                  AppLocalizations.of(context)!.approveEditContinue,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -1662,7 +1663,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Reject Edited Timesheet',
+                AppLocalizations.of(context)!.rejectEditedTimesheet,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -1677,28 +1678,28 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'This timesheet was edited. Choose an action:',
+              AppLocalizations.of(context)!.thisTimesheetWasEditedChooseAn,
               style: GoogleFonts.inter(fontSize: 14),
             ),
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.undo, color: Color(0xFF0386FF)),
               title: Text(
-                'Revert to Original',
+                AppLocalizations.of(context)!.revertToOriginal,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text(
-                  'Restore original times and keep timesheet pending'),
+              subtitle: Text(
+                  AppLocalizations.of(context)!.restoreOriginalTimesAndKeepTimesheet),
               onTap: () => Navigator.of(context).pop('revert'),
             ),
             ListTile(
               leading: const Icon(Icons.cancel, color: Colors.red),
               title: Text(
-                'Reject Timesheet',
+                AppLocalizations.of(context)!.rejectTimesheet,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
               subtitle:
-                  const Text('Reject the entire timesheet (requires reason)'),
+                  Text(AppLocalizations.of(context)!.rejectTheEntireTimesheetRequiresReason),
               onTap: () => Navigator.of(context).pop('reject'),
             ),
           ],
@@ -1707,7 +1708,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context)!.commonCancel,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ),
@@ -1733,7 +1734,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       color: Colors.green, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text('Approve Timesheet',
+                Text(AppLocalizations.of(context)!.approveTimesheet,
                     style: GoogleFonts.inter(
                         fontSize: 18, fontWeight: FontWeight.w600)),
               ],
@@ -1775,7 +1776,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
@@ -1783,7 +1784,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Approve & Calculate Payment'),
+                child: Text(AppLocalizations.of(context)!.approveCalculatePayment),
               ),
             ],
           ),
@@ -1808,7 +1809,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               child: const Icon(Icons.cancel, color: Colors.red, size: 20),
             ),
             const SizedBox(width: 12),
-            Text('Reject Timesheet',
+            Text(AppLocalizations.of(context)!.rejectTimesheet,
                 style: GoogleFonts.inter(
                     fontSize: 18, fontWeight: FontWeight.w600)),
           ],
@@ -1817,7 +1818,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Please provide a reason for rejection:',
+              AppLocalizations.of(context)!.pleaseProvideAReasonForRejection,
               style: GoogleFonts.inter(fontSize: 14),
             ),
             const SizedBox(height: 16),
@@ -1825,7 +1826,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               controller: controller,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Enter reason for rejection...',
+                hintText: AppLocalizations.of(context)!.enterReasonForRejection,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1836,7 +1837,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1848,7 +1849,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Reject'),
+            child: Text(AppLocalizations.of(context)!.reject),
           ),
         ],
       ),
@@ -1870,7 +1871,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 Row(
                   children: [
                     Expanded(
-                        child: Text('Shift Details (Consolidated)',
+                        child: Text(AppLocalizations.of(context)!.shiftDetailsConsolidated,
                             style: GoogleFonts.inter(
                                 fontSize: 20, fontWeight: FontWeight.bold))),
                     IconButton(
@@ -1940,7 +1941,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text('Timesheet Details',
+                      child: Text(AppLocalizations.of(context)!.timesheetDetails2,
                           style: GoogleFonts.inter(
                               fontSize: 18, fontWeight: FontWeight.w600)),
                     ),
@@ -1979,7 +1980,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '⚠️ This timesheet was edited and requires approval',
+                                  AppLocalizations.of(context)!.thisTimesheetWasEditedAndRequires,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1993,7 +1994,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       ],
                       if (timesheet.description.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        Text('Description:',
+                        Text(AppLocalizations.of(context)!.description2,
                             style: GoogleFonts.inter(
                                 fontSize: 14, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
@@ -2027,7 +2028,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text('Employee Notes:',
+                            Text(AppLocalizations.of(context)!.employeeNotes,
                                 style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -2068,7 +2069,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text('Edit Information:',
+                            Text(AppLocalizations.of(context)!.editInformation,
                                 style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -2099,7 +2100,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Original data not available',
+                                        AppLocalizations.of(context)!.originalDataNotAvailable,
                                         style: GoogleFonts.inter(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -2111,7 +2112,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'This timesheet was edited, but the original data was not saved. This may be an older edit made before the tracking system was implemented.',
+                                  AppLocalizations.of(context)!.thisTimesheetWasEditedButThe,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     color: const Color(0xFF92400E),
@@ -2152,7 +2153,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text('Manager Notes:',
+                            Text(AppLocalizations.of(context)!.managerNotes2,
                                 style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -2190,7 +2191,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
+                      child: Text(AppLocalizations.of(context)!.commonClose),
                     ),
                     if (timesheet.status == TimesheetStatus.pending) ...[
                       const SizedBox(width: 8),
@@ -2203,7 +2204,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Reject'),
+                        child: Text(AppLocalizations.of(context)!.reject),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
@@ -2215,7 +2216,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Approve'),
+                        child: Text(AppLocalizations.of(context)!.approve),
                       ),
                     ],
                   ],
@@ -2295,7 +2296,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               children: [
                 Expanded(
                   child: Text(
-                    'Field',
+                    AppLocalizations.of(context)!.field,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2305,7 +2306,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 ),
                 Expanded(
                   child: Text(
-                    'Original',
+                    AppLocalizations.of(context)!.original,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2316,7 +2317,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                 ),
                 Expanded(
                   child: Text(
-                    'Current',
+                    AppLocalizations.of(context)!.formCurrentMonth,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2425,7 +2426,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   void _exportTimesheets() {
     if (_filteredTimesheets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No data to export')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
       );
       return;
     }
@@ -3264,14 +3265,14 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           _applyFilter(_selectedFilter);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Date filter cleared'),
+                              content: Text(AppLocalizations.of(context)!.dateFilterCleared),
                               backgroundColor: Colors.green,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
                         },
                         icon: const Icon(Icons.clear, size: 16),
-                        label: const Text('Clear Filter'),
+                        label: Text(AppLocalizations.of(context)!.clearFilter),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.grey.shade700,
                           side: BorderSide(color: Colors.grey.shade400),
@@ -3284,7 +3285,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       child: ElevatedButton.icon(
                         onPressed: () => _selectDateRange(context),
                         icon: const Icon(Icons.tune, size: 16),
-                        label: const Text('Change'),
+                        label: Text(AppLocalizations.of(context)!.change),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xff0386FF),
                           foregroundColor: Colors.white,
@@ -3342,7 +3343,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Timesheet Review',
+                          AppLocalizations.of(context)!.timesheetReview,
                           style: GoogleFonts.inter(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
@@ -3350,7 +3351,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           ),
                         ),
                         Text(
-                          'Review and approve employee timesheets',
+                          AppLocalizations.of(context)!.reviewAndApproveEmployeeTimesheets,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: Colors.grey.shade600,
@@ -3363,7 +3364,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ElevatedButton.icon(
                       onPressed: _exportTimesheets,
                       icon: const Icon(Icons.file_download, size: 18),
-                      label: const Text('Export'),
+                      label: Text(AppLocalizations.of(context)!.commonExport),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _filteredTimesheets.isNotEmpty
                             ? const Color(0xff10B981)
@@ -3422,7 +3423,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         ElevatedButton.icon(
                           onPressed: _bulkApproveTimesheets,
                           icon: const Icon(Icons.check_circle, size: 16),
-                          label: const Text('Approve All'),
+                          label: Text(AppLocalizations.of(context)!.approveAll),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
@@ -3434,7 +3435,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         ElevatedButton.icon(
                           onPressed: _bulkRejectTimesheets,
                           icon: const Icon(Icons.cancel, size: 16),
-                          label: const Text('Reject All'),
+                          label: Text(AppLocalizations.of(context)!.rejectAll),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             foregroundColor: Colors.white,
@@ -3451,7 +3452,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             });
                           },
                           icon: const Icon(Icons.clear, size: 16),
-                          label: const Text('Clear'),
+                          label: Text(AppLocalizations.of(context)!.commonClear),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.grey.shade700,
                             side: BorderSide(color: Colors.grey.shade400),
@@ -3471,7 +3472,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         size: 18, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      'Filter by Status:',
+                      AppLocalizations.of(context)!.filterByStatus2,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -3520,7 +3521,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                         size: 18, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      'Filter by Teacher:',
+                      AppLocalizations.of(context)!.filterByTeacher,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -3546,13 +3547,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           fillColor: Colors.white,
                         ),
                         hint: Text(
-                          'All Teachers',
+                          AppLocalizations.of(context)!.allTeachers,
                           style: GoogleFonts.inter(fontSize: 13),
                         ),
                         items: [
                           DropdownMenuItem<String>(
                             value: null,
-                            child: Text('All Teachers',
+                            child: Text(AppLocalizations.of(context)!.allTeachers,
                                 style: GoogleFonts.inter(fontSize: 13)),
                           ),
                           ..._availableTeachers
@@ -3581,7 +3582,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           });
                           _applyFilter(_selectedFilter);
                         },
-                        tooltip: 'Clear teacher filter',
+                        tooltip: AppLocalizations.of(context)!.clearTeacherFilter,
                       ),
                     ],
                   ],
@@ -3608,7 +3609,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No timesheets found',
+                              AppLocalizations.of(context)!.noTimesheetsFound,
                               style: GoogleFonts.inter(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -3616,7 +3617,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                               ),
                             ),
                             Text(
-                              'Try changing the filter or check back later',
+                              AppLocalizations.of(context)!.tryChangingTheFilterOrCheck,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 color: Colors.grey.shade500,
@@ -3670,7 +3671,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Teacher',
+                                  child: Text(AppLocalizations.of(context)!.roleTeacher,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3680,7 +3681,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Date',
+                                  child: Text(AppLocalizations.of(context)!.timesheetDate,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3690,7 +3691,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Student',
+                                  child: Text(AppLocalizations.of(context)!.roleStudent,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3700,7 +3701,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
-                                  child: Text('Hours',
+                                  child: Text(AppLocalizations.of(context)!.hours,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3710,7 +3711,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
-                                  child: Text('Payment',
+                                  child: Text(AppLocalizations.of(context)!.payment,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3721,7 +3722,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
-                                  child: Text('Source',
+                                  child: Text(AppLocalizations.of(context)!.source,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3731,7 +3732,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
-                                  child: Text('Status',
+                                  child: Text(AppLocalizations.of(context)!.userStatus,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3742,7 +3743,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                                 label: Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.center,
-                                  child: Text('Actions',
+                                  child: Text(AppLocalizations.of(context)!.timesheetActions,
                                       style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600)),
                                 ),
@@ -3990,7 +3991,7 @@ class TimesheetReviewDataSource extends DataGridSource {
                 IconButton(
                   onPressed: () => onViewDetails(timesheet),
                   icon: const Icon(Icons.visibility, size: 18),
-                  tooltip: 'View Details',
+                  tooltip: AppLocalizations.of(context)!.shiftViewDetails,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 32,
@@ -4002,7 +4003,7 @@ class TimesheetReviewDataSource extends DataGridSource {
                     onPressed: () => onApprove(timesheet),
                     icon: const Icon(Icons.check_circle,
                         color: Colors.green, size: 18),
-                    tooltip: 'Approve',
+                    tooltip: AppLocalizations.of(context)!.approve,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                       minWidth: 32,
@@ -4012,7 +4013,7 @@ class TimesheetReviewDataSource extends DataGridSource {
                   IconButton(
                     onPressed: () => onReject(timesheet),
                     icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
-                    tooltip: 'Reject',
+                    tooltip: AppLocalizations.of(context)!.reject,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                       minWidth: 32,

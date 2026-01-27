@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 enum ShiftEditOptionMode {
   single,
@@ -61,8 +62,8 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
             _buildHeader(),
             const SizedBox(height: 14),
             _buildOption(
-              title: 'Edit this shift only',
-              subtitle: 'Quick edit or full editor for this shift.',
+              title: AppLocalizations.of(context)!.editThisShiftOnly,
+              subtitle: AppLocalizations.of(context)!.quickEditOrFullEditorFor,
               icon: Icons.edit,
               onTap: () => Navigator.pop(
                 context,
@@ -76,8 +77,8 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
                 final series = snapshot.data;
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return _buildOption(
-                    title: 'Edit all in series',
-                    subtitle: 'Loading series…',
+                    title: AppLocalizations.of(context)!.editAllInSeries,
+                    subtitle: AppLocalizations.of(context)!.loadingSeries,
                     icon: Icons.repeat,
                     onTap: null,
                     trailing: const SizedBox(
@@ -95,7 +96,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
                 return _buildOption(
                   title: 'Edit all in series (${series.shifts.length})',
                   subtitle:
-                      'Apply changes to all shifts and update the recurring template.',
+                      AppLocalizations.of(context)!.applyChangesToAllShiftsAnd,
                   icon: Icons.repeat,
                   onTap: () => Navigator.pop(
                     context,
@@ -108,15 +109,15 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
             if (widget.shift.studentIds.isNotEmpty) ...[
               const SizedBox(height: 10),
               _buildOption(
-                title: 'Edit all shifts for a student',
-                subtitle: 'Bulk edit every class for the selected student.',
+                title: AppLocalizations.of(context)!.editAllShiftsForAStudent,
+                subtitle: AppLocalizations.of(context)!.bulkEditEveryClassForThe,
                 icon: Icons.person_search,
                 onTap: _pickStudentAll,
               ),
               const SizedBox(height: 10),
               _buildOption(
-                title: 'Edit by time range (student)',
-                subtitle: 'Find shifts for a student matching a time window.',
+                title: AppLocalizations.of(context)!.editByTimeRangeStudent,
+                subtitle: AppLocalizations.of(context)!.findShiftsForAStudentMatching,
                 icon: Icons.schedule,
                 onTap: _pickStudentTimeRange,
               ),
@@ -127,7 +128,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(
-                  'Cancel',
+                  AppLocalizations.of(context)!.commonCancel,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: const Color(0xff6B7280),
@@ -158,7 +159,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Edit options',
+                AppLocalizations.of(context)!.editOptions,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -334,7 +335,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Select student',
+          AppLocalizations.of(context)!.selectStudent2,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: Column(
@@ -355,7 +356,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
         ],
       ),

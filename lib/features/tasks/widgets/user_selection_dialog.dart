@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class UserSelectionDialog extends StatefulWidget {
   final String title;
@@ -131,7 +132,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search users by name or email...',
+                  hintText: AppLocalizations.of(context)!.searchUsersByNameOrEmail,
                   hintStyle: GoogleFonts.openSans(
                     color: const Color(0xffA0AEC0),
                     fontSize: 14,
@@ -307,7 +308,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                   Flexible(
                     child: TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
+                      child: Text(AppLocalizations.of(context)!.commonCancel),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),

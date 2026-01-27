@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'user_selection_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FilterPanel extends StatefulWidget {
   final TextEditingController searchController;
@@ -57,7 +58,7 @@ class _FilterPanelState extends State<FilterPanel> {
           TextField(
             controller: widget.searchController,
             decoration: InputDecoration(
-              hintText: 'Search by name or email...',
+              hintText: AppLocalizations.of(context)!.searchByNameOrEmail,
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -68,7 +69,7 @@ class _FilterPanelState extends State<FilterPanel> {
 
           // Form filter
           _buildFilterSection(
-            title: 'Form',
+            title: AppLocalizations.of(context)!.form,
             isExpanded: _showFormFilter,
             onToggle: () => setState(() => _showFormFilter = !_showFormFilter),
             child: Container(
@@ -83,13 +84,13 @@ class _FilterPanelState extends State<FilterPanel> {
                 value: widget.selectedFormId.isEmpty
                     ? null
                     : widget.selectedFormId,
-                hint: const Text('All Forms'),
+                hint: Text(AppLocalizations.of(context)!.allForms),
                 isExpanded: true,
                 underline: const SizedBox(),
                 items: [
                   const DropdownMenuItem(
                     value: '',
-                    child: Text('All Forms'),
+                    child: Text(AppLocalizations.of(context)!.allForms),
                   ),
                   ...widget.formTemplates.entries.map(
                     (entry) => DropdownMenuItem(
@@ -109,7 +110,7 @@ class _FilterPanelState extends State<FilterPanel> {
 
           // Status filter
           _buildFilterSection(
-            title: 'Status',
+            title: AppLocalizations.of(context)!.userStatus,
             isExpanded: _showStatusFilter,
             onToggle: () =>
                 setState(() => _showStatusFilter = !_showStatusFilter),
@@ -126,11 +127,11 @@ class _FilterPanelState extends State<FilterPanel> {
                 isExpanded: true,
                 underline: const SizedBox(),
                 items: const [
-                  DropdownMenuItem(value: 'All', child: Text('All Status')),
+                  DropdownMenuItem(value: 'All', child: Text(AppLocalizations.of(context)!.allStatus)),
                   DropdownMenuItem(
-                      value: 'Completed', child: Text('Completed')),
-                  DropdownMenuItem(value: 'Draft', child: Text('Draft')),
-                  DropdownMenuItem(value: 'Pending', child: Text('Pending')),
+                      value: 'Completed', child: Text(AppLocalizations.of(context)!.formCompleted)),
+                  DropdownMenuItem(value: 'Draft', child: Text(AppLocalizations.of(context)!.timesheetDraft)),
+                  DropdownMenuItem(value: 'Pending', child: Text(AppLocalizations.of(context)!.timesheetPending)),
                 ],
                 onChanged: (value) => widget.onStatusSelected(value ?? 'All'),
               ),
@@ -140,7 +141,7 @@ class _FilterPanelState extends State<FilterPanel> {
 
           // Creator filter
           _buildFilterSection(
-            title: 'Created By',
+            title: AppLocalizations.of(context)!.createdBy,
             isExpanded: _showCreatorFilter,
             onToggle: () =>
                 setState(() => _showCreatorFilter = !_showCreatorFilter),
@@ -157,10 +158,10 @@ class _FilterPanelState extends State<FilterPanel> {
                 isExpanded: true,
                 underline: const SizedBox(),
                 items: const [
-                  DropdownMenuItem(value: 'All', child: Text('All Forms')),
+                  DropdownMenuItem(value: 'All', child: Text(AppLocalizations.of(context)!.allForms)),
                   DropdownMenuItem(
-                      value: 'Admin', child: Text('Admin Created')),
-                  DropdownMenuItem(value: 'Self', child: Text('Created by Me')),
+                      value: 'Admin', child: Text(AppLocalizations.of(context)!.adminCreated)),
+                  DropdownMenuItem(value: 'Self', child: Text(AppLocalizations.of(context)!.createdByMe)),
                 ],
                 onChanged: (value) => widget.onCreatorSelected(value ?? 'All'),
               ),
@@ -170,7 +171,7 @@ class _FilterPanelState extends State<FilterPanel> {
 
           // Date range
           _buildFilterSection(
-            title: 'Date Range',
+            title: AppLocalizations.of(context)!.dateRange,
             isExpanded: _showDateFilter,
             onToggle: () => setState(() => _showDateFilter = !_showDateFilter),
             child: Material(
@@ -278,7 +279,7 @@ class _FilterPanelState extends State<FilterPanel> {
                             icon: const Icon(Icons.close, size: 16),
                             onPressed: () =>
                                 widget.onDateRangeSelected(null, null),
-                            tooltip: 'Clear date range',
+                            tooltip: AppLocalizations.of(context)!.clearDateRange,
                             color: Colors.grey,
                           ),
                       ],
@@ -292,7 +293,7 @@ class _FilterPanelState extends State<FilterPanel> {
 
           // User selection
           _buildFilterSection(
-            title: 'Users',
+            title: AppLocalizations.of(context)!.navUsers,
             isExpanded: _showUserFilter,
             onToggle: () => setState(() => _showUserFilter = !_showUserFilter),
             child: Container(
@@ -322,7 +323,7 @@ class _FilterPanelState extends State<FilterPanel> {
                       );
                     },
                     icon: const Icon(Icons.person_add),
-                    label: const Text('Select Users'),
+                    label: Text(AppLocalizations.of(context)!.selectUsers2),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xff0386FF),
                       padding: EdgeInsets.zero,

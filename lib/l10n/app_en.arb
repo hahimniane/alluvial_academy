@@ -1,0 +1,649 @@
+{
+  "@@locale": "en",
+  "appTitle": "Alluwal Academy",
+  "commonCancel": "Cancel",
+  "commonSave": "Save",
+  "commonDelete": "Delete",
+  "commonEdit": "Edit",
+  "commonClose": "Close",
+  "commonApply": "Apply",
+  "commonOk": "OK",
+  "commonYes": "Yes",
+  "commonNo": "No",
+  "commonBack": "Back",
+  "commonNext": "Next",
+  "commonDone": "Done",
+  "commonRetry": "Retry",
+  "commonLoading": "Loading...",
+  "commonError": "Error",
+  "commonSuccess": "Success",
+  "commonSearch": "Search",
+  "commonAll": "All",
+  "commonNone": "None",
+  "commonView": "View",
+  "commonSubmit": "Submit",
+  "commonReset": "Reset",
+  "commonClear": "Clear",
+  "commonRefresh": "Refresh",
+  "commonExport": "Export",
+  "commonCopy": "Copy",
+  "commonCopied": "Copied!",
+  "commonNotSet": "Not set",
+  "commonUnknown": "Unknown",
+  "commonRequired": "Required",
+  "commonOptional": "Optional",
+  "loginWelcomeBack": "Welcome Back",
+  "loginSignInContinue": "Sign in to continue",
+  "loginEmail": "Email",
+  "loginStudentId": "Student ID",
+  "loginPassword": "Password",
+  "loginSignIn": "Sign In",
+  "loginEnterStudentId": "Enter your student ID",
+  "loginEnterEmail": "Enter your email",
+  "loginEnterPassword": "Enter your password",
+  "loginFieldRequired": "This field is required",
+  "loginInvalidEmail": "Please enter a valid email",
+  "loginPasswordRequired": "Password is required",
+  "loginAccountArchived": "Your account has been archived. Please contact an administrator for assistance.",
+  "loginNoAccountStudentId": "No account found with this Student ID.",
+  "loginNoAccountEmail": "No account found with this email.",
+  "loginIncorrectPassword": "Incorrect password. Please try again.",
+  "loginInvalidEmailFormat": "Please enter a valid email address.",
+  "loginAccountDisabled": "This account has been disabled.",
+  "loginTooManyAttempts": "Too many failed attempts. Please wait and try again.",
+  "loginFailed": "Login failed. Please try again.",
+  "loginUnexpectedError": "An unexpected error occurred.",
+  "loginAlluvialHub": "Alluvial Education Hub",
+  "settingsTitle": "Settings",
+  "settingsViewProfile": "View Profile",
+  "settingsHelpSupport": "Help & Support",
+  "settingsTakeAppTour": "Take App Tour",
+  "settingsLearnApp": "Learn how to use the app",
+  "settingsSignOut": "Sign Out",
+  "settingsSignOutConfirm": "Are you sure you want to sign out?",
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "settingsPrivacySubtitle": "How we protect your data",
+  "settingsTheme": "Theme",
+  "settingsThemeSubtitle": "Change app appearance",
+  "settingsDarkMode": "Dark Mode",
+  "settingsLightMode": "Light Mode",
+  "settingsSystemMode": "System",
+  "profileHeader": "PROFILE",
+  "profileEmail": "Email",
+  "profilePhone": "Phone",
+  "profileTimezone": "Timezone",
+  "profileAbout": "About",
+  "profileTitle": "Title",
+  "profileBio": "Bio",
+  "profileExperience": "Experience",
+  "profileSpecialties": "Specialties",
+  "profileEditProfile": "Edit Profile",
+  "profileCompleteProfile": "Complete Your Profile",
+  "profileHelpParents": "Help parents and students learn about your expertise",
+  "profileFullName": "Full Name",
+  "profileProfessionalTitle": "Professional Title",
+  "profileBiography": "Biography",
+  "profileYearsExperience": "Years of Experience",
+  "profileEducationCerts": "Education & Certifications",
+  "profileSaving": "Saving...",
+  "profileSaveProfile": "Save Profile",
+  "profileSavedSuccess": "Profile saved successfully!",
+  "profilePercentComplete": "Profile {percent}% complete",
+  "@profilePercentComplete": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "appSettingsHeader": "APP SETTINGS",
+  "supportHeader": "SUPPORT",
+  "notificationsTitle": "Notifications",
+  "notificationsSubtitle": "Manage notification preferences",
+  "languageTitle": "Language",
+  "selectLanguageTitle": "Choose language",
+  "languageEnglish": "English",
+  "languageFrench": "French",
+  "languageArabic": "Arabic",
+  "navHome": "Home",
+  "navShifts": "Shifts",
+  "navChat": "Chat",
+  "navForms": "Forms",
+  "navJobs": "Jobs",
+  "navClasses": "Classes",
+  "navNotify": "Notify",
+  "navUsers": "Users",
+  "navTasks": "Tasks",
+  "navDashboard": "Dashboard",
+  "navTimeClock": "Time Clock",
+  "navSchedule": "Schedule",
+  "greetingMorning": "Good Morning",
+  "greetingAfternoon": "Good Afternoon",
+  "greetingEvening": "Good Evening",
+  "dashboardThisWeek": "This Week",
+  "dashboardClasses": "Classes",
+  "dashboardApproved": "Approved",
+  "dashboardToday": "Today",
+  "dashboardWeek": "Week",
+  "dashboardMonth": "Month",
+  "dashboardQuickAccess": "Quick Access",
+  "dashboardMyForms": "My Forms",
+  "dashboardAssignments": "Assignments",
+  "dashboardIslamicResources": "Islamic Resources",
+  "dashboardActiveSession": "Active Session",
+  "dashboardInProgress": "IN PROGRESS",
+  "dashboardViewSession": "View Session",
+  "dashboardMyTasks": "My Tasks",
+  "dashboardSeeAll": "See All",
+  "dashboardDueDate": "Due {date}",
+  "@dashboardDueDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardNextClass": "Next Class",
+  "dashboardTomorrow": "Tomorrow",
+  "dashboardNoUpcomingClasses": "No Upcoming Classes",
+  "dashboardEnjoyFreeTime": "Enjoy your free time!",
+  "readinessFormRequired": "{count, plural, =1{1 Readiness Form Required} other{{count} Readiness Forms Required}}",
+  "@readinessFormRequired": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readinessFormComplete": "Complete your forms from recent shifts",
+  "readinessFormPending": "Pending Readiness Forms",
+  "readinessFormSelectShift": "Select a shift to fill out its form",
+  "readinessFormAllComplete": "All forms completed!",
+  "clockInNow": "Clock In Now",
+  "clockOut": "Clock Out",
+  "clockInProgram": "Program Clock-In",
+  "clockInProgrammed": "Programmed...",
+  "clockInCancelProgramming": "Cancel Programming",
+  "clockInAvailableIn": "Clock-in available in {time}",
+  "@clockInAvailableIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "clockInTooEarly": "Too early to clock in. Please wait for the programming window (1 minute before shift).",
+  "clockInStartingIn": "Starting in {time}",
+  "@clockInStartingIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "clockInProgrammedFor": "Clock-in programmed for {time}",
+  "@clockInProgrammedFor": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "clockInClockingIn": "Clocking In...",
+  "clockInCancelled": "Programming cancelled",
+  "clockInNotAuthenticated": "Not authenticated",
+  "clockInLocationUnavailable": "Auto clock-in - location unavailable",
+  "clockInLocationError": "Unable to get location. Please enable location services.",
+  "clockInAutoSuccess": "Auto clock-in successful!",
+  "clockInSuccess": "Clocked in successfully!",
+  "clockInFailed": "Failed to clock in",
+  "clockOutSuccess": "Clocked out successfully!",
+  "clockOutFailed": "Failed to clock out",
+  "shiftStudent": "Student",
+  "shiftStudents": "Students",
+  "shiftStudentCount": "{count, plural, =1{1 Student} other{{count} Students}}",
+  "@shiftStudentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shiftTeacher": "Teacher",
+  "shiftSubject": "Subject",
+  "shiftSchedule": "Schedule",
+  "shiftDuration": "Duration",
+  "shiftHours": "hours",
+  "shiftHrs": "hrs",
+  "shiftMinutes": "min",
+  "shiftMissed": "Missed",
+  "shiftCompleted": "Completed",
+  "shiftCancelled": "Cancelled",
+  "shiftScheduled": "Scheduled",
+  "shiftActive": "Active",
+  "shiftUpcoming": "Upcoming",
+  "shiftPartial": "Partial",
+  "shiftReady": "Ready",
+  "shiftNoShiftsToday": "No shifts on this day",
+  "shiftEnjoyFreeTime": "Enjoy your free time or check available shifts to pick up extra classes.",
+  "shiftDetails": "Shift Details",
+  "shiftViewDetails": "View Details",
+  "shiftEditShift": "Edit shift",
+  "shiftReschedule": "Reschedule shift",
+  "shiftReportIssue": "Report schedule issue",
+  "shiftDate": "Date",
+  "shiftTime": "Time",
+  "shiftStartTime": "Start Time",
+  "shiftEndTime": "End Time",
+  "shiftHourlyRate": "Hourly Rate",
+  "shiftNotes": "Notes",
+  "shiftAddNotes": "Add notes...",
+  "chatMessages": "Messages",
+  "chatConnectTeam": "Connect and collaborate with your team",
+  "chatRecentChats": "Recent Chats",
+  "chatMyContacts": "My Contacts",
+  "chatSearchConversations": "Search conversations and users...",
+  "chatNoConversations": "No conversations yet",
+  "chatStartConversation": "Start a conversation by browsing all users",
+  "chatNoChatsFound": "No chats found",
+  "chatTryDifferentSearch": "Try a different search term",
+  "chatNoContactsAvailable": "No contacts available",
+  "chatContactsAppearHere": "Your teachers, students, or administrators will appear here based on your classes",
+  "chatNoContactsMatch": "No contacts match your search",
+  "chatCreateGroup": "Create Group",
+  "chatOnline": "Online",
+  "chatOffline": "Offline",
+  "chatLastSent": "Last sent {time}",
+  "@chatLastSent": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chatTypeMessage": "Type a message...",
+  "chatReplyTo": "Reply to {name}...",
+  "@chatReplyTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPhoto": "Photo",
+  "chatCamera": "Camera",
+  "chatDocument": "Document",
+  "chatLocation": "Location",
+  "chatRecording": "Recording",
+  "chatHoldToRecord": "Hold to record a voice message",
+  "chatVoiceMessage": "Voice message",
+  "chatStartConversationWith": "Send a message to begin chatting with {name}",
+  "@chatStartConversationWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatDeleteMessage": "Delete Message",
+  "chatDeleteMessageConfirm": "Are you sure you want to delete this message?",
+  "chatClearChat": "Clear Chat",
+  "chatClearChatConfirm": "Are you sure you want to clear this chat? This action cannot be undone.",
+  "chatBlockUser": "Block User",
+  "chatBlockUserConfirm": "Are you sure you want to block {name}? They will no longer be able to send you messages.",
+  "@chatBlockUserConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGroupInfo": "Group Information",
+  "chatAddMembers": "Add Members",
+  "chatReact": "React",
+  "chatReply": "Reply",
+  "chatForward": "Forward",
+  "chatCopied": "Message copied to clipboard",
+  "chatSendingImage": "Sending image...",
+  "chatImageSent": "Image sent!",
+  "chatSendingFile": "Sending file...",
+  "chatFileSent": "File sent!",
+  "chatLocationComingSoon": "Location sharing coming soon",
+  "chatFailedSendAttachment": "Failed to send attachment",
+  "chatFailedSendImage": "Failed to send image",
+  "chatFailedSendFile": "Failed to send file",
+  "chatFailedSendVoice": "Failed to send voice message",
+  "chatFailedStartRecording": "Failed to start recording",
+  "chatMicPermissionRequired": "Microphone permission is required",
+  "chatRecordingTooShort": "Recording too short",
+  "chatNoPermissionMessage": "You don't have permission to message this user",
+  "chatTeachingRelationshipOnly": "You can only message users you have a teaching relationship with",
+  "chatGroupCallsNotSupported": "Group calls are not supported yet",
+  "chatErrorLoadingMessages": "Error loading messages",
+  "chatGroupCreateTitle": "Create Group",
+  "chatGroupAddMembers": "Add members and create a group chat",
+  "chatGroupSetNameDesc": "Set a name and description for your group",
+  "chatGroupSelectMembers": "Select users to add to the group",
+  "chatGroupMembersSelected": "{count} member(s) selected",
+  "@chatGroupMembersSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatGroupName": "Group Name *",
+  "chatGroupDescription": "Description (Optional)",
+  "chatGroupEnterName": "Enter group name",
+  "chatGroupEnterDesc": "Enter group description",
+  "chatGroupSearchUsers": "Search users...",
+  "chatGroupCreate": "Create",
+  "chatGroupNoUsers": "No users available",
+  "chatGroupNoUsersFound": "No users found",
+  "chatGroupCreatedSuccess": "Group \"{name}\" created successfully!",
+  "@chatGroupCreatedSuccess": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGroupCreateFailed": "Failed to create group. Please try again.",
+  "chatGroupAdminsOnly": "Only administrators can create group chats",
+  "roleAdmin": "Administrator",
+  "roleTeacher": "Teacher",
+  "roleStudent": "Student",
+  "roleParent": "Parent",
+  "roleUser": "User",
+  "timeJustNow": "just now",
+  "timeMinutesAgo": "{count} min ago",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count} hr ago",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count} days ago",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeYesterday": "Yesterday",
+  "formClassReport": "Class Report",
+  "formSkip": "Skip",
+  "formSubmitReport": "Submit Report",
+  "formAutoFilled": "Auto-filled (no need to enter)",
+  "formVerifyDuration": "Verify Duration",
+  "formBillableHours": "Billable Hours",
+  "formSelectOption": "Select an option",
+  "formSubmittedSuccess": "Class Report submitted successfully!",
+  "formMySubmissions": "My Form Submissions",
+  "formAllTime": "All Time",
+  "formSelectMonth": "Select Month",
+  "formCurrentMonth": "Current",
+  "formSubmission": "submission",
+  "formSubmissions": "submissions",
+  "formThisMonth": "this month",
+  "formViewAll": "View All",
+  "formSearchByName": "Search by form name or status",
+  "formNoSubmissionsYet": "No form submissions yet",
+  "formNoResults": "No results found",
+  "formSubmittedFormsAppear": "Your submitted forms will appear here",
+  "formTryAdjustingSearch": "Try adjusting your search",
+  "formCompleted": "Completed",
+  "formDraft": "Draft",
+  "formPending": "Pending",
+  "formSubmittedOn": "Submitted on {date}",
+  "@formSubmittedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "formResponses": "responses",
+  "formTapToView": "Tap to view",
+  "formReadOnly": "Read Only",
+  "formNoAnswer": "(No answer)",
+  "formQuestion": "Question",
+  "timesheetTitle": "Timesheet",
+  "timesheetMyTimesheet": "My Timesheet",
+  "timesheetDate": "Date",
+  "timesheetStart": "Start",
+  "timesheetEnd": "End",
+  "timesheetTotalHours": "Total Hours",
+  "timesheetClockInLocation": "Clock-in Location",
+  "timesheetClockOutLocation": "Clock-out Location",
+  "timesheetStatus": "Status",
+  "timesheetActions": "Actions",
+  "timesheetDraft": "Draft",
+  "timesheetPending": "Pending",
+  "timesheetApproved": "Approved",
+  "timesheetRejected": "Rejected",
+  "timesheetAll": "All",
+  "timesheetThisWeek": "This Week",
+  "timesheetThisMonth": "This Month",
+  "timesheetAllTime": "All Time",
+  "timesheetNoEntries": "No timesheet entries found",
+  "timesheetClockInFirst": "Clock in to create your first entry",
+  "timesheetSubmit": "Submit",
+  "timesheetSubmitForReview": "Submit for Review",
+  "timesheetSubmitConfirm": "Submit this timesheet for admin review?",
+  "timesheetSubmitNote": "Once submitted, you cannot edit this entry until it's reviewed.",
+  "timesheetSubmittedSuccess": "Timesheet submitted for review successfully!",
+  "timesheetEditTimesheet": "Edit Timesheet",
+  "timesheetEditNote": "Changes will be submitted for admin approval.",
+  "timesheetApprovedLocked": "This timesheet has been approved and cannot be edited",
+  "timesheetClockInTime": "Clock In Time",
+  "timesheetClockOutTime": "Clock Out Time",
+  "timesheetPaymentCalculation": "Payment Calculation",
+  "timesheetProvideReason": "Please provide a reason for editing this timesheet",
+  "timesheetProvideMoreDetails": "Please provide more details (at least 10 characters)",
+  "timesheetSaveChanges": "Save Changes",
+  "timesheetUpdatedSuccess": "Timesheet updated successfully. Awaiting admin approval.",
+  "timesheetDetails": "Timesheet Entry Details",
+  "timesheetLocationLoading": "Loading location...",
+  "timesheetLocationUnavailable": "Location unavailable",
+  "timesheetLocationNotCaptured": "Not captured",
+  "userManagementTitle": "User Management",
+  "userSearchUsers": "Search users...",
+  "userUsersCount": "{count} users",
+  "@userUsersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "userActive": "active",
+  "userInactive": "Inactive",
+  "userNoUsersFound": "No users found",
+  "userFilterUsers": "Filter Users",
+  "userRole": "Role",
+  "userStatus": "Status",
+  "userApplyFilters": "Apply Filters",
+  "userViewCredentials": "View Login Credentials",
+  "userStudentIdPassword": "Student ID & Password",
+  "userDeactivateUser": "Deactivate User",
+  "userActivateUser": "Activate User",
+  "userPromoteToAdmin": "Promote to Admin",
+  "userEditUser": "Edit User",
+  "userDeleteUser": "Delete User",
+  "userLoginCredentials": "Login Credentials",
+  "userEmailForApp": "Email (for app)",
+  "userStudentLoginNote": "Students login using their Student ID and password",
+  "userResetPassword": "Reset Password",
+  "userPasswordReset": "Password Reset",
+  "userNewPasswordFor": "New password for {name}",
+  "@userNewPasswordFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userEmailSentToParent": "Email sent to parent with new credentials",
+  "userShareCredentials": "Please share this password with the student or their parent.",
+  "userPasswordNotStored": "Password not stored",
+  "userResetPasswordFor": "Reset password for {name}",
+  "@userResetPasswordFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userCustomPassword": "Custom password (optional)",
+  "userLeaveBlankGenerate": "Leave blank to generate a password",
+  "userPasswordMinChars": "Min 6 characters. Avoid leading/trailing spaces.",
+  "userPasswordGenerateNote": "If left blank, a secure password will be generated and saved.",
+  "userParentEmailNote": "If the student has a parent linked, they will receive an email with the new credentials.",
+  "userPasswordNoSpaces": "Password cannot start or end with spaces",
+  "userPasswordMinLength": "Password must be at least 6 characters",
+  "userPasswordMaxLength": "Password must be 128 characters or less",
+  "userResettingPassword": "Resetting password...",
+  "userArchived": "User archived",
+  "userRestored": "User restored",
+  "userPromoteConfirm": "Are you sure you want to promote {name} to admin?",
+  "@userPromoteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userPromote": "Promote",
+  "userPromotedSuccess": "User promoted to admin",
+  "userCannotDeleteSelf": "You cannot delete your own account.",
+  "userDeleteConfirm": "Are you sure you want to permanently delete {name}?",
+  "@userDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userDeleteCannotUndo": "This action cannot be undone.",
+  "userDeleteTeacherClasses": "Also delete this teacher's classes",
+  "userDeleteStudentClasses": "Also delete this student's classes",
+  "userGroupClassesRemain": "Group classes will remain for other students.",
+  "userDeletedSuccess": "User deleted successfully",
+  "userDeleteFailed": "Failed to delete user.",
+  "userAddNewUsers": "Add New Users",
+  "userCreateAccounts": "Create user accounts and assign roles for your organization",
+  "userFirstName": "First Name",
+  "userLastName": "Last Name",
+  "userEmail": "Email Address",
+  "userPhone": "Phone Number",
+  "userUserType": "User Type",
+  "userKioskCode": "Kiosk Code",
+  "userJobTitle": "Job Title",
+  "userCountryCode": "Country Code",
+  "userAdult": "Adult",
+  "userMinor": "Minor",
+  "userSelectParent": "Select Parent/Guardian",
+  "userNoParentsFound": "No Parents Found",
+  "userCreateParentFirst": "Create parent first",
+  "userStudentLoginPreview": "Student Login Preview",
+  "userReviewCredentials": "Review login credentials before creating account",
+  "userStudentInfo": "Student Information",
+  "userName": "Name",
+  "userType": "Type",
+  "userAdultStudent": "Adult Student",
+  "userMinorStudent": "Minor Student",
+  "userGuardian": "Guardian",
+  "userStudentId": "Student ID",
+  "userLoginEmail": "Login Email",
+  "userCreateAccount": "Create Account",
+  "helpNeedHelp": "Need help? We're here for you.",
+  "helpEmailSupport": "Email Support",
+  "helpLiveChat": "Live Chat",
+  "helpAvailableHours": "Available 9 AM - 5 PM",
+  "errorSomethingWentWrong": "Oops! Something went wrong",
+  "errorTryAgain": "Try Again",
+  "errorLoadingData": "Error loading data",
+  "errorSavingData": "Error saving data",
+  "errorNetworkError": "Network error. Please check your connection.",
+  "errorUnauthorized": "You are not authorized to perform this action.",
+  "errorNotFound": "The requested item was not found.",
+  "errorAccessDenied": "Access denied",
+  "errorPleaseSignIn": "Please sign in",
+  "errorAuthRequired": "Authentication required",
+  "jobNewStudentOpportunities": "New Student Opportunities",
+  "jobAcceptNewStudents": "Accept new students to fill your schedule",
+  "jobNoOpportunities": "No opportunities right now",
+  "jobFilledOpportunities": "Filled Opportunities",
+  "jobFilled": "FILLED",
+  "jobAge": "Age: {age}",
+  "@jobAge": {
+    "placeholders": {
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "jobSubject": "Subject: {subject}",
+  "@jobSubject": {
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      }
+    }
+  },
+  "jobGrade": "Grade: {grade}",
+  "@jobGrade": {
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      }
+    }
+  },
+  "jobTimezone": "Timezone: {timezone}",
+  "@jobTimezone": {
+    "placeholders": {
+      "timezone": {
+        "type": "String"
+      }
+    }
+  },
+  "jobPreferredTimes": "Preferred Times:",
+  "jobDays": "Days: {days}",
+  "@jobDays": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "jobTimes": "Times: {times}",
+  "@jobTimes": {
+    "placeholders": {
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "jobAcceptedOn": "Accepted on {date}",
+  "@jobAcceptedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "jobAlreadyFilled": "Already Filled",
+  "jobAcceptStudent": "Accept Student",
+  "jobAcceptedSuccess": "Job accepted! Admin will finalize the schedule and contact you."
+}

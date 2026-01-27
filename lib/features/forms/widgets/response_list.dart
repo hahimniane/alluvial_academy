@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ResponseList extends StatelessWidget {
   final bool isLoading;
@@ -34,7 +35,7 @@ class ResponseList extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No form responses found',
+              AppLocalizations.of(context)!.noFormResponsesFound,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -43,7 +44,7 @@ class ResponseList extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Try adjusting your filters or search terms',
+              AppLocalizations.of(context)!.tryAdjustingYourFiltersOrSearch2,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),
@@ -168,7 +169,7 @@ class ResponseList extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Submitted',
+                              AppLocalizations.of(context)!.submitted,
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 color: const Color(0xff6B7280),
@@ -187,7 +188,7 @@ class ResponseList extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.visibility),
                         onPressed: () => onViewResponse(response),
-                        tooltip: 'View Response',
+                        tooltip: AppLocalizations.of(context)!.viewResponse,
                         color: const Color(0xff0386FF),
                       ),
                     ],

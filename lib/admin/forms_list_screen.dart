@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'form_builder.dart';
 import '../core/models/form_template.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Forms List Screen - Google Forms style list view
 /// Allows viewing, editing, duplicating, and deleting forms
@@ -78,7 +79,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Form Templates',
+                      AppLocalizations.of(context)!.formTemplates,
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w600,
@@ -86,7 +87,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                       ),
                     ),
                     Text(
-                      'Create and manage your form templates',
+                      AppLocalizations.of(context)!.createAndManageYourFormTemplates,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: Colors.grey.shade600,
@@ -106,7 +107,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                 ),
                 icon: const Icon(Icons.add, size: 20),
                 label: Text(
-                  'Create Form',
+                  AppLocalizations.of(context)!.createForm,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w500),
                 ),
               ),
@@ -142,7 +143,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                     controller: _searchController,
                     onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
                     decoration: InputDecoration(
-                      hintText: 'Search forms...',
+                      hintText: AppLocalizations.of(context)!.searchForms,
                       hintStyle: GoogleFonts.inter(color: Colors.grey.shade400),
                       prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
                       border: InputBorder.none,
@@ -166,9 +167,9 @@ class _FormsListScreenState extends State<FormsListScreen> {
                   child: DropdownButton<String>(
                     value: _statusFilter,
                     items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All Forms')),
-                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                      DropdownMenuItem(value: 'all', child: Text(AppLocalizations.of(context)!.allForms)),
+                      DropdownMenuItem(value: 'active', child: Text(AppLocalizations.of(context)!.shiftActive)),
+                      DropdownMenuItem(value: 'inactive', child: Text(AppLocalizations.of(context)!.userInactive)),
                     ],
                     onChanged: (v) => setState(() => _statusFilter = v!),
                   ),
@@ -189,9 +190,9 @@ class _FormsListScreenState extends State<FormsListScreen> {
                   child: DropdownButton<String>(
                     value: _sortBy,
                     items: const [
-                      DropdownMenuItem(value: 'newest', child: Text('Newest First')),
-                      DropdownMenuItem(value: 'oldest', child: Text('Oldest First')),
-                      DropdownMenuItem(value: 'name', child: Text('Name A-Z')),
+                      DropdownMenuItem(value: 'newest', child: Text(AppLocalizations.of(context)!.newestFirst)),
+                      DropdownMenuItem(value: 'oldest', child: Text(AppLocalizations.of(context)!.oldestFirst)),
+                      DropdownMenuItem(value: 'name', child: Text(AppLocalizations.of(context)!.nameAZ)),
                     ],
                     onChanged: (v) => setState(() => _sortBy = v!),
                   ),
@@ -448,14 +449,14 @@ class _FormsListScreenState extends State<FormsListScreen> {
                           children: [
                             Icon(Icons.edit, size: 18),
                             SizedBox(width: 8),
-                            Text('Edit'),
+                            Text(AppLocalizations.of(context)!.commonEdit),
                           ],
                         )),
                         const PopupMenuItem(value: 'duplicate', child: Row(
                           children: [
                             Icon(Icons.content_copy, size: 18),
                             SizedBox(width: 8),
-                            Text('Duplicate'),
+                            Text(AppLocalizations.of(context)!.duplicate),
                           ],
                         )),
                         PopupMenuItem(
@@ -473,7 +474,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                           children: [
                             Icon(Icons.delete, size: 18, color: Colors.red),
                             SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
+                            Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
                           ],
                         )),
                       ],
@@ -626,14 +627,14 @@ class _FormsListScreenState extends State<FormsListScreen> {
                           children: [
                             Icon(Icons.edit, size: 18),
                             SizedBox(width: 8),
-                            Text('Edit'),
+                            Text(AppLocalizations.of(context)!.commonEdit),
                           ],
                         )),
                         const PopupMenuItem(value: 'duplicate', child: Row(
                           children: [
                             Icon(Icons.content_copy, size: 18),
                             SizedBox(width: 8),
-                            Text('Duplicate'),
+                            Text(AppLocalizations.of(context)!.duplicate),
                           ],
                         )),
                         PopupMenuItem(
@@ -651,7 +652,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                           children: [
                             Icon(Icons.delete, size: 18, color: Colors.red),
                             SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
+                            Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
                           ],
                         )),
                       ],
@@ -755,7 +756,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No forms yet',
+            AppLocalizations.of(context)!.noFormsYet,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -764,7 +765,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create your first form to get started',
+            AppLocalizations.of(context)!.createYourFirstFormToGet,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Colors.grey.shade500,
@@ -779,7 +780,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             ),
             icon: const Icon(Icons.add),
-            label: const Text('Create Form'),
+            label: Text(AppLocalizations.of(context)!.createForm),
           ),
         ],
       ),
@@ -798,7 +799,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No forms found',
+            AppLocalizations.of(context)!.noFormsFound,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -807,7 +808,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Try adjusting your search or filters',
+            AppLocalizations.of(context)!.tryAdjustingYourSearchOrFilters,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Colors.grey.shade500,
@@ -886,13 +887,13 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Form duplicated successfully')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.formDuplicatedSuccessfully)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error duplicating form: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorDuplicatingFormE)),
         );
       }
     }
@@ -913,7 +914,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE)),
         );
       }
     }
@@ -952,13 +953,13 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Template duplicated successfully')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.templateDuplicatedSuccessfully)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error duplicating template: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorDuplicatingTemplateE)),
         );
       }
     }
@@ -982,7 +983,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE)),
         );
       }
     }
@@ -992,16 +993,16 @@ class _FormsListScreenState extends State<FormsListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Template'),
-        content: Text('Are you sure you want to delete "$name"? This action cannot be undone.'),
+        title: Text(AppLocalizations.of(context)!.deleteTemplate),
+        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo10),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1014,13 +1015,13 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Template deleted')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.templateDeleted)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting template: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorDeletingTemplateE)),
         );
       }
     }
@@ -1030,16 +1031,16 @@ class _FormsListScreenState extends State<FormsListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Form'),
-        content: Text('Are you sure you want to delete "$title"? This action cannot be undone.'),
+        title: Text(AppLocalizations.of(context)!.deleteForm),
+        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo11),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1052,13 +1053,13 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Form deleted')),
+          const SnackBar(content: Text(AppLocalizations.of(context)!.formDeleted)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting form: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorDeletingFormE)),
         );
       }
     }
@@ -1199,14 +1200,14 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
   Future<void> _saveTemplate() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Template name cannot be empty')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.templateNameCannotBeEmpty)),
       );
       return;
     }
 
     if (_fields.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Template must have at least one field')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.templateMustHaveAtLeastOne)),
       );
       return;
     }
@@ -1246,7 +1247,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Template updated successfully!'),
+            content: Text(AppLocalizations.of(context)!.templateUpdatedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -1256,7 +1257,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving template: $e'),
+            content: Text(AppLocalizations.of(context)!.errorSavingTemplateE),
             backgroundColor: Colors.red,
           ),
         );
@@ -1290,7 +1291,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Edit Template',
+                      AppLocalizations.of(context)!.editTemplate,
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -1314,7 +1315,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Template Name',
+                      AppLocalizations.of(context)!.templateName,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1325,7 +1326,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                     TextField(
                       controller: _nameController,
                       decoration: InputDecoration(
-                        hintText: 'Enter template name',
+                        hintText: AppLocalizations.of(context)!.enterTemplateName,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1333,7 +1334,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Description',
+                      AppLocalizations.of(context)!.description,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1345,7 +1346,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                       controller: _descriptionController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'Enter template description',
+                        hintText: AppLocalizations.of(context)!.enterTemplateDescription,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1372,7 +1373,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           ),
                           icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Field'),
+                          label: Text(AppLocalizations.of(context)!.addField),
                         ),
                       ],
                     ),
@@ -1392,7 +1393,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                               Icon(Icons.help_outline, size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 12),
                               Text(
-                                'No fields yet. Add your first field to get started.',
+                                AppLocalizations.of(context)!.noFieldsYetAddYourFirst,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   color: Colors.grey.shade600,
@@ -1424,7 +1425,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                 children: [
                   TextButton(
                     onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(AppLocalizations.of(context)!.commonCancel),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
@@ -1443,7 +1444,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text('Save Changes'),
+                        : Text(AppLocalizations.of(context)!.timesheetSaveChanges),
                   ),
                 ],
               ),
@@ -1513,7 +1514,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'Required',
+                                AppLocalizations.of(context)!.commonRequired,
                                 style: GoogleFonts.inter(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
@@ -1560,17 +1561,17 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                 IconButton(
                   icon: Icon(Icons.arrow_upward, size: 18, color: Colors.grey.shade600),
                   onPressed: index > 0 ? () => _moveField(index, -1) : null,
-                  tooltip: 'Move up',
+                  tooltip: AppLocalizations.of(context)!.moveUp,
                 ),
                 IconButton(
                   icon: Icon(Icons.arrow_downward, size: 18, color: Colors.grey.shade600),
                   onPressed: index < _fields.length - 1 ? () => _moveField(index, 1) : null,
-                  tooltip: 'Move down',
+                  tooltip: AppLocalizations.of(context)!.moveDown,
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit, size: 18, color: Color(0xFF673AB7)),
                   onPressed: () => _editField(field, index),
-                  tooltip: 'Edit',
+                  tooltip: AppLocalizations.of(context)!.commonEdit,
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, size: 18, color: Colors.red),
@@ -1578,25 +1579,25 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Delete Field'),
+                        title: Text(AppLocalizations.of(context)!.deleteField),
                         content: Text('Are you sure you want to delete "${field.label}"?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: Text(AppLocalizations.of(context)!.commonCancel),
                           ),
                           TextButton(
                             onPressed: () {
                               Navigator.pop(context);
                               _deleteField(index);
                             },
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                            child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red)),
                           ),
                         ],
                       ),
                     );
                   },
-                  tooltip: 'Delete',
+                  tooltip: AppLocalizations.of(context)!.commonDelete,
                 ),
               ],
             ),
@@ -1696,7 +1697,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
   void _saveField() {
     if (_labelController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Field label cannot be empty')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.fieldLabelCannotBeEmpty)),
       );
       return;
     }
@@ -1707,7 +1708,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
 
     if (_needsOptions(_fieldType) && (options == null || options.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide at least one option for this field type')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseProvideAtLeastOneOption)),
       );
       return;
     }
@@ -1754,7 +1755,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Edit Field',
+                      AppLocalizations.of(context)!.editField,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -1778,7 +1779,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Question Label *',
+                      AppLocalizations.of(context)!.questionLabel,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1789,7 +1790,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     TextField(
                       controller: _labelController,
                       decoration: InputDecoration(
-                        hintText: 'e.g., What lesson did you cover today?',
+                        hintText: AppLocalizations.of(context)!.eGWhatLessonDidYou,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1798,7 +1799,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     const SizedBox(height: 20),
                     
                     Text(
-                      'Field Type *',
+                      AppLocalizations.of(context)!.fieldType2,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1840,7 +1841,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     const SizedBox(height: 20),
                     
                     Text(
-                      'Placeholder (Optional)',
+                      AppLocalizations.of(context)!.placeholderOptional,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1851,7 +1852,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     TextField(
                       controller: _placeholderController,
                       decoration: InputDecoration(
-                        hintText: 'e.g., Enter your answer here',
+                        hintText: AppLocalizations.of(context)!.eGEnterYourAnswerHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1865,7 +1866,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Options *',
+                            AppLocalizations.of(context)!.options,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1875,7 +1876,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                           TextButton.icon(
                             onPressed: _addOption,
                             icon: const Icon(Icons.add, size: 16),
-                            label: const Text('Add Option'),
+                            label: Text(AppLocalizations.of(context)!.addOption2),
                           ),
                         ],
                       ),
@@ -1914,7 +1915,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        'Required field',
+                        AppLocalizations.of(context)!.requiredField,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -1940,7 +1941,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(AppLocalizations.of(context)!.commonCancel),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
@@ -1950,7 +1951,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
-                    child: const Text('Save Field'),
+                    child: Text(AppLocalizations.of(context)!.saveField),
                   ),
                 ],
               ),

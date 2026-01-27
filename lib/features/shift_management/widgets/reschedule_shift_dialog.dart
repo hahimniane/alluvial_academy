@@ -8,6 +8,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Dialog for teachers to directly reschedule shifts
 class RescheduleShiftDialog extends StatefulWidget {
@@ -75,7 +76,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
     if (_newStartTime == null || _newEndTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select both start and end times'),
+          content: Text(AppLocalizations.of(context)!.pleaseSelectBothStartAndEnd),
           backgroundColor: Colors.orange,
         ),
       );
@@ -85,7 +86,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
     if (_newEndTime!.isBefore(_newStartTime!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('End time must be after start time'),
+          content: Text(AppLocalizations.of(context)!.endTimeMustBeAfterStart),
           backgroundColor: Colors.red,
         ),
       );
@@ -159,7 +160,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error rescheduling shift: $e'),
+            content: Text(AppLocalizations.of(context)!.errorReschedulingShiftE),
             backgroundColor: Colors.red,
           ),
         );
@@ -200,7 +201,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Reschedule Shift',
+                      AppLocalizations.of(context)!.rescheduleShift,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -217,7 +218,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Direct Update',
+                      AppLocalizations.of(context)!.directUpdate,
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -253,7 +254,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Current Schedule:',
+                            AppLocalizations.of(context)!.currentSchedule,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: const Color(0xFF6B7280),
@@ -279,7 +280,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
 
                     // New Start Time
                     Text(
-                      'New Start Time:',
+                      AppLocalizations.of(context)!.newStartTime,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -298,7 +299,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
 
                     // New End Time
                     Text(
-                      'New End Time:',
+                      AppLocalizations.of(context)!.newEndTime,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -322,7 +323,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
 
                     // Reason
                     Text(
-                      'Reason for rescheduling (required):',
+                      AppLocalizations.of(context)!.reasonForReschedulingRequired,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -340,7 +341,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                         textAlignVertical: TextAlignVertical.top,
                         decoration: InputDecoration(
                           hintText:
-                              'e.g., Student requested to move class 1 hour later',
+                              AppLocalizations.of(context)!.eGStudentRequestedToMove,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide:
@@ -386,7 +387,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                                   strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
-                              'Apply Changes',
+                              AppLocalizations.of(context)!.applyChanges,
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -408,7 +409,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Changes will be applied immediately. The shift will be updated and you can clock in at the new time.',
+                            AppLocalizations.of(context)!.changesWillBeAppliedImmediatelyThe,
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               color: Colors.blue.shade700,
@@ -502,7 +503,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
         Row(
           children: [
             Text(
-              'Timezone',
+              AppLocalizations.of(context)!.profileTimezone,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -511,7 +512,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
             ),
             const SizedBox(width: 8),
             Tooltip(
-              message: 'The timezone for the times you select below',
+              message: AppLocalizations.of(context)!.theTimezoneForTheTimesYou,
               child: Icon(
                 Icons.info_outline,
                 size: 16,
@@ -587,7 +588,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
               const Icon(Icons.swap_horiz, size: 16, color: Color(0xFF6B7280)),
               const SizedBox(width: 8),
               Text(
-                'Preview in Teacher Timezone',
+                AppLocalizations.of(context)!.previewInTeacherTimezone,
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,

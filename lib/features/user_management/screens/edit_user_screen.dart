@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/employee_model.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EditUserScreen extends StatefulWidget {
   final Employee employee;
@@ -162,7 +163,7 @@ class _EditUserScreenState extends State<EditUserScreen>
               const Icon(Icons.check_circle, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Text(
-                'User updated successfully!',
+                AppLocalizations.of(context)!.userUpdatedSuccessfully2,
                 style: GoogleFonts.inter(
                     color: Colors.white, fontWeight: FontWeight.w500),
               ),
@@ -185,7 +186,7 @@ class _EditUserScreenState extends State<EditUserScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Error updating user: $e',
+                  AppLocalizations.of(context)!.errorUpdatingUserE,
                   style: GoogleFonts.inter(
                       color: Colors.white, fontWeight: FontWeight.w500),
                 ),
@@ -293,7 +294,7 @@ class _EditUserScreenState extends State<EditUserScreen>
                   Row(
                     children: [
                       Text(
-                        'Edit User',
+                        AppLocalizations.of(context)!.userEditUser,
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
@@ -310,7 +311,7 @@ class _EditUserScreenState extends State<EditUserScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            'Unsaved',
+                            AppLocalizations.of(context)!.unsaved,
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -322,7 +323,7 @@ class _EditUserScreenState extends State<EditUserScreen>
                     ],
                   ),
                   Text(
-                    'Update user information and settings',
+                    AppLocalizations.of(context)!.updateUserInformationAndSettings,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: const Color(0xff6B7280),
@@ -351,7 +352,7 @@ class _EditUserScreenState extends State<EditUserScreen>
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close, size: 16),
                     label: Text(
-                      'Cancel',
+                      AppLocalizations.of(context)!.commonCancel,
                       style: GoogleFonts.inter(fontWeight: FontWeight.w500),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -366,7 +367,7 @@ class _EditUserScreenState extends State<EditUserScreen>
                     onPressed: _hasChanges ? _saveUser : null,
                     icon: const Icon(Icons.save, size: 16),
                     label: Text(
-                      'Save Changes',
+                      AppLocalizations.of(context)!.timesheetSaveChanges,
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -495,7 +496,7 @@ class _EditUserScreenState extends State<EditUserScreen>
 
   Widget _buildPersonalInfoSection() {
     return _buildSection(
-      title: 'Personal Information',
+      title: AppLocalizations.of(context)!.personalInformation,
       icon: Icons.person,
       children: [
         Row(
@@ -541,7 +542,7 @@ class _EditUserScreenState extends State<EditUserScreen>
 
   Widget _buildContactInfoSection() {
     return _buildSection(
-      title: 'Contact Information',
+      title: AppLocalizations.of(context)!.contactInformation,
       icon: Icons.contact_mail,
       children: [
         _buildReadOnlyField(
@@ -578,11 +579,11 @@ class _EditUserScreenState extends State<EditUserScreen>
 
   Widget _buildRoleSection() {
     return _buildSection(
-      title: 'User Role',
+      title: AppLocalizations.of(context)!.userRole2,
       icon: Icons.security,
       children: [
         Text(
-          'Select the appropriate role for this user',
+          AppLocalizations.of(context)!.selectTheAppropriateRoleForThis,
           style: GoogleFonts.inter(
             fontSize: 14,
             color: const Color(0xff6B7280),
@@ -646,7 +647,7 @@ class _EditUserScreenState extends State<EditUserScreen>
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Please select a user role',
+              AppLocalizations.of(context)!.pleaseSelectAUserRole,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xffEF4444),
@@ -659,7 +660,7 @@ class _EditUserScreenState extends State<EditUserScreen>
 
   Widget _buildAdditionalInfoSection() {
     return _buildSection(
-      title: 'Additional Information',
+      title: AppLocalizations.of(context)!.additionalInformation,
       icon: Icons.settings,
       children: [
         _buildReadOnlyField(
@@ -876,7 +877,7 @@ class _EditUserScreenState extends State<EditUserScreen>
               onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
               icon: const Icon(Icons.close, size: 18),
               label: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

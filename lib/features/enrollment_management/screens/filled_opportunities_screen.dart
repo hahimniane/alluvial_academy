@@ -9,6 +9,7 @@ import '../../../core/models/job_opportunity.dart';
 import '../../../core/services/job_board_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FilledOpportunitiesScreen extends StatefulWidget {
   const FilledOpportunitiesScreen({super.key});
@@ -53,7 +54,7 @@ class _FilledOpportunitiesScreenState extends State<FilledOpportunitiesScreen> {
                         Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[300]),
                         const SizedBox(height: 16),
                         Text(
-                          'No filled opportunities yet',
+                          AppLocalizations.of(context)!.noFilledOpportunitiesYet,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             color: Colors.grey[500],
@@ -95,7 +96,7 @@ class _FilledOpportunitiesScreenState extends State<FilledOpportunitiesScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Filled Opportunities',
+                  AppLocalizations.of(context)!.jobFilledOpportunities,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -103,7 +104,7 @@ class _FilledOpportunitiesScreenState extends State<FilledOpportunitiesScreen> {
                   ),
                 ),
                 Text(
-                  'Finalize schedules for matched students and teachers',
+                  AppLocalizations.of(context)!.finalizeSchedulesForMatchedStudentsAnd,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -224,7 +225,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
         final studentCode = result.data['studentCode'];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Student Account Created! ID: $studentCode'),
+            content: Text(AppLocalizations.of(context)!.studentAccountCreatedIdStudentcode),
             backgroundColor: Colors.green,
           ),
         );
@@ -232,7 +233,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating student: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorCreatingStudentE), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -243,7 +244,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
   Future<void> _createShift() async {
     if (widget.job.acceptedByTeacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Teacher information not available'), backgroundColor: Colors.red),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.teacherInformationNotAvailable), backgroundColor: Colors.red),
       );
       return;
     }
@@ -332,7 +333,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Shift created & Synced to Teacher Timezone!'),
+                content: Text(AppLocalizations.of(context)!.shiftCreatedSyncedToTeacherTimezone),
                 backgroundColor: Colors.green,
               ),
             );
@@ -342,7 +343,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
       );
     }
   }
@@ -377,7 +378,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                       const Icon(Icons.check_circle, size: 14, color: Color(0xff10B981)),
                       const SizedBox(width: 6),
                       Text(
-                        'MATCHED',
+                        AppLocalizations.of(context)!.matched,
                         style: GoogleFonts.inter(
                           color: const Color(0xff065F46),
                           fontWeight: FontWeight.w700,
@@ -502,7 +503,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                     icon: _isCreatingStudent 
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.person_add_outlined),
-                    label: const Text('Create Account'),
+                    label: Text(AppLocalizations.of(context)!.userCreateAccount),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -515,7 +516,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                     onPressed: _createShift,
                     icon: const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
                     label: Text(
-                      'Finalize Schedule',
+                      AppLocalizations.of(context)!.finalizeSchedule,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,

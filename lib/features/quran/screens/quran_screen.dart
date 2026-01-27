@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/quran_reader.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class QuranScreen extends StatelessWidget {
   const QuranScreen({super.key});
@@ -12,7 +13,7 @@ class QuranScreen extends StatelessWidget {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Quran',
+          AppLocalizations.of(context)!.quran,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,

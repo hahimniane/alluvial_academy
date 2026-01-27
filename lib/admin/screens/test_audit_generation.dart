@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/teacher_audit_service.dart';
 import '../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TestAuditGenerationScreen extends StatefulWidget {
   const TestAuditGenerationScreen({super.key});
@@ -192,7 +193,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Test: Génération Audit Décembre'),
+        title: Text(AppLocalizations.of(context)!.testGeNeRationAuditDe),
         backgroundColor: Colors.blue,
       ),
       body: Padding(
@@ -207,7 +208,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Status: $_status',
+                      AppLocalizations.of(context)!.statusStatus,
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     if (_total > 0) ...[
@@ -216,14 +217,14 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                         value: _progress / _total,
                       ),
                       const SizedBox(height: 8),
-                      Text('Progression: $_progress / $_total'),
+                      Text(AppLocalizations.of(context)!.progressionProgressTotal),
                     ],
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
                           child: _InfoCard(
-                            title: 'Réussis',
+                            title: AppLocalizations.of(context)!.reUssis,
                             value: '$_completed',
                             color: Colors.green,
                           ),
@@ -231,7 +232,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: _InfoCard(
-                            title: 'Échoués',
+                            title: AppLocalizations.of(context)!.eChoueS,
                             value: '$_failed',
                             color: Colors.red,
                           ),
@@ -266,7 +267,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                     const Padding(
                       padding: EdgeInsets.all(16.0),
                       child: Text(
-                        'Logs',
+                        AppLocalizations.of(context)!.logs,
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -274,7 +275,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
                         child: _logs.isEmpty
-                            ? const Center(child: Text('Aucun log pour le moment'))
+                            ? const Center(child: Text(AppLocalizations.of(context)!.aucunLogPourLeMoment))
                             : ListView.builder(
                                 itemCount: _logs.length,
                                 itemBuilder: (context, index) {

@@ -7,6 +7,7 @@ import '../../../core/models/job_opportunity.dart';
 import '../../../core/services/job_board_service.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TeacherJobBoardScreen extends StatelessWidget {
   const TeacherJobBoardScreen({super.key});
@@ -25,7 +26,7 @@ class TeacherJobBoardScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'New Student Opportunities',
+                  AppLocalizations.of(context)!.jobNewStudentOpportunities,
                   style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -33,7 +34,7 @@ class TeacherJobBoardScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Accept new students to fill your schedule',
+                  AppLocalizations.of(context)!.jobAcceptNewStudents,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -66,7 +67,7 @@ class TeacherJobBoardScreen extends StatelessWidget {
                         Icon(Icons.assignment_turned_in, size: 64, color: Colors.grey[300]),
                         const SizedBox(height: 16),
                         Text(
-                          'No opportunities right now',
+                          AppLocalizations.of(context)!.jobNoOpportunities,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             color: Colors.grey[500],
@@ -86,7 +87,7 @@ class TeacherJobBoardScreen extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16, top: 8),
                         child: Text(
-                          'Filled Opportunities',
+                          AppLocalizations.of(context)!.jobFilledOpportunities,
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -255,7 +256,7 @@ class _JobCardState extends State<_JobCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Job accepted! Admin will finalize the schedule and contact you.'),
+            content: Text(AppLocalizations.of(context)!.jobAcceptedSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -263,7 +264,7 @@ class _JobCardState extends State<_JobCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -335,7 +336,7 @@ class _JobCardState extends State<_JobCard> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            'FILLED',
+                            AppLocalizations.of(context)!.jobFilled,
                             style: GoogleFonts.inter(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
@@ -427,7 +428,7 @@ class _JobCardState extends State<_JobCard> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Text(
-                        'Already Filled',
+                        AppLocalizations.of(context)!.jobAlreadyFilled,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
@@ -448,7 +449,7 @@ class _JobCardState extends State<_JobCard> {
                               child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
-                              'Accept Student',
+                              AppLocalizations.of(context)!.jobAcceptStudent,
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
@@ -479,7 +480,7 @@ class _JobCardState extends State<_JobCard> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Preferred Times:',
+                  AppLocalizations.of(context)!.jobPreferredTimes,
                   style: GoogleFonts.inter(
                     color: const Color(0xff4B5563),
                     fontSize: 14,
@@ -514,7 +515,7 @@ class _JobCardState extends State<_JobCard> {
                       children: [
                         if (isConverted) ...[
                           Text(
-                            '$slot ($studentTzAbbr)',
+                            AppLocalizations.of(context)!.slotStudenttzabbr,
                             style: GoogleFonts.inter(
                               color: Colors.grey[600],
                               fontSize: 12,
@@ -523,7 +524,7 @@ class _JobCardState extends State<_JobCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '$convertedSlot ($teacherTzAbbr)',
+                            AppLocalizations.of(context)!.convertedslotTeachertzabbr,
                             style: GoogleFonts.inter(
                               color: const Color(0xff1E40AF),
                               fontSize: 13,
@@ -532,7 +533,7 @@ class _JobCardState extends State<_JobCard> {
                           ),
                         ] else
                           Text(
-                            '$slot ($studentTzAbbr)',
+                            AppLocalizations.of(context)!.slotStudenttzabbr,
                             style: GoogleFonts.inter(
                               color: const Color(0xff4B5563),
                               fontSize: 13,

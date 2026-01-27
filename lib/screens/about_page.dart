@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 // import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -58,7 +59,7 @@ class _AboutPageState extends State<AboutPage> {
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Text(
-                'Learn, Lead & Thrive',
+                AppLocalizations.of(context)!.learnLeadThrive,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -71,7 +72,7 @@ class _AboutPageState extends State<AboutPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Where Education Transcends Boundaries',
+              AppLocalizations.of(context)!.whereEducationTranscendsBoundaries,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 48,
@@ -87,7 +88,7 @@ class _AboutPageState extends State<AboutPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
               child: Text(
-                'We are fostering a world where diverse knowledge—Islamic, African, and Western—comes together to prepare students for a globalized future.',
+                AppLocalizations.of(context)!.weAreFosteringAWorldWhere,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -134,18 +135,18 @@ class _AboutPageState extends State<AboutPage> {
   Widget _buildMissionCard() {
     return _InfoCard(
       icon: Icons.rocket_launch_rounded,
-      title: 'Our Mission',
+      title: AppLocalizations.of(context)!.ourMission,
       color: const Color(0xff3B82F6),
-      content: 'To integrate Islamic, African, and Western education, offering a holistic curriculum that prepares students to navigate and succeed in a diverse world. We strive to empower learners with the tools to excel globally while staying true to their roots.',
+      content: AppLocalizations.of(context)!.toIntegrateIslamicAfricanAndWestern,
     );
   }
 
   Widget _buildVisionCard() {
     return _InfoCard(
       icon: Icons.visibility_rounded,
-      title: 'Our Vision',
+      title: AppLocalizations.of(context)!.ourVision,
       color: const Color(0xff10B981),
-      content: 'To create an inclusive, inspiring environment where students are encouraged to become leaders in their communities. We aspire to celebrate heritage, scholarship, and innovation in equal measure.',
+      content: AppLocalizations.of(context)!.toCreateAnInclusiveInspiringEnvironment,
     );
   }
 
@@ -157,7 +158,7 @@ class _AboutPageState extends State<AboutPage> {
       child: Column(
         children: [
           Text(
-            'Core Values',
+            AppLocalizations.of(context)!.coreValues,
             style: GoogleFonts.inter(
               fontSize: 36,
               fontWeight: FontWeight.w800,
@@ -234,7 +235,7 @@ class _AboutPageState extends State<AboutPage> {
       child: Column(
         children: [
           Text(
-            'Our Journey',
+            AppLocalizations.of(context)!.ourJourney,
             style: GoogleFonts.inter(
               fontSize: 36,
               fontWeight: FontWeight.w800,
@@ -327,7 +328,7 @@ class _AboutPageState extends State<AboutPage> {
       child: Column(
         children: [
           Text(
-            'Our Leadership',
+            AppLocalizations.of(context)!.ourLeadership,
             style: GoogleFonts.inter(
               fontSize: 36,
               fontWeight: FontWeight.w800,
@@ -475,7 +476,7 @@ class _AboutPageState extends State<AboutPage> {
           const Icon(Icons.format_quote_rounded, color: Colors.white24, size: 48),
           const SizedBox(height: 24),
           Text(
-            '"The best of people are those who learn the Quran and teach it to others."',
+            AppLocalizations.of(context)!.theBestOfPeopleAreThose,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 24,
@@ -486,7 +487,7 @@ class _AboutPageState extends State<AboutPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            '- Prophet Muhammad (PBUH)',
+            AppLocalizations.of(context)!.prophetMuhammadPbuh,
             style: GoogleFonts.inter(
               fontSize: 16,
               color: Colors.white60,

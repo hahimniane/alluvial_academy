@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'program_selection_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EnglishPage extends StatefulWidget {
   const EnglishPage({super.key});
@@ -60,7 +61,7 @@ class _EnglishPageState extends State<EnglishPage> {
                 border: Border.all(color: const Color(0xffF59E0B).withOpacity(0.2)),
               ),
               child: Text(
-                '📚 English Language Program',
+                AppLocalizations.of(context)!.englishLanguageProgram,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -73,7 +74,7 @@ class _EnglishPageState extends State<EnglishPage> {
           FadeInSlide(
             delay: 0.2,
             child: Text(
-              'Master English with\nConfidence & Fluency',
+              AppLocalizations.of(context)!.masterEnglishWithNconfidenceFluency,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: MediaQuery.of(context).size.width > 600 ? 48 : 32,
@@ -90,7 +91,7 @@ class _EnglishPageState extends State<EnglishPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'Designed for adults who want to learn English from scratch or improve their skills. Our comprehensive program covers reading, writing, speaking, and listening for everyday and professional use.',
+                AppLocalizations.of(context)!.designedForAdultsWhoWantTo,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 18,
@@ -141,7 +142,7 @@ class _EnglishPageState extends State<EnglishPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Why Choose Our English Program?',
+          AppLocalizations.of(context)!.whyChooseOurEnglishProgram,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -150,7 +151,7 @@ class _EnglishPageState extends State<EnglishPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'English is the global language of communication, education, and opportunity. Our expert tutors help students build strong foundations and develop advanced skills for academic and professional success.',
+          AppLocalizations.of(context)!.englishIsTheGlobalLanguageOf,
           style: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xff374151),
@@ -275,7 +276,7 @@ class _EnglishPageState extends State<EnglishPage> {
       child: Column(
         children: [
           Text(
-            'Topics We Cover',
+            AppLocalizations.of(context)!.topicsWeCover,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 36,
@@ -397,7 +398,7 @@ class _EnglishPageState extends State<EnglishPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Enroll Now'),
+                child: Text(AppLocalizations.of(context)!.enrollNow),
               ),
             ),
           ],
@@ -418,7 +419,7 @@ class _EnglishPageState extends State<EnglishPage> {
       child: Column(
         children: [
           Text(
-            'Adult English Literacy Program',
+            AppLocalizations.of(context)!.adultEnglishLiteracyProgram,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 32,
@@ -429,7 +430,7 @@ class _EnglishPageState extends State<EnglishPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Learn English reading, writing & speaking for adults',
+            AppLocalizations.of(context)!.learnEnglishReadingWritingSpeakingFor,
             style: GoogleFonts.inter(
               fontSize: 18,
               color: Colors.white.withOpacity(0.9),
@@ -437,7 +438,7 @@ class _EnglishPageState extends State<EnglishPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Note: Students needing English help should choose "After School Tutoring"',
+            AppLocalizations.of(context)!.noteStudentsNeedingEnglishHelpShould,
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Colors.white.withOpacity(0.8),
@@ -463,7 +464,7 @@ class _EnglishPageState extends State<EnglishPage> {
               ),
             ),
             child: Text(
-              'Start Learning',
+              AppLocalizations.of(context)!.startLearning,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

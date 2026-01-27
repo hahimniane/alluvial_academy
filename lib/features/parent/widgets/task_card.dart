@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TaskCard extends StatelessWidget {
   final Task task;
@@ -105,7 +106,7 @@ class TaskCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Overdue',
+                        AppLocalizations.of(context)!.overdue2,
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -136,7 +137,7 @@ class TaskCard extends StatelessWidget {
                     Icon(Icons.person_outline, size: 14, color: const Color(0xFF6B7280)),
                     const SizedBox(width: 6),
                     Text(
-                      'Assigned by $assignedByName',
+                      AppLocalizations.of(context)!.assignedByAssignedbyname,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

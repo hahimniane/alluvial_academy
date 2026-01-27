@@ -10,6 +10,7 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 import '../../../core/utils/connecteam_style.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Dialog for creating multiple tasks at once (ConnectTeam style)
 class MultipleTaskCreationDialog extends StatefulWidget {
@@ -304,7 +305,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Fill in the details for each task below. You can add more tasks using the button at the bottom.',
+                                  AppLocalizations.of(context)!.fillInTheDetailsForEach,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     color: const Color(0xff6B7280),
@@ -332,7 +333,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                         onPressed: _addTaskRow,
                         icon: const Icon(Icons.add_circle_outline, size: 20),
                         label: Text(
-                          'Add Another Task',
+                          AppLocalizations.of(context)!.addAnotherTask,
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -393,7 +394,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Create Multiple Tasks',
+                  AppLocalizations.of(context)!.createMultipleTasks,
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontSize: 24,
@@ -402,7 +403,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Add multiple tasks in one go',
+                  AppLocalizations.of(context)!.addMultipleTasksInOneGo,
                   style: GoogleFonts.inter(
                     color: Colors.white.withOpacity(0.8),
                     fontSize: 14,
@@ -431,11 +432,11 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
         children: const [
-          Expanded(flex: 4, child: Text("Task Name", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+          Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
           SizedBox(width: 12),
-          Expanded(flex: 2, child: Text("Assignee", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.assignee, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
           SizedBox(width: 12),
-          Expanded(flex: 2, child: Text("Due Date", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+          Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.dueDate, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
         ],
       ),
     );
@@ -542,7 +543,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                     child: IconButton(
                       onPressed: () => _removeTaskRow(index),
                       icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                      tooltip: 'Remove task',
+                      tooltip: AppLocalizations.of(context)!.removeTask,
                       padding: const EdgeInsets.all(8),
                       constraints: const BoxConstraints(),
                     ),
@@ -560,8 +561,8 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                   controller: row.titleController,
                   style: GoogleFonts.inter(fontSize: 15),
                   decoration: InputDecoration(
-                    labelText: 'Task Title *',
-                    hintText: 'Enter a descriptive title',
+                    labelText: AppLocalizations.of(context)!.taskTitle,
+                    hintText: AppLocalizations.of(context)!.enterADescriptiveTitle,
                     prefixIcon: const Icon(Icons.title, size: 20, color: Color(0xff6B7280)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -587,8 +588,8 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                   maxLines: 3,
                   style: GoogleFonts.inter(fontSize: 15),
                   decoration: InputDecoration(
-                    labelText: 'Description (Optional)',
-                    hintText: 'Add more details about this task...',
+                    labelText: AppLocalizations.of(context)!.chatGroupDescription,
+                    hintText: AppLocalizations.of(context)!.addMoreDetailsAboutThisTask,
                     prefixIcon: const Icon(Icons.description_outlined, size: 20, color: Color(0xff6B7280)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -648,8 +649,8 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                         controller: row.locationController,
                         style: GoogleFonts.inter(fontSize: 15),
                         decoration: InputDecoration(
-                          labelText: 'Location (Optional)',
-                          hintText: 'e.g., Office, Remote',
+                          labelText: AppLocalizations.of(context)!.locationOptional,
+                          hintText: AppLocalizations.of(context)!.eGOfficeRemote,
                           prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: Color(0xff6B7280)),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -689,7 +690,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Labels (Optional)',
+                      AppLocalizations.of(context)!.labelsOptional,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -727,7 +728,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                                   controller: row.labelController,
                                   style: GoogleFonts.inter(fontSize: 11),
                                   decoration: const InputDecoration(
-                                    hintText: 'Add label',
+                                    hintText: AppLocalizations.of(context)!.addLabel,
                                     border: InputBorder.none,
                                     isDense: true,
                                     contentPadding: EdgeInsets.zero,
@@ -767,7 +768,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                     Row(
                       children: [
                         Text(
-                          'Sub-tasks (Optional)',
+                          AppLocalizations.of(context)!.subTasksOptional,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -782,7 +783,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                             });
                           },
                           icon: const Icon(Icons.add, size: 14),
-                          label: const Text('Add', style: TextStyle(fontSize: 12)),
+                          label: Text(AppLocalizations.of(context)!.add, style: TextStyle(fontSize: 12)),
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           ),
@@ -804,7 +805,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'No sub-tasks. Click "Add" to create one.',
+                                AppLocalizations.of(context)!.noSubTasksClickAddTo,
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   color: Colors.grey[600],
@@ -859,7 +860,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                                 icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
-                                tooltip: 'Remove',
+                                tooltip: AppLocalizations.of(context)!.remove,
                               ),
                             ],
                           ),
@@ -930,7 +931,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Assign To *',
+                    AppLocalizations.of(context)!.assignTo,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -940,7 +941,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                   const SizedBox(height: 4),
                   if (row.assignedToIds.isEmpty)
                     Text(
-                      'Tap to select users',
+                      AppLocalizations.of(context)!.tapToSelectUsers,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: Colors.grey[400],
@@ -1037,7 +1038,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
     return DropdownButtonFormField<TaskPriority>(
       value: row.priority,
       decoration: InputDecoration(
-        labelText: 'Priority',
+        labelText: AppLocalizations.of(context)!.priority,
         prefixIcon: Icon(
           getPriorityIcon(row.priority),
           color: getPriorityColor(row.priority),
@@ -1158,8 +1159,8 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                         ),
                       ),
                       if (isRequired)
-                        const Text(
-                          ' *',
+                        Text(
+                          AppLocalizations.of(context)!.text,
                           style: TextStyle(
                             color: Colors.red,
                             fontSize: 12,
@@ -1313,7 +1314,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                 ),
               ),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   color: const Color(0xff6B7280),
                   fontWeight: FontWeight.w600,
@@ -1488,7 +1489,7 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Select Users',
+                          AppLocalizations.of(context)!.selectUsers2,
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 22,
@@ -1534,7 +1535,7 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No users selected',
+                              AppLocalizations.of(context)!.noUsersSelected,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1543,7 +1544,7 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Tap on users below to select them',
+                              AppLocalizations.of(context)!.tapOnUsersBelowToSelect,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 color: Colors.grey[500],
@@ -1693,7 +1694,7 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
                         ),
                       ),
                       child: Text(
-                        'Cancel',
+                        AppLocalizations.of(context)!.commonCancel,
                         style: GoogleFonts.inter(
                           color: const Color(0xff6B7280),
                           fontWeight: FontWeight.w600,

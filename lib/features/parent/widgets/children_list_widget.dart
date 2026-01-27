@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ChildrenListWidget extends StatelessWidget {
   final List<Map<String, dynamic>> children;
@@ -27,7 +28,7 @@ class ChildrenListWidget extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'No children linked to this parent account yet.',
+                AppLocalizations.of(context)!.noChildrenLinkedToThisParent,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF6B7280),
@@ -62,7 +63,7 @@ class ChildrenListWidget extends StatelessWidget {
                 const Icon(Icons.family_restroom_rounded, color: Color(0xFF111827), size: 20),
                 const SizedBox(width: 10),
                 Text(
-                  'Children',
+                  AppLocalizations.of(context)!.children,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

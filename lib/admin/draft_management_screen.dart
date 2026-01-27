@@ -6,6 +6,7 @@ import '../debug_firestore_screen.dart';
 import 'form_builder.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Screen for managing form drafts
 class DraftManagementScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Draft Forms',
+          AppLocalizations.of(context)!.draftForms,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -82,7 +83,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Saved Drafts',
+                  AppLocalizations.of(context)!.savedDrafts,
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -90,7 +91,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                   ),
                 ),
                 Text(
-                  'Resume working on your unfinished forms',
+                  AppLocalizations.of(context)!.resumeWorkingOnYourUnfinishedForms,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff6B7280),
@@ -102,7 +103,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
           TextButton.icon(
             onPressed: () => _testConnection(),
             icon: const Icon(Icons.wifi_find, size: 18),
-            label: const Text('Test Connection'),
+            label: Text(AppLocalizations.of(context)!.testConnection),
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xff3B82F6),
             ),
@@ -111,7 +112,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
           TextButton.icon(
             onPressed: () => _cleanupOldDrafts(),
             icon: const Icon(Icons.cleaning_services, size: 18),
-            label: const Text('Cleanup Old'),
+            label: Text(AppLocalizations.of(context)!.cleanupOld),
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xff6B7280),
             ),
@@ -126,7 +127,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
               );
             },
             icon: const Icon(Icons.bug_report, size: 18),
-            label: const Text('Debug'),
+            label: Text(AppLocalizations.of(context)!.debug),
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xffEF4444),
             ),
@@ -161,7 +162,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Error loading drafts',
+                  AppLocalizations.of(context)!.errorLoadingDrafts,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -183,7 +184,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                     setState(() {}); // Trigger rebuild to retry
                   },
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(AppLocalizations.of(context)!.commonRetry),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff10B981),
                     foregroundColor: Colors.white,
@@ -208,7 +209,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No saved drafts',
+                  AppLocalizations.of(context)!.noSavedDrafts,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -217,7 +218,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your progress will be automatically saved while building forms',
+                  AppLocalizations.of(context)!.yourProgressWillBeAutomaticallySaved,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xff9CA3AF),
@@ -301,7 +302,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'DRAFT',
+                    AppLocalizations.of(context)!.draft,
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -359,7 +360,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         TextButton.icon(
           onPressed: () => _resumeDraft(draft),
           icon: const Icon(Icons.edit, size: 16),
-          label: const Text('Resume'),
+          label: Text(AppLocalizations.of(context)!.resume),
           style: TextButton.styleFrom(
             foregroundColor: const Color(0xff3B82F6),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -369,7 +370,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         TextButton.icon(
           onPressed: () => _deleteDraft(draft),
           icon: const Icon(Icons.delete_outline, size: 16),
-          label: const Text('Delete'),
+          label: Text(AppLocalizations.of(context)!.commonDelete),
           style: TextButton.styleFrom(
             foregroundColor: const Color(0xffEF4444),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -400,21 +401,21 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(
-            'Delete Draft',
+            AppLocalizations.of(context)!.deleteDraft,
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w600,
               fontSize: 18,
             ),
           ),
           content: Text(
-            'Are you sure you want to delete this draft? This action cannot be undone.',
+            AppLocalizations.of(context)!.areYouSureYouWantTo12,
             style: GoogleFonts.inter(fontSize: 14),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
@@ -430,7 +431,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Draft deleted successfully',
+                          AppLocalizations.of(context)!.draftDeletedSuccessfully,
                           style: GoogleFonts.inter(color: Colors.white),
                         ),
                         backgroundColor: Colors.green,
@@ -446,7 +447,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Failed to delete draft: $e',
+                          AppLocalizations.of(context)!.failedToDeleteDraftE,
                           style: GoogleFonts.inter(color: Colors.white),
                         ),
                         backgroundColor: Colors.red,
@@ -460,7 +461,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 }
               },
               child: Text(
-                'Delete',
+                AppLocalizations.of(context)!.commonDelete,
                 style: GoogleFonts.inter(
                   color: const Color(0xffEF4444),
                   fontWeight: FontWeight.w600,
@@ -480,21 +481,21 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(
-            'Cleanup Old Drafts',
+            AppLocalizations.of(context)!.cleanupOldDrafts,
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w600,
               fontSize: 18,
             ),
           ),
           content: Text(
-            'This will delete all drafts older than 30 days. Continue?',
+            AppLocalizations.of(context)!.thisWillDeleteAllDraftsOlder,
             style: GoogleFonts.inter(fontSize: 14),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.commonCancel,
                 style: GoogleFonts.inter(
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
@@ -510,7 +511,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Old drafts cleaned up successfully',
+                          AppLocalizations.of(context)!.oldDraftsCleanedUpSuccessfully,
                           style: GoogleFonts.inter(color: Colors.white),
                         ),
                         backgroundColor: Colors.green,
@@ -526,7 +527,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Failed to cleanup drafts: $e',
+                          AppLocalizations.of(context)!.failedToCleanupDraftsE,
                           style: GoogleFonts.inter(color: Colors.white),
                         ),
                         backgroundColor: Colors.red,
@@ -540,7 +541,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 }
               },
               child: Text(
-                'Cleanup',
+                AppLocalizations.of(context)!.cleanup,
                 style: GoogleFonts.inter(
                   color: const Color(0xffEF4444),
                   fontWeight: FontWeight.w600,
@@ -559,7 +560,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Testing connection...',
+            AppLocalizations.of(context)!.testingConnection,
             style: GoogleFonts.inter(color: Colors.white),
           ),
           backgroundColor: Colors.blue,
@@ -596,7 +597,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Connection test error: $e',
+              AppLocalizations.of(context)!.connectionTestErrorE,
               style: GoogleFonts.inter(color: Colors.white),
             ),
             backgroundColor: Colors.red,

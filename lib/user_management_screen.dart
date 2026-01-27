@@ -14,6 +14,7 @@ import 'core/models/employee_model.dart';
 import 'utility_functions/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -183,7 +184,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       ),
                     ),
                     Text(
-                      "User",
+                      AppLocalizations.of(context)!.roleUser,
                       style: openSansHebrewTextStyle.copyWith(fontSize: 24),
                     ),
                     const Expanded(
@@ -269,7 +270,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                 Tab(
                                   text: 'USERS (${numberOfUsers.toString()})',
                                 ),
-                                const Tab(text: 'ADMINS (1)'),
+                                const Tab(text: AppLocalizations.of(context)!.admins1),
                               ],
                             ),
                           ),
@@ -298,7 +299,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
                                               child: Text(
-                                                'First Name',
+                                                AppLocalizations.of(context)!.userFirstName,
                                                 style: openSansHebrewTextStyle
                                                     .copyWith(
                                                         color: const Color(
@@ -314,8 +315,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Last Name',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.userLastName,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -328,8 +329,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Email',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.profileEmail,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -342,8 +343,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Country Code',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.userCountryCode,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -356,8 +357,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Mobile Phone',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.mobilePhone,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -370,8 +371,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'User Type',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.userUserType,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -384,8 +385,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Title',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.profileTitle,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -398,8 +399,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Employment Start Date',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.employmentStartDate,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -412,8 +413,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Kiosk Code',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.userKioskCode,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -426,8 +427,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Date Added',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.dateAdded,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -440,8 +441,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                               padding:
                                                   const EdgeInsets.all(8.0),
                                               alignment: Alignment.center,
-                                              child: const Text(
-                                                'Last Login',
+                                              child: Text(
+                                                AppLocalizations.of(context)!.lastLogin,
                                                 style: TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold),
@@ -454,7 +455,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                   ),
                                 ),
                                 const Center(
-                                  child: Text('Admins tab content'),
+                                  child: Text(AppLocalizations.of(context)!.adminsTabContent),
                                 ),
                               ],
                             ),
@@ -466,7 +467,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       _employeeDataSource!.updateDataSource(_filteredEmployees);
                     }
 
-                    return const Center(child: Text('No data available'));
+                    return const Center(child: Text(AppLocalizations.of(context)!.noDataAvailable));
                   },
                 ),
               ),
@@ -580,7 +581,7 @@ class _UserCardState extends State<UserCard> {
                         const Icon(Icons.logout, size: 16, color: Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          'Sign Out',
+                          AppLocalizations.of(context)!.settingsSignOut,
                           style: openSansHebrewTextStyle.copyWith(
                             color: Colors.red,
                             fontSize: 12,
@@ -605,7 +606,7 @@ class _UserCardState extends State<UserCard> {
                           size: 16, color: Color(0xff2998ff)),
                       const SizedBox(width: 4),
                       Text(
-                        'Account',
+                        AppLocalizations.of(context)!.account,
                         style: openSansHebrewTextStyle.copyWith(
                           color: const Color(0xff2998ff),
                           fontSize: 12,
@@ -648,7 +649,7 @@ class TasksScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text("this is the TaskScreen screen"),
+        child: Text(AppLocalizations.of(context)!.thisIsTheTaskscreenScreen),
       ),
     );
   }
@@ -661,7 +662,7 @@ class TimeOffScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text("this is the timeoffScreen screen"),
+        child: Text(AppLocalizations.of(context)!.thisIsTheTimeoffscreenScreen),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/services/user_role_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class MobileUserManagementScreen extends StatefulWidget {
   const MobileUserManagementScreen({super.key});
@@ -66,7 +67,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading users: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingUsersE)),
         );
       }
     }
@@ -152,7 +153,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 ),
               ),
               Text(
-                'Filter Users',
+                AppLocalizations.of(context)!.userFilterUsers,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -162,7 +163,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
 
               // Role filter
               Text(
-                'Role',
+                AppLocalizations.of(context)!.userRole,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -174,7 +175,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 spacing: 8,
                 children: [
                   FilterChip(
-                    label: const Text('All'),
+                    label: Text(AppLocalizations.of(context)!.timesheetAll),
                     selected: _selectedRoleFilter == null,
                     onSelected: (selected) {
                       setModalState(() => _selectedRoleFilter = null);
@@ -183,7 +184,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Admin'),
+                    label: Text(AppLocalizations.of(context)!.admin),
                     selected: _selectedRoleFilter == 'admin',
                     onSelected: (selected) {
                       setModalState(() => _selectedRoleFilter = selected ? 'admin' : null);
@@ -192,7 +193,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Teacher'),
+                    label: Text(AppLocalizations.of(context)!.roleTeacher),
                     selected: _selectedRoleFilter == 'teacher',
                     onSelected: (selected) {
                       setModalState(() => _selectedRoleFilter = selected ? 'teacher' : null);
@@ -201,7 +202,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Student'),
+                    label: Text(AppLocalizations.of(context)!.roleStudent),
                     selected: _selectedRoleFilter == 'student',
                     onSelected: (selected) {
                       setModalState(() => _selectedRoleFilter = selected ? 'student' : null);
@@ -210,7 +211,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Parent'),
+                    label: Text(AppLocalizations.of(context)!.roleParent),
                     selected: _selectedRoleFilter == 'parent',
                     onSelected: (selected) {
                       setModalState(() => _selectedRoleFilter = selected ? 'parent' : null);
@@ -224,7 +225,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
 
               // Status filter
               Text(
-                'Status',
+                AppLocalizations.of(context)!.userStatus,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -236,7 +237,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 spacing: 8,
                 children: [
                   FilterChip(
-                    label: const Text('All'),
+                    label: Text(AppLocalizations.of(context)!.timesheetAll),
                     selected: _activeFilter == null,
                     onSelected: (selected) {
                       setModalState(() => _activeFilter = null);
@@ -245,7 +246,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Active'),
+                    label: Text(AppLocalizations.of(context)!.shiftActive),
                     selected: _activeFilter == true,
                     onSelected: (selected) {
                       setModalState(() => _activeFilter = selected ? true : null);
@@ -254,7 +255,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Inactive'),
+                    label: Text(AppLocalizations.of(context)!.userInactive),
                     selected: _activeFilter == false,
                     onSelected: (selected) {
                       setModalState(() => _activeFilter = selected ? false : null);
@@ -288,8 +289,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Reset',
+                      child: Text(
+                        AppLocalizations.of(context)!.commonReset,
                         style: TextStyle(color: Color(0xff3B82F6)),
                       ),
                     ),
@@ -307,8 +308,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Apply Filters',
+                      child: Text(
+                        AppLocalizations.of(context)!.userApplyFilters,
                         style: TextStyle(color: Colors.white),
                       ),
                     ),
@@ -385,8 +386,8 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             if (user.userType.toLowerCase() == 'student')
               ListTile(
                 leading: const Icon(Icons.key, color: Color(0xff06B6D4)),
-                title: const Text('View Login Credentials'),
-                subtitle: const Text('Student ID & Password'),
+                title: Text(AppLocalizations.of(context)!.userViewCredentials),
+                subtitle: Text(AppLocalizations.of(context)!.userStudentIdPassword),
                 onTap: () {
                   Navigator.pop(context);
                   _showStudentCredentials(user);
@@ -406,7 +407,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             if (user.userType != 'admin')
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings, color: Colors.blue),
-                title: const Text('Promote to Admin'),
+                title: Text(AppLocalizations.of(context)!.userPromoteToAdmin),
                 onTap: () async {
                   Navigator.pop(context);
                   await _promoteToAdmin(user);
@@ -414,7 +415,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               ),
             ListTile(
               leading: const Icon(Icons.edit, color: Colors.grey),
-              title: const Text('Edit User'),
+              title: Text(AppLocalizations.of(context)!.userEditUser),
               onTap: () {
                 Navigator.pop(context);
                 _showEditUserDialog(user);
@@ -422,7 +423,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete User'),
+              title: Text(AppLocalizations.of(context)!.userDeleteUser),
               onTap: () async {
                 Navigator.pop(context);
                 await _deleteUser(user);
@@ -448,7 +449,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('User document not found'),
+              content: Text(AppLocalizations.of(context)!.userDocumentNotFound),
               backgroundColor: Colors.red,
             ),
           );
@@ -477,7 +478,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 child: const Icon(Icons.key, color: Color(0xff06B6D4)),
               ),
               const SizedBox(width: 12),
-              const Text('Login Credentials'),
+              Text(AppLocalizations.of(context)!.userLoginCredentials),
             ],
           ),
           content: Column(
@@ -511,7 +512,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Students login using their Student ID and password',
+                        AppLocalizations.of(context)!.userStudentLoginNote,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.amber.shade800,
@@ -526,7 +527,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(AppLocalizations.of(context)!.commonClose),
             ),
             ElevatedButton.icon(
               onPressed: () {
@@ -534,7 +535,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 _showResetPasswordDialog(user, studentCode);
               },
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Reset Password'),
+              label: Text(AppLocalizations.of(context)!.userResetPassword),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff3B82F6),
                 foregroundColor: Colors.white,
@@ -547,7 +548,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading credentials: $e'),
+            content: Text(AppLocalizations.of(context)!.errorLoadingCredentialsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -595,13 +596,13 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             IconButton(
               icon: const Icon(Icons.copy, size: 20),
               color: const Color(0xff06B6D4),
-              tooltip: 'Copy to clipboard',
+              tooltip: AppLocalizations.of(context)!.copyToClipboard,
               onPressed: () {
                 // Copy to clipboard
                 // Note: Would need to import services for clipboard
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$label copied!'),
+                    content: Text(AppLocalizations.of(context)!.labelCopied),
                     duration: const Duration(seconds: 1),
                   ),
                 );
@@ -623,7 +624,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
 
         return StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Reset Password'),
+            title: Text(AppLocalizations.of(context)!.userResetPassword),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,7 +635,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Student ID: $studentCode',
+                  AppLocalizations.of(context)!.studentIdStudentcode,
                   style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 12),
@@ -642,9 +643,9 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                   controller: passwordController,
                   obscureText: obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Custom password (optional)',
-                    hintText: 'Leave blank to generate a password',
-                    helperText: 'Min 6 characters. Avoid leading/trailing spaces.',
+                    labelText: AppLocalizations.of(context)!.userCustomPassword,
+                    hintText: AppLocalizations.of(context)!.userLeaveBlankGenerate,
+                    helperText: AppLocalizations.of(context)!.userPasswordMinChars,
                     errorText: errorText,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
@@ -661,7 +662,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'If left blank, a secure password will be generated and saved. '
+                    AppLocalizations.of(context)!.ifLeftBlankASecurePassword
                     'If the student has a parent linked, they will receive an email with the new credentials.',
                     style: GoogleFonts.inter(
                       fontSize: 13,
@@ -674,7 +675,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context)!.commonCancel),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -701,7 +702,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                   backgroundColor: const Color(0xff3B82F6),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Reset Password'),
+                child: Text(AppLocalizations.of(context)!.userResetPassword),
               ),
             ],
           ),
@@ -733,7 +734,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 16),
-              Text('Resetting password...'),
+              Text(AppLocalizations.of(context)!.userResettingPassword),
             ],
           ),
         ),
@@ -764,7 +765,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             children: [
               Icon(Icons.check_circle, color: Colors.green),
               SizedBox(width: 8),
-              Text('Password Reset'),
+              Text(AppLocalizations.of(context)!.userPasswordReset),
             ],
           ),
           content: Column(
@@ -801,7 +802,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Email sent to parent',
+                          AppLocalizations.of(context)!.emailSentToParent,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: Colors.green.shade700,
@@ -813,7 +814,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 )
               else
                 Text(
-                  'Please share this password with the student or their parent.',
+                  AppLocalizations.of(context)!.userShareCredentials,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: Colors.grey[600],
@@ -828,7 +829,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 backgroundColor: const Color(0xff10B981),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Done'),
+              child: Text(AppLocalizations.of(context)!.commonDone),
             ),
           ],
         ),
@@ -838,7 +839,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         Navigator.pop(context); // Close loading dialog if open
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error resetting password: $e'),
+            content: Text(AppLocalizations.of(context)!.errorResettingPasswordE),
             backgroundColor: Colors.red,
           ),
         );
@@ -897,7 +898,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating user: $e'),
+            content: Text(AppLocalizations.of(context)!.errorUpdatingUserE),
             backgroundColor: Colors.red,
           ),
         );
@@ -909,17 +910,17 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Promote to Admin'),
+        title: Text(AppLocalizations.of(context)!.userPromoteToAdmin),
         content: Text('Are you sure you want to promote ${user.firstName} ${user.lastName} to admin?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff3B82F6)),
-            child: const Text('Promote', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.userPromote, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -935,7 +936,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('User promoted to admin'),
+              content: Text(AppLocalizations.of(context)!.userPromotedSuccess),
               backgroundColor: Colors.green,
             ),
           );
@@ -945,7 +946,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error promoting user: $e'),
+              content: Text(AppLocalizations.of(context)!.errorPromotingUserE),
               backgroundColor: Colors.red,
             ),
           );
@@ -964,7 +965,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('You cannot delete your own account.'),
+              content: Text(AppLocalizations.of(context)!.userCannotDeleteSelf),
               backgroundColor: Colors.red,
             ),
           );
@@ -1007,7 +1008,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: userType == 'student'
-                      ? const Text('Group classes will remain for other students.')
+                      ? Text(AppLocalizations.of(context)!.userGroupClassesRemain)
                       : null,
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -1017,7 +1018,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
@@ -1066,7 +1067,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting user: $e'),
+              content: Text(AppLocalizations.of(context)!.errorDeletingUserE),
               backgroundColor: Colors.red,
             ),
           );
@@ -1084,7 +1085,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit User'),
+        title: Text(AppLocalizations.of(context)!.userEditUser),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1092,7 +1093,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               TextField(
                 controller: firstNameController,
                 decoration: const InputDecoration(
-                  labelText: 'First Name',
+                  labelText: AppLocalizations.of(context)!.userFirstName,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1100,7 +1101,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               TextField(
                 controller: lastNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Last Name',
+                  labelText: AppLocalizations.of(context)!.userLastName,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1108,7 +1109,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               TextField(
                 controller: phoneController,
                 decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                  labelText: AppLocalizations.of(context)!.userPhone,
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
@@ -1117,14 +1118,14 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               DropdownButtonFormField<String>(
                 initialValue: selectedRole,
                 decoration: const InputDecoration(
-                  labelText: 'Role',
+                  labelText: AppLocalizations.of(context)!.userRole,
                   border: OutlineInputBorder(),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                  DropdownMenuItem(value: 'teacher', child: Text('Teacher')),
-                  DropdownMenuItem(value: 'student', child: Text('Student')),
-                  DropdownMenuItem(value: 'parent', child: Text('Parent')),
+                  DropdownMenuItem(value: 'admin', child: Text(AppLocalizations.of(context)!.admin)),
+                  DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.roleTeacher)),
+                  DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.roleStudent)),
+                  DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.roleParent)),
                 ],
                 onChanged: (value) {
                   selectedRole = value!;
@@ -1136,7 +1137,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -1154,7 +1155,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('User updated successfully'),
+                      content: Text(AppLocalizations.of(context)!.userUpdatedSuccessfully),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -1164,7 +1165,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error updating user: $e'),
+                      content: Text(AppLocalizations.of(context)!.errorUpdatingUserE),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -1172,7 +1173,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff3B82F6)),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.commonSave, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1185,7 +1186,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'User Management',
+          AppLocalizations.of(context)!.userManagementTitle,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -1225,7 +1226,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
             color: Colors.white,
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Search users...',
+                hintText: AppLocalizations.of(context)!.userSearchUsers,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1276,7 +1277,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                             Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
                             const SizedBox(height: 16),
                             Text(
-                              'No users found',
+                              AppLocalizations.of(context)!.userNoUsersFound,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 color: Colors.grey[600],
@@ -1368,7 +1369,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                                               borderRadius: BorderRadius.circular(4),
                                             ),
                                             child: Text(
-                                              'Inactive',
+                                              AppLocalizations.of(context)!.userInactive,
                                               style: GoogleFonts.inter(
                                                 fontSize: 10,
                                                 color: Colors.grey,

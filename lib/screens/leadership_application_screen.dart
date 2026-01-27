@@ -4,6 +4,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/modern_header.dart';
 import '../core/models/leadership_application.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class LeadershipApplicationScreen extends StatefulWidget {
   const LeadershipApplicationScreen({super.key});
@@ -114,7 +115,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
             border: Border.all(color: const Color(0xff10B981).withOpacity(0.2)),
           ),
           child: Text(
-            '👔 Join Our Leadership Team',
+            AppLocalizations.of(context)!.joinOurLeadershipTeam2,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -124,7 +125,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
         ),
         const SizedBox(height: 20),
         Text(
-          'Join Our Leadership Team',
+          AppLocalizations.of(context)!.joinOurLeadershipTeam,
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -135,7 +136,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
         ),
         const SizedBox(height: 12),
         Text(
-          'Lead, inspire, and make a lasting impact',
+          AppLocalizations.of(context)!.leadInspireAndMakeALasting,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 16,
@@ -152,7 +153,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Personal Information',
+          AppLocalizations.of(context)!.personalInformation,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -195,7 +196,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'WhatsApp Number *',
+                    AppLocalizations.of(context)!.whatsappNumber2,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -206,7 +207,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                   IntlPhoneField(
                     controller: _phoneController,
                     decoration: InputDecoration(
-                      hintText: 'Phone Number',
+                      hintText: AppLocalizations.of(context)!.userPhone,
                       hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF)),
                       filled: true,
                       fillColor: const Color(0xffFAFAFA),
@@ -260,7 +261,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Leadership Interest',
+          AppLocalizations.of(context)!.leadershipInterest,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -313,7 +314,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
               ),
             ),
             if (required)
-              const Text(' *', style: TextStyle(color: Colors.red, fontSize: 15)),
+              Text(AppLocalizations.of(context)!.text, style: TextStyle(color: Colors.red, fontSize: 15)),
           ],
         ),
         const SizedBox(height: 12),
@@ -371,7 +372,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
           value: value,
           isExpanded: true,
           decoration: InputDecoration(
-            hintText: 'Select an option',
+            hintText: AppLocalizations.of(context)!.formSelectOption,
             hintStyle: GoogleFonts.inter(color: const Color(0xff9CA3AF)),
             filled: true,
             fillColor: const Color(0xffFAFAFA),
@@ -418,7 +419,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             )
           : Text(
-              'Submit Application',
+              AppLocalizations.of(context)!.submitApplication,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
             ),
     );
@@ -500,7 +501,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
             ),
             const SizedBox(height: 24),
             Text(
-              'Application Submitted!',
+              AppLocalizations.of(context)!.applicationSubmitted,
               style: GoogleFonts.inter(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
@@ -509,7 +510,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
             ),
             const SizedBox(height: 12),
             Text(
-              'Thank you for your interest in joining our leadership team! We\'ve received your application and will review it carefully.',
+              AppLocalizations.of(context)!.thankYouForYourInterestIn3,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,
@@ -531,7 +532,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(
-                  'Return Home',
+                  AppLocalizations.of(context)!.returnHome,
                   style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),

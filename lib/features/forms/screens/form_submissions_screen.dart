@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class FormSubmissionsScreen extends StatefulWidget {
   final String formId;
@@ -67,7 +68,7 @@ class _FormSubmissionsScreenState extends State<FormSubmissionsScreen> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search user or name',
+                      hintText: AppLocalizations.of(context)!.searchUserOrName,
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -114,11 +115,11 @@ class _SubmissionsTable extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: DataTable(
           columns: const [
-            DataColumn(label: Text('#')),
-            DataColumn(label: Text('User')),
-            DataColumn(label: Text('Date submitted')),
-            DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Email')),
+            DataColumn(label: Text(AppLocalizations.of(context)!.text4)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.roleUser)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.dateSubmitted)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.userStatus)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.profileEmail)),
           ],
           rows: [
             for (int i = 0; i < rows.length; i++)

@@ -9,6 +9,7 @@ import '../../../core/models/teaching_shift.dart';  // Shift data model
 import '../../../core/utils/platform_utils.dart';  // Platform detection
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';  // Logging utility
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Simple clock screen widget for mobile clock-in/out functionality
 class SimpleClockScreen extends StatefulWidget {
@@ -405,7 +406,7 @@ class _SimpleClockScreenState extends State<SimpleClockScreen> {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Simple Clock',
+          AppLocalizations.of(context)!.simpleClock,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,

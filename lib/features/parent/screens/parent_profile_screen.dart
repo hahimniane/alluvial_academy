@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ParentProfileScreen extends StatefulWidget {
   const ParentProfileScreen({super.key});
@@ -64,7 +65,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load profile: $e', style: GoogleFonts.inter()),
+            content: Text(AppLocalizations.of(context)!.failedToLoadProfileE, style: GoogleFonts.inter()),
             backgroundColor: Colors.red,
           ),
         );
@@ -102,7 +103,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Profile updated successfully', style: GoogleFonts.inter(color: Colors.white)),
+                Text(AppLocalizations.of(context)!.profileUpdatedSuccessfully, style: GoogleFonts.inter(color: Colors.white)),
               ],
             ),
             backgroundColor: const Color(0xff10B981),
@@ -117,7 +118,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save profile: $e', style: GoogleFonts.inter()),
+            content: Text(AppLocalizations.of(context)!.failedToSaveProfileE, style: GoogleFonts.inter()),
             backgroundColor: Colors.red,
           ),
         );
@@ -148,7 +149,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Edit Profile',
+          AppLocalizations.of(context)!.profileEditProfile,
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -215,7 +216,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
 
               // Personal Information Section
               Text(
-                'Personal Information',
+                AppLocalizations.of(context)!.personalInformation,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -305,7 +306,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
                           ),
                         )
                       : Text(
-                          'Save Changes',
+                          AppLocalizations.of(context)!.timesheetSaveChanges,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

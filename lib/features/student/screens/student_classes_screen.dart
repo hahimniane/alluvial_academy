@@ -12,6 +12,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/onboarding_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Student Classes Screen - Shows upcoming classes and allows students to join
 class StudentClassesScreen extends StatefulWidget {
@@ -333,7 +334,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                 onPressed: () => _startAppTour(),
                 icon: const Icon(Icons.help_outline_rounded),
                 color: Colors.white70,
-                tooltip: 'App Tour',
+                tooltip: AppLocalizations.of(context)!.appTour,
               ),
               IconButton(
                 onPressed: _loadClasses,
@@ -494,7 +495,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Oops! Something went wrong',
+              AppLocalizations.of(context)!.errorSomethingWentWrong,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -514,7 +515,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
             ElevatedButton.icon(
               onPressed: _loadClasses,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try Again'),
+              label: Text(AppLocalizations.of(context)!.errorTryAgain),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E3A5F),
                 foregroundColor: Colors.white,
@@ -585,7 +586,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     
     if (isActive) {
       status = _ClassStatus(
-        text: 'LIVE',
+        text: AppLocalizations.of(context)!.live,
         color: const Color(0xFF10B981),
         bgColor: const Color(0xFFD1FAE5),
         icon: Icons.sensors,
@@ -593,7 +594,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
       );
     } else if (canJoin) {
       status = _ClassStatus(
-        text: 'JOIN NOW',
+        text: AppLocalizations.of(context)!.joinNow,
         color: const Color(0xFF0E72ED),
         bgColor: const Color(0xFFDBEAFE),
         icon: Icons.videocam_rounded,
@@ -744,7 +745,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                                 ),
                               ),
                               const WidgetSpan(child: SizedBox(width: 4)),
-                              TextSpan(text: '$startTime - $endTime'),
+                              TextSpan(text: AppLocalizations.of(context)!.starttimeEndtime),
                             ],
                           ),
                           maxLines: 1,

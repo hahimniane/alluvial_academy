@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/build_info.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class RoleSettingsScreen extends StatelessWidget {
   final String title;
@@ -61,7 +62,7 @@ class RoleSettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Account settings & build info',
+                  AppLocalizations.of(context)!.accountSettingsBuildInfo,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.75),
@@ -112,7 +113,7 @@ class RoleSettingsScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 110, child: Text('New version', style: labelStyle)),
+          SizedBox(width: 110, child: Text(AppLocalizations.of(context)!.newVersion, style: labelStyle)),
           Expanded(child: Text(versionText, style: valueStyle)),
         ],
       ),

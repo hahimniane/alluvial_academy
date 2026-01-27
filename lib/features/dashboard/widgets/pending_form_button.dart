@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/shift_form_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Button widget that shows "Fill" if form doesn't exist, or "View" (eye icon) if it does
 class PendingFormButton extends StatefulWidget {
@@ -111,7 +112,7 @@ class _PendingFormButtonState extends State<PendingFormButton> {
               const Icon(Icons.visibility, size: 16, color: Colors.white),
               const SizedBox(width: 6),
               Text(
-                'View',
+                AppLocalizations.of(context)!.commonView,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -140,7 +141,7 @@ class _PendingFormButtonState extends State<PendingFormButton> {
             const Icon(Icons.edit_document, size: 16, color: Colors.white),
             const SizedBox(width: 6),
             Text(
-              'Fill',
+              AppLocalizations.of(context)!.fill,
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

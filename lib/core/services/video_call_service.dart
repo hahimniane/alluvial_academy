@@ -8,6 +8,7 @@ import '../utils/app_logger.dart';
 import 'user_role_service.dart';
 import 'livekit_service.dart';
 import 'join_link_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Unified video call service for joining classes
 ///
@@ -42,7 +43,7 @@ class VideoCallService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please sign in again to join this class.'),
+            content: Text(AppLocalizations.of(context)!.pleaseSignInAgainToJoin),
             backgroundColor: Colors.red,
           ),
         );
@@ -67,7 +68,7 @@ class VideoCallService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('You are not assigned to this class.'),
+            content: Text(AppLocalizations.of(context)!.youAreNotAssignedToThis),
             backgroundColor: Colors.red,
           ),
         );
@@ -112,7 +113,7 @@ class VideoCallService {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Guest class link copied.'),
+        content: Text(AppLocalizations.of(context)!.guestClassLinkCopied),
         behavior: SnackBarBehavior.floating,
       ),
     );

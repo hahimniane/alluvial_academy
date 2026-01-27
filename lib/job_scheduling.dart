@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class JobSchedulingScreen extends StatefulWidget {
   const JobSchedulingScreen({super.key});
@@ -21,13 +22,13 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Form'),
+        title: Text(AppLocalizations.of(context)!.createForm),
         actions: [
           TextButton(
             onPressed: _saveForm,
             child: _isSaving
                 ? const CircularProgressIndicator()
-                : const Text('Save Form'),
+                : Text(AppLocalizations.of(context)!.saveForm),
           ),
         ],
       ),
@@ -42,8 +43,8 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
-                  labelText: 'Form Title',
-                  hintText: 'Enter form title',
+                  labelText: AppLocalizations.of(context)!.formTitle,
+                  hintText: AppLocalizations.of(context)!.enterFormTitle,
                 ),
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
@@ -58,16 +59,16 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Form Description',
-                  hintText: 'Enter form description',
+                  labelText: AppLocalizations.of(context)!.formDescription,
+                  hintText: AppLocalizations.of(context)!.enterFormDescription,
                 ),
                 maxLines: 3,
               ),
               const SizedBox(height: 24),
 
               // Fields List
-              const Text(
-                'Form Fields',
+              Text(
+                AppLocalizations.of(context)!.formFields,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -83,7 +84,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _addField,
                   icon: const Icon(Icons.add),
-                  label: const Text('Add Field'),
+                  label: Text(AppLocalizations.of(context)!.addField),
                 ),
               ),
             ],
@@ -107,8 +108,8 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                   child: TextFormField(
                     initialValue: field.label,
                     decoration: const InputDecoration(
-                      labelText: 'Field Label',
-                      hintText: 'Enter field label',
+                      labelText: AppLocalizations.of(context)!.fieldLabel,
+                      hintText: AppLocalizations.of(context)!.enterFieldLabel,
                     ),
                     onChanged: (value) {
                       field.label = value;
@@ -128,7 +129,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                   child: DropdownButtonFormField<String>(
                     initialValue: field.type,
                     decoration: const InputDecoration(
-                      labelText: 'Field Type',
+                      labelText: AppLocalizations.of(context)!.fieldType,
                     ),
                     items: [
                       'text',
@@ -159,8 +160,8 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                   child: TextFormField(
                     initialValue: field.placeholder,
                     decoration: const InputDecoration(
-                      labelText: 'Placeholder',
-                      hintText: 'Enter placeholder text',
+                      labelText: AppLocalizations.of(context)!.placeholder,
+                      hintText: AppLocalizations.of(context)!.enterPlaceholderText,
                     ),
                     onChanged: (value) {
                       field.placeholder = value;
@@ -174,7 +175,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
               children: [
                 Expanded(
                   child: CheckboxListTile(
-                    title: const Text('Required'),
+                    title: Text(AppLocalizations.of(context)!.commonRequired),
                     value: field.required,
                     onChanged: (value) {
                       setState(() {
@@ -191,7 +192,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                         labelText: field.type == 'multi_select'
                             ? 'Multi-Select Options (comma separated)'
                             : 'Options (comma separated)',
-                        hintText: 'Option 1, Option 2, Option 3',
+                        hintText: AppLocalizations.of(context)!.option1Option2Option3,
                       ),
                       onChanged: (value) {
                         field.options = value
@@ -233,7 +234,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (fields.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one field')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.addAtLeastOneField)),
       );
       return;
     }
@@ -269,13 +270,13 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Form saved successfully')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.formSavedSuccessfully)),
       );
 
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving form: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorSavingFormE)),
       );
     } finally {
       setState(() => _isSaving = false);

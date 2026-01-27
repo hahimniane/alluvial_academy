@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/shift_form_service.dart';
 import '../../../core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ReadinessFormPromptDialog extends StatefulWidget {
   final String timesheetId;
@@ -126,14 +127,14 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Class Report submitted successfully!'),
+            content: Text(AppLocalizations.of(context)!.formSubmittedSuccess),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.errorE)));
         setState(() => _isSubmitting = false);
       }
     }
@@ -175,7 +176,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Class Report',
+                          AppLocalizations.of(context)!.formClassReport,
                           style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)),
                         ),
                         Text(
@@ -226,7 +227,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                         Navigator.pop(context);
                       },
                       style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                      child: Text('Skip', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+                      child: Text(AppLocalizations.of(context)!.formSkip, style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -243,7 +244,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                       ),
                       child: _isSubmitting 
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text('Submit Report', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                        : Text(AppLocalizations.of(context)!.formSubmitReport, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -272,7 +273,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
               const Icon(Icons.auto_fix_high, size: 14, color: Color(0xFF16A34A)),
               const SizedBox(width: 6),
               Text(
-                'Auto-filled (no need to enter)',
+                AppLocalizations.of(context)!.formAutoFilled,
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -324,7 +325,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Verify Duration', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7))),
+          Text(AppLocalizations.of(context)!.formVerifyDuration, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7))),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -332,7 +333,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Clock In', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                    Text(AppLocalizations.of(context)!.clockIn, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
                     Text(DateFormat('h:mm a').format(widget.clockInTime), style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -342,7 +343,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('Clock Out', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                    Text(AppLocalizations.of(context)!.clockOut, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
                     Text(DateFormat('h:mm a').format(widget.clockOutTime), style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -355,12 +356,12 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
             decoration: InputDecoration(
-              labelText: 'Billable Hours',
+              labelText: AppLocalizations.of(context)!.formBillableHours,
               fillColor: Colors.white,
               filled: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              suffix: Text('hrs', style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B))),
+              suffix: Text(AppLocalizations.of(context)!.shiftHrs, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B))),
             ),
           ),
         ],
@@ -393,7 +394,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
               ),
               if (required) ...[
                 const SizedBox(width: 4),
-                const Text('*', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context)!.text10, style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
               ],
             ],
           ),

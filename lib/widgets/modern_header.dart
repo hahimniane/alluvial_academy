@@ -12,6 +12,7 @@ import '../screens/math_page.dart';
 import '../screens/programming_page.dart';
 import '../screens/teachers_page.dart';
 import '../main.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ModernHeader extends StatefulWidget {
   const ModernHeader({super.key});
@@ -94,7 +95,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.app_registration_rounded, color: Color(0xff3B82F6)),
-                    tooltip: 'Sign up for new class',
+                    tooltip: AppLocalizations.of(context)!.signUpForNewClass,
                     onPressed: () => Navigator.push(
                       context, 
                       MaterialPageRoute(
@@ -105,7 +106,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.login_rounded, color: Color(0xff111827)),
-                    tooltip: 'Log in',
+                    tooltip: AppLocalizations.of(context)!.logIn,
                     onPressed: () => Navigator.push(
                       context, 
                       MaterialPageRoute(
@@ -151,7 +152,7 @@ class _ModernHeaderState extends State<ModernHeader> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ALLUWAL',
+                  AppLocalizations.of(context)!.alluwal,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
@@ -160,7 +161,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                   ),
                 ),
                 Text(
-                  'EDUCATION HUB',
+                  AppLocalizations.of(context)!.educationHub,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     fontSize: 9,
@@ -190,7 +191,7 @@ class _ModernHeaderState extends State<ModernHeader> {
           child: Row(
             children: [
               Text(
-                'Find Programs',
+                AppLocalizations.of(context)!.findPrograms,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
@@ -237,7 +238,7 @@ class _ModernHeaderState extends State<ModernHeader> {
           ),
         ),
         child: Text(
-          'Sign up',
+          AppLocalizations.of(context)!.signUp,
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
             fontSize: 14,
@@ -310,7 +311,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'CHOOSE YOUR PROGRAM',
+                            AppLocalizations.of(context)!.chooseYourProgram,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -356,7 +357,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                               child: Row(
                                 children: [
                                   Text(
-                                    'Our Teachers',
+                                    AppLocalizations.of(context)!.ourTeachers,
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -381,7 +382,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                               child: Row(
                                 children: [
                                   Text(
-                                    'Become a tutor',
+                                    AppLocalizations.of(context)!.becomeATutor,
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -423,7 +424,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            'World-Class Education',
+                            AppLocalizations.of(context)!.worldClassEducation,
                             style: GoogleFonts.inter(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -432,7 +433,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Join thousands of students learning from expert tutors worldwide. Flexible schedules, personalized learning.',
+                            AppLocalizations.of(context)!.joinThousandsOfStudentsLearningFrom,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: const Color(0xff6B7280),
@@ -508,7 +509,7 @@ class _ModernHeaderState extends State<ModernHeader> {
               child: Row(
                 children: [
                   Text(
-                    'Menu',
+                    AppLocalizations.of(context)!.menu,
                     style: GoogleFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
@@ -541,7 +542,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                   }),
                   const SizedBox(height: 24),
                   Text(
-                    'PROGRAMS',
+                    AppLocalizations.of(context)!.programs2,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -601,7 +602,7 @@ class _ModernHeaderState extends State<ModernHeader> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Log in / Sign up'),
+                    child: Text(AppLocalizations.of(context)!.logInSignUp),
                   ),
                   const SizedBox(height: 32),
                 ],

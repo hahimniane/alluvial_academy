@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/chat_service.dart';
 import '../models/chat_user.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class GroupCreationScreen extends StatefulWidget {
   const GroupCreationScreen({super.key});
@@ -79,7 +80,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Create Group',
+            AppLocalizations.of(context)!.chatGroupCreateTitle,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -87,7 +88,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
             ),
           ),
           Text(
-            'Add members and create a group chat',
+            AppLocalizations.of(context)!.chatGroupAddMembers,
             style: GoogleFonts.inter(
               fontSize: 12,
               color: const Color(0xff6B7280),
@@ -125,7 +126,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
                   child: Text(
-                    'Create',
+                    AppLocalizations.of(context)!.chatGroupCreate,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                     ),
@@ -176,7 +177,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Group Information',
+                      AppLocalizations.of(context)!.chatGroupInfo,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -184,7 +185,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                       ),
                     ),
                     Text(
-                      'Set a name and description for your group',
+                      AppLocalizations.of(context)!.chatGroupSetNameDesc,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xff6B7280),
@@ -200,7 +201,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
 
           // Group name field
           Text(
-            'Group Name *',
+            AppLocalizations.of(context)!.chatGroupName,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -215,7 +216,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
               color: const Color(0xff111827),
             ),
             decoration: InputDecoration(
-              hintText: 'Enter group name',
+              hintText: AppLocalizations.of(context)!.chatGroupEnterName,
               hintStyle: GoogleFonts.inter(
                 color: const Color(0xff9CA3AF),
                 fontSize: 16,
@@ -253,7 +254,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
 
           // Group description field
           Text(
-            'Description (Optional)',
+            AppLocalizations.of(context)!.chatGroupDescription,
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -268,7 +269,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
               color: const Color(0xff111827),
             ),
             decoration: InputDecoration(
-              hintText: 'Enter group description',
+              hintText: AppLocalizations.of(context)!.chatGroupEnterDesc,
               hintStyle: GoogleFonts.inter(
                 color: const Color(0xff9CA3AF),
                 fontSize: 16,
@@ -323,7 +324,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Add Members',
+                          AppLocalizations.of(context)!.chatAddMembers,
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -373,7 +374,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                   color: const Color(0xff111827),
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search users...',
+                  hintText: AppLocalizations.of(context)!.userSearchUsers,
                   hintStyle: GoogleFonts.inter(
                     color: const Color(0xff9CA3AF),
                     fontSize: 16,
@@ -448,7 +449,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Error loading users',
+                  AppLocalizations.of(context)!.errorLoadingUsers,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: const Color(0xff374151),

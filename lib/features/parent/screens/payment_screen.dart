@@ -9,6 +9,7 @@ import 'package:alluwalacademyadmin/core/models/payment.dart';
 import 'package:alluwalacademyadmin/core/services/invoice_service.dart';
 import 'package:alluwalacademyadmin/core/services/payment_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String invoiceId;
@@ -99,7 +100,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF111827),
         elevation: 0,
-        title: Text('Pay Invoice', style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+        title: Text(AppLocalizations.of(context)!.payInvoice, style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
       ),
       body: FutureBuilder<Invoice>(
         future: InvoiceService.getInvoice(widget.invoiceId),
@@ -187,7 +188,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         await launchUrl(uri, mode: LaunchMode.externalApplication);
                       },
                       icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                      label: Text('Open Checkout Link Again', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                      label: Text(AppLocalizations.of(context)!.openCheckoutLinkAgain, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF111827),
                         side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -206,7 +207,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.refresh_rounded, size: 18),
                     label: Text(
-                      'Check Payment Status',
+                      AppLocalizations.of(context)!.checkPaymentStatus,
                       style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -219,7 +220,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Tip: If you just completed payment in the browser, come back here and tap “Check Payment Status”.',
+                  AppLocalizations.of(context)!.tipIfYouJustCompletedPayment,
                   style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280), fontWeight: FontWeight.w500),
                 ),
               ],

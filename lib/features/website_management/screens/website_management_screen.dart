@@ -9,6 +9,7 @@ import '../widgets/courses_section_editor.dart';
 import '../widgets/testimonials_section_editor.dart';
 import '../widgets/cta_section_editor.dart';
 import '../widgets/footer_section_editor.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class WebsiteManagementScreen extends StatefulWidget {
   const WebsiteManagementScreen({super.key});
@@ -26,13 +27,13 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
   String? _error;
 
   final List<Tab> _tabs = [
-    const Tab(text: 'Hero Section', icon: Icon(Icons.home, size: 20)),
-    const Tab(text: 'Features', icon: Icon(Icons.star, size: 20)),
-    const Tab(text: 'Statistics', icon: Icon(Icons.analytics, size: 20)),
-    const Tab(text: 'Courses', icon: Icon(Icons.school, size: 20)),
-    const Tab(text: 'Testimonials', icon: Icon(Icons.reviews, size: 20)),
-    const Tab(text: 'Call to Action', icon: Icon(Icons.campaign, size: 20)),
-    const Tab(text: 'Footer', icon: Icon(Icons.info, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.heroSection, icon: Icon(Icons.home, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.features, icon: Icon(Icons.star, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.statistics, icon: Icon(Icons.analytics, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.courses, icon: Icon(Icons.school, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.testimonials, icon: Icon(Icons.reviews, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.callToAction, icon: Icon(Icons.campaign, size: 20)),
+    const Tab(text: AppLocalizations.of(context)!.footer, icon: Icon(Icons.info, size: 20)),
   ];
 
   @override
@@ -88,7 +89,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text('Website content saved successfully! Changes will appear on the landing page within 30 seconds.'),
+                  child: Text(AppLocalizations.of(context)!.websiteContentSavedSuccessfullyChangesWill),
                 ),
               ],
             ),
@@ -109,7 +110,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save content: $e'),
+            content: Text(AppLocalizations.of(context)!.failedToSaveContentE),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
@@ -134,7 +135,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Website Management',
+          AppLocalizations.of(context)!.websiteManagement,
           style: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -156,7 +157,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'Last modified',
+                        AppLocalizations.of(context)!.lastModified,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: const Color(0xff6B7280),
@@ -242,7 +243,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
             CircularProgressIndicator(),
             SizedBox(height: 16),
             Text(
-              'Loading website content...',
+              AppLocalizations.of(context)!.loadingWebsiteContent,
               style: TextStyle(
                 fontSize: 16,
                 color: Color(0xff6B7280),
@@ -275,7 +276,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadContent,
-              child: const Text('Retry'),
+              child: Text(AppLocalizations.of(context)!.commonRetry),
             ),
           ],
         ),
@@ -285,7 +286,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
     if (_content == null) {
       return const Center(
         child: Text(
-          'No content available',
+          AppLocalizations.of(context)!.noContentAvailable,
           style: TextStyle(
             fontSize: 16,
             color: Color(0xff6B7280),

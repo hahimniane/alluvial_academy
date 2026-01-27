@@ -5,6 +5,7 @@ import '../../../core/constants/build_info.dart';
 import '../../../core/services/user_role_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AdminSettingsScreen extends StatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -74,7 +75,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading settings: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingSettingsE)),
         );
       }
     } finally {
@@ -101,7 +102,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Settings saved successfully'),
+            content: Text(AppLocalizations.of(context)!.settingsSavedSuccessfully2),
             backgroundColor: Colors.green,
           ),
         );
@@ -110,7 +111,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving settings: $e'),
+            content: Text(AppLocalizations.of(context)!.errorSavingSettingsE),
             backgroundColor: Colors.red,
           ),
         );
@@ -129,7 +130,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         backgroundColor: Color(0xffF8FAFC),
         body: Center(
           child: Text(
-            'Access restricted',
+            AppLocalizations.of(context)!.accessRestricted,
             style: TextStyle(
               fontSize: 16,
               color: Color(0xff6B7280),
@@ -162,7 +163,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             label: 'Notification Email',
                             hint: 'email@example.com',
                             controller: _notificationEmailController,
-                            helperText: 'This email will receive notifications for new enrollments, applications, and contact messages. If left empty, all admins will be notified.',
+                            helperText: AppLocalizations.of(context)!.thisEmailWillReceiveNotificationsFor,
                             validator: (value) {
                               if (value != null && value.isNotEmpty) {
                                 final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
@@ -196,7 +197,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                                       ),
                                     )
                                   : Text(
-                                      'Save Changes',
+                                      AppLocalizations.of(context)!.timesheetSaveChanges,
                                       style: GoogleFonts.inter(
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -232,7 +233,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Admin Settings',
+                AppLocalizations.of(context)!.adminSettings,
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -240,7 +241,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 ),
               ),
               Text(
-                'Configure application settings',
+                AppLocalizations.of(context)!.configureApplicationSettings,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),

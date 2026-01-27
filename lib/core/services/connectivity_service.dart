@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 // Import connectivity helper based on platform
 import 'connectivity_service_io.dart'
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
     if (dart.library.html) 'connectivity_service_web.dart' as platform;
 
 /// Service to check and monitor internet connectivity
@@ -40,7 +41,7 @@ class ConnectivityService {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'No Internet',
+                  AppLocalizations.of(context)!.noInternet,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700,
                     fontSize: 20,
@@ -53,7 +54,7 @@ class ConnectivityService {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'This app requires an active internet connection to work properly.',
+                  AppLocalizations.of(context)!.thisAppRequiresAnActiveInternet,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: const Color(0xff6B7280),
@@ -74,7 +75,7 @@ class ConnectivityService {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Please check:',
+                        AppLocalizations.of(context)!.pleaseCheck,
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -106,7 +107,7 @@ class ConnectivityService {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Still no internet connection. Please try again.',
+                            AppLocalizations.of(context)!.stillNoInternetConnectionPleaseTry,
                             style: GoogleFonts.inter(),
                           ),
                           backgroundColor: const Color(0xffEF4444),
@@ -136,7 +137,7 @@ class ConnectivityService {
                     const Icon(Icons.refresh, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Retry',
+                      AppLocalizations.of(context)!.commonRetry,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,

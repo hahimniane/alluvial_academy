@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SubjectStatCard extends StatelessWidget {
   final String subjectName;
@@ -46,7 +47,7 @@ class SubjectStatCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$classCount',
+                      AppLocalizations.of(context)!.classcount,
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -55,7 +56,7 @@ class SubjectStatCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Total Classes',
+                      AppLocalizations.of(context)!.totalClasses,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -70,7 +71,7 @@ class SubjectStatCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$completedCount',
+                      AppLocalizations.of(context)!.completedcount,
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -79,7 +80,7 @@ class SubjectStatCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Completed',
+                      AppLocalizations.of(context)!.formCompleted,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -103,7 +104,7 @@ class SubjectStatCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Total Hours',
+                      AppLocalizations.of(context)!.timesheetTotalHours,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

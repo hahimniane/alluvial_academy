@@ -16,6 +16,7 @@ import '../../core/services/advanced_excel_export_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../features/shift_management/widgets/shift_details_dialog.dart';
 import 'coach_evaluation_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Windows 11 Fluent Design Colors
 class Win11Colors {
@@ -199,7 +200,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Select Period',
+                        AppLocalizations.of(context)!.selectPeriod,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
@@ -308,7 +309,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
               Text(
-                'Loading teachers...',
+                AppLocalizations.of(context)!.loadingTeachers,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: Colors.grey.shade700,
@@ -329,7 +330,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
         Navigator.pop(context); // Close loading
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No teachers found. Make sure teachers are created with role="teacher" or user_type="teacher"'),
+            content: Text(AppLocalizations.of(context)!.noTeachersFoundMakeSureTeachers),
             backgroundColor: Colors.orange,
           ),
         );
@@ -338,7 +339,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     } catch (e) {
       Navigator.pop(context); // Close loading
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching teachers: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorFetchingTeachersE)),
       );
       return;
     }
@@ -367,7 +368,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 const Icon(Icons.calculate, color: Color(0xff0386FF)),
                 const SizedBox(width: 12),
                 Text(
-                  'Generate Audits',
+                  AppLocalizations.of(context)!.generateAudits,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -390,7 +391,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Select teachers to generate/regenerate audit metrics for $_selectedYearMonth. You can select all teachers, including those who already have audits.',
+                          AppLocalizations.of(context)!.selectTeachersToGenerateRegenerateAudit,
                           style: GoogleFonts.inter(fontSize: 13),
                         ),
                       ),
@@ -409,7 +410,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           selectedTeachers.addAll(allTeacherIds);
                         });
                       },
-                      child: const Text('Select All'),
+                      child: Text(AppLocalizations.of(context)!.selectAll2),
                     ),
                     TextButton(
                       onPressed: () {
@@ -425,13 +426,13 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           }
                         });
                       },
-                      child: const Text('Select New Only'),
+                      child: Text(AppLocalizations.of(context)!.selectNewOnly),
                     ),
                     TextButton(
                       onPressed: () {
                         setDialogState(() => selectedTeachers.clear());
                       },
-                      child: const Text('Clear'),
+                      child: Text(AppLocalizations.of(context)!.commonClear),
                     ),
                   ],
                 ),
@@ -445,7 +446,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                               Icon(Icons.person_off, size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 12),
                               Text(
-                                'No teachers found',
+                                AppLocalizations.of(context)!.noTeachersFound,
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   color: Colors.grey.shade600,
@@ -492,7 +493,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                                   border: Border.all(color: Colors.blue.shade200),
                                 ),
                                 child: Text(
-                                  'Has Audit',
+                                  AppLocalizations.of(context)!.hasAudit,
                                   style: GoogleFonts.inter(
                                     fontSize: 10,
                                     color: Colors.blue.shade800,
@@ -516,7 +517,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton.icon(
               onPressed: selectedTeachers.isEmpty
@@ -803,7 +804,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Audit Management',
+                  AppLocalizations.of(context)!.auditManagement,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -811,7 +812,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   ),
                 ),
                 Text(
-                  'Manage teacher performance and payments',
+                  AppLocalizations.of(context)!.manageTeacherPerformanceAndPayments,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: Win11Colors.textSecondary,
@@ -947,7 +948,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search teacher...',
+                hintText: AppLocalizations.of(context)!.searchTeacher,
                 hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 14),
                 prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey.shade400),
                 border: InputBorder.none,
@@ -976,7 +977,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           child: DropdownButton<String>(
             value: null,
             hint: Text(
-              'All Departments',
+              AppLocalizations.of(context)!.allDepartments,
               style: GoogleFonts.inter(fontSize: 14, color: Colors.grey.shade700),
             ),
             underline: const SizedBox(),
@@ -1007,7 +1008,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           onPressed: _exportToCSV,
           icon: const Icon(Icons.download, size: 18),
           label: Text(
-            'CSV',
+            AppLocalizations.of(context)!.csv,
             style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
@@ -1024,7 +1025,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           onPressed: _showExportDialog,
           icon: const Icon(Icons.table_chart, size: 18),
           label: Text(
-            'Export',
+            AppLocalizations.of(context)!.commonExport,
             style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
@@ -1187,7 +1188,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Status',
+                    AppLocalizations.of(context)!.userStatus,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
@@ -1198,7 +1199,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Actions',
+                    AppLocalizations.of(context)!.timesheetActions,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
@@ -1467,7 +1468,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           onPressed: () => _showAuditDetails(audit),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
-          tooltip: 'View audit details',
+          tooltip: AppLocalizations.of(context)!.viewAuditDetails,
         ),
         
         if (isPending) ...[
@@ -1483,7 +1484,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             child: Text(
-              'Evaluate',
+              AppLocalizations.of(context)!.evaluate,
               style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
@@ -1500,7 +1501,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             child: Text(
-              'Review',
+              AppLocalizations.of(context)!.review,
               style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
@@ -1511,7 +1512,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             onPressed: () => _openCoachEvaluation(audit),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Edit evaluation',
+            tooltip: AppLocalizations.of(context)!.editEvaluation,
           ),
         ] else if (isCompleted) ...[
           // Completed, can view and optionally edit
@@ -1521,7 +1522,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             onPressed: () => _openCoachEvaluation(audit),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Edit evaluation',
+            tooltip: AppLocalizations.of(context)!.editEvaluation,
           ),
         ] else if (isDisputed) ...[
           // Disputed, CEO/owner needs to review
@@ -1536,7 +1537,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             child: Text(
-              'Review',
+              AppLocalizations.of(context)!.review,
               style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
@@ -1569,7 +1570,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Showing $start-$end of $total results',
+            AppLocalizations.of(context)!.showingStartEndOfTotalResults,
             style: GoogleFonts.inter(
               fontSize: 13,
               color: Colors.grey.shade600,
@@ -1581,14 +1582,14 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 onPressed: _currentPage > 0
                     ? () => setState(() => _currentPage--)
                     : null,
-                child: Text('Previous', style: GoogleFonts.inter(fontSize: 13)),
+                child: Text(AppLocalizations.of(context)!.previous, style: GoogleFonts.inter(fontSize: 13)),
               ),
               const SizedBox(width: 8),
               TextButton(
                 onPressed: _currentPage < _totalPages - 1
                     ? () => setState(() => _currentPage++)
                     : null,
-                child: Text('Next', style: GoogleFonts.inter(fontSize: 13)),
+                child: Text(AppLocalizations.of(context)!.commonNext, style: GoogleFonts.inter(fontSize: 13)),
               ),
             ],
           ),
@@ -1603,7 +1604,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Generating CSV...'),
+            content: Text(AppLocalizations.of(context)!.generatingCsv),
             duration: Duration(seconds: 1),
           ),
         );
@@ -1625,7 +1626,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('CSV exported successfully'),
+            content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -1634,7 +1635,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error exporting CSV: $e'),
+            content: Text(AppLocalizations.of(context)!.errorExportingCsvE),
             backgroundColor: Colors.red,
           ),
         );
@@ -1660,7 +1661,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Generating Excel report...'),
+            content: Text(AppLocalizations.of(context)!.generatingExcelReport),
             duration: Duration(seconds: 2),
           ),
         );
@@ -1675,7 +1676,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Excel report exported successfully!'),
+            content: Text(AppLocalizations.of(context)!.excelReportExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -1684,7 +1685,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error exporting Excel: $e'),
+            content: Text(AppLocalizations.of(context)!.errorExportingExcelE),
             backgroundColor: Colors.red,
           ),
         );
@@ -1939,7 +1940,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               Icon(Icons.sync, color: _primaryColor, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Loading audits for $_selectedYearMonth...',
+                AppLocalizations.of(context)!.loadingAuditsForSelectedyearmonth,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: Colors.grey.shade700,
@@ -2056,8 +2057,8 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             child: Icon(Icons.analytics_outlined, size: 48, color: Colors.blue[300]),
           ),
           const SizedBox(height: 24),
-          Text('No audits found', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-          Text('Try changing the month or generating new ones', style: GoogleFonts.inter(color: Colors.grey[500])),
+          Text(AppLocalizations.of(context)!.noAuditsFound, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(AppLocalizations.of(context)!.tryChangingTheMonthOrGenerating, style: GoogleFonts.inter(color: Colors.grey[500])),
           const SizedBox(height: 24),
           OutlinedButton(
             onPressed: _showGenerateAuditDialog,
@@ -2065,7 +2066,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               side: BorderSide(color: _primaryColor),
             ),
-            child: Text('Generate Now', style: TextStyle(color: _primaryColor)),
+            child: Text(AppLocalizations.of(context)!.generateNow, style: TextStyle(color: _primaryColor)),
           ),
         ],
       ),
@@ -2137,7 +2138,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Adjust Payment',
+                  AppLocalizations.of(context)!.adjustPayment,
                   style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -2164,7 +2165,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Current Payment:'),
+                      Text(AppLocalizations.of(context)!.currentPayment),
                       Text(
                         '\$${audit.paymentSummary?.totalNetPayment.toStringAsFixed(2) ?? '0.00'}',
                         style: GoogleFonts.inter(
@@ -2181,8 +2182,8 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   controller: adjustmentController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                   decoration: const InputDecoration(
-                    labelText: 'Adjustment Amount',
-                    hintText: 'e.g., 0.21 or -5.00',
+                    labelText: AppLocalizations.of(context)!.adjustmentAmount,
+                    hintText: AppLocalizations.of(context)!.eG021Or5,
                     prefixText: '\$ ',
                     border: OutlineInputBorder(),
                   ),
@@ -2192,8 +2193,8 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   controller: reasonController,
                   maxLines: 2,
                   decoration: const InputDecoration(
-                    labelText: 'Reason (required)',
-                    hintText: 'Rounding adjustment, penalty, bonus, etc.',
+                    labelText: AppLocalizations.of(context)!.reasonRequired,
+                    hintText: AppLocalizations.of(context)!.roundingAdjustmentPenaltyBonusEtc,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -2204,7 +2205,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           actions: [
             TextButton(
               onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton(
               onPressed: isSubmitting
@@ -2213,13 +2214,13 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                       final adjustment = double.tryParse(adjustmentController.text);
                       if (adjustment == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a valid number')),
+                          const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAValidNumber)),
                         );
                         return;
                       }
                       if (reasonController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please provide a reason')),
+                          const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseProvideAReason)),
                         );
                         return;
                       }
@@ -2238,7 +2239,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           _loadAudits();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Payment adjusted successfully'),
+                              content: Text(AppLocalizations.of(context)!.paymentAdjustedSuccessfully),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -2247,7 +2248,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                         setDialogState(() => isSubmitting = false);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
                           );
                         }
                       }
@@ -2262,7 +2263,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Apply Adjustment'),
+                  : Text(AppLocalizations.of(context)!.applyAdjustment),
             ),
           ],
         ),
@@ -2272,7 +2273,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
   /// CEO/Founder review dialog
   void _showReviewDialog(TeacherAuditFull audit) {
-    final notesController = TextEditingController(text: 'reviewed'); // Default comment
+    final notesController = TextEditingController(text: AppLocalizations.of(context)!.reviewed); // Default comment
     String selectedRole = 'ceo';
     String selectedStatus = 'approved';
     bool isSubmitting = false;
@@ -2288,7 +2289,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               const Icon(Icons.verified_user, color: Color(0xff0386FF)),
               const SizedBox(width: 12),
               Text(
-                'Admin Review',
+                AppLocalizations.of(context)!.adminReview,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
             ],
@@ -2335,13 +2336,13 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 const SizedBox(height: 12),
 
                 // Role selection
-                Text('Review As:', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                Text(AppLocalizations.of(context)!.reviewAs, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: RadioListTile<String>(
-                        title: const Text('CEO'),
+                        title: Text(AppLocalizations.of(context)!.ceo),
                         value: 'ceo',
                         groupValue: selectedRole,
                         onChanged: (v) => setDialogState(() => selectedRole = v!),
@@ -2351,7 +2352,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     ),
                     Expanded(
                       child: RadioListTile<String>(
-                        title: const Text('Founder'),
+                        title: Text(AppLocalizations.of(context)!.founder),
                         value: 'founder',
                         groupValue: selectedRole,
                         onChanged: (v) => setDialogState(() => selectedRole = v!),
@@ -2364,7 +2365,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 const SizedBox(height: 12),
 
                 // Decision
-                Text('Decision:', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                Text(AppLocalizations.of(context)!.decision, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: selectedStatus,
@@ -2373,9 +2374,9 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'approved', child: Text('✅ Approve')),
-                    DropdownMenuItem(value: 'needs_revision', child: Text('📝 Needs Revision')),
-                    DropdownMenuItem(value: 'rejected', child: Text('❌ Reject')),
+                    DropdownMenuItem(value: 'approved', child: Text(AppLocalizations.of(context)!.approve2)),
+                    DropdownMenuItem(value: 'needs_revision', child: Text(AppLocalizations.of(context)!.needsRevision)),
+                    DropdownMenuItem(value: 'rejected', child: Text(AppLocalizations.of(context)!.reject2)),
                   ],
                   onChanged: (v) => setDialogState(() => selectedStatus = v!),
                 ),
@@ -2386,10 +2387,10 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   controller: notesController,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    labelText: 'Review Comment *',
-                    hintText: 'Add any comments or corrections...',
+                    labelText: AppLocalizations.of(context)!.reviewComment,
+                    hintText: AppLocalizations.of(context)!.addAnyCommentsOrCorrections,
                     border: const OutlineInputBorder(),
-                    helperText: 'Required field. Default: "reviewed"',
+                    helperText: AppLocalizations.of(context)!.requiredFieldDefaultReviewed,
                     helperStyle: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade600),
                   ),
                   onChanged: (value) {
@@ -2409,7 +2410,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           actions: [
             TextButton(
               onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.commonCancel),
             ),
             ElevatedButton.icon(
               onPressed: isSubmitting
@@ -2435,7 +2436,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           _loadAudits();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Review submitted'),
+                              content: Text(AppLocalizations.of(context)!.reviewSubmitted),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -2444,7 +2445,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                         setDialogState(() => isSubmitting = false);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
                           );
                         }
                       }
@@ -2487,7 +2488,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Audit Generation Errors',
+                AppLocalizations.of(context)!.auditGenerationErrors,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -2515,7 +2516,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Summary:',
+                      AppLocalizations.of(context)!.summary2,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2524,7 +2525,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '✅ $successCount successful\n'
+                      AppLocalizations.of(context)!.successcountSuccessfulN
                       '❌ ${errorDetails.length} errors\n'
                       '⏭️ $skippedCount skipped (no data)',
                       style: GoogleFonts.inter(
@@ -2539,7 +2540,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               
               // Error details
               Text(
-                'Error Details:',
+                AppLocalizations.of(context)!.errorDetails,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2621,7 +2622,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
-              'Close',
+              AppLocalizations.of(context)!.commonClose,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade600,
@@ -2635,7 +2636,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               foregroundColor: Colors.white,
             ),
             child: Text(
-              'OK',
+              AppLocalizations.of(context)!.commonOk,
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ),
@@ -2718,7 +2719,7 @@ class _DraggableFullScreenDialogState extends State<_DraggableFullScreenDialog> 
                           Icon(Icons.drag_handle, color: Colors.grey.shade600, size: 20),
                           const SizedBox(width: 12),
                           Text(
-                            'Drag to move • Click to close',
+                            AppLocalizations.of(context)!.dragToMoveClickToClose,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: Colors.grey.shade600,
@@ -2728,7 +2729,7 @@ class _DraggableFullScreenDialogState extends State<_DraggableFullScreenDialog> 
                           IconButton(
                             icon: Icon(Icons.close, color: Colors.grey.shade700),
                             onPressed: () => Navigator.of(context).pop(),
-                            tooltip: 'Close',
+                            tooltip: AppLocalizations.of(context)!.commonClose,
                           ),
                         ],
                       ),
@@ -3831,7 +3832,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                 onPressed: () => Navigator.of(context).pop(),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                tooltip: 'Close',
+                tooltip: AppLocalizations.of(context)!.commonClose,
               ),
               const SizedBox(width: 8),
               CircleAvatar(
@@ -4043,7 +4044,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'No shifts or forms found for this month',
+                    AppLocalizations.of(context)!.noShiftsOrFormsFoundFor,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -4144,7 +4145,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text('Linking form and recalculating payment...'),
+                Text(AppLocalizations.of(context)!.linkingFormAndRecalculatingPayment),
               ],
             ),
             duration: Duration(seconds: 5),
@@ -4168,7 +4169,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Form linked to shift successfully. Payment updated.'),
+              content: Text(AppLocalizations.of(context)!.formLinkedToShiftSuccessfullyPayment),
             backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
           ),
@@ -4187,7 +4188,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to link form to shift'),
+            content: Text(AppLocalizations.of(context)!.failedToLinkFormToShift),
             backgroundColor: Colors.red,
           ),
         );
@@ -4196,7 +4197,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context)!.errorE),
             backgroundColor: Colors.red,
           ),
         );
@@ -4254,7 +4255,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update payment'),
+            content: Text(AppLocalizations.of(context)!.failedToUpdatePayment),
             backgroundColor: Colors.red,
           ),
         );
@@ -4313,7 +4314,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error applying penalty: $e'),
+            content: Text(AppLocalizations.of(context)!.errorApplyingPenaltyE),
             backgroundColor: Colors.red,
           ),
         );
@@ -4407,7 +4408,7 @@ class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
               Icon(Icons.assignment_turned_in, size: 18, color: Colors.blue.shade700),
               const SizedBox(width: 8),
               Text(
-                'Forms Compliance',
+                AppLocalizations.of(context)!.formsCompliance,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -4456,7 +4457,7 @@ class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Penalty per missing',
+                        AppLocalizations.of(context)!.penaltyPerMissing,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: Colors.grey.shade700,
@@ -4468,7 +4469,7 @@ class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
                         controller: _penaltyController,
                         keyboardType: TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
-                          hintText: '0.00',
+                          hintText: AppLocalizations.of(context)!.000,
                           prefixText: '\$',
                           prefixStyle: GoogleFonts.inter(color: Colors.grey.shade700),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -4496,7 +4497,7 @@ class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Total penalty',
+                        AppLocalizations.of(context)!.totalPenalty,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: Colors.grey.shade700,
@@ -4611,7 +4612,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Shifts Without Forms',
+                  AppLocalizations.of(context)!.shiftsWithoutForms,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -4626,7 +4627,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '$count',
+                  AppLocalizations.of(context)!.count,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -4638,7 +4639,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
           ),
           const SizedBox(height: 12),
           Text(
-            'These shifts were completed but no readiness form was submitted. Apply a penalty for missing forms.',
+            AppLocalizations.of(context)!.theseShiftsWereCompletedButNo,
             style: GoogleFonts.inter(
               fontSize: 11,
               color: Colors.grey.shade700,
@@ -4653,7 +4654,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Penalty per shift',
+                      AppLocalizations.of(context)!.penaltyPerShift,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.grey.shade700,
@@ -4665,7 +4666,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
                       controller: _penaltyController,
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        hintText: '0.00',
+                        hintText: AppLocalizations.of(context)!.000,
                         prefixText: '\$',
                         prefixStyle: GoogleFonts.inter(color: Colors.grey.shade700),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -4693,7 +4694,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total penalty',
+                      AppLocalizations.of(context)!.totalPenalty,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.grey.shade700,
@@ -4820,7 +4821,7 @@ class _IndividualShiftPaymentsSectionState extends State<_IndividualShiftPayment
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          'No shifts with forms found. Link forms to shifts to see payouts.',
+          AppLocalizations.of(context)!.noShiftsWithFormsFoundLink,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: Colors.grey.shade600,
@@ -4954,7 +4955,7 @@ class _IndividualShiftPaymentsSectionState extends State<_IndividualShiftPayment
                           _editingStates[shiftId] = true;
                         });
                       },
-                      tooltip: 'Adjust payment',
+                      tooltip: AppLocalizations.of(context)!.adjustPayment2,
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(),
                     ),
@@ -5008,7 +5009,7 @@ class _IndividualShiftPaymentsSectionState extends State<_IndividualShiftPayment
                           _editingStates[shiftId] = false;
                         });
                       },
-                      tooltip: 'Save',
+                      tooltip: AppLocalizations.of(context)!.commonSave,
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(),
                     ),
@@ -5020,7 +5021,7 @@ class _IndividualShiftPaymentsSectionState extends State<_IndividualShiftPayment
                           _editingStates[shiftId] = false;
                         });
                       },
-                      tooltip: 'Cancel',
+                      tooltip: AppLocalizations.of(context)!.commonCancel,
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(),
                     ),
@@ -5391,7 +5392,7 @@ class _AdminFormCardState extends State<_AdminFormCard> {
                     color: Colors.grey.shade600,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    tooltip: 'View Form Details',
+                    tooltip: AppLocalizations.of(context)!.viewFormDetails,
                     onPressed: () => _showFormDetailsModal(context, widget.form),
                   ),
                 ],
@@ -5542,7 +5543,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
       if (!shiftDoc.exists) {
         if (widget.parentContext.mounted) {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-            const SnackBar(content: Text('Shift not found')),
+            const SnackBar(content: Text(AppLocalizations.of(context)!.shiftNotFound)),
           );
         }
         return;
@@ -5560,7 +5561,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     } catch (e) {
       if (widget.parentContext.mounted) {
         ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-          SnackBar(content: Text('Error loading shift: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingShiftE)),
         );
       }
     }
@@ -5623,7 +5624,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Loading shift information...',
+                      AppLocalizations.of(context)!.loadingShiftInformation,
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.grey.shade600,
@@ -5649,7 +5650,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Shift Information (Autofilled)',
+                          AppLocalizations.of(context)!.shiftInformationAutofilled,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -5671,7 +5672,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                                 Icon(Icons.open_in_new, size: 12, color: Colors.blue.shade700),
                                 const SizedBox(width: 4),
                       Text(
-                        'View Shift',
+                        AppLocalizations.of(context)!.viewShift,
                         style: GoogleFonts.inter(
                                     fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -5729,7 +5730,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
           const SizedBox(height: 8),
           // Form Responses Section
           Text(
-            'Form Responses',
+            AppLocalizations.of(context)!.formResponses2,
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -5753,7 +5754,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Text(
-                'No responses',
+                AppLocalizations.of(context)!.noResponses,
                 style: GoogleFonts.inter(
                   color: Colors.grey.shade400,
                   fontSize: 11,
@@ -5829,7 +5830,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
   Widget _formatResponseValue(dynamic value) {
     if (value == null) {
       return Text(
-        '—',
+        AppLocalizations.of(context)!.text5,
         style: GoogleFonts.inter(
           fontSize: 12,
           color: Colors.grey.shade400,
@@ -5840,7 +5841,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     if (value is String) {
       if (value.isEmpty) {
         return Text(
-          '—',
+          AppLocalizations.of(context)!.text5,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: Colors.grey.shade400,
@@ -5905,7 +5906,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
                 Icon(Icons.image, size: 14, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(
-                  'View attachment',
+                  AppLocalizations.of(context)!.viewAttachment,
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -5925,7 +5926,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     if (value is List) {
       if (value.isEmpty) {
         return Text(
-          '—',
+          AppLocalizations.of(context)!.text5,
           style: GoogleFonts.inter(
             fontSize: 12,
             color: Colors.grey.shade400,
@@ -5977,7 +5978,7 @@ class _MetadataRow extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              '$label:',
+              AppLocalizations.of(context)!.label2,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: Colors.grey.shade600,
@@ -6164,7 +6165,7 @@ class _ShiftRow extends StatelessWidget {
                   Icon(Icons.check_circle, size: 12, color: Colors.green.shade700),
                   const SizedBox(width: 4),
                   Text(
-                    'Form submitted',
+                    AppLocalizations.of(context)!.formSubmitted,
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       color: Colors.green.shade700,
@@ -6187,7 +6188,7 @@ class _ShiftRow extends StatelessWidget {
                   Icon(Icons.warning_amber_rounded, size: 12, color: Colors.orange.shade700),
                   const SizedBox(width: 4),
                   Text(
-                    'NO FORM',
+                    AppLocalizations.of(context)!.noForm,
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       color: Colors.orange.shade700,
@@ -6207,7 +6208,7 @@ class _ShiftRow extends StatelessWidget {
                           border: Border.all(color: Colors.blue.shade200),
                         ),
                         child: Text(
-                          'Link Form',
+                          AppLocalizations.of(context)!.linkForm,
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             color: Colors.blue.shade700,
@@ -6234,7 +6235,7 @@ class _ShiftRow extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Teacher did not submit readiness form. This shift will be excluded from payment calculation.',
+                      AppLocalizations.of(context)!.teacherDidNotSubmitReadinessForm,
                       style: GoogleFonts.inter(
                         fontSize: 9,
                         color: Colors.grey.shade700,
@@ -6259,7 +6260,7 @@ class _ShiftRow extends StatelessWidget {
                         Icon(Icons.block, size: 14),
                         const SizedBox(width: 4),
                         Text(
-                          'Ban Shift',
+                          AppLocalizations.of(context)!.banShift,
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
@@ -6287,7 +6288,7 @@ class _ShiftRow extends StatelessWidget {
     
     if (nearbyForms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No unlinked forms found nearby')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noUnlinkedFormsFoundNearby)),
       );
       return;
     }
@@ -6295,7 +6296,7 @@ class _ShiftRow extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Link Form to Shift'),
+        title: Text(AppLocalizations.of(context)!.linkFormToShift),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -6308,13 +6309,13 @@ class _ShiftRow extends StatelessWidget {
                   : 'No date';
               return ListTile(
                 title: Text('Day: ${form.dayOfWeek ?? "N/A"}'),
-                subtitle: Text('Submitted: $dateStr'),
+                subtitle: Text(AppLocalizations.of(context)!.submittedDatestr),
                 trailing: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
                     onLinkFormToShift(form.formId, shift.shiftId);
                   },
-                  child: Text('Link'),
+                  child: Text(AppLocalizations.of(context)!.link),
                 ),
               );
             },
@@ -6328,14 +6329,14 @@ class _ShiftRow extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Ban Shift'),
+        title: Text(AppLocalizations.of(context)!.banShift),
         content: Text(
-          'Are you sure you want to ban this shift? This will mark it as invalid and exclude it from all audit calculations, payment calculations, and statistics. This action cannot be undone easily.',
+          AppLocalizations.of(context)!.areYouSureYouWantTo13,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -6351,7 +6352,7 @@ class _ShiftRow extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Shift banned successfully. Recalculating audit...'),
+                      content: Text(AppLocalizations.of(context)!.shiftBannedSuccessfullyRecalculatingAudit),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -6374,7 +6375,7 @@ class _ShiftRow extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error banning shift: $e'),
+                      content: Text(AppLocalizations.of(context)!.errorBanningShiftE),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -6382,7 +6383,7 @@ class _ShiftRow extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Ban Shift'),
+            child: Text(AppLocalizations.of(context)!.banShift),
           ),
         ],
       ),
@@ -6456,13 +6457,13 @@ class _FormRow extends StatelessWidget {
                 onPressed: () {
                   _showFormDetailsModal(context, formData, form.formId, form.linkedShiftId ?? 'N/A', parentContext);
                 },
-                tooltip: 'View Details',
+                tooltip: AppLocalizations.of(context)!.shiftViewDetails,
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'Submitted: $dateStr',
+            AppLocalizations.of(context)!.submittedDatestr,
             style: GoogleFonts.inter(
               fontSize: 11,
               color: Colors.grey.shade600,
@@ -6486,7 +6487,7 @@ class _FormRow extends StatelessWidget {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'NO SHIFT ASSOCIATED',
+                          AppLocalizations.of(context)!.noShiftAssociated,
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             color: Colors.orange.shade900,
@@ -6498,7 +6499,7 @@ class _FormRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This form indicates the teacher conducted a class without a scheduled shift. Please verify why this happened and take appropriate action.',
+                    AppLocalizations.of(context)!.thisFormIndicatesTheTeacherConducted,
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       color: Colors.grey.shade700,
@@ -6514,7 +6515,7 @@ class _FormRow extends StatelessWidget {
                           child: OutlinedButton.icon(
                             onPressed: () => _showLinkShiftDialog(context),
                             icon: Icon(Icons.link, size: 14),
-                            label: Text('Link to Shift', style: GoogleFonts.inter(fontSize: 10)),
+                            label: Text(AppLocalizations.of(context)!.linkToShift, style: GoogleFonts.inter(fontSize: 10)),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               side: BorderSide(color: Colors.blue.shade300),
@@ -6528,7 +6529,7 @@ class _FormRow extends StatelessWidget {
                         child: ElevatedButton.icon(
                           onPressed: () => _showCreateShiftDialog(context),
                           icon: Icon(Icons.add, size: 14),
-                          label: Text('Create Shift', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600)),
+                          label: Text(AppLocalizations.of(context)!.createShift, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade600,
                             foregroundColor: Colors.white,
@@ -6568,7 +6569,7 @@ class _FormRow extends StatelessWidget {
     
     if (nearbyShifts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No orphan shifts found nearby')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noOrphanShiftsFoundNearby)),
       );
       return;
     }
@@ -6576,7 +6577,7 @@ class _FormRow extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Link Form to Shift'),
+        title: Text(AppLocalizations.of(context)!.linkFormToShift),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -6593,7 +6594,7 @@ class _FormRow extends StatelessWidget {
                     Navigator.of(context).pop();
                     onLinkFormToShift(form.formId, shift.shiftId);
                   },
-                  child: Text('Link'),
+                  child: Text(AppLocalizations.of(context)!.link),
                 ),
               );
             },
@@ -6697,12 +6698,12 @@ class _FormRow extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Ban Form'),
-        content: Text('Are you sure you want to ban this form? This will mark it as invalid and exclude it from audit calculations.'),
+        title: Text(AppLocalizations.of(context)!.banForm),
+        content: Text(AppLocalizations.of(context)!.areYouSureYouWantTo14),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -6714,12 +6715,12 @@ class _FormRow extends StatelessWidget {
               });
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Form banned successfully'), backgroundColor: Colors.green),
+                  SnackBar(content: Text(AppLocalizations.of(context)!.formBannedSuccessfully), backgroundColor: Colors.green),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Ban'),
+            child: Text(AppLocalizations.of(context)!.ban),
           ),
         ],
       ),
@@ -6742,7 +6743,7 @@ class _FormRow extends StatelessWidget {
     final auditSheetState = parentContext.findAncestorStateOfType<_AuditDetailSheetState>();
     if (auditSheetState == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to find audit context'), backgroundColor: Colors.red),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.unableToFindAuditContext), backgroundColor: Colors.red),
       );
       return;
     }
@@ -6776,7 +6777,7 @@ class _FormRow extends StatelessWidget {
               const Icon(Icons.add_task, color: Colors.green),
               const SizedBox(width: 12),
               Text(
-                'Régularisation Administrative',
+                AppLocalizations.of(context)!.reGularisationAdministrative,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
             ],
@@ -6788,7 +6789,7 @@ class _FormRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Enseignant: $teacherName',
+                  AppLocalizations.of(context)!.enseignantTeachername,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -6796,14 +6797,14 @@ class _FormRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Ce formulaire n\'a pas de shift associé. Créez un shift "Completed" basé sur les déclarations du professeur.',
+                  AppLocalizations.of(context)!.ceFormulaireNAPasDe,
                   style: GoogleFonts.inter(fontSize: 13),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: subjectController,
                   decoration: const InputDecoration(
-                    labelText: 'Sujet du cours',
+                    labelText: AppLocalizations.of(context)!.sujetDuCours,
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -6813,7 +6814,7 @@ class _FormRow extends StatelessWidget {
                   controller: durationController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'Durée à payer (Heures)',
+                    labelText: AppLocalizations.of(context)!.dureEAPayerHeures,
                     suffixText: 'heures',
                     border: OutlineInputBorder(),
                     isDense: true,
@@ -6821,7 +6822,7 @@ class _FormRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Le paiement sera calculé : Durée × Taux horaire du sujet.',
+                  AppLocalizations.of(context)!.lePaiementSeraCalculeDureE,
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     color: Colors.blue.shade700,
@@ -6834,7 +6835,7 @@ class _FormRow extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: isProcessing ? null : () => Navigator.pop(context),
-              child: const Text('Annuler'),
+              child: Text(AppLocalizations.of(context)!.annuler),
             ),
             ElevatedButton(
               onPressed: isProcessing ? null : () async {
@@ -6845,7 +6846,7 @@ class _FormRow extends StatelessWidget {
                   setDialogState(() => isProcessing = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('La durée doit être supérieure à 0'),
+                      content: Text(AppLocalizations.of(context)!.laDureEDoitETre),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -6857,7 +6858,7 @@ class _FormRow extends StatelessWidget {
                   setDialogState(() => isProcessing = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Le sujet est requis'),
+                      content: Text(AppLocalizations.of(context)!.leSujetEstRequis),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -6879,7 +6880,7 @@ class _FormRow extends StatelessWidget {
                   if (success) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Shift créé et paiement synchronisé !'),
+                        content: Text(AppLocalizations.of(context)!.shiftCreEEtPaiementSynchronise),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -6897,7 +6898,7 @@ class _FormRow extends StatelessWidget {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Erreur lors de la création du shift.'),
+                        content: Text(AppLocalizations.of(context)!.erreurLorsDeLaCreAtion),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -6917,7 +6918,7 @@ class _FormRow extends StatelessWidget {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Créer & Payer'),
+                  : Text(AppLocalizations.of(context)!.creErPayer),
             ),
           ],
         ),
@@ -7075,7 +7076,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         if (auditsToExport.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No data to export with current filters'),
+              content: Text(AppLocalizations.of(context)!.noDataToExportWithCurrent),
               backgroundColor: Colors.orange,
             ),
           );
@@ -7093,7 +7094,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Excel report exported successfully!'),
+            content: Text(AppLocalizations.of(context)!.excelReportExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
@@ -7102,7 +7103,7 @@ class _ExportDialogState extends State<_ExportDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error exporting: $e'),
+            content: Text(AppLocalizations.of(context)!.errorExportingE),
             backgroundColor: Colors.red,
           ),
         );
@@ -7177,7 +7178,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Export Audit Report',
+                        AppLocalizations.of(context)!.exportAuditReport,
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -7185,7 +7186,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                         ),
                       ),
                       Text(
-                        'Excel with monthly pivot tables',
+                        AppLocalizations.of(context)!.excelWithMonthlyPivotTables,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -7204,7 +7205,7 @@ class _ExportDialogState extends State<_ExportDialog> {
             
             // Filter by Teacher
             Text(
-              'Filter by Teacher',
+              AppLocalizations.of(context)!.filterByTeacher2,
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -7224,12 +7225,12 @@ class _ExportDialogState extends State<_ExportDialog> {
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   border: InputBorder.none,
-                  hintText: 'All Teachers',
+                  hintText: AppLocalizations.of(context)!.allTeachers,
                 ),
                 items: [
                   const DropdownMenuItem<String?>(
                     value: null,
-                    child: Text('All Teachers', overflow: TextOverflow.ellipsis),
+                    child: Text(AppLocalizations.of(context)!.allTeachers, overflow: TextOverflow.ellipsis),
                   ),
                   ..._teachers.map((t) => DropdownMenuItem<String?>(
                     value: t['id'],
@@ -7266,7 +7267,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Export All Months (Pivot View)',
+                          AppLocalizations.of(context)!.exportAllMonthsPivotView,
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -7302,7 +7303,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Sheets included in export:',
+                    AppLocalizations.of(context)!.sheetsIncludedInExport,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -7370,7 +7371,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
-                    'Cancel',
+                    AppLocalizations.of(context)!.commonCancel,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w500,
                       color: Colors.grey.shade600,
@@ -7415,7 +7416,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Text(
-        '$icon $description',
+        AppLocalizations.of(context)!.iconDescription,
         style: GoogleFonts.inter(
           fontSize: 10,
           color: Colors.grey.shade700,

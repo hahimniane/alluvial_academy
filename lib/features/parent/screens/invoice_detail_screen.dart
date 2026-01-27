@@ -11,6 +11,7 @@ import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart'
 import 'package:alluwalacademyadmin/features/parent/widgets/beautiful_invoice_widget.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class InvoiceDetailScreen extends StatelessWidget {
   final String invoiceId;
@@ -26,7 +27,7 @@ class InvoiceDetailScreen extends StatelessWidget {
         foregroundColor: const Color(0xFF111827),
         elevation: 0,
         title: Text(
-          'Invoice Details',
+          AppLocalizations.of(context)!.invoiceDetails,
           style: GoogleFonts.inter(fontWeight: FontWeight.w800),
         ),
       ),
@@ -90,7 +91,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                           onPressed: () => _downloadInvoicePDF(context, invoice),
                           icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
                           label: Text(
-                            'Download PDF',
+                            AppLocalizations.of(context)!.downloadPdf,
                             style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                           ),
                           style: OutlinedButton.styleFrom(
@@ -130,7 +131,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                 BeautifulInvoiceWidget(invoice: invoice),
                 const SizedBox(height: 18),
                 Text(
-                  'Payments',
+                  AppLocalizations.of(context)!.payments,
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -224,7 +225,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       Navigator.of(context).pop(); // Close loading dialog if still open
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to generate PDF: $e', style: GoogleFonts.inter()),
+          content: Text(AppLocalizations.of(context)!.failedToGeneratePdfE, style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
         ),
       );
@@ -236,7 +237,7 @@ class InvoiceDetailScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Failed to load invoice.\n$message',
+          AppLocalizations.of(context)!.failedToLoadInvoiceNMessage,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(color: const Color(0xFF6B7280), fontWeight: FontWeight.w600),
         ),

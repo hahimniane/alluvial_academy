@@ -6,6 +6,7 @@ import 'dart:html' as html;
 import 'dart:convert';
 import '../../core/models/teacher_audit_metrics.dart';
 import '../../core/services/audit_metrics_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Admin dashboard for viewing teacher audit metrics
 class AuditDashboardScreen extends StatefulWidget {
@@ -99,7 +100,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading metrics: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingMetricsE)),
         );
       }
     }
@@ -111,7 +112,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Teacher Audit Dashboard',
+          AppLocalizations.of(context)!.teacherAuditDashboard,
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.white,
@@ -122,7 +123,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           Row(
             children: [
               Text(
-                'Pilot Only',
+                AppLocalizations.of(context)!.pilotOnly,
                 style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
               ),
               Switch(
@@ -140,7 +141,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           ElevatedButton.icon(
             onPressed: _exportToCSV,
             icon: const Icon(Icons.download, size: 18),
-            label: const Text('Export CSV'),
+            label: Text(AppLocalizations.of(context)!.exportCsv),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xff0386FF),
               foregroundColor: Colors.white,
@@ -150,7 +151,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           ElevatedButton.icon(
             onPressed: _generateReport,
             icon: const Icon(Icons.picture_as_pdf, size: 18),
-            label: const Text('Export PDF'),
+            label: Text(AppLocalizations.of(context)!.exportPdf),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xff10B981),
               foregroundColor: Colors.white,
@@ -189,7 +190,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
             child: DropdownButtonFormField<String>(
               value: _availableMonths.contains(_selectedMonth) ? _selectedMonth : null,
               decoration: InputDecoration(
-                labelText: 'Month',
+                labelText: AppLocalizations.of(context)!.dashboardMonth,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -214,12 +215,12 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
             child: DropdownButtonFormField<String?>(
               value: _selectedTeacherId,
               decoration: InputDecoration(
-                labelText: 'Teacher',
+                labelText: AppLocalizations.of(context)!.roleTeacher,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                const DropdownMenuItem(value: null, child: Text('All Teachers')),
+                const DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTeachers)),
                 ..._teachers.map((t) => DropdownMenuItem(
                       value: t['userId'],
                       child: Text(t['name'] ?? t['email'] ?? 'Unknown'),
@@ -237,12 +238,12 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
             child: DropdownButtonFormField<PerformanceTier?>(
               value: _selectedTier,
               decoration: InputDecoration(
-                labelText: 'Performance Tier',
+                labelText: AppLocalizations.of(context)!.performanceTier,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                const DropdownMenuItem(value: null, child: Text('All Tiers')),
+                const DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTiers)),
                 ...PerformanceTier.values.map((t) => DropdownMenuItem(
                       value: t,
                       child: Row(
@@ -265,7 +266,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           IconButton(
             onPressed: _loadMetrics,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: AppLocalizations.of(context)!.commonRefresh,
           ),
         ],
       ),
@@ -556,7 +557,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           Icon(Icons.analytics_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
-            'No audit data available',
+            AppLocalizations.of(context)!.noAuditDataAvailable,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -565,7 +566,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Run the compute script to generate metrics:\nnode scripts/compute_audit_metrics.js $_selectedMonth',
+            AppLocalizations.of(context)!.runTheComputeScriptToGenerate,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 14,
@@ -576,7 +577,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
           ElevatedButton.icon(
             onPressed: _computeMetricsForPilot,
             icon: const Icon(Icons.calculate),
-            label: const Text('Compute Metrics Now'),
+            label: Text(AppLocalizations.of(context)!.computeMetricsNow),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xff8B5CF6),
               foregroundColor: Colors.white,
@@ -603,7 +604,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
   Future<void> _computeMetricsForPilot() async {
     // Compute metrics directly in Dart for the pilot user
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Computing metrics... This may take a moment.')),
+      const SnackBar(content: Text(AppLocalizations.of(context)!.computingMetricsThisMayTakeA)),
     );
 
     try {
@@ -634,7 +635,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorE), backgroundColor: Colors.red),
       );
     }
   }
@@ -642,7 +643,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
   void _exportToCSV() {
     if (_metrics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No data to export')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
       );
       return;
     }
@@ -668,7 +669,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     html.Url.revokeObjectUrl(url);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('CSV exported successfully!')),
+      const SnackBar(content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully2)),
     );
   }
 
@@ -676,7 +677,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     // For now, generate a simple HTML report that can be printed as PDF
     if (_metrics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No data to export')),
+        const SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
       );
       return;
     }
@@ -772,7 +773,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     html.window.open(url, '_blank');
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Report opened in new tab. Use Ctrl+P to print as PDF.')),
+      const SnackBar(content: Text(AppLocalizations.of(context)!.reportOpenedInNewTabUse)),
     );
   }
 }

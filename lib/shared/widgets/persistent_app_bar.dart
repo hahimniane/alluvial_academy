@@ -5,6 +5,7 @@ import '../../screens/islamic_courses_page.dart';
 import '../../screens/tutoring_literacy_page.dart';
 import '../../screens/afrolingual_page.dart';
 import '../../main.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class PersistentAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String currentPage;
@@ -132,7 +133,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'ALLUWAL',
+                AppLocalizations.of(context)!.alluwal,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -141,7 +142,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                 ),
               ),
               Text(
-                'EDUCATION HUB',
+                AppLocalizations.of(context)!.educationHub,
                 style: GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -184,7 +185,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Programs',
+                    AppLocalizations.of(context)!.programs,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: isProgramsPage || _isProgramsHovered
@@ -493,7 +494,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
               child: Row(
                 children: [
                   Text(
-                    'Navigation',
+                    AppLocalizations.of(context)!.navigation,
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -532,7 +533,7 @@ class _PersistentAppBarState extends State<PersistentAppBar> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
-                      'PROGRAMS',
+                      AppLocalizations.of(context)!.programs2,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
