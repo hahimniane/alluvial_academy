@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/chat_message.dart';
 import '../models/chat_user.dart';
 import '../../../core/services/user_role_service.dart';
@@ -25,7 +27,7 @@ class ChatService {
             name:
                 '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
             email: data['email'] ?? data['e-mail'] ?? '',
-            profilePicture: data['profile_picture'],
+            profilePicture: data['profile_picture_url'] ?? data['profile_picture'],
             role: data['user_type'],
             isOnline: _isUserOnline(data['last_login']),
             lastSeen: data['last_login'] != null
@@ -136,7 +138,7 @@ class ChatService {
       name: '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
           .trim(),
       email: userData['email'] ?? userData['e-mail'] ?? '',
-      profilePicture: userData['profile_picture'],
+      profilePicture: userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],
       isOnline: _isUserOnline(userData['last_login']),
       lastSeen: (userData['last_login'] as Timestamp?)?.toDate(),
@@ -149,21 +151,22 @@ class ChatService {
   }
 
   // Get messages for a specific chat (handles both individual and group chats)
-  Stream<List<ChatMessage>> getChatMessages(String chatIdOrUserId) {
+  Stream<List<ChatMessage>> getChatMessages(String chatIdOrUserId, {bool isGroupChat = false}) {
     if (currentUserId == null) return Stream.value([]);
 
     String chatId;
     // Check if this is already a generated chat ID (contains underscore)
-    // or a Firestore document ID (long string without underscore for groups)
-    // or a user ID (short string for individual chats)
+    // or explicitly marked as a group chat
+    // or a user ID for individual chats
     if (chatIdOrUserId.contains('_')) {
       // Already a generated chat ID for individual chat
       chatId = chatIdOrUserId;
-    } else if (chatIdOrUserId.length > 15) {
-      // Group chat - use the provided Firestore document ID directly
+    } else if (isGroupChat) {
+      // Explicitly marked as group chat - use the provided Firestore document ID
       chatId = chatIdOrUserId;
     } else {
       // Individual chat - generate chat ID from user ID
+      // This ensures we only get messages between current user and the selected user
       chatId = _generateChatId(currentUserId!, chatIdOrUserId);
     }
 
@@ -203,22 +206,17 @@ class ChatService {
 
   // Send a message (handles both individual and group chats)
   Future<void> sendMessage(String chatIdOrUserId, String content,
-      {String messageType = 'text', Map<String, dynamic>? metadata}) async {
+      {String messageType = 'text', Map<String, dynamic>? metadata, bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
     String chatId;
-    bool isGroupChat = false;
 
-    // Check if this is already a generated chat ID, group chat ID, or user ID
+    // Check if this is already a generated chat ID or explicitly a group chat
     if (chatIdOrUserId.contains('_')) {
-      // Already a generated chat ID for individual chat
       chatId = chatIdOrUserId;
-    } else if (chatIdOrUserId.length > 15) {
-      // Group chat - use the provided Firestore document ID directly
+    } else if (isGroupChat) {
       chatId = chatIdOrUserId;
-      isGroupChat = true;
     } else {
-      // Individual chat - generate chat ID from user ID
       chatId = _generateChatId(currentUserId!, chatIdOrUserId);
     }
 
@@ -228,30 +226,28 @@ class ChatService {
     final senderName =
         '${currentUserData['first_name'] ?? ''} ${currentUserData['last_name'] ?? ''}'
             .trim();
+    final senderProfilePicture = currentUserData['profile_picture'];
 
     final messageData = ChatMessage(
       id: '',
       senderId: currentUserId!,
       senderName:
           senderName.isNotEmpty ? senderName : currentUserEmail ?? 'Unknown',
+      senderProfilePicture: senderProfilePicture,
       content: content,
       timestamp: DateTime.now(),
       messageType: messageType,
       metadata: metadata,
     ).toMap();
 
-    // Handle chat document creation/update
     final chatDocRef = _firestore.collection('chats').doc(chatId);
     final chatDoc = await chatDocRef.get();
 
     if (!chatDoc.exists) {
       if (isGroupChat) {
-        // For group chats, don't create new document - it should already exist
-        // This might happen if we're using wrong chat ID, so just add the message
         await chatDocRef.collection('messages').add(messageData);
         return;
       } else {
-        // Create individual chat document
         await chatDocRef.set({
           'participants': [currentUserId, chatIdOrUserId],
           'chat_type': 'individual',
@@ -261,15 +257,117 @@ class ChatService {
         });
       }
     } else {
-      // Update existing chat document
       await chatDocRef.update({
         'updated_at': FieldValue.serverTimestamp(),
         'last_message': messageData,
       });
     }
 
-    // Add message to subcollection
     await chatDocRef.collection('messages').add(messageData);
+  }
+
+  /// Upload an image and send as a message
+  Future<void> sendImageMessage(String chatIdOrUserId, File imageFile,
+      {bool isGroupChat = false}) async {
+    if (currentUserId == null) return;
+
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('chat_images')
+          .child(currentUserId!)
+          .child(fileName);
+
+      final uploadTask = await ref.putFile(imageFile);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      final fileSize = await imageFile.length();
+
+      await sendMessage(
+        chatIdOrUserId,
+        '📷 Photo',
+        messageType: 'image',
+        metadata: {
+          'file_url': downloadUrl,
+          'file_name': fileName,
+          'file_size': fileSize,
+          'mime_type': 'image/${fileName.split('.').last}',
+        },
+        isGroupChat: isGroupChat,
+      );
+    } catch (e) {
+      AppLogger.error('Error sending image message: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload a file and send as a message
+  Future<void> sendFileMessage(String chatIdOrUserId, File file, String originalFileName,
+      {bool isGroupChat = false}) async {
+    if (currentUserId == null) return;
+
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$originalFileName';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('chat_files')
+          .child(currentUserId!)
+          .child(fileName);
+
+      final uploadTask = await ref.putFile(file);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      final fileSize = await file.length();
+
+      await sendMessage(
+        chatIdOrUserId,
+        '📎 $originalFileName',
+        messageType: 'file',
+        metadata: {
+          'file_url': downloadUrl,
+          'file_name': originalFileName,
+          'file_size': fileSize,
+        },
+        isGroupChat: isGroupChat,
+      );
+    } catch (e) {
+      AppLogger.error('Error sending file message: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload a voice message and send
+  Future<void> sendVoiceMessage(String chatIdOrUserId, File audioFile, int durationSeconds,
+      {bool isGroupChat = false}) async {
+    if (currentUserId == null) return;
+
+    try {
+      final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('chat_voice')
+          .child(currentUserId!)
+          .child(fileName);
+
+      final uploadTask = await ref.putFile(audioFile);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      final fileSize = await audioFile.length();
+
+      await sendMessage(
+        chatIdOrUserId,
+        '🎤 Voice message',
+        messageType: 'voice',
+        metadata: {
+          'file_url': downloadUrl,
+          'file_name': fileName,
+          'file_size': fileSize,
+          'duration': durationSeconds,
+        },
+        isGroupChat: isGroupChat,
+      );
+    } catch (e) {
+      AppLogger.error('Error sending voice message: $e');
+      rethrow;
+    }
   }
 
   // Create a group chat (admin only)

@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import 'package:alluwalacademyadmin/features/chat/screens/chat_screen.dart';
+import 'package:alluwalacademyadmin/features/chat/models/chat_user.dart';
 
 /// Background message handler - must be a top-level function
 @pragma('vm:entry-point')
@@ -26,6 +30,21 @@ class NotificationService {
 
   bool _initialized = false;
   String? _fcmToken;
+  
+  /// Global navigator key for navigation from notifications
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  
+  /// Track the currently open chat to suppress notifications for it
+  static String? _currentOpenChatId;
+  
+  /// Set the currently open chat ID (call when entering a chat screen)
+  static void setCurrentOpenChat(String? chatId) {
+    _currentOpenChatId = chatId;
+    debugPrint('NotificationService: Current open chat set to: $chatId');
+  }
+  
+  /// Get the currently open chat ID
+  static String? get currentOpenChatId => _currentOpenChatId;
 
   /// Get the FCM token for this device
   String? get fcmToken => _fcmToken;
@@ -112,9 +131,16 @@ class NotificationService {
     }
   }
 
-  /// Create notification channel for Android
+  /// Create notification channels for Android
   Future<void> _createNotificationChannel() async {
-    const channel = AndroidNotificationChannel(
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidPlugin == null) return;
+
+    // High importance channel for general notifications
+    const highImportanceChannel = AndroidNotificationChannel(
       'high_importance_channel', // Must match the ID in AndroidManifest.xml
       'High Importance Notifications',
       description: 'This channel is used for important notifications.',
@@ -122,22 +148,61 @@ class NotificationService {
       enableVibration: true,
       playSound: true,
     );
+    await androidPlugin.createNotificationChannel(highImportanceChannel);
 
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    // Chat messages channel
+    const chatChannel = AndroidNotificationChannel(
+      'chat_messages',
+      'Chat Messages',
+      description: 'Notifications for new chat messages.',
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+    );
+    await androidPlugin.createNotificationChannel(chatChannel);
+
+    // Class reminders channel
+    const classChannel = AndroidNotificationChannel(
+      'class_reminders',
+      'Class Reminders',
+      description: 'Reminders for upcoming classes.',
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+    );
+    await androidPlugin.createNotificationChannel(classChannel);
   }
 
   /// Get FCM token (with retry for iOS)
   Future<void> _getFCMToken() async {
     try {
+      // On iOS, we need to wait for APNs token first
+      if (Platform.isIOS) {
+        debugPrint('📱 iOS: Waiting for APNs token...');
+        String? apnsToken = await _firebaseMessaging.getAPNSToken();
+        
+        // If APNs token not ready, wait and retry
+        int retryCount = 0;
+        while (apnsToken == null && retryCount < 5) {
+          retryCount++;
+          debugPrint('⏳ iOS: APNs token not ready, retry $retryCount/5 in 2 seconds...');
+          await Future.delayed(const Duration(seconds: 2));
+          apnsToken = await _firebaseMessaging.getAPNSToken();
+        }
+        
+        if (apnsToken != null) {
+          debugPrint('✅ iOS: APNs token received');
+        } else {
+          debugPrint('⚠️ iOS: APNs token still not available after retries');
+        }
+      }
+      
       _fcmToken = await _firebaseMessaging.getToken();
       debugPrint('FCM Token: $_fcmToken');
       
       // On iOS, token might be null initially - retry after a delay
       if (_fcmToken == null && Platform.isIOS) {
-        debugPrint('⏳ iOS: Token null on first attempt, retrying in 3 seconds...');
+        debugPrint('⏳ iOS: FCM Token null on first attempt, retrying in 3 seconds...');
         await Future.delayed(const Duration(seconds: 3));
         _fcmToken = await _firebaseMessaging.getToken();
         debugPrint('FCM Token after retry: $_fcmToken');
@@ -178,8 +243,32 @@ class NotificationService {
 
     final notification = message.notification;
     final android = message.notification?.android;
+    final data = message.data;
+    
+    // Check if this is a chat message notification
+    final notificationType = data['type'] as String?;
+    final chatId = data['chatId'] as String?;
+    
+    // Suppress notification if user is currently viewing this chat
+    if (notificationType == 'chat_message' && chatId != null) {
+      if (_currentOpenChatId == chatId) {
+        debugPrint('Suppressing notification - user is viewing this chat');
+        return;
+      }
+    }
 
     if (notification != null) {
+      // Determine which channel to use based on notification type
+      String channelId = 'high_importance_channel';
+      String channelName = 'High Importance Notifications';
+      String channelDescription = 'This channel is used for important notifications.';
+      
+      if (notificationType == 'chat_message') {
+        channelId = 'chat_messages';
+        channelName = 'Chat Messages';
+        channelDescription = 'Notifications for new chat messages';
+      }
+      
       // Show local notification when in foreground
       await _localNotifications.show(
         notification.hashCode,
@@ -187,12 +276,14 @@ class NotificationService {
         notification.body,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            'high_importance_channel',
-            'High Importance Notifications',
-            channelDescription: 'This channel is used for important notifications.',
+            channelId,
+            channelName,
+            channelDescription: channelDescription,
             importance: Importance.high,
             priority: Priority.high,
             icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+            playSound: true,
+            enableVibration: true,
           ),
           iOS: const DarwinNotificationDetails(
             presentAlert: true,
@@ -200,7 +291,7 @@ class NotificationService {
             presentSound: true,
           ),
         ),
-        payload: message.data.toString(),
+        payload: jsonEncode(message.data), // Encode as JSON for proper parsing
       );
     }
   }
@@ -210,8 +301,8 @@ class NotificationService {
     debugPrint('Notification tapped: ${message.messageId}');
     debugPrint('Message data: ${message.data}');
 
-    // TODO: Navigate to appropriate screen based on message data
-    _navigateBasedOnMessage(message);
+    // Navigate to chat if it's a chat message notification
+    _navigateToChatIfNeeded(message.data);
   }
 
   /// Check if app was opened from terminated state via notification
@@ -219,7 +310,19 @@ class NotificationService {
     final initialMessage = await _firebaseMessaging.getInitialMessage();
     if (initialMessage != null) {
       debugPrint('App opened from terminated state via notification: ${initialMessage.messageId}');
-      _navigateBasedOnMessage(initialMessage);
+      // Store for later navigation (app may not be fully initialized yet)
+      _pendingNavigation = initialMessage.data;
+      debugPrint('📱 Stored initial message for navigation: ${initialMessage.data}');
+    }
+  }
+  
+  /// Process any pending navigation (call after app is fully initialized)
+  Future<void> processPendingNavigation() async {
+    final data = _pendingNavigation;
+    if (data != null) {
+      debugPrint('📱 Processing pending navigation: $data');
+      _pendingNavigation = null;
+      await _navigateToChatIfNeeded(data);
     }
   }
 
@@ -227,18 +330,61 @@ class NotificationService {
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('Local notification tapped: ${response.payload}');
     
-    if (response.payload == null) return;
+    if (response.payload == null || response.payload!.isEmpty) return;
     
     try {
-      final data = Map<String, dynamic>.from(
-        // ignore: inference_failure_on_untyped_parameter
-        (response.payload!.isNotEmpty ? 
-          Map<String, dynamic>.from(response.payload as Map) : <String, dynamic>{})
-      );
+      // Parse the JSON payload
+      final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+      debugPrint('📱 Parsed notification data: $data');
       
-      _handleNotificationNavigation(data);
+      _navigateToChatIfNeeded(data);
     } catch (e) {
       debugPrint('Error parsing notification payload: $e');
+    }
+  }
+  
+  /// Navigate to chat screen if notification is a chat message
+  Future<void> _navigateToChatIfNeeded(Map<String, dynamic> data) async {
+    final type = data['type'] as String?;
+    
+    if (type == 'chat_message') {
+      final senderId = data['senderId'] as String?;
+      final senderName = data['senderName'] as String?;
+      final senderProfilePicture = data['senderProfilePicture'] as String?;
+      final chatType = data['chatType'] as String?;
+      
+      if (senderId == null || senderName == null) {
+        debugPrint('❌ Missing sender info in notification');
+        return;
+      }
+      
+      debugPrint('💬 Navigating to chat: $senderName ($senderId)');
+      debugPrint('📷 Profile picture: ${senderProfilePicture ?? "none"}');
+      
+      // Create ChatUser from notification data
+      final chatUser = ChatUser(
+        id: senderId,
+        name: senderName,
+        email: '', // Email not available from notification, will be loaded in chat screen
+        profilePicture: senderProfilePicture?.isNotEmpty == true ? senderProfilePicture : null,
+        isGroup: chatType == 'group',
+      );
+      
+      // Navigate to chat screen
+      final navigator = navigatorKey.currentState;
+      if (navigator != null) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(chatUser: chatUser),
+          ),
+        );
+      } else {
+        debugPrint('⚠️ Navigator not available, storing pending navigation');
+        _pendingNavigation = data;
+      }
+    } else {
+      // Store for other types of navigation
+      _handleNotificationNavigation(data);
     }
   }
   
@@ -253,6 +399,23 @@ class NotificationService {
       // This will be picked up by the main app when it's ready
       _pendingNavigation = data;
       debugPrint('📋 Stored pending form navigation: ${data['shiftId']}');
+    } else if (type == 'chat_message') {
+      // Store chat navigation data
+      _pendingNavigation = {
+        'type': 'chat_message',
+        'chatId': data['chatId'],
+        'senderId': data['senderId'],
+        'senderName': data['senderName'],
+        'chatType': data['chatType'],
+      };
+      debugPrint('💬 Stored pending chat navigation: ${data['chatId']}');
+    } else if (type == 'no_show_report') {
+      // Store no-show report navigation data
+      _pendingNavigation = {
+        'type': 'no_show_report',
+        'shiftId': data['shiftId'],
+      };
+      debugPrint('⚠️ Stored pending no-show navigation: ${data['shiftId']}');
     }
   }
   
@@ -288,24 +451,39 @@ class NotificationService {
   void _navigateBasedOnMessage(RemoteMessage message) {
     final data = message.data;
     
-    // Example: Navigate based on notification type
+    // Navigate based on notification type
     if (data.containsKey('type')) {
       final type = data['type'];
       debugPrint('Navigating based on type: $type');
       
-      // TODO: Implement navigation logic
-      // Example:
-      // switch (type) {
-      //   case 'chat':
-      //     // Navigate to chat screen
-      //     break;
-      //   case 'shift':
-      //     // Navigate to shift screen
-      //     break;
-      //   case 'timesheet':
-      //     // Navigate to timesheet screen
-      //     break;
-      // }
+      // Store navigation data for the app to handle
+      switch (type) {
+        case 'chat_message':
+          _pendingNavigation = {
+            'type': 'chat_message',
+            'chatId': data['chatId'],
+            'senderId': data['senderId'],
+            'senderName': data['senderName'],
+            'chatType': data['chatType'],
+          };
+          debugPrint('💬 Stored chat navigation from message');
+          break;
+        case 'no_show_report':
+          _pendingNavigation = {
+            'type': 'no_show_report',
+            'shiftId': data['shiftId'],
+          };
+          break;
+        case 'form_required':
+          _pendingNavigation = {
+            'type': 'form_required',
+            'shiftId': data['shiftId'],
+          };
+          break;
+        default:
+          debugPrint('Unknown notification type: $type');
+          break;
+      }
     }
   }
 
@@ -347,6 +525,29 @@ class NotificationService {
       // If token is null (common on iOS on first launch), try to get it now
       if (token == null) {
         AppLogger.debug('⚠️ Token is null, attempting to fetch now...');
+        
+        // On iOS, we need to wait for APNs token first
+        if (Platform.isIOS) {
+          AppLogger.debug('📱 iOS: Checking APNs token...');
+          String? apnsToken = await _firebaseMessaging.getAPNSToken();
+          
+          // If APNs token not ready, wait and retry
+          int retryCount = 0;
+          while (apnsToken == null && retryCount < 5) {
+            retryCount++;
+            AppLogger.debug('⏳ iOS: APNs token not ready, retry $retryCount/5 in 2 seconds...');
+            await Future.delayed(const Duration(seconds: 2));
+            apnsToken = await _firebaseMessaging.getAPNSToken();
+          }
+          
+          if (apnsToken != null) {
+            AppLogger.debug('✅ iOS: APNs token received, now getting FCM token');
+          } else {
+            AppLogger.debug('⚠️ iOS: APNs token still not available - will rely on token refresh listener');
+            return; // Exit and let the token refresh listener handle this
+          }
+        }
+        
         token = await _firebaseMessaging.getToken();
         _fcmToken = token;
         
@@ -413,41 +614,22 @@ class NotificationService {
         final existingTokens = data?['fcmTokens'] as List<dynamic>? ?? [];
         AppLogger.debug('📱 Existing tokens count: ${existingTokens.length}');
 
-        // Check if this exact token already exists for this platform
-        final tokenExists = existingTokens.any((t) => 
-          t is Map && 
-          t['token'] == token && 
-          t['platform'] == platform
-        );
-        AppLogger.debug('📱 Token already exists: $tokenExists');
+        // Remove ALL old tokens for this platform and add the new one
+        // This ensures only ONE token per platform (prevents duplicates)
+        final filteredTokens = existingTokens
+            .where((t) => t is Map && t['platform'] != platform)
+            .toList();
+        
+        // Add the current token
+        filteredTokens.add(tokenData);
+        
+        AppLogger.debug('📱 Updating tokens: removed old $platform tokens, new count: ${filteredTokens.length}');
 
-        if (tokenExists) {
-          // Update the timestamp for existing token
-          final updatedTokens = existingTokens.map((t) {
-            if (t is Map && t['token'] == token && t['platform'] == platform) {
-              return {
-                'token': token,
-                'platform': platform,
-                'lastUpdated': now,
-              };
-            }
-            return t;
-          }).toList();
-
-          await userRef.update({
-            'fcmTokens': updatedTokens,
-            'lastTokenUpdate': FieldValue.serverTimestamp(),
-          });
-          AppLogger.info('✅ Updated existing FCM token for $platform');
-        } else {
-          // Add new token to the array
-          AppLogger.debug('📱 Adding new token to array...');
-          await userRef.update({
-            'fcmTokens': FieldValue.arrayUnion([tokenData]),
-            'lastTokenUpdate': FieldValue.serverTimestamp(),
-          });
-          AppLogger.info('✅ Added new FCM token for $platform');
-        }
+        await userRef.update({
+          'fcmTokens': filteredTokens,
+          'lastTokenUpdate': FieldValue.serverTimestamp(),
+        });
+        AppLogger.info('✅ Updated FCM token for $platform (replaced old token)');
       }
 
       AppLogger.info('✅ FCM Token saved successfully to Firestore for user $uid on $platform');

@@ -101,20 +101,21 @@ class DateStripCalendar extends StatelessWidget {
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           DateFormat('EEE').format(date).toUpperCase(),
                           style: GoogleFonts.inter(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: isSelected ? Colors.white : Colors.grey.shade500,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           date.day.toString(),
                           style: GoogleFonts.inter(
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color:
                                 isSelected ? Colors.white : const Color(0xFF1E293B),

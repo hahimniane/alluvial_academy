@@ -1735,18 +1735,24 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   /// Build clock-in action buttons based on current time and shift state
   Widget _buildClockInActionButtons(TeachingShift shift) {
+    // Use local time for both to ensure consistent comparison
     final now = DateTime.now();
-    final shiftStart = shift.shiftStart;
-    final shiftEnd = shift.shiftEnd;
+    final shiftStart = shift.shiftStart.toLocal();
+    final shiftEnd = shift.shiftEnd.toLocal();
     
     // Programming window: 1 minute before shift start
     final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
+    
+    // Debug logging to help diagnose
+    debugPrint('🕐 Clock-in buttons: now=$now, shiftStart=$shiftStart, programWindow=$programmingWindowStart');
     
     // Check states
     final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);
     final shiftHasStarted = now.isAfter(shiftStart) || now.isAtSameMomentAs(shiftStart);
     final shiftHasEnded = now.isAfter(shiftEnd);
     final isThisShiftProgrammed = _programmedShiftId == shift.id;
+    
+    debugPrint('🕐 States: inProgramWindow=$isInProgramWindow, started=$shiftHasStarted, ended=$shiftHasEnded, programmed=$isThisShiftProgrammed');
     
     // If shift has ended, don't show any buttons
     if (shiftHasEnded) {
@@ -1847,14 +1853,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     
     // Otherwise, just show the time until clock-in is available
     final timeUntilProgramWindow = programmingWindowStart.difference(now);
-    if (timeUntilProgramWindow.inMinutes > 0) {
+    if (timeUntilProgramWindow.inSeconds > 0) {
+      final totalSeconds = timeUntilProgramWindow.inSeconds;
       final mins = timeUntilProgramWindow.inMinutes;
       final hrs = timeUntilProgramWindow.inHours;
+      final secs = totalSeconds % 60;
       String timeText;
       if (hrs > 0) {
         timeText = 'Clock-in available in ${hrs}h ${mins % 60}m';
+      } else if (mins > 0) {
+        timeText = 'Clock-in available in ${mins}m ${secs}s';
       } else {
-        timeText = 'Clock-in available in ${mins}m';
+        timeText = 'Clock-in available in ${secs}s';
       }
       
       return Container(
@@ -1886,7 +1896,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   /// Handle clock-in button press
   Future<void> _handleClockIn(TeachingShift shift) async {
     final now = DateTime.now();
-    final shiftStart = shift.shiftStart;
+    final shiftStart = shift.shiftStart.toLocal();
     final programmingWindowStart = shiftStart.subtract(const Duration(minutes: 1));
     
     final isInProgramWindow = now.isAfter(programmingWindowStart) && now.isBefore(shiftStart);

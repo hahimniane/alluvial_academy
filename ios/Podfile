@@ -49,6 +49,18 @@ post_install do |installer|
       # Fix for arm64 simulator builds
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+      
+      # Enable permissions for permission_handler
+      # See: https://pub.dev/packages/permission_handler
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_MICROPHONE=1',
+        'PERMISSION_PHOTOS=1',
+        'PERMISSION_LOCATION=1',
+        'PERMISSION_NOTIFICATIONS=1',
+        'PERMISSION_BLUETOOTH=1',
+      ]
     end
   end
 end

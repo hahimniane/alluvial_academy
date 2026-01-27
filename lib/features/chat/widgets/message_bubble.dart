@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/chat_message.dart';
+import 'voice_message_player.dart';
 
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -10,6 +12,7 @@ class MessageBubble extends StatefulWidget {
   final Function(ChatMessage)? onDelete;
   final Function(ChatMessage)? onForward;
   final Function(ChatMessage, String)? onReaction;
+  final Function(String)? onImageTap;
 
   const MessageBubble({
     super.key,
@@ -19,6 +22,7 @@ class MessageBubble extends StatefulWidget {
     this.onDelete,
     this.onForward,
     this.onReaction,
+    this.onImageTap,
   });
 
   @override
@@ -43,122 +47,350 @@ class _MessageBubbleState extends State<MessageBubble> {
         margin: EdgeInsets.only(
           top: 4,
           bottom: 4,
-          left: widget.isCurrentUser ? 48 : 16,
-          right: widget.isCurrentUser ? 16 : 48,
+          left: widget.isCurrentUser ? 48 : 12,
+          right: widget.isCurrentUser ? 12 : 48,
         ),
-        child: Column(
-          crossAxisAlignment: widget.isCurrentUser
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: widget.isCurrentUser
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Sender name (only for received messages)
-            if (!widget.isCurrentUser && widget.message.senderName.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 4),
-                child: Text(
-                  widget.message.senderName,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff0386FF),
-                  ),
-                ),
-              ),
-
-            // Reply preview (if replying to a message)
-            if (widget.message.metadata != null &&
-                widget.message.metadata!['reply_to'] != null)
-              _buildReplyPreview(),
-
-            // Message bubble
-            Stack(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: widget.isCurrentUser
-                        ? const Color(0xff0386FF)
-                        : Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(20),
-                      topRight: const Radius.circular(20),
-                      bottomLeft:
-                          Radius.circular(widget.isCurrentUser ? 20 : 4),
-                      bottomRight:
-                          Radius.circular(widget.isCurrentUser ? 4 : 20),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Message content
-                      Text(
-                        widget.message.content,
+            // Profile picture for received messages
+            if (!widget.isCurrentUser) ...[
+              _buildAvatar(),
+              const SizedBox(width: 8),
+            ],
+            
+            Flexible(
+              child: Column(
+                crossAxisAlignment: widget.isCurrentUser
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  // Sender name (only for received messages)
+                  if (!widget.isCurrentUser && widget.message.senderName.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 4),
+                      child: Text(
+                        widget.message.senderName,
                         style: GoogleFonts.inter(
-                          fontSize: 15,
-                          color: widget.isCurrentUser
-                              ? Colors.white
-                              : const Color(0xff2D3748),
-                          height: 1.4,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff0386FF),
                         ),
                       ),
+                    ),
 
-                      const SizedBox(height: 6),
+                  // Reply preview
+                  if (widget.message.metadata != null &&
+                      widget.message.metadata!['reply_to'] != null)
+                    _buildReplyPreview(),
 
-                      // Timestamp and read status
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _formatTimestamp(widget.message.timestamp),
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: widget.isCurrentUser
-                                  ? Colors.white.withOpacity(0.7)
-                                  : const Color(0xff9CA3AF),
-                              fontWeight: FontWeight.w400,
-                            ),
+                  // Message bubble
+                  Stack(
+                    children: [
+                      Container(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: widget.isCurrentUser
+                              ? const Color(0xff0386FF)
+                              : Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(20),
+                            topRight: const Radius.circular(20),
+                            bottomLeft: Radius.circular(widget.isCurrentUser ? 20 : 4),
+                            bottomRight: Radius.circular(widget.isCurrentUser ? 4 : 20),
                           ),
-
-                          // Read indicator for sent messages
-                          if (widget.isCurrentUser) ...[
-                            const SizedBox(width: 6),
-                            Icon(
-                              widget.message.isRead
-                                  ? Icons.done_all
-                                  : Icons.done,
-                              size: 14,
-                              color: widget.message.isRead
-                                  ? const Color(0xff10B981) // Green for read
-                                  : Colors.white.withOpacity(0.7),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
                           ],
-                        ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(20),
+                            topRight: const Radius.circular(20),
+                            bottomLeft: Radius.circular(widget.isCurrentUser ? 20 : 4),
+                            bottomRight: Radius.circular(widget.isCurrentUser ? 4 : 20),
+                          ),
+                          child: _buildMessageContent(),
+                        ),
                       ),
+                      if (_showReactions) _buildReactionPicker(),
                     ],
                   ),
-                ),
 
-                // Reaction overlay
-                if (_showReactions) _buildReactionPicker(),
-              ],
+                  // Message reactions display
+                  if (widget.message.metadata != null &&
+                      widget.message.metadata!['reactions'] != null)
+                    _buildReactionsDisplay(),
+                ],
+              ),
             ),
-
-            // Message reactions display
-            if (widget.message.metadata != null &&
-                widget.message.metadata!['reactions'] != null)
-              _buildReactionsDisplay(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    final profilePic = widget.message.senderProfilePicture;
+    final initials = widget.message.senderName.isNotEmpty
+        ? widget.message.senderName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        : '?';
+
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: const Color(0xff0386FF).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xff0386FF).withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: profilePic != null && profilePic.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                profilePic,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _buildInitials(initials),
+              ),
+            )
+          : _buildInitials(initials),
+    );
+  }
+
+  Widget _buildInitials(String initials) {
+    return Center(
+      child: Text(
+        initials,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xff0386FF),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageContent() {
+    if (widget.message.isImage) {
+      return _buildImageMessage();
+    } else if (widget.message.isVoice) {
+      return _buildVoiceMessage();
+    } else if (widget.message.isFile) {
+      return _buildFileMessage();
+    } else {
+      return _buildTextMessage();
+    }
+  }
+  
+  Widget _buildVoiceMessage() {
+    final audioUrl = widget.message.fileUrl;
+    final duration = widget.message.voiceDuration ?? 0;
+    
+    if (audioUrl == null || audioUrl.isEmpty) {
+      return _buildTextMessage(); // Fallback to text if no audio URL
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          VoiceMessagePlayer(
+            audioUrl: audioUrl,
+            durationSeconds: duration,
+            isFromMe: widget.isCurrentUser,
+          ),
+          const SizedBox(height: 6),
+          _buildTimestamp(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextMessage() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.message.content,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildTimestamp(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageMessage() {
+    final imageUrl = widget.message.fileUrl;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (imageUrl != null)
+          GestureDetector(
+            onTap: () => widget.onImageTap?.call(imageUrl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 250),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 150,
+                    width: 200,
+                    color: Colors.grey.shade200,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        strokeWidth: 2,
+                        color: const Color(0xff0386FF),
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
+                  height: 100,
+                  width: 150,
+                  color: Colors.grey.shade200,
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: _buildTimestamp(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileMessage() {
+    return InkWell(
+      onTap: () => _openFile(),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: widget.isCurrentUser
+                    ? Colors.white.withOpacity(0.2)
+                    : const Color(0xff0386FF).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                _getFileIcon(),
+                color: widget.isCurrentUser ? Colors.white : const Color(0xff0386FF),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.message.fileName ?? 'File',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: widget.isCurrentUser ? Colors.white : const Color(0xff2D3748),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.message.fileSizeFormatted,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: widget.isCurrentUser
+                          ? Colors.white.withOpacity(0.7)
+                          : const Color(0xff9CA3AF),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _buildTimestamp(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getFileIcon() {
+    final fileName = widget.message.fileName?.toLowerCase() ?? '';
+    if (fileName.endsWith('.pdf')) return Icons.picture_as_pdf;
+    if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) return Icons.description;
+    if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) return Icons.table_chart;
+    if (fileName.endsWith('.ppt') || fileName.endsWith('.pptx')) return Icons.slideshow;
+    if (fileName.endsWith('.zip') || fileName.endsWith('.rar')) return Icons.folder_zip;
+    return Icons.insert_drive_file;
+  }
+
+  Future<void> _openFile() async {
+    final url = widget.message.fileUrl;
+    if (url != null) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
+  Widget _buildTimestamp() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _formatTimestamp(widget.message.timestamp),
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            color: widget.isCurrentUser
+                ? Colors.white.withOpacity(0.7)
+                : const Color(0xff9CA3AF),
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        if (widget.isCurrentUser) ...[
+          const SizedBox(width: 6),
+          Icon(
+            widget.message.isRead ? Icons.done_all : Icons.done,
+            size: 14,
+            color: widget.message.isRead
+                ? const Color(0xff10B981)
+                : Colors.white.withOpacity(0.7),
+          ),
+        ],
+      ],
     );
   }
 
@@ -362,20 +594,21 @@ class _MessageBubbleState extends State<MessageBubble> {
             ],
           ),
         ),
-        if (widget.isCurrentUser)
-          PopupMenuItem(
-            value: 'delete',
-            child: Row(
-              children: [
-                const Icon(Icons.delete, color: Colors.red),
-                const SizedBox(width: 12),
-                Text(
-                  'Delete',
-                  style: GoogleFonts.inter(color: Colors.red),
-                ),
-              ],
-            ),
-          ),
+        // Delete functionality disabled - messages are permanent
+        // if (widget.isCurrentUser)
+        //   PopupMenuItem(
+        //     value: 'delete',
+        //     child: Row(
+        //       children: [
+        //         const Icon(Icons.delete, color: Colors.red),
+        //         const SizedBox(width: 12),
+        //         Text(
+        //           'Delete',
+        //           style: GoogleFonts.inter(color: Colors.red),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
       ],
     ).then((value) {
       if (value != null) {

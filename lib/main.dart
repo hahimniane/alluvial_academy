@@ -334,6 +334,8 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeService>(
       builder: (context, themeService, child) {
         return MaterialApp(
+          // Navigator key for notification navigation
+          navigatorKey: NotificationService.navigatorKey,
           // DevicePreview configuration
           locale: DevicePreview.locale(context),
           builder: (context, child) {

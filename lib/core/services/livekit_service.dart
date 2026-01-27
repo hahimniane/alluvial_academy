@@ -213,6 +213,255 @@ class LiveKitService {
     }
   }
 
+  /// Check if permissions are permanently denied
+  static Future<bool> arePermissionsPermanentlyDenied() async {
+    if (kIsWeb) return false;
+    
+    final cameraStatus = await Permission.camera.status;
+    final micStatus = await Permission.microphone.status;
+    
+    return cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied;
+  }
+
+  /// Show a permission dialog that guides users to enable camera/mic
+  static Future<bool> requestPermissionsWithDialog(BuildContext context) async {
+    if (kIsWeb) return true;
+
+    // First check current status
+    final cameraStatus = await Permission.camera.status;
+    final micStatus = await Permission.microphone.status;
+
+    // If already granted, return true
+    if (cameraStatus.isGranted && micStatus.isGranted) {
+      // Also request Bluetooth on Android
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await Permission.bluetooth.request();
+        await Permission.bluetoothConnect.request();
+      }
+      return true;
+    }
+
+    // Check if permanently denied
+    if (cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
+      if (!context.mounted) return false;
+      
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.videocam_off, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Expanded(child: Text('Permissions Required')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Camera and microphone access are needed to join video classes.',
+                style: TextStyle(fontSize: 15),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please enable permissions in Settings to continue.',
+                        style: TextStyle(fontSize: 13, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                await openAppSettings();
+                if (ctx.mounted) Navigator.pop(ctx, false);
+              },
+              icon: const Icon(Icons.settings, size: 18),
+              label: const Text('Open Settings'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0E72ED),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+      
+      return result ?? false;
+    }
+
+    // Request permissions normally
+    final granted = await requestPermissions();
+    
+    if (!granted && context.mounted) {
+      // Show dialog explaining why permissions are needed
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              SizedBox(width: 12),
+              Expanded(child: Text('Permissions Denied')),
+            ],
+          ),
+          content: const Text(
+            'Camera and microphone permissions are required to join video classes. '
+            'Please grant these permissions when prompted.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                // Try requesting again
+                await requestPermissions();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0E72ED),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return granted;
+  }
+
+  /// Start a direct call to another user (audio or video)
+  /// 
+  /// This initiates a 1-on-1 call outside of scheduled classes.
+  /// [recipientId] - The user ID of the person to call
+  /// [recipientName] - Display name of the recipient
+  /// [isAudioOnly] - If true, starts an audio-only call; otherwise video call
+  static Future<void> startCall(
+    BuildContext context, {
+    required String recipientId,
+    required String recipientName,
+    bool isAudioOnly = false,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      _showError(context, 'You must be logged in to make calls');
+      return;
+    }
+
+    // Request permissions (Android pre-request, iOS will prompt natively)
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final hasPermissions = await requestPermissionsWithDialog(context);
+      if (!hasPermissions) return;
+    }
+
+    // Show loading
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => PopScope(
+          canPop: false,
+          child: AlertDialog(
+            content: Row(
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    isAudioOnly
+                        ? 'Starting audio call with $recipientName...'
+                        : 'Starting video call with $recipientName...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    try {
+      // Call backend to create/get call room and token
+      final result = await _functions.httpsCallable('createDirectCall').call({
+        'recipientId': recipientId,
+        'isAudioOnly': isAudioOnly,
+      });
+
+      // Dismiss loading
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      final data = result.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        if (context.mounted) {
+          _showError(context, data['error'] ?? 'Failed to start call');
+        }
+        return;
+      }
+
+      // Navigate to call screen
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => LiveKitCallScreen(
+              livekitUrl: data['livekitUrl'],
+              token: data['token'],
+              roomName: data['roomName'],
+              displayName: data['displayName'] ?? 'You',
+              isTeacher: false,
+              isAudioOnlyMode: isAudioOnly,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Dismiss loading
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      
+      AppLogger.error('LiveKitService: Error starting call: $e');
+      
+      if (context.mounted) {
+        // Check if it's a "not found" error (function doesn't exist yet)
+        final errorMsg = e.toString();
+        if (errorMsg.contains('NOT_FOUND') || errorMsg.contains('not-found')) {
+          _showInfo(
+            context,
+            'Direct calls coming soon! This feature is being developed.',
+          );
+        } else {
+          _showError(context, 'Failed to start call. Please try again.');
+        }
+      }
+    }
+  }
+
   /// Check if the user can currently join the class
   /// Class is accessible from 10 minutes before shift start to 10 minutes after shift end
   static bool canJoinClass(TeachingShift shift) {
@@ -481,12 +730,16 @@ class LiveKitService {
       return;
     }
 
-    // Request permissions before joining
-    final hasPermissions = await requestPermissions();
-    if (!hasPermissions && context.mounted) {
-      _showError(context, 'Camera and microphone permissions are required');
-      return;
+    // On iOS, skip permission_handler and let LiveKit request permissions natively
+    // This ensures the proper iOS system prompt appears
+    // On Android, pre-request permissions for better UX
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final hasPermissions = await requestPermissionsWithDialog(context);
+      if (!hasPermissions) {
+        return; // Dialog already shown to user
+      }
     }
+    // On iOS, LiveKit will trigger the native permission prompt when enabling camera/mic
 
     // Show loading indicator
     if (context.mounted) {
@@ -587,6 +840,7 @@ class LiveKitCallScreen extends StatefulWidget {
   final String shiftId;
   final String shiftName;
   final bool initialRoomLocked;
+  final bool isAudioOnlyMode;
 
   const LiveKitCallScreen({
     super.key,
@@ -595,9 +849,10 @@ class LiveKitCallScreen extends StatefulWidget {
     required this.roomName,
     required this.displayName,
     required this.isTeacher,
-    required this.shiftId,
-    required this.shiftName,
-    required this.initialRoomLocked,
+    this.shiftId = '',
+    this.shiftName = 'Call',
+    this.initialRoomLocked = false,
+    this.isAudioOnlyMode = false,
   });
 
   @override
@@ -633,6 +888,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Timer? _remotePointerHideTimer;
 
   bool _connecting = true;
+  bool _initializingMedia = false; // True while camera/mic are being enabled on join
   bool _micEnabled = true;
   bool _cameraEnabled = true;
   bool _screenShareEnabled = false;
@@ -657,6 +913,20 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   String? _pipIdentity;
   bool _pipBusy = false;
 
+  // No-show detection for students (teacher didn't arrive)
+  Timer? _noShowCheckTimer;
+  Timer? _noShowAutoSendTimer;
+  bool _noShowDialogShown = false;
+  bool _noShowReportSent = false;
+  static const Duration _noShowCheckDelay = Duration(minutes: 5);
+  static const Duration _noShowAutoSendDelay = Duration(seconds: 30);
+
+  // No-show detection for teachers (students didn't arrive) - web only
+  Timer? _studentNoShowCheckTimer;
+  Timer? _studentNoShowAutoSendTimer;
+  bool _studentNoShowDialogShown = false;
+  bool _studentNoShowReportSent = false;
+
   @override
   void initState() {
     super.initState();
@@ -664,6 +934,305 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _currentLivekitUrl = widget.livekitUrl;
     _roomLocked = widget.initialRoomLocked;
     _connectToRoom();
+    _startNoShowDetection();
+  }
+
+  void _startNoShowDetection() {
+    // For students: check if teacher arrives within 5 minutes
+    if (!widget.isTeacher) {
+      _noShowCheckTimer = Timer(_noShowCheckDelay, _checkTeacherPresence);
+    }
+    // For teachers on web: check if any student arrives within 5 minutes
+    else if (kIsWeb) {
+      _studentNoShowCheckTimer = Timer(_noShowCheckDelay, _checkStudentPresence);
+    }
+  }
+
+  void _cancelNoShowTimers() {
+    _noShowCheckTimer?.cancel();
+    _noShowAutoSendTimer?.cancel();
+    _studentNoShowCheckTimer?.cancel();
+    _studentNoShowAutoSendTimer?.cancel();
+  }
+
+  bool _isTeacherInRoom() {
+    // Check if any remote participant is a teacher
+    // Teachers have identity containing "teacher" or are the host
+    final remoteParticipants = _room?.remoteParticipants.values ?? [];
+    for (final participant in remoteParticipants) {
+      // The identity format is typically "userId_role" or similar
+      // Check metadata or identity for teacher indication
+      final metadata = participant.metadata;
+      if (metadata != null) {
+        try {
+          final decoded = jsonDecode(metadata);
+          if (decoded['role'] == 'teacher' || decoded['isTeacher'] == true) {
+            return true;
+          }
+        } catch (_) {}
+      }
+      // Fallback: check if participant can lock room (teacher capability)
+      // For now, assume if there's any remote participant and room is locked by them, they're the teacher
+    }
+    return false;
+  }
+
+  bool _areStudentsInRoom() {
+    // Check if any students are in the room
+    final remoteParticipants = _room?.remoteParticipants.values ?? [];
+    return remoteParticipants.isNotEmpty;
+  }
+
+  void _checkTeacherPresence() {
+    if (!mounted || _noShowDialogShown || _noShowReportSent) return;
+    
+    if (!_isTeacherInRoom()) {
+      _showTeacherNoShowDialog();
+    }
+  }
+
+  void _checkStudentPresence() {
+    if (!mounted || _studentNoShowDialogShown || _studentNoShowReportSent) return;
+    
+    if (!_areStudentsInRoom()) {
+      _showStudentNoShowDialog();
+    }
+  }
+
+  void _showTeacherNoShowDialog() {
+    if (!mounted || _noShowDialogShown) return;
+    
+    setState(() => _noShowDialogShown = true);
+    
+    // Start auto-send timer
+    _noShowAutoSendTimer = Timer(_noShowAutoSendDelay, () {
+      if (mounted && !_noShowReportSent) {
+        _sendNoShowReport(isTeacherNoShow: true);
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Teacher Not Here?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your teacher hasn\'t joined the class yet. Would you like to report this to the administrators?',
+                style: TextStyle(fontSize: 15),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.timer_outlined, size: 20, color: Colors.grey.shade600),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Auto-sending report in 30 seconds...',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _noShowAutoSendTimer?.cancel();
+                setState(() => _noShowDialogShown = false);
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Teacher Arrived'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _noShowAutoSendTimer?.cancel();
+                _sendNoShowReport(isTeacherNoShow: true);
+                Navigator.of(dialogContext).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Report Now'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStudentNoShowDialog() {
+    if (!mounted || _studentNoShowDialogShown) return;
+    
+    setState(() => _studentNoShowDialogShown = true);
+    
+    // Start auto-send timer
+    _studentNoShowAutoSendTimer = Timer(_noShowAutoSendDelay, () {
+      if (mounted && !_studentNoShowReportSent) {
+        _sendNoShowReport(isTeacherNoShow: false);
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'No Students Yet?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'No students have joined the class yet. Would you like to report this to the administrators?',
+                style: TextStyle(fontSize: 15),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.timer_outlined, size: 20, color: Colors.grey.shade600),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Auto-sending report in 30 seconds...',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _studentNoShowAutoSendTimer?.cancel();
+                setState(() => _studentNoShowDialogShown = false);
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Student Joined'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _studentNoShowAutoSendTimer?.cancel();
+                _sendNoShowReport(isTeacherNoShow: false);
+                Navigator.of(dialogContext).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Report Now'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendNoShowReport({required bool isTeacherNoShow}) async {
+    if (isTeacherNoShow) {
+      if (_noShowReportSent) return;
+      setState(() => _noShowReportSent = true);
+    } else {
+      if (_studentNoShowReportSent) return;
+      setState(() => _studentNoShowReportSent = true);
+    }
+
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('reportNoShow');
+      await callable.call<Map<String, dynamic>>({
+        'shiftId': widget.shiftId,
+        'shiftName': widget.shiftName,
+        'roomName': widget.roomName,
+        'reportedBy': FirebaseAuth.instance.currentUser?.uid,
+        'reporterName': widget.displayName,
+        'isTeacherNoShow': isTeacherNoShow,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isTeacherNoShow
+                  ? 'Report sent. Administrators have been notified about the missing teacher.'
+                  : 'Report sent. Administrators have been notified about missing students.',
+            ),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Failed to send no-show report: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to send report. Please try again.'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   bool _participantHasMicOn(Participant p) {
@@ -727,6 +1296,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   Future<void> _disposeRoom() async {
     try {
+      // Explicitly stop mic and camera before disposing
+      try {
+        await _localParticipant?.setMicrophoneEnabled(false);
+        await _localParticipant?.setCameraEnabled(false);
+      } catch (e) {
+        AppLogger.warning('LiveKit: Error disabling media in disposeRoom: $e');
+      }
+      
       _listener?.dispose();
       _listener = null;
       await _room?.disconnect();
@@ -1006,6 +1583,34 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       });
 
       _reconnectAttempts = 0;
+      
+      // Automatically enable camera and microphone when joining
+      try {
+        final localP = room.localParticipant;
+        if (localP != null) {
+          if (mounted) {
+            setState(() => _initializingMedia = true);
+          }
+          // Enable microphone for both audio and video calls
+          await localP.setMicrophoneEnabled(true);
+          // Only enable camera if not audio-only mode
+          if (!widget.isAudioOnlyMode) {
+            AppLogger.info('LiveKit: Enabling camera and microphone...');
+            await localP.setCameraEnabled(true);
+          } else {
+            AppLogger.info('LiveKit: Audio-only mode - enabling microphone only');
+          }
+          AppLogger.info('LiveKit: Media enabled');
+        }
+      } catch (e) {
+        AppLogger.warning('LiveKit: Could not enable media automatically: $e');
+        // Don't fail the connection if media fails - user can enable manually
+      } finally {
+        if (mounted) {
+          setState(() => _initializingMedia = false);
+        }
+      }
+      
       _syncLocalMediaState();
       AppLogger.info('LiveKit: Connected to room ${widget.roomName}');
     } catch (e) {
@@ -1075,6 +1680,30 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         AppLogger.info(
             'LiveKit: Participant connected: ${event.participant.identity}');
         setState(() {});
+        
+        // Cancel no-show timers when relevant participant joins
+        if (!widget.isTeacher) {
+          // Student: cancel timer if teacher joins
+          if (_isTeacherInRoom()) {
+            _noShowCheckTimer?.cancel();
+            _noShowAutoSendTimer?.cancel();
+            if (_noShowDialogShown && mounted) {
+              Navigator.of(context, rootNavigator: true).pop();
+              setState(() => _noShowDialogShown = false);
+            }
+          }
+        } else {
+          // Teacher: cancel timer if any student joins
+          if (_areStudentsInRoom()) {
+            _studentNoShowCheckTimer?.cancel();
+            _studentNoShowAutoSendTimer?.cancel();
+            if (_studentNoShowDialogShown && mounted) {
+              Navigator.of(context, rootNavigator: true).pop();
+              setState(() => _studentNoShowDialogShown = false);
+            }
+          }
+        }
+        
         if (widget.isTeacher && _studentMicrophonesLocked) {
           try {
             await _broadcastStudentMicLock(
@@ -1445,6 +2074,15 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         );
       }
 
+      // Explicitly stop mic and camera before disconnecting
+      try {
+        await _localParticipant?.setMicrophoneEnabled(false);
+        await _localParticipant?.setCameraEnabled(false);
+        AppLogger.info('LiveKit: Mic and camera disabled before disconnect');
+      } catch (e) {
+        AppLogger.warning('LiveKit: Error disabling media before disconnect: $e');
+      }
+
       _listener?.dispose();
       _listener = null;
       await _room?.disconnect();
@@ -1475,6 +2113,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _disposePictureInPictureResources();
     _pointerSendTimer?.cancel();
     _remotePointerHideTimer?.cancel();
+    _cancelNoShowTimers();
     _disconnect();
     super.dispose();
   }
@@ -1674,8 +2313,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       }
     }
 
-    final remoteParticipants = _room?.remoteParticipants.values.toList() ??
-        const <RemoteParticipant>[];
+    final remoteParticipants = List<RemoteParticipant>.from(
+        _room?.remoteParticipants.values ?? <RemoteParticipant>[]);
     remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
 
     for (final participant in remoteParticipants) {
@@ -2493,8 +3132,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Widget _buildTeacherScreenShareWithOverlay(VideoTrack? screenShareTrack) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final remoteParticipants = _room?.remoteParticipants.values.toList() ??
-            const <RemoteParticipant>[];
+        final remoteParticipants = List<RemoteParticipant>.from(
+            _room?.remoteParticipants.values ?? <RemoteParticipant>[]);
         remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
 
         final shareIdentity = _localParticipant?.identity;
@@ -2627,8 +3266,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
         if (_localParticipant != null) {
           allParticipants.add(_localParticipant!);
         }
-        final remoteParticipants = _room?.remoteParticipants.values.toList() ??
-            const <RemoteParticipant>[];
+        final remoteParticipants = List<RemoteParticipant>.from(
+            _room?.remoteParticipants.values ?? <RemoteParticipant>[]);
         remoteParticipants.sort((a, b) => a.identity.compareTo(b.identity));
         allParticipants.addAll(remoteParticipants);
 
@@ -2870,20 +3509,24 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           children: [
             _ControlButton(
               icon: _micEnabled ? Icons.mic : Icons.mic_off,
-              label: micLabel,
+              label: _initializingMedia ? 'Starting...' : micLabel,
               isActive: _micEnabled,
-              onPressed: micLocked
-                  ? () => _showSnack(
-                        'Your microphone is locked by the host',
-                        backgroundColor: Colors.orange.shade700,
-                      )
-                  : _toggleMicrophone,
+              isLoading: _initializingMedia,
+              onPressed: _initializingMedia
+                  ? () {} // Disabled while loading
+                  : (micLocked
+                      ? () => _showSnack(
+                            'Your microphone is locked by the host',
+                            backgroundColor: Colors.orange.shade700,
+                          )
+                      : _toggleMicrophone),
             ),
             _ControlButton(
               icon: _cameraEnabled ? Icons.videocam : Icons.videocam_off,
-              label: _cameraEnabled ? 'Stop Video' : 'Start Video',
+              label: _initializingMedia ? 'Starting...' : (_cameraEnabled ? 'Stop Video' : 'Start Video'),
               isActive: _cameraEnabled,
-              onPressed: _toggleCamera,
+              isLoading: _initializingMedia,
+              onPressed: _initializingMedia ? () {} : _toggleCamera,
             ),
             if (widget.isTeacher)
               _ControlButton(
@@ -3207,6 +3850,7 @@ class _ControlButton extends StatelessWidget {
   final Color? activeColor;
   final Color? backgroundColor;
   final VoidCallback onPressed;
+  final bool isLoading;
 
   const _ControlButton({
     required this.icon,
@@ -3215,6 +3859,7 @@ class _ControlButton extends StatelessWidget {
     this.activeColor,
     this.backgroundColor,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   @override
@@ -3223,7 +3868,9 @@ class _ControlButton extends StatelessWidget {
         (isActive
             ? Colors.white.withOpacity(0.1)
             : Colors.white.withOpacity(0.05));
-    final iconColor = activeColor ?? (isActive ? Colors.white : Colors.white54);
+    final iconColor = isLoading 
+        ? Colors.white38 
+        : (activeColor ?? (isActive ? Colors.white : Colors.white54));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -3233,11 +3880,23 @@ class _ControlButton extends StatelessWidget {
             color: bgColor,
             shape: BoxShape.circle,
           ),
-          child: IconButton(
-            icon: Icon(icon, color: iconColor),
-            onPressed: onPressed,
-            padding: const EdgeInsets.all(12),
-          ),
+          child: isLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: Icon(icon, color: iconColor),
+                  onPressed: onPressed,
+                  padding: const EdgeInsets.all(12),
+                ),
         ),
         const SizedBox(height: 4),
         Text(

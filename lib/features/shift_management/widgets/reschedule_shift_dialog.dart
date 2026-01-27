@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
-import '../../../core/services/shift_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -98,9 +98,6 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not authenticated');
 
-      // Store original times for audit trail
-      final originalStartTime = widget.shift.shiftStart;
-      final originalEndTime = widget.shift.shiftEnd;
       final modificationReason = _reasonController.text.trim();
 
       // Convert selected times from selected timezone to UTC
@@ -126,51 +123,22 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
           TimezoneUtils.convertToUtc(naiveStart, _selectedTimezone);
       final utcEnd = TimezoneUtils.convertToUtc(naiveEnd, _selectedTimezone);
 
-      // Create updated shift with new times (in UTC)
-      final updatedShift = widget.shift.copyWith(
-        shiftStart: utcStart,
-        shiftEnd: utcEnd,
-        teacherTimezone:
-            _selectedTimezone, // Update teacher timezone if changed
-      );
-
-      // Update shift using standard update method which handles lifecycle tasks
-      // This ensures cloud tasks are rescheduled to the new times
-      await ShiftService.updateShift(updatedShift);
-
-      // Also update shift document with teacher modification metadata
-      await FirebaseFirestore.instance
-          .collection('teaching_shifts')
-          .doc(widget.shift.id)
-          .update({
-        // Store modification history
-        'teacher_modified': true,
-        'teacher_modified_at': FieldValue.serverTimestamp(),
-        'teacher_modified_by': user.uid,
-        'teacher_modification_reason': modificationReason.isNotEmpty
-            ? modificationReason
-            : 'Schedule adjustment requested by teacher',
-        'original_start_time': Timestamp.fromDate(originalStartTime),
-        'original_end_time': Timestamp.fromDate(originalEndTime),
-        'modification_count': FieldValue.increment(1),
-      });
-
-      // Log modification for audit trail
-      await FirebaseFirestore.instance.collection('shift_modifications').add({
-        'shift_id': widget.shift.id,
-        'teacher_id': user.uid,
-        'teacher_name': widget.shift.teacherName,
-        'original_start_time': Timestamp.fromDate(originalStartTime),
-        'original_end_time': Timestamp.fromDate(originalEndTime),
-        'new_start_time': Timestamp.fromDate(utcStart),
-        'new_end_time': Timestamp.fromDate(utcEnd),
-        'timezone_used': _selectedTimezone,
+      // Call Cloud Function to reschedule (handles permissions, audit trail, and lifecycle tasks)
+      final callable = FirebaseFunctions.instance.httpsCallable('teacherRescheduleShift');
+      final result = await callable.call<Map<String, dynamic>>({
+        'shiftId': widget.shift.id,
+        'newStartTime': utcStart.toIso8601String(),
+        'newEndTime': utcEnd.toIso8601String(),
+        'timezone': _selectedTimezone,
         'reason': modificationReason.isNotEmpty
             ? modificationReason
-            : 'Schedule adjustment',
-        'modified_at': FieldValue.serverTimestamp(),
-        'modified_by_type': 'teacher',
+            : 'Schedule adjustment requested by teacher',
       });
+
+      final data = result.data;
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Failed to reschedule shift');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

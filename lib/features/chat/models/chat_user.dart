@@ -38,7 +38,7 @@ class ChatUser {
       id: map['id'] ?? '',
       name: '${map['first_name'] ?? ''} ${map['last_name'] ?? ''}'.trim(),
       email: map['email'] ?? map['e-mail'] ?? '',
-      profilePicture: map['profile_picture'],
+      profilePicture: map['profile_picture_url'] ?? map['profile_picture'],
       role: map['user_type'],
       isOnline: map['is_online'] ?? false,
       lastSeen:

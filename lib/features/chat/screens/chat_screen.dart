@@ -1,9 +1,20 @@
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart' as path_provider;
 import '../services/chat_service.dart';
+import '../services/chat_permission_service.dart';
 import '../models/chat_user.dart';
 import '../models/chat_message.dart';
 import '../widgets/message_bubble.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../core/services/livekit_service.dart';
+import '../../../core/services/notification_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final ChatUser chatUser;
@@ -19,22 +30,82 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
+  final ChatPermissionService _permissionService = ChatPermissionService();
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
   bool _isComposing = false;
   ChatMessage? _replyingTo;
+  bool _hasPermission = true;
+  bool _checkingPermission = true;
+  String? _relationshipContext;
+  bool _isUploading = false;
+  
+  final ImagePicker _imagePicker = ImagePicker();
+  
+  // Voice recording
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  int _recordingDuration = 0;
+  Timer? _recordingTimer;
+  String? _recordingPath;
+  
+  // Cache the messages stream to prevent rebuilding on every setState
+  late Stream<List<ChatMessage>> _messagesStream;
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_onTextChanged);
+    _checkPermissionAndContext();
+    
+    // Set the current open chat to suppress notifications for this chat
+    NotificationService.setCurrentOpenChat(widget.chatUser.id);
+    
+    // Initialize the messages stream once to prevent rebuilding on every setState
+    _messagesStream = _chatService.getChatMessages(
+      widget.chatUser.id,
+      isGroupChat: widget.chatUser.isGroup,
+    );
+    
     // Mark messages as read when opening chat (only for individual chats)
-    if (widget.chatUser.role != 'group') {
+    if (!widget.chatUser.isGroup) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _chatService.markMessagesAsRead(widget.chatUser.id);
       });
+    }
+  }
+
+  Future<void> _checkPermissionAndContext() async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null || widget.chatUser.isGroup) {
+      setState(() {
+        _checkingPermission = false;
+        _hasPermission = widget.chatUser.isGroup; // Groups have their own permission logic
+      });
+      return;
+    }
+
+    try {
+      final canMessage = await _permissionService.canMessage(currentUserId, widget.chatUser.id);
+      final context = await _permissionService.getRelationshipContext(currentUserId, widget.chatUser.id);
+      
+      if (mounted) {
+        setState(() {
+          _hasPermission = canMessage;
+          _relationshipContext = context;
+          _checkingPermission = false;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error checking chat permission: $e');
+      if (mounted) {
+        setState(() {
+          _hasPermission = false;
+          _checkingPermission = false;
+        });
+      }
     }
   }
 
@@ -45,10 +116,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  @override
   void dispose() {
+    // Clear the current open chat so notifications resume
+    NotificationService.setCurrentOpenChat(null);
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
+    _recordingTimer?.cancel();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
@@ -186,12 +262,9 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       actions: [
-        _buildActionButton(Icons.call, () {
-          // TODO: Add call functionality
-        }),
-        _buildActionButton(Icons.videocam, () {
-          // TODO: Add video call functionality
-        }),
+        // Call buttons hidden for now - will implement WhatsApp-style calling later
+        // _buildActionButton(Icons.call, () => _startAudioCall()),
+        // _buildActionButton(Icons.videocam, () => _startVideoCall()),
         PopupMenuButton<String>(
           icon: Container(
             width: 40,
@@ -352,7 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessagesList() {
     return StreamBuilder<List<ChatMessage>>(
-      stream: _chatService.getChatMessages(widget.chatUser.id),
+      stream: _messagesStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -446,6 +519,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onForward: (message) => _forwardMessage(message),
               onReaction: (message, reaction) =>
                   _addReaction(message, reaction),
+              onImageTap: (url) => _showImagePreview(url),
             );
           },
         );
@@ -454,6 +528,34 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageInput() {
+    // Show permission denied message
+    if (!widget.chatUser.isGroup && !_hasPermission && !_checkingPermission) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xffFEF2F2),
+          border: Border(
+            top: BorderSide(color: const Color(0xffFECACA), width: 1),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline, color: Color(0xffEF4444), size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'You can only message users you have a teaching relationship with',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xffDC2626),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -467,6 +569,32 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       child: Column(
         children: [
+          // Relationship context indicator
+          if (_relationshipContext != null && !widget.chatUser.isGroup)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: const Color(0xffF0F9FF),
+              child: Row(
+                children: [
+                  Icon(
+                    _getRelationshipIcon(),
+                    size: 14,
+                    color: const Color(0xff0369A1),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _relationshipContext!,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff0369A1),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
           // Reply preview
           if (_replyingTo != null) _buildReplyPreview(),
 
@@ -599,36 +727,42 @@ class _ChatScreenState extends State<ChatScreen> {
                 const SizedBox(width: 8),
 
                 // Voice/Send button
-                _isComposing
-                    ? AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        child: IconButton(
-                          onPressed: _sendMessage,
-                          style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xff0386FF),
-                            shape: const CircleBorder(),
-                            padding: const EdgeInsets.all(12),
+                _isRecording
+                    ? _buildRecordingControls()
+                    : _isComposing
+                        ? AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            child: IconButton(
+                              onPressed: _sendMessage,
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xff0386FF),
+                                shape: const CircleBorder(),
+                                padding: const EdgeInsets.all(12),
+                              ),
+                              icon: const Icon(
+                                Icons.send,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          )
+                        : GestureDetector(
+                            onLongPressStart: (_) => _startRecording(),
+                            onLongPressEnd: (_) => _stopRecordingAndSend(),
+                            onTap: () => _showRecordingHint(),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                color: Color(0xffE5E7EB),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.mic,
+                                color: Color(0xff6B7280),
+                                size: 20,
+                              ),
+                            ),
                           ),
-                          icon: const Icon(
-                            Icons.send,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      )
-                    : IconButton(
-                        onPressed: () => _handleVoiceMessage(),
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xffE5E7EB),
-                          shape: const CircleBorder(),
-                          padding: const EdgeInsets.all(12),
-                        ),
-                        icon: const Icon(
-                          Icons.mic,
-                          color: Color(0xff6B7280),
-                          size: 20,
-                        ),
-                      ),
               ],
             ),
           ),
@@ -709,35 +843,381 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _handleAttachment(String type) {
-    // TODO: Implement different attachment types
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$type attachment not yet implemented',
-          style: GoogleFonts.inter(),
+  Future<void> _handleAttachment(String type) async {
+    if (_isUploading) return;
+
+    try {
+      switch (type) {
+        case 'photo':
+          await _pickImage(ImageSource.gallery);
+          break;
+        case 'camera':
+          await _pickImage(ImageSource.camera);
+          break;
+        case 'file':
+          await _pickFile();
+          break;
+        case 'location':
+          _showMessage('Location sharing coming soon', isError: false);
+          break;
+      }
+    } catch (e) {
+      AppLogger.error('Error handling attachment: $e');
+      _showMessage('Failed to send attachment');
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? pickedFile = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
+
+    if (pickedFile != null) {
+      setState(() => _isUploading = true);
+      _showMessage('Sending image...', isError: false);
+
+      try {
+        await _chatService.sendImageMessage(
+          widget.chatUser.id,
+          File(pickedFile.path),
+          isGroupChat: widget.chatUser.isGroup,
+        );
+        _showMessage('Image sent!', isError: false);
+      } catch (e) {
+        _showMessage('Failed to send image');
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      setState(() => _isUploading = true);
+      _showMessage('Sending file...', isError: false);
+
+      try {
+        await _chatService.sendFileMessage(
+          widget.chatUser.id,
+          File(result.files.single.path!),
+          result.files.single.name,
+          isGroupChat: widget.chatUser.isGroup,
+        );
+        _showMessage('File sent!', isError: false);
+      } catch (e) {
+        _showMessage('Failed to send file');
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  Widget _buildRecordingControls() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Cancel button
+        IconButton(
+          onPressed: _cancelRecording,
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.red.shade50,
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(10),
+          ),
+          icon: Icon(
+            Icons.delete,
+            color: Colors.red.shade400,
+            size: 20,
+          ),
         ),
-        backgroundColor: const Color(0xffF59E0B),
+        const SizedBox(width: 8),
+        
+        // Recording indicator
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.5),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _formatRecordingDuration(_recordingDuration),
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        
+        // Send button
+        IconButton(
+          onPressed: _stopRecordingAndSend,
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xff0386FF),
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(12),
+          ),
+          icon: const Icon(
+            Icons.send,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  String _formatRecordingDuration(int seconds) {
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+  
+  void _showRecordingHint() {
+    _showMessage('Hold to record a voice message', isError: false);
+  }
+  
+  Future<void> _startRecording() async {
+    try {
+      // Check microphone permission
+      if (!await _audioRecorder.hasPermission()) {
+        _showMessage('Microphone permission is required');
+        return;
+      }
+      
+      // Get temp directory for recording
+      final tempDir = await path_provider.getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      _recordingPath = '${tempDir.path}/voice_$timestamp.m4a';
+      
+      // Start recording
+      await _audioRecorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
+        ),
+        path: _recordingPath!,
+      );
+      
+      setState(() {
+        _isRecording = true;
+        _recordingDuration = 0;
+      });
+      
+      // Start duration timer
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted && _isRecording) {
+          setState(() {
+            _recordingDuration++;
+          });
+          
+          // Auto-stop after 2 minutes
+          if (_recordingDuration >= 120) {
+            _stopRecordingAndSend();
+          }
+        }
+      });
+      
+    } catch (e) {
+      AppLogger.error('Error starting recording: $e');
+      _showMessage('Failed to start recording');
+    }
+  }
+  
+  Future<void> _stopRecordingAndSend() async {
+    if (!_isRecording) return;
+    
+    _recordingTimer?.cancel();
+    
+    try {
+      final path = await _audioRecorder.stop();
+      
+      setState(() {
+        _isRecording = false;
+      });
+      
+      if (path == null || _recordingDuration < 1) {
+        _showMessage('Recording too short', isError: false);
+        return;
+      }
+      
+      // Upload and send voice message
+      await _sendVoiceMessage(path, _recordingDuration);
+      
+    } catch (e) {
+      AppLogger.error('Error stopping recording: $e');
+      _showMessage('Failed to send voice message');
+      setState(() {
+        _isRecording = false;
+      });
+    }
+  }
+  
+  Future<void> _cancelRecording() async {
+    _recordingTimer?.cancel();
+    
+    try {
+      await _audioRecorder.stop();
+      
+      // Delete the temp file
+      if (_recordingPath != null) {
+        final file = File(_recordingPath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error canceling recording: $e');
+    }
+    
+    setState(() {
+      _isRecording = false;
+      _recordingDuration = 0;
+      _recordingPath = null;
+    });
+  }
+  
+  Future<void> _sendVoiceMessage(String filePath, int durationSeconds) async {
+    setState(() {
+      _isUploading = true;
+    });
+    
+    try {
+      final file = File(filePath);
+      
+      // Send voice message using ChatService
+      await _chatService.sendVoiceMessage(
+        widget.chatUser.id,
+        file,
+        durationSeconds,
+        isGroupChat: widget.chatUser.isGroup,
+      );
+      
+      // Clean up temp file
+      if (await file.exists()) {
+        await file.delete();
+      }
+      
+    } catch (e) {
+      AppLogger.error('Error sending voice message: $e');
+      _showMessage('Failed to send voice message');
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
+  void _startAudioCall() {
+    if (widget.chatUser.isGroup) {
+      _showMessage('Group calls are not supported yet');
+      return;
+    }
+    
+    // Start audio-only call via LiveKit
+    LiveKitService.startCall(
+      context,
+      recipientId: widget.chatUser.id,
+      recipientName: widget.chatUser.displayName,
+      isAudioOnly: true,
+    );
+  }
+
+  void _startVideoCall() {
+    if (widget.chatUser.isGroup) {
+      _showMessage('Group calls are not supported yet');
+      return;
+    }
+    
+    // Start video call via LiveKit
+    LiveKitService.startCall(
+      context,
+      recipientId: widget.chatUser.id,
+      recipientName: widget.chatUser.displayName,
+      isAudioOnly: false,
+    );
+  }
+
+  void _showImagePreview(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: Image.network(imageUrl),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _handleVoiceMessage() {
-    // TODO: Implement voice message recording
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Voice messages not yet implemented',
-          style: GoogleFonts.inter(),
-        ),
-        backgroundColor: const Color(0xffF59E0B),
-      ),
-    );
-  }
-
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+
+    // Check permission before sending (for non-group chats)
+    if (!widget.chatUser.isGroup && !_hasPermission) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'You don\'t have permission to message this user',
+            style: GoogleFonts.inter(),
+          ),
+          backgroundColor: const Color(0xffEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     // Include reply information if replying
     Map<String, dynamic>? metadata;
@@ -751,7 +1231,12 @@ class _ChatScreenState extends State<ChatScreen> {
       };
     }
 
-    _chatService.sendMessage(widget.chatUser.id, text, metadata: metadata);
+    _chatService.sendMessage(
+      widget.chatUser.id,
+      text,
+      metadata: metadata,
+      isGroupChat: widget.chatUser.isGroup,
+    );
     _messageController.clear();
     _messageFocusNode.requestFocus();
 
@@ -770,6 +1255,14 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     });
+  }
+
+  IconData _getRelationshipIcon() {
+    if (_relationshipContext == null) return Icons.person;
+    if (_relationshipContext!.contains('teacher')) return Icons.school;
+    if (_relationshipContext!.contains('Parent')) return Icons.family_restroom;
+    if (_relationshipContext!.contains('Administrator')) return Icons.admin_panel_settings;
+    return Icons.person;
   }
 
   void _setReplyMessage(ChatMessage message) {
@@ -1070,11 +1563,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showMessage(String message) {
+  void _showMessage(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: const Color(0xff059669),
+        backgroundColor: isError ? const Color(0xffEF4444) : const Color(0xff059669),
         behavior: SnackBarBehavior.floating,
       ),
     );

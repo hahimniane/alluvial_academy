@@ -19,6 +19,12 @@ import './teacher_home_screen.dart'; // Import the new TeacherHomeScreen
 import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
+import '../../admin/screens/admin_classes_screen.dart'; // Admin classes screen
+
+// Onboarding imports
+import '../../../core/services/onboarding_service.dart';
+import '../../onboarding/screens/student_welcome_screen.dart';
+import '../../onboarding/services/student_feature_tour.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -45,6 +51,8 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String? _profilePictureUrl;
+  bool _showOnboarding = false;
+  bool _onboardingChecked = false;
 
   @override
   void initState() {
@@ -57,19 +65,54 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
       final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
+      
+      // Check if student needs onboarding
+      bool needsOnboarding = false;
+      if (role?.toLowerCase() == 'student' && !_onboardingChecked) {
+        needsOnboarding = !(await OnboardingService.hasCompletedOnboarding());
+        _onboardingChecked = true;
+      }
+      
       if (mounted) {
         setState(() {
           _userRole = role;
           _userData = data;
           _profilePictureUrl = profilePicUrl;
           _isLoading = false;
+          _showOnboarding = needsOnboarding;
         });
+        
+        // Start feature tour after a delay if student has completed onboarding
+        // but hasn't done the feature tour yet
+        if (role?.toLowerCase() == 'student' && !needsOnboarding) {
+          _checkAndStartFeatureTour();
+        }
       }
     } catch (e) {
       AppLogger.error('Error loading user data: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _checkAndStartFeatureTour() async {
+    final hasCompletedTour = await OnboardingService.hasCompletedFeatureTour();
+    if (!hasCompletedTour && mounted) {
+      // Wait for UI to be fully built
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) {
+        // Assign keys to the tour
+        studentFeatureTour.profileButtonKey.currentState;
+        studentFeatureTour.startTour(context);
+      }
+    }
+  }
+
+  void _startFeatureTour() async {
+    await OnboardingService.resetFeatureTour();
+    if (mounted) {
+      studentFeatureTour.startTour(context, isReplay: true);
     }
   }
 
@@ -295,6 +338,46 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 },
               ),
               
+              // App Tour option for students
+              if (_userRole?.toLowerCase() == 'student')
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0E72ED).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.tour_rounded,
+                      color: Color(0xFF0E72ED),
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    'Take App Tour',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).textTheme.titleMedium?.color,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Learn how to use the app',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFF0E72ED),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _startFeatureTour();
+                  },
+                ),
+              
               const Divider(height: 1),
               
               ListTile(
@@ -355,6 +438,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     if (role == 'admin') {
       return [
         const AdminDashboard(refreshTrigger: 0),
+        const AdminClassesScreen(), // All classes view for admins
         const FormScreen(),
         const MobileNotificationScreen(),
         const MobileUserManagementScreen(),
@@ -399,11 +483,12 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     if (role == 'admin') {
       return [
         _NavItemData(Icons.home_rounded, 'Home', 0),
-        _NavItemData(Icons.description_rounded, 'Forms', 1),
-        _NavItemData(Icons.notifications_rounded, 'Notify', 2),
-        _NavItemData(Icons.people_rounded, 'Users', 3),
-        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 4),
-        _NavItemData(Icons.task_alt_rounded, 'Tasks', 5),
+        _NavItemData(Icons.school_rounded, 'Classes', 1), // All classes view
+        _NavItemData(Icons.description_rounded, 'Forms', 2),
+        _NavItemData(Icons.notifications_rounded, 'Notify', 3),
+        _NavItemData(Icons.people_rounded, 'Users', 4),
+        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 5),
+        _NavItemData(Icons.task_alt_rounded, 'Tasks', 6),
       ];
     }
 
@@ -537,6 +622,23 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       );
     }
 
+    // Show onboarding for new students
+    if (_showOnboarding && _userRole?.toLowerCase() == 'student') {
+      return StudentWelcomeScreen(
+        onComplete: () {
+          setState(() {
+            _showOnboarding = false;
+          });
+          // Start feature tour after onboarding
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              studentFeatureTour.startTour(context);
+            }
+          });
+        },
+      );
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       // Hide AppBar for Teachers (new home screen has its own header)
@@ -598,6 +700,9 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
+              key: _userRole?.toLowerCase() == 'student' 
+                  ? studentFeatureTour.profileButtonKey 
+                  : null,
               onTap: () {
                 Navigator.push(
                   context,
@@ -674,7 +779,18 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: _navItems.map((item) {
-                return _buildNavItem(item.icon, item.label, item.index);
+                // Assign GlobalKeys for student feature tour
+                GlobalKey? itemKey;
+                if (_userRole?.toLowerCase() == 'student') {
+                  if (item.index == 0) {
+                    itemKey = studentFeatureTour.classesTabKey;
+                  } else if (item.index == 1) {
+                    itemKey = studentFeatureTour.chatTabKey;
+                  } else if (item.index == 2) {
+                    itemKey = studentFeatureTour.tasksTabKey;
+                  }
+                }
+                return _buildNavItem(item.icon, item.label, item.index, key: itemKey);
               }).toList(),
             ),
           ),
@@ -683,11 +799,12 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, String label, int index, {GlobalKey? key}) {
     final isSelected = _selectedIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Expanded(
+      key: key,
       child: GestureDetector(
         onTap: () => _onItemTapped(index),
         behavior: HitTestBehavior.opaque,

@@ -11,10 +11,18 @@ const {
   deleteTaskIfExists,
   getTasksServiceAccount,
   tasksClient,
+  buildFunctionUrl,
+  encodeTaskBody,
+  toScheduleTime,
   FUNCTION_REGION,
   PROJECT_ID,
 } = require('../services/tasks/config');
-const {sendFCMNotificationToTeacher} = require('../services/notifications/fcm');
+const {
+  sendFCMNotificationToTeacher,
+  sendClassRemindersToStudents,
+  formatDateInTimezone,
+  getUserTimezone,
+} = require('../services/notifications/fcm');
 const {sendShiftNotificationEmails} = require('../services/email/shift_notifications');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
@@ -591,6 +599,7 @@ const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (eve
     const shiftStart = shiftData.shift_start;
     const shiftDateTime = formatShiftDateTime(shiftStart);
 
+    // Send immediate notification to teacher about new shift
     const notification = {
       title: '🎓 New Shift Assigned',
       body: `${subject} with ${studentNames} on ${shiftDateTime}`,
@@ -605,8 +614,14 @@ const onShiftCreated = onDocumentCreated('teaching_shifts/{shiftId}', async (eve
     };
 
     await sendFCMNotificationToTeacher(teacherId, notification, data);
-
     console.log(`✅ Shift created notification sent to ${teacherName}`);
+
+    // Schedule reminder notification 15 minutes before class
+    const shiftStartDate = shiftStart.toDate ? shiftStart.toDate() : new Date(shiftStart);
+    const result = await scheduleShiftNotificationTask(shiftId, shiftStartDate, 15);
+    if (result.success) {
+      console.log(`✅ Reminder notification scheduled for shift ${shiftId}`);
+    }
   } catch (error) {
     console.error('Error in onShiftCreated:', error);
   }
@@ -755,7 +770,8 @@ const sendScheduledShiftReminders = onSchedule('every 5 minutes', async () => {
       return;
     }
 
-    let remindersSent = 0;
+    let teacherRemindersSent = 0;
+    let studentRemindersSent = 0;
 
     for (const shiftDoc of upcomingShiftsSnapshot.docs) {
       try {
@@ -774,11 +790,6 @@ const sendScheduledShiftReminders = onSchedule('every 5 minutes', async () => {
         const isEnabled = notifPrefs.shiftEnabled !== false;
         const reminderMinutes = notifPrefs.shiftMinutes || 15;
 
-        if (!isEnabled) {
-          console.log(`Shift reminders disabled for teacher ${teacherId}`);
-          continue;
-        }
-
         const shouldSendReminder = Math.abs(minutesUntilShift - reminderMinutes) <= 2;
 
         if (!shouldSendReminder) {
@@ -795,36 +806,57 @@ const sendScheduledShiftReminders = onSchedule('every 5 minutes', async () => {
         }
 
         const displayName = shift.custom_name || shift.auto_generated_name || 'Your shift';
-        const shiftDateTime = formatShiftDateTime(shift.shift_start);
+        
+        // Send teacher reminder (with teacher's timezone)
+        if (isEnabled) {
+          const teacherTimezone = await getUserTimezone(teacherId);
+          const shiftDateTime = formatDateInTimezone(shiftStart, teacherTimezone);
 
-        const notification = {
-          title: '🔔 Shift Reminder',
-          body: `${displayName} starts in ${minutesUntilShift} minutes at ${shiftDateTime}`,
-        };
+          const notification = {
+            title: '🔔 Shift Reminder',
+            body: `${displayName} starts in ${minutesUntilShift} minutes at ${shiftDateTime}`,
+          };
 
-        const data = {
-          type: 'shift',
-          action: 'reminder',
-          shiftId,
-          teacherId,
-          minutesUntilShift: minutesUntilShift.toString(),
-        };
+          const data = {
+            type: 'shift',
+            action: 'reminder',
+            shiftId,
+            teacherId,
+            minutesUntilShift: minutesUntilShift.toString(),
+          };
 
-        const result = await sendFCMNotificationToTeacher(teacherId, notification, data);
+          const result = await sendFCMNotificationToTeacher(teacherId, notification, data);
 
-        if (result.success) {
-          await shiftDoc.ref.update({
-            [reminderSentKey]: true,
-          });
-          remindersSent += 1;
-          console.log(`✅ Reminder sent for shift ${shiftId}`);
+          if (result.success) {
+            teacherRemindersSent += 1;
+            console.log(`✅ Teacher reminder sent for shift ${shiftId}`);
+          }
+        } else {
+          console.log(`Shift reminders disabled for teacher ${teacherId}`);
         }
+
+        // Send student reminders (with each student's timezone)
+        const studentIds = shift.student_ids || [];
+        if (studentIds.length > 0) {
+          console.log(`📚 Sending reminders to ${studentIds.length} students for shift ${shiftId}`);
+          const studentResult = await sendClassRemindersToStudents(shift, shiftId, minutesUntilShift);
+          if (studentResult.success) {
+            studentRemindersSent += studentResult.sent;
+          }
+        }
+
+        // Mark reminder as sent
+        await shiftDoc.ref.update({
+          [reminderSentKey]: true,
+        });
       } catch (error) {
         console.error('Error processing shift reminder:', error);
       }
     }
 
-    console.log(`✅ Scheduled reminders completed: ${remindersSent} reminders sent`);
+    console.log(`✅ Scheduled reminders completed:`);
+    console.log(`   Teacher reminders: ${teacherRemindersSent}`);
+    console.log(`   Student reminders: ${studentRemindersSent}`);
   } catch (error) {
     console.error('Error in sendScheduledShiftReminders:', error);
   }
@@ -1461,16 +1493,370 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
   }
 });
 
+/**
+ * Teacher Reschedule Shift
+ * Allows teachers to reschedule their own shifts with proper audit trail
+ */
+const teacherRescheduleShift = onCall(async (request) => {
+  const {shiftId, newStartTime, newEndTime, timezone, reason} = request.data;
+  const uid = request.auth?.uid;
+
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
+  }
+
+  if (!shiftId || !newStartTime || !newEndTime) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
+  }
+
+  const db = admin.firestore();
+  const shiftRef = db.collection('teaching_shifts').doc(shiftId);
+  const shiftDoc = await shiftRef.get();
+
+  if (!shiftDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Shift not found');
+  }
+
+  const shiftData = shiftDoc.data();
+
+  // Verify the user is the assigned teacher
+  if (shiftData.teacher_id !== uid) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only the assigned teacher can reschedule this shift'
+    );
+  }
+
+  // Verify the shift is not already completed or cancelled
+  if (['completed', 'cancelled', 'missed'].includes(shiftData.status)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Cannot reschedule a ${shiftData.status} shift`
+    );
+  }
+
+  const originalStartTime = toDate(shiftData.shift_start);
+  const originalEndTime = toDate(shiftData.shift_end);
+  const newStart = new Date(newStartTime);
+  const newEnd = new Date(newEndTime);
+
+  // Validate new times
+  if (newEnd <= newStart) {
+    throw new functions.https.HttpsError('invalid-argument', 'End time must be after start time');
+  }
+
+  const batch = db.batch();
+
+  // Update the shift
+  batch.update(shiftRef, {
+    shift_start: admin.firestore.Timestamp.fromDate(newStart),
+    shift_end: admin.firestore.Timestamp.fromDate(newEnd),
+    teacher_timezone: timezone || shiftData.teacher_timezone,
+    teacher_modified: true,
+    teacher_modified_at: admin.firestore.FieldValue.serverTimestamp(),
+    teacher_modified_by: uid,
+    teacher_modification_reason: reason || 'Schedule adjustment requested by teacher',
+    original_start_time: admin.firestore.Timestamp.fromDate(originalStartTime),
+    original_end_time: admin.firestore.Timestamp.fromDate(originalEndTime),
+    modification_count: admin.firestore.FieldValue.increment(1),
+    last_modified: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Create audit trail entry
+  const modificationRef = db.collection('shift_modifications').doc();
+  batch.set(modificationRef, {
+    shift_id: shiftId,
+    teacher_id: uid,
+    teacher_name: shiftData.teacher_name || 'Unknown',
+    original_start_time: admin.firestore.Timestamp.fromDate(originalStartTime),
+    original_end_time: admin.firestore.Timestamp.fromDate(originalEndTime),
+    new_start_time: admin.firestore.Timestamp.fromDate(newStart),
+    new_end_time: admin.firestore.Timestamp.fromDate(newEnd),
+    timezone_used: timezone || shiftData.teacher_timezone,
+    reason: reason || 'Schedule adjustment',
+    modified_at: admin.firestore.FieldValue.serverTimestamp(),
+    modified_by_type: 'teacher',
+  });
+
+  await batch.commit();
+
+  // Reschedule lifecycle tasks for the new times
+  try {
+    await ensureTasksConfig();
+    const shiftStartTaskId = `shift-start-${shiftId}`;
+    const shiftEndTaskId = `shift-end-${shiftId}`;
+
+    // Delete old tasks
+    await deleteTaskIfExists(shiftStartTaskId);
+    await deleteTaskIfExists(shiftEndTaskId);
+
+    // Schedule new tasks if shift is in the future
+    if (newStart > new Date()) {
+      const serviceAccountEmail = await getTasksServiceAccount();
+      
+      // Schedule start task
+      const startTask = {
+        httpRequest: {
+          httpMethod: 'POST',
+          url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftStartTask`,
+          headers: {'Content-Type': 'application/json'},
+          body: Buffer.from(JSON.stringify({
+            shiftId,
+            shiftStart: newStart.toISOString(),
+          })).toString('base64'),
+          oidcToken: {serviceAccountEmail},
+        },
+        scheduleTime: {seconds: Math.floor(newStart.getTime() / 1000)},
+      };
+      
+      await tasksClient.createTask({
+        parent: queuePath,
+        task: {...startTask, name: taskName(shiftStartTaskId)},
+      });
+
+      // Schedule end task
+      const endTask = {
+        httpRequest: {
+          httpMethod: 'POST',
+          url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftEndTask`,
+          headers: {'Content-Type': 'application/json'},
+          body: Buffer.from(JSON.stringify({
+            shiftId,
+            shiftEnd: newEnd.toISOString(),
+          })).toString('base64'),
+          oidcToken: {serviceAccountEmail},
+        },
+        scheduleTime: {seconds: Math.floor(newEnd.getTime() / 1000)},
+      };
+
+      await tasksClient.createTask({
+        parent: queuePath,
+        task: {...endTask, name: taskName(shiftEndTaskId)},
+      });
+
+      console.log(`Rescheduled lifecycle tasks for shift ${shiftId}`);
+    }
+  } catch (taskError) {
+    // Log but don't fail - the shift update was successful
+    console.warn(`Warning: Failed to reschedule lifecycle tasks for shift ${shiftId}:`, taskError);
+  }
+
+  return {
+    success: true,
+    message: 'Shift rescheduled successfully',
+    newStartTime: newStart.toISOString(),
+    newEndTime: newEnd.toISOString(),
+  };
+});
+
+/**
+ * HTTP handler for Cloud Tasks to send shift/class notification
+ * This is triggered by scheduled tasks, not called directly
+ */
+const handleShiftNotificationTask = onRequest(async (req, res) => {
+  try {
+    const {shiftId, notificationType} = req.body;
+    
+    console.log(`🔔 Processing notification task for shift ${shiftId}, type: ${notificationType}`);
+    
+    const shiftDoc = await admin.firestore().collection('teaching_shifts').doc(shiftId).get();
+    
+    if (!shiftDoc.exists) {
+      console.log(`Shift ${shiftId} no longer exists - skipping notification`);
+      return res.status(200).json({success: true, skipped: true, reason: 'Shift not found'});
+    }
+    
+    const shift = shiftDoc.data();
+    
+    // Skip if shift is cancelled
+    if (shift.status === 'cancelled') {
+      console.log(`Shift ${shiftId} is cancelled - skipping notification`);
+      return res.status(200).json({success: true, skipped: true, reason: 'Shift cancelled'});
+    }
+    
+    const shiftStart = shift.shift_start.toDate();
+    const now = new Date();
+    const minutesUntilShift = Math.floor((shiftStart.getTime() - now.getTime()) / 1000 / 60);
+    
+    // Skip if shift already started
+    if (minutesUntilShift < 0) {
+      console.log(`Shift ${shiftId} already started - skipping notification`);
+      return res.status(200).json({success: true, skipped: true, reason: 'Shift already started'});
+    }
+    
+    const displayName = shift.custom_name || shift.auto_generated_name || 'Your class';
+    const teacherId = shift.teacher_id;
+    const teacherName = shift.teacher_name || 'your teacher';
+    
+    let teacherNotificationSent = false;
+    let studentNotificationsSent = 0;
+    
+    // Send teacher notification (check preferences)
+    if (teacherId) {
+      const teacherDoc = await admin.firestore().collection('users').doc(teacherId).get();
+      if (teacherDoc.exists) {
+        const teacherData = teacherDoc.data();
+        const notifPrefs = teacherData.notificationPreferences || {};
+        const isEnabled = notifPrefs.shiftEnabled !== false;
+        
+        if (isEnabled) {
+          const teacherTimezone = await getUserTimezone(teacherId);
+          const shiftDateTime = formatDateInTimezone(shiftStart, teacherTimezone);
+          
+          const notification = {
+            title: '🔔 Class Starting Soon',
+            body: `${displayName} starts in ${minutesUntilShift} minutes at ${shiftDateTime}`,
+          };
+          
+          const data = {
+            type: 'shift',
+            action: 'reminder',
+            shiftId,
+            teacherId,
+          };
+          
+          const result = await sendFCMNotificationToTeacher(teacherId, notification, data);
+          teacherNotificationSent = result.success;
+        }
+      }
+    }
+    
+    // Send student notifications (check each student's preferences)
+    const studentIds = shift.student_ids || [];
+    for (const studentId of studentIds) {
+      try {
+        const studentDoc = await admin.firestore().collection('users').doc(studentId).get();
+        if (!studentDoc.exists) continue;
+        
+        const studentData = studentDoc.data();
+        const notifPrefs = studentData.notificationPreferences || {};
+        // Default to enabled for students
+        const isEnabled = notifPrefs.classEnabled !== false;
+        
+        if (!isEnabled) {
+          console.log(`Class notifications disabled for student ${studentId}`);
+          continue;
+        }
+        
+        const studentTimezone = await getUserTimezone(studentId);
+        const shiftDateTime = formatDateInTimezone(shiftStart, studentTimezone);
+        
+        const notification = {
+          title: '📚 Class Starting Soon!',
+          body: `${displayName} with ${teacherName} starts in ${minutesUntilShift} minutes at ${shiftDateTime}`,
+        };
+        
+        const data = {
+          type: 'class_reminder',
+          action: 'reminder',
+          shiftId,
+        };
+        
+        const {sendFCMNotificationToStudent} = require('../services/notifications/fcm');
+        const result = await sendFCMNotificationToStudent(studentId, notification, data);
+        if (result.success) studentNotificationsSent++;
+      } catch (error) {
+        console.error(`Error sending to student ${studentId}:`, error);
+      }
+    }
+    
+    console.log(`✅ Notification task completed: teacher=${teacherNotificationSent}, students=${studentNotificationsSent}`);
+    
+    res.status(200).json({
+      success: true,
+      teacherNotificationSent,
+      studentNotificationsSent,
+    });
+  } catch (error) {
+    console.error('handleShiftNotificationTask error:', error);
+    res.status(500).json({success: false, error: error.message});
+  }
+});
+
+/**
+ * Schedule a notification task for a shift
+ * @param {string} shiftId - The shift ID
+ * @param {Date} shiftStart - When the shift starts
+ * @param {number} minutesBefore - How many minutes before to send notification (default 15)
+ */
+const scheduleShiftNotificationTask = async (shiftId, shiftStart, minutesBefore = 15) => {
+  try {
+    await ensureTasksConfig();
+    
+    const notificationTime = new Date(shiftStart.getTime() - (minutesBefore * 60 * 1000));
+    
+    // Don't schedule if notification time is in the past
+    if (notificationTime.getTime() <= Date.now()) {
+      console.log(`Notification time for shift ${shiftId} is in the past - skipping`);
+      return {success: false, reason: 'Notification time in past'};
+    }
+    
+    const queue = queuePath();
+    const serviceAccountEmail = await getTasksServiceAccount();
+    const taskId = `shift-${shiftId}-notification-${minutesBefore}min`;
+    const fullTaskName = tasksClient.taskPath(PROJECT_ID, 'northamerica-northeast1', 'shift-lifecycle-queue', taskId);
+    
+    // Delete existing task if any
+    await deleteTaskIfExists(fullTaskName);
+    
+    const task = {
+      name: fullTaskName,
+      httpRequest: {
+        httpMethod: 'POST',
+        url: buildFunctionUrl('handleShiftNotificationTask'),
+        headers: {'Content-Type': 'application/json'},
+        body: encodeTaskBody({
+          shiftId,
+          notificationType: 'reminder',
+          minutesBefore,
+        }),
+        oidcToken: {
+          serviceAccountEmail,
+        },
+      },
+      scheduleTime: toScheduleTime(ensureFutureDate(notificationTime)),
+    };
+    
+    await tasksClient.createTask({parent: queue, task});
+    console.log(`✅ Scheduled notification task for shift ${shiftId} at ${notificationTime.toISOString()}`);
+    
+    return {success: true, scheduledFor: notificationTime.toISOString()};
+  } catch (error) {
+    console.error(`Error scheduling notification for shift ${shiftId}:`, error);
+    return {success: false, error: error.message};
+  }
+};
+
+/**
+ * Cancel a scheduled notification task
+ */
+const cancelShiftNotificationTask = async (shiftId, minutesBefore = 15) => {
+  try {
+    const taskId = `shift-${shiftId}-notification-${minutesBefore}min`;
+    const fullTaskName = tasksClient.taskPath(PROJECT_ID, 'northamerica-northeast1', 'shift-lifecycle-queue', taskId);
+    await deleteTaskIfExists(fullTaskName);
+    console.log(`🗑️ Cancelled notification task for shift ${shiftId}`);
+    return {success: true};
+  } catch (error) {
+    console.error(`Error cancelling notification for shift ${shiftId}:`, error);
+    return {success: false, error: error.message};
+  }
+};
+
 module.exports = {
   scheduleShiftLifecycle,
   handleShiftStartTask,
   handleShiftEndTask,
+  handleShiftNotificationTask,
   onShiftCreated,
   onShiftUpdated,
   onShiftCancelled,
   onShiftDeleted,
   sendScheduledShiftReminders,
   scheduleUpcomingShiftLifecycleTasks,
+  scheduleShiftNotificationTask,
+  cancelShiftNotificationTask,
   fixActiveShiftsStatus,
   fixTimesheetsPayAndStatus,
+  teacherRescheduleShift,
 };

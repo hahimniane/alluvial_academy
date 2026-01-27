@@ -20,6 +20,8 @@ class _NotificationPreferencesScreenState
   bool _taskNotificationsEnabled = true;
   int _taskNotificationDays = 1;
 
+  bool _chatNotificationsEnabled = true;
+
   bool _isLoading = true;
 
   @override
@@ -38,6 +40,8 @@ class _NotificationPreferencesScreenState
           await NotificationPreferencesService.isTaskNotificationEnabled();
       final taskDays =
           await NotificationPreferencesService.getTaskNotificationDays();
+      final chatEnabled =
+          await NotificationPreferencesService.isChatNotificationEnabled();
 
       if (mounted) {
         setState(() {
@@ -45,6 +49,7 @@ class _NotificationPreferencesScreenState
           _shiftNotificationMinutes = shiftMinutes;
           _taskNotificationsEnabled = taskEnabled;
           _taskNotificationDays = taskDays;
+          _chatNotificationsEnabled = chatEnabled;
           _isLoading = false;
         });
       }
@@ -66,6 +71,8 @@ class _NotificationPreferencesScreenState
           _taskNotificationsEnabled);
       await NotificationPreferencesService.setTaskNotificationDays(
           _taskNotificationDays);
+      await NotificationPreferencesService.setChatNotificationEnabled(
+          _chatNotificationsEnabled);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -390,6 +397,79 @@ class _NotificationPreferencesScreenState
                     ),
                   ],
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Chat Notifications Section
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffF59E0B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.chat_bubble_outline,
+                        color: Color(0xffF59E0B),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'CHAT MESSAGES',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff6B7280),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Get notified when you receive messages',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _chatNotificationsEnabled,
+                      onChanged: (value) {
+                        setState(() => _chatNotificationsEnabled = value);
+                        _savePreferences();
+                      },
+                      activeThumbColor: const Color(0xffF59E0B),
+                    ),
+                  ],
+                ),
               ),
             ),
 

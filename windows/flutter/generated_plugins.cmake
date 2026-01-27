@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
   cloud_firestore
   connectivity_plus
   emoji_picker_flutter
@@ -16,6 +17,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   livekit_client
   permission_handler_windows
   printing
+  record_windows
   url_launcher_windows
 )
 

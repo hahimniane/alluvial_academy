@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../core/services/onboarding_service.dart';
+import '../../onboarding/services/student_feature_tour.dart';
 import 'notification_preferences_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -19,6 +23,7 @@ class MobileSettingsScreen extends StatefulWidget {
 class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
   Map<String, dynamic>? _userData;
   String? _profilePictureUrl;
+  String? _userRole;
   bool _isLoading = true;
   bool _isUploadingPicture = false;
 
@@ -32,10 +37,12 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
     try {
       final data = await UserRoleService.getCurrentUserData();
       final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
+      final role = await UserRoleService.getCurrentUserRole();
       if (mounted) {
         setState(() {
           _userData = data;
           _profilePictureUrl = profilePicUrl;
+          _userRole = role;
           _isLoading = false;
         });
       }
@@ -46,6 +53,8 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
       }
     }
   }
+  
+  bool get _isStudent => _userRole == 'student';
 
   Future<void> _uploadProfilePicture(ImageSource source) async {
     setState(() => _isUploadingPicture = true);
@@ -263,6 +272,391 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
         ),
       ),
     );
+  }
+
+  void _showHelpDialog() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            Text(
+              'Help & Support',
+              style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).textTheme.titleLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            _buildHelpItem(
+              icon: Icons.book_outlined,
+              title: 'How to Join a Class',
+              description: 'Tap on any upcoming class card and click "Join Class" when it\'s time.',
+            ),
+            _buildHelpItem(
+              icon: Icons.notifications_outlined,
+              title: 'Getting Notifications',
+              description: 'Enable notifications in Settings to get reminders before your classes.',
+            ),
+            _buildHelpItem(
+              icon: Icons.video_call_outlined,
+              title: 'During Class',
+              description: 'Use the mic and camera buttons to control your audio and video.',
+            ),
+            _buildHelpItem(
+              icon: Icons.chat_outlined,
+              title: 'Chat Feature',
+              description: 'Send messages to your teacher using the Chat tab.',
+            ),
+            
+            const SizedBox(height: 20),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _contactSupport,
+                icon: const Icon(Icons.mail_outline),
+                label: const Text('Contact Support'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff0386FF),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHelpItem({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xff0386FF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xff0386FF), size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).textTheme.titleMedium?.color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startAppTour() async {
+    HapticFeedback.lightImpact();
+    Navigator.pop(context); // Close settings first
+    await OnboardingService.resetFeatureTour();
+    if (mounted) {
+      // Navigate back to dashboard and start tour
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Small delay to let the dashboard rebuild
+      await Future.delayed(const Duration(milliseconds: 300));
+      studentFeatureTour.startTour(context, isReplay: true);
+    }
+  }
+
+  void _showAboutDialog() {
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/LOGO.png',
+              width: 40,
+              height: 40,
+              errorBuilder: (_, __, ___) => Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xff0386FF).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.school, color: Color(0xff0386FF)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Alluwal Academy',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  'Version 1.0.0',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xff6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Alluwal Academy is a Quran education platform that connects students with qualified teachers for online Islamic learning.',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xff4B5563),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '© 2024 Alluwal Education Hub',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xff9CA3AF),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Privacy Policy',
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).textTheme.titleLarge?.color,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPrivacySection(
+                        title: 'Information We Collect',
+                        content: 'We collect information you provide directly, including your name, email, and profile information. We also collect data about your class attendance and learning progress.',
+                      ),
+                      _buildPrivacySection(
+                        title: 'How We Use Your Information',
+                        content: 'Your information is used to provide our educational services, send class notifications, and improve your learning experience. We never sell your personal data.',
+                      ),
+                      _buildPrivacySection(
+                        title: 'Data Security',
+                        content: 'We implement industry-standard security measures to protect your data. All communications are encrypted and we regularly audit our security practices.',
+                      ),
+                      _buildPrivacySection(
+                        title: 'Children\'s Privacy',
+                        content: 'We are committed to protecting children\'s privacy. Parent or guardian consent is required for users under 13, and we collect only necessary information.',
+                      ),
+                      _buildPrivacySection(
+                        title: 'Your Rights',
+                        content: 'You have the right to access, correct, or delete your personal information. Contact us at support@alluwaleducationhub.org for any privacy-related requests.',
+                      ),
+                      _buildPrivacySection(
+                        title: 'Contact Us',
+                        content: 'For privacy questions or concerns, email us at support@alluwaleducationhub.org or contact our support team through the app.',
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Last updated: January 2024',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacySection({required String title, required String content}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.titleMedium?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xff4B5563),
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _contactSupport() async {
+    HapticFeedback.lightImpact();
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'support@alluwaleducationhub.org',
+      query: 'subject=Support Request from ${_userData?['name'] ?? 'User'}',
+    );
+    
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Email: support@alluwaleducationhub.org',
+                style: GoogleFonts.inter(),
+              ),
+              backgroundColor: const Color(0xff0386FF),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Copy',
+                textColor: Colors.white,
+                onPressed: () {
+                  Clipboard.setData(const ClipboardData(text: 'support@alluwaleducationhub.org'));
+                },
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error launching email: $e');
+    }
   }
 
   @override
@@ -544,29 +938,39 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   ),
                   _buildSettingsTile(
                     icon: Icons.help_outline,
-                    title: 'Help Center',
-                    subtitle: 'Get help and support',
-                    onTap: () {
-                      // Navigate to help center
-                    },
+                    title: 'Help & Support',
+                    subtitle: 'Get help using the app',
+                    onTap: _showHelpDialog,
                   ),
                   const Divider(height: 1, indent: 56),
+                  if (_isStudent) ...[
+                    _buildSettingsTile(
+                      icon: Icons.explore_outlined,
+                      title: 'Take App Tour',
+                      subtitle: 'Learn how to use the app',
+                      onTap: _startAppTour,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                  ],
                   _buildSettingsTile(
                     icon: Icons.info_outline,
                     title: 'About',
-                    subtitle: 'About this app',
-                    onTap: () {
-                      // Show about dialog
-                    },
+                    subtitle: 'Version and app information',
+                    onTap: _showAboutDialog,
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildSettingsTile(
                     icon: Icons.policy_outlined,
                     title: 'Privacy Policy',
                     subtitle: 'Read our privacy policy',
-                    onTap: () {
-                      // Navigate to privacy policy
-                    },
+                    onTap: _showPrivacyPolicy,
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  _buildSettingsTile(
+                    icon: Icons.mail_outline,
+                    title: 'Contact Us',
+                    subtitle: 'Send us an email',
+                    onTap: _contactSupport,
                   ),
                 ],
               ),

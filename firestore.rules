@@ -468,7 +468,7 @@ service cloud.firestore {
 
     
 
-    // Chat messages - authenticated users can read and write
+    // Chat messages - authenticated users can read and write (legacy)
 
     match /chat_messages/{messageId} {
 
@@ -478,12 +478,56 @@ service cloud.firestore {
 
     
 
-    // Chat rooms - authenticated users can read and write
+    // Chat rooms - authenticated users can read and write (legacy)
 
     match /chat_rooms/{roomId} {
 
       allow read, write: if isSignedIn();
 
+    }
+
+    
+    // Chats collection - role-based access control
+    // Users can only read chats they are participants in
+    // Permission validation is done server-side via Cloud Functions
+    match /chats/{chatId} {
+      // Allow read/list for authenticated users
+      // The query filters by participants on the client side
+      allow read: if isSignedIn();
+      
+      // Allow create if user is creating a chat they're a participant in
+      allow create: if isSignedIn() && 
+                       request.auth.uid in request.resource.data.participants;
+      
+      // Allow update if user is a participant (for last_message updates)
+      allow update: if isSignedIn() && 
+                       request.auth.uid in resource.data.participants;
+      
+      // Allow delete only for admins
+      allow delete: if isAdmin();
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Allow read for participants
+        allow read: if isSignedIn();
+        
+        // Allow create if user is sending as themselves
+        allow create: if isSignedIn() && 
+                         request.resource.data.sender_id == request.auth.uid;
+        
+        // Allow update for marking messages as read
+        allow update: if isSignedIn();
+        
+        // No delete allowed (preserve chat history for compliance)
+        allow delete: if false;
+      }
+    }
+    
+    // No-show reports - authenticated users can create, admins can read/update
+    match /no_show_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     

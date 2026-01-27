@@ -19,6 +19,9 @@ const testLivekitHandlers = require('./handlers/test_livekit');
 const migrationLivekitHandlers = require('./handlers/migration_livekit');
 const passwordHandlers = require('./handlers/password');
 const paymentHandlers = require('./handlers/payments');
+const noShowHandlers = require('./handlers/no_show');
+const chatHandlers = require('./handlers/chat');
+const directCallHandlers = require('./handlers/direct_calls');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -59,6 +62,8 @@ exports.onShiftDeleted = shiftHandlers.onShiftDeleted;
 exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.scheduleUpcomingShiftLifecycleTasks =
   shiftHandlers.scheduleUpcomingShiftLifecycleTasks;
+exports.teacherRescheduleShift = shiftHandlers.teacherRescheduleShift;
+exports.handleShiftNotificationTask = shiftHandlers.handleShiftNotificationTask;
 
 // Dev-only template-based shift generation (rolling window)
 exports.generateDailyShifts = shiftTemplateHandlers.generateDailyShifts;
@@ -86,7 +91,22 @@ exports.checkIncompleteReadinessForms = formHandlers.checkIncompleteReadinessFor
 
 // Timezone management functions
 exports.updateUserTimezone = timezoneHandlers.updateUserTimezone;
+exports.updateNotificationPreferences = timezoneHandlers.updateNotificationPreferences;
 exports.getUserTimezone = timezoneHandlers.getUserTimezone;
+
+// No-show reporting
+exports.reportNoShow = noShowHandlers.reportNoShow;
+
+// Chat notifications and permissions
+exports.onChatMessageCreated = chatHandlers.onChatMessageCreated;
+exports.updateChatNotificationPreference = chatHandlers.updateChatNotificationPreference;
+exports.onShiftStatusChangeChat = chatHandlers.onShiftStatusChange;
+exports.onShiftCreatedChat = chatHandlers.onShiftCreated;
+
+// Direct calls (audio/video calls from chat)
+exports.createDirectCall = directCallHandlers.createDirectCall;
+exports.joinDirectCall = directCallHandlers.joinDirectCall;
+exports.endDirectCall = directCallHandlers.endDirectCall;
 
 // Enrollment management functions
 exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;

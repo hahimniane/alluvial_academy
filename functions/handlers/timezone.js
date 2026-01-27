@@ -95,7 +95,86 @@ const getUserTimezone = onCall(async (request) => {
   }
 });
 
+/**
+ * Update user's notification preferences
+ * Allows users to update their own notification settings
+ */
+const updateNotificationPreferences = onCall(async (request) => {
+  const data = request.data || {};
+  
+  if (!request.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'The function must be called while authenticated.'
+    );
+  }
+  
+  const userId = request.auth.uid;
+  
+  // Validate and sanitize the preferences
+  const validPrefs = {};
+  
+  // Shift notifications (for teachers)
+  if (typeof data.shiftEnabled === 'boolean') {
+    validPrefs.shiftEnabled = data.shiftEnabled;
+  }
+  if (typeof data.shiftMinutes === 'number' && [10, 15, 20, 30].includes(data.shiftMinutes)) {
+    validPrefs.shiftMinutes = data.shiftMinutes;
+  }
+  
+  // Class notifications (for students)
+  if (typeof data.classEnabled === 'boolean') {
+    validPrefs.classEnabled = data.classEnabled;
+  }
+  if (typeof data.classMinutes === 'number' && [5, 10, 15, 20, 30].includes(data.classMinutes)) {
+    validPrefs.classMinutes = data.classMinutes;
+  }
+  
+  // Task notifications
+  if (typeof data.taskEnabled === 'boolean') {
+    validPrefs.taskEnabled = data.taskEnabled;
+  }
+  if (typeof data.taskDays === 'number' && [1, 2, 3, 5, 7].includes(data.taskDays)) {
+    validPrefs.taskDays = data.taskDays;
+  }
+  
+  if (Object.keys(validPrefs).length === 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'No valid notification preferences provided'
+    );
+  }
+  
+  try {
+    // Merge with existing preferences
+    await admin.firestore()
+      .collection('users')
+      .doc(userId)
+      .set({
+        notificationPreferences: {
+          ...validPrefs,
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        }
+      }, {merge: true});
+    
+    console.log(`[NOTIFICATIONS] Updated preferences for user ${userId}:`, validPrefs);
+    
+    return {
+      success: true,
+      preferences: validPrefs,
+      message: 'Notification preferences updated',
+    };
+  } catch (error) {
+    console.error('[NOTIFICATIONS] Error updating preferences:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to update notification preferences'
+    );
+  }
+});
+
 module.exports = {
   updateUserTimezone,
   getUserTimezone,
+  updateNotificationPreferences,
 };

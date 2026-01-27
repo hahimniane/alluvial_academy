@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,8 @@ import '../../../core/services/video_call_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/services/onboarding_service.dart';
+import '../../onboarding/services/student_feature_tour.dart';
 
 /// Student Classes Screen - Shows upcoming classes and allows students to join
 class StudentClassesScreen extends StatefulWidget {
@@ -28,11 +31,22 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
   String? _studentName;
   String? _error;
   String? _userId;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _initializeAuth();
+    // Refresh every 30 seconds to update countdown timers
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeAuth() async {
@@ -132,6 +146,10 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
         return shiftDate.isAfter(todayDate);
       }).toList();
 
+      // Sort both lists by start time (soonest first)
+      todayClasses.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+      futureClasses.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+
       if (mounted) {
         setState(() {
           _todayClasses = todayClasses;
@@ -198,8 +216,17 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                           _buildEmptyState(
                               'No classes today', 'Enjoy your free time!')
                         else
-                          ..._todayClasses.map(
-                              (shift) => _buildClassCard(shift, isToday: true)),
+                          ..._todayClasses.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final shift = entry.value;
+                            // Assign GlobalKey to first class card for feature tour
+                            final isFirstCard = index == 0;
+                            return _buildClassCard(
+                              shift,
+                              isToday: true,
+                              key: isFirstCard ? studentFeatureTour.firstClassCardKey : null,
+                            );
+                          }),
 
                         const SizedBox(height: 24),
 
@@ -211,8 +238,17 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                           _buildEmptyState('No upcoming classes',
                               'Check back later for your schedule')
                         else
-                          ..._upcomingClasses.map((shift) =>
-                              _buildClassCard(shift, isToday: false)),
+                          ..._upcomingClasses.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final shift = entry.value;
+                            // Assign GlobalKey to first card if no today classes
+                            final isFirstCard = index == 0 && _todayClasses.isEmpty;
+                            return _buildClassCard(
+                              shift,
+                              isToday: false,
+                              key: isFirstCard ? studentFeatureTour.firstClassCardKey : null,
+                            );
+                          }),
 
                         const SizedBox(height: 100), // Bottom padding
                       ],
@@ -291,6 +327,13 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     ),
                   ],
                 ),
+              ),
+              // Help/Tour button
+              IconButton(
+                onPressed: () => _startAppTour(),
+                icon: const Icon(Icons.help_outline_rounded),
+                color: Colors.white70,
+                tooltip: 'App Tour',
               ),
               IconButton(
                 onPressed: _loadClasses,
@@ -488,287 +531,321 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
     );
   }
 
-  Widget _buildClassCard(TeachingShift shift, {required bool isToday}) {
+  /// Format time until class in a professional way
+  String _formatTimeUntil(Duration? timeUntil) {
+    if (timeUntil == null) return '';
+    
+    final totalMinutes = timeUntil.inMinutes;
+    final totalHours = timeUntil.inHours;
+    final days = timeUntil.inDays;
+    
+    if (totalMinutes <= 0) {
+      return 'Starting now';
+    } else if (totalMinutes < 2) {
+      return 'Starting in 1 min';
+    } else if (totalMinutes < 60) {
+      return 'Starting in $totalMinutes min';
+    } else if (totalHours < 24) {
+      final hours = totalHours;
+      final mins = totalMinutes % 60;
+      if (mins == 0) {
+        return 'Starting in ${hours}h';
+      } else if (mins < 10) {
+        return 'Starting in ${hours}h ${mins}m';
+      } else {
+        return 'Starting in ${hours}h ${mins}m';
+      }
+    } else if (days == 1) {
+      return 'Tomorrow';
+    } else if (days < 7) {
+      return 'In $days days';
+    } else {
+      return 'In ${(days / 7).floor()} week${days >= 14 ? 's' : ''}';
+    }
+  }
+
+  Widget _buildClassCard(TeachingShift shift, {required bool isToday, GlobalKey? key}) {
     final canJoin = VideoCallService.canJoinClass(shift);
-    final timeUntil = VideoCallService.getTimeUntilCanJoin(shift);
-    final isLiveKit = shift.usesLiveKit;
+    final now = DateTime.now();
+    final timeUntil = shift.shiftStart.isAfter(now) 
+        ? shift.shiftStart.difference(now)
+        : null;
 
     // Format time
     final startTime = DateFormat('h:mm a').format(shift.shiftStart.toLocal());
     final endTime = DateFormat('h:mm a').format(shift.shiftEnd.toLocal());
-    final dateStr = isToday
-        ? 'Today'
-        : DateFormat('EEEE, MMM d').format(shift.shiftStart.toLocal());
 
-    // Determine status color
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
-
-    if (shift.status == ShiftStatus.active) {
-      statusColor = Colors.green;
-      statusText = 'In Progress';
-      statusIcon = Icons.play_circle_rounded;
+    // Determine status and styling
+    final bool isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
+    final bool isStartingSoon = timeUntil != null && timeUntil.inMinutes <= 15;
+    final bool isStartingVerySoon = timeUntil != null && timeUntil.inMinutes <= 5;
+    
+    // Status configuration
+    _ClassStatus status;
+    
+    if (isActive) {
+      status = _ClassStatus(
+        text: 'LIVE',
+        color: const Color(0xFF10B981),
+        bgColor: const Color(0xFFD1FAE5),
+        icon: Icons.sensors,
+        showPulse: true,
+      );
     } else if (canJoin) {
-      statusColor = const Color(0xFF10B981);
-      statusText = 'Ready to Join';
-      statusIcon = Icons.video_call_rounded;
+      status = _ClassStatus(
+        text: 'JOIN NOW',
+        color: const Color(0xFF0E72ED),
+        bgColor: const Color(0xFFDBEAFE),
+        icon: Icons.videocam_rounded,
+        showPulse: false,
+      );
+    } else if (isStartingVerySoon) {
+      status = _ClassStatus(
+        text: _formatTimeUntil(timeUntil),
+        color: const Color(0xFFDC2626),
+        bgColor: const Color(0xFFFEE2E2),
+        icon: Icons.schedule,
+        showPulse: true,
+      );
+    } else if (isStartingSoon) {
+      status = _ClassStatus(
+        text: _formatTimeUntil(timeUntil),
+        color: const Color(0xFFF59E0B),
+        bgColor: const Color(0xFFFEF3C7),
+        icon: Icons.schedule,
+        showPulse: false,
+      );
     } else if (timeUntil != null) {
-      final minutes = timeUntil.inMinutes;
-      if (minutes < 60) {
-        statusColor = Colors.orange;
-        statusText = 'Opens in $minutes min';
-        statusIcon = Icons.schedule_rounded;
-      } else {
-        final hours = minutes ~/ 60;
-        statusColor = const Color(0xFF6B7280);
-        statusText = 'Opens in ${hours}h';
-        statusIcon = Icons.schedule_rounded;
-      }
+      status = _ClassStatus(
+        text: _formatTimeUntil(timeUntil),
+        color: const Color(0xFF6B7280),
+        bgColor: const Color(0xFFF3F4F6),
+        icon: Icons.access_time,
+        showPulse: false,
+      );
     } else {
-      statusColor = const Color(0xFF6B7280);
-      statusText = 'Scheduled';
-      statusIcon = Icons.event_rounded;
+      status = _ClassStatus(
+        text: DateFormat('EEE, MMM d').format(shift.shiftStart.toLocal()),
+        color: const Color(0xFF6B7280),
+        bgColor: const Color(0xFFF3F4F6),
+        icon: Icons.calendar_today,
+        showPulse: false,
+      );
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: canJoin
-                ? const Color(0xFF10B981).withOpacity(0.15)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-        border: canJoin
-            ? Border.all(
-                color: const Color(0xFF10B981).withOpacity(0.3), width: 2)
-            : null,
-      ),
-      child: Column(
-        children: [
-          // Class info
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header row
-                Row(
-                  children: [
-                    // Subject icon
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF1E3A5F),
-                            const Color(0xFF2E5A8F),
+    return GestureDetector(
+      key: key,
+      onTap: canJoin || isActive ? () => _joinClass(shift) : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (canJoin || isActive) 
+                  ? status.color.withOpacity(0.15)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: (canJoin || isActive || isStartingVerySoon)
+              ? Border.all(color: status.color.withOpacity(0.5), width: 1.5)
+              : Border.all(color: const Color(0xFFE5E7EB), width: 1),
+        ),
+        child: Column(
+          children: [
+            // Main content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left: Time display
+                  Container(
+                    width: 56,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: status.bgColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          DateFormat('h:mm').format(shift.shiftStart.toLocal()),
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: status.color,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('a').format(shift.shiftStart.toLocal()).toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: status.color.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  
+                  // Middle: Class info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          shift.effectiveSubjectDisplayName,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF111827),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: const Color(0xFF9CA3AF),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                shift.teacherName,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFF6B7280),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.menu_book_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    // Class details
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            shift.effectiveSubjectDisplayName,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF111827),
-                            ),
+                        const SizedBox(height: 4),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Icon(
+                                  Icons.schedule,
+                                  size: 14,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                              ),
+                              const WidgetSpan(child: SizedBox(width: 4)),
+                              TextSpan(text: '$startTime - $endTime'),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'with ${shift.teacherName}',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: const Color(0xFF6B7280),
-                            ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFF9CA3AF),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    // Status badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(statusIcon, color: statusColor, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            statusText,
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: statusColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Time and date
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time_rounded,
-                        color: Color(0xFF6B7280),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$startTime - $endTime',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF374151),
+                  
+                  // Right: Status badge
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: status.bgColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (status.showPulse) ...[
+                              _PulsingDot(color: status.color),
+                              const SizedBox(width: 6),
+                            ],
+                            Icon(
+                              status.icon,
+                              size: 14,
+                              color: status.color,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                status.text,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: status.color,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.calendar_today_rounded,
-                        color: Color(0xFF6B7280),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        dateStr,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // LiveKit badge
-                if (isLiveKit)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.videocam_rounded,
-                            color: Colors.purple.shade600,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'In-App Video Call',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.purple.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
-              ],
-            ),
-          ),
-
-          // Join button
-          if (canJoin ||
-              (isToday && timeUntil != null && timeUntil.inMinutes <= 30))
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: ElevatedButton.icon(
-                onPressed: canJoin ? () => _joinClass(shift) : null,
-                icon: Icon(
-                  canJoin ? Icons.video_call_rounded : Icons.schedule_rounded,
-                ),
-                label: Text(
-                  canJoin ? 'Join Class Now' : 'Opens Soon',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canJoin
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFE5E7EB),
-                  foregroundColor:
-                      canJoin ? Colors.white : const Color(0xFF9CA3AF),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  elevation: canJoin ? 2 : 0,
-                ),
+                ],
               ),
             ),
-          if (VideoCallService.hasVideoCall(shift))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () =>
-                      VideoCallService.copyJoinLink(context, shift),
-                  icon: const Icon(Icons.link),
+            
+            // Join button for active/joinable classes
+            if (canJoin || isActive)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: ElevatedButton.icon(
+                  onPressed: () => _joinClass(shift),
+                  icon: Icon(
+                    isActive ? Icons.sensors : Icons.videocam_rounded,
+                    size: 18,
+                  ),
                   label: Text(
-                    'Copy class link',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    isActive ? 'Join Live Class' : 'Join Class',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF0E72ED),
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: status.color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  /// Start the app tour for the student
+  void _startAppTour() async {
+    await OnboardingService.resetFeatureTour();
+    if (mounted) {
+      studentFeatureTour.startTour(context, isReplay: true);
+    }
   }
 
   Future<void> _joinClass(TeachingShift shift) async {
@@ -776,6 +853,81 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
       context,
       shift,
       isTeacher: false, // Student joining
+    );
+  }
+}
+
+/// Status configuration for a class card
+class _ClassStatus {
+  final String text;
+  final Color color;
+  final Color bgColor;
+  final IconData icon;
+  final bool showPulse;
+
+  const _ClassStatus({
+    required this.text,
+    required this.color,
+    required this.bgColor,
+    required this.icon,
+    required this.showPulse,
+  });
+}
+
+/// Animated pulsing dot for live/urgent indicators
+class _PulsingDot extends StatefulWidget {
+  final Color color;
+  
+  const _PulsingDot({required this.color});
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: widget.color.withOpacity(_animation.value),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(_animation.value * 0.5),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/chat_service.dart';
+import '../services/chat_permission_service.dart';
 import '../models/chat_user.dart';
 import '../widgets/chat_user_list_item.dart';
 import '../widgets/group_info_dialog.dart';
@@ -21,16 +22,20 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   late TabController _tabController;
   final ChatService _chatService = ChatService();
+  final ChatPermissionService _permissionService = ChatPermissionService();
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
   bool _isAdmin = false;
+  Map<String, List<ChatUser>> _groupedContacts = {};
+  bool _loadingContacts = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _checkAdminStatus();
+    _loadEligibleContacts();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase();
@@ -43,6 +48,29 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     setState(() {
       _isAdmin = isAdmin;
     });
+  }
+
+  Future<void> _loadEligibleContacts() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      setState(() => _loadingContacts = false);
+      return;
+    }
+    
+    try {
+      final contacts = await _permissionService.getEligibleContactsGrouped(userId);
+      if (mounted) {
+        setState(() {
+          _groupedContacts = contacts;
+          _loadingContacts = false;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error loading eligible contacts: $e');
+      if (mounted) {
+        setState(() => _loadingContacts = false);
+      }
+    }
   }
 
   @override
@@ -97,7 +125,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                       controller: _tabController,
                       children: [
                         _buildRecentChats(),
-                        _buildAllUsers(),
+                        _buildMyContacts(),
                       ],
                     ),
                   ),
@@ -229,7 +257,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
           Tab(
             height: 44,
-            text: 'All Users',
+            text: 'My Contacts',
           ),
         ],
       ),
@@ -370,71 +398,145 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildAllUsers() {
-    return StreamBuilder<List<ChatUser>>(
-      stream: _chatService.getAllUsers(),
-      builder: (context, snapshot) {
-        // Check auth state before processing
-        if (FirebaseAuth.instance.currentUser == null) {
-          return _buildEmptyState(
-            'Please sign in',
-            'Authentication required to view users',
-            Icons.login,
+  Widget _buildMyContacts() {
+    // Check auth state before processing
+    if (FirebaseAuth.instance.currentUser == null) {
+      return _buildEmptyState(
+        'Please sign in',
+        'Authentication required to view contacts',
+        Icons.login,
+      );
+    }
+
+    if (_loadingContacts) {
+      return _buildLoadingState();
+    }
+
+    if (_groupedContacts.isEmpty) {
+      return _buildEmptyState(
+        'No contacts available',
+        'Your teachers, students, or administrators will appear here based on your classes',
+        Icons.people_outline,
+      );
+    }
+
+    // Filter contacts based on search query
+    final filteredGroups = <String, List<ChatUser>>{};
+    for (final entry in _groupedContacts.entries) {
+      final filteredUsers = _searchQuery.isEmpty
+          ? entry.value
+          : entry.value
+              .where((user) =>
+                  user.displayName.toLowerCase().contains(_searchQuery) ||
+                  user.email.toLowerCase().contains(_searchQuery))
+              .toList();
+      if (filteredUsers.isNotEmpty) {
+        filteredGroups[entry.key] = filteredUsers;
+      }
+    }
+
+    if (filteredGroups.isEmpty) {
+      return _buildEmptyState(
+        'No contacts match your search',
+        'Try a different search term',
+        Icons.search_off,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadEligibleContacts,
+      color: const Color(0xff0386FF),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+        itemCount: filteredGroups.length,
+        itemBuilder: (context, groupIndex) {
+          final groupName = filteredGroups.keys.elementAt(groupIndex);
+          final users = filteredGroups[groupName]!;
+          
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Group header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                child: Row(
+                  children: [
+                    _getGroupIcon(groupName),
+                    const SizedBox(width: 8),
+                    Text(
+                      groupName,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff6B7280),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${users.length}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff64748B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Users in this group
+              ...users.map((user) => ChatUserListItem(
+                user: user,
+                onTap: () => _openChat(user),
+                showLastMessage: false,
+              )),
+            ],
           );
-        }
+        },
+      ),
+    );
+  }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingState();
-        }
-
-        if (snapshot.hasError) {
-          // Handle permission errors gracefully
-          if (snapshot.error.toString().contains('permission-denied')) {
-            return _buildEmptyState(
-              'Access denied',
-              'Please sign in to view users',
-              Icons.lock,
-            );
-          }
-          return _buildErrorState('Error loading users');
-        }
-
-        final users = snapshot.data ?? [];
-        final filteredUsers = _searchQuery.isEmpty
-            ? users
-            : users
-                .where((user) =>
-                    user.displayName.toLowerCase().contains(_searchQuery) ||
-                    user.email.toLowerCase().contains(_searchQuery) ||
-                    (user.role?.toLowerCase().contains(_searchQuery) ?? false))
-                .toList();
-
-        if (filteredUsers.isEmpty) {
-          return _buildEmptyState(
-            _searchQuery.isEmpty
-                ? 'No users found'
-                : 'No users match your search',
-            _searchQuery.isEmpty
-                ? 'Users will appear here when available'
-                : 'Try a different search term',
-            Icons.people_outline,
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
-          itemCount: filteredUsers.length,
-          itemBuilder: (context, index) {
-            final user = filteredUsers[index];
-            return ChatUserListItem(
-              user: user,
-              onTap: () => _openChat(user),
-              onLongPress: user.isGroup ? () => _showGroupInfo(user) : null,
-              showLastMessage: false,
-            );
-          },
-        );
-      },
+  Widget _getGroupIcon(String groupName) {
+    IconData icon;
+    Color color;
+    
+    switch (groupName) {
+      case 'Administrators':
+        icon = Icons.admin_panel_settings;
+        color = const Color(0xffEF4444);
+        break;
+      case 'Teachers':
+        icon = Icons.school;
+        color = const Color(0xff0386FF);
+        break;
+      case 'Students':
+        icon = Icons.person;
+        color = const Color(0xff10B981);
+        break;
+      case 'Parents':
+        icon = Icons.family_restroom;
+        color = const Color(0xffF59E0B);
+        break;
+      default:
+        icon = Icons.people;
+        color = const Color(0xff6B7280);
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(icon, size: 16, color: color),
     );
   }
 
@@ -442,6 +544,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 48,
@@ -475,6 +578,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 120,
@@ -532,6 +636,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 120,
