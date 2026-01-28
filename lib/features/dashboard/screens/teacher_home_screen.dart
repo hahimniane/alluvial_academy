@@ -264,12 +264,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         // Use cached repository for better performance
         final allShifts = await ShiftRepository.getTeacherShiftsCached(user.uid);
         
-        // Filter for upcoming shifts (for the "upcoming" section)
+        // Filter for upcoming shifts (for "Next Class") - exclude clocked-in shifts
+        // so the active session does not reappear in Next Class when cache/stream updates
         final now = DateTime.now();
         final futureShifts = allShifts.where((shift) {
           final localEnd = shift.shiftEnd.toLocal();
-          // Keep if shift hasn't ended OR if it's the active shift
-          return localEnd.isAfter(now) || (active != null && shift.id == active.id);
+          return localEnd.isAfter(now) && !shift.isClockedIn;
         }).toList();
         
         futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
@@ -2217,13 +2217,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
       if (result['success'] == true) {
         if (!mounted) return;
+        ShiftRepository.clearTeacherCache(user.uid);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'Clocked out successfully!'),
             backgroundColor: Colors.green,
           ),
         );
-        // Refresh data to update UI
+        // Refresh data to update UI (cache cleared so fresh data)
         _loadData();
       } else {
         if (!mounted) return;
@@ -2427,6 +2428,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       );
 
       if (result['success'] == true) {
+        // Invalidate shift cache so _loadData() and stream use fresh data (with clock-in)
+        ShiftRepository.clearTeacherCache(user.uid);
+
         // Clear programmed state on success
         if (mounted) {
           setState(() {
@@ -2463,7 +2467,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Refresh data to sync with Firestore (stream will update eventually)
+        // Refresh data (cache cleared above, so this fetches fresh shifts with clock-in)
         _loadData();
       } else {
         if (!mounted) return;
