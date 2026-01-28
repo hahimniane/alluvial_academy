@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/chat_user.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ChatUserListItem extends StatelessWidget {
   final ChatUser user;
@@ -88,7 +88,7 @@ class ChatUserListItem extends StatelessWidget {
                       const SizedBox(height: 4),
 
                       // Role, email, or online status
-                      _buildSubtitleInfo(),
+                      _buildSubtitleInfo(context),
 
                       // Last message and time (conditional)
                       if (showLastMessage && user.lastMessage.isNotEmpty) ...[
@@ -241,7 +241,7 @@ class ChatUserListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildSubtitleInfo() {
+  Widget _buildSubtitleInfo(BuildContext context) {
     if (user.isGroup) {
       return Row(
         children: [

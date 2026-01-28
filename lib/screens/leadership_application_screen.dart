@@ -4,7 +4,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/modern_header.dart';
 import '../core/models/leadership_application.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class LeadershipApplicationScreen extends StatefulWidget {
   const LeadershipApplicationScreen({super.key});

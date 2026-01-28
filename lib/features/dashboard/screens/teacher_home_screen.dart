@@ -495,7 +495,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error opening link: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!
+                .dashboardErrorOpeningLink(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -1011,7 +1012,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                         // Handle different data structures
                         final shiftTitle = shift['shiftTitle'] ?? 
                                          shift['displayName'] ?? 
-                                         'Unknown Shift';
+                                         AppLocalizations.of(context)!.commonUnknownShift;
                         
                         // Safely handle shiftDate - can be DateTime, Timestamp, or null
                         // Check multiple possible field names: shiftDate, shiftStart, clockInTime
@@ -1213,7 +1214,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     // Shift ID is required, but timesheetId is optional (for missed shifts)
     if (shiftId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.errorMissingShiftInformation),
           backgroundColor: Colors.red,
         ),
@@ -1280,7 +1281,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (template == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.errorCouldNotLoadFormTemplate),
               backgroundColor: Colors.red,
             ),
@@ -1919,7 +1920,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       _startProgrammedClockIn(shift);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.clockInTooEarly),
           backgroundColor: Colors.orange,
         ),
@@ -1970,7 +1971,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Clock-in programmed for ${DateFormat('HH:mm').format(shift.shiftStart)}'),
+        content: Text(AppLocalizations.of(context)!.dashboardClockInProgrammed(
+            DateFormat('HH:mm').format(shift.shiftStart))),
         backgroundColor: const Color(0xFF3B82F6),
         duration: const Duration(seconds: 2),
       ),
@@ -2048,7 +2050,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.clockInCancelled),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
@@ -2063,7 +2065,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated), backgroundColor: Colors.red),
         );
         return;
       }
@@ -2090,7 +2092,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (location == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.clockInLocationError),
             backgroundColor: Colors.red,
           ),

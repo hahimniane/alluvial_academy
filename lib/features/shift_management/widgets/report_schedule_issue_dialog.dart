@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Compact dialog for teachers to report schedule issues and fix timezone
 class ReportScheduleIssueDialog extends StatefulWidget {
@@ -69,7 +69,7 @@ class _ReportScheduleIssueDialogState extends State<ReportScheduleIssueDialog> {
   Future<void> _submitReport() async {
     if (_issueType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.pleaseSelectAnIssueType),
           backgroundColor: Colors.orange,
         ),

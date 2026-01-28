@@ -5,8 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 // Import connectivity helper based on platform
 import 'connectivity_service_io.dart'
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
     if (dart.library.html) 'connectivity_service_web.dart' as platform;
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Service to check and monitor internet connectivity
 class ConnectivityService {

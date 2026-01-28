@@ -31,7 +31,7 @@ import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 enum _DeleteShiftScope {
   single,
@@ -713,7 +713,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   @override
   Widget build(BuildContext context) {
     if (!_isLoading && !_isAdmin) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Color(0xffF8FAFC),
         body: Center(
           child: Text(
@@ -1010,7 +1010,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         children: [
           _buildToggleButton(
             icon: Icons.grid_on,
-            label: 'Grid',
+            label: AppLocalizations.of(context)!.shiftManagementGrid,
             selected: _viewMode == 'grid',
             onTap: () => setState(() {
               _viewMode = 'grid';
@@ -1019,7 +1019,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           ),
           _buildToggleButton(
             icon: Icons.calendar_view_week,
-            label: 'Week',
+            label: AppLocalizations.of(context)!.dashboardWeek,
             selected: _viewMode == 'week',
             onTap: () => setState(() {
               _viewMode = 'week';
@@ -1028,7 +1028,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           ),
           _buildToggleButton(
             icon: Icons.view_list,
-            label: 'List',
+            label: AppLocalizations.of(context)!.shiftManagementList,
             selected: _viewMode == 'list',
             onTap: () => setState(() {
               _viewMode = 'list';
@@ -1226,7 +1226,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'manage_subjects',
                               child: Row(
                                 children: [
@@ -1237,7 +1237,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 ],
                               ),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'pay_settings',
                               child: Row(
                                 children: [
@@ -1248,7 +1248,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 ],
                               ),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'dst_adjustment',
                               child: Row(
                                 children: [
@@ -1851,6 +1851,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           selectedShiftIds: _selectedShiftIds,
           onSelectionChanged: _onShiftSelectionChanged,
           isAdmin: _isAdmin,
+          context: context,
         ),
         columns: [
           if (_isSelectionMode && _isAdmin)
@@ -2094,7 +2095,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     if (scheduled.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToEdit),
           backgroundColor: Colors.orange,
         ),
@@ -2141,7 +2142,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       Navigator.pop(context);
       if (series == null || series.shifts.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.unableToLoadSeriesShifts),
             backgroundColor: Colors.red,
           ),
@@ -2428,7 +2429,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         if (ids.isEmpty) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content:
                   Text(AppLocalizations.of(context)!.noScheduledShiftsFoundToDelete),
               backgroundColor: Colors.orange,
@@ -2533,7 +2534,8 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Deleting ${_selectedShiftIds.length} shifts...'),
+              content: Text(AppLocalizations.of(context)!
+                  .shiftDeletingCount(_selectedShiftIds.length)),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 2),
             ),
@@ -2550,7 +2552,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.allSelectedShiftsDeletedSuccessfully),
               backgroundColor: Colors.green,
             ),
@@ -2580,7 +2582,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     if (selected.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.noShiftsSelected),
           backgroundColor: Colors.orange,
         ),
@@ -2626,11 +2628,12 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
   }
 
   String _getTeacherDisplayName(String email) {
+    final l10n = AppLocalizations.of(context)!;
     final teacher = _availableTeachers.firstWhere(
       (t) => t.email == email,
       orElse: () => Employee(
-        firstName: 'Unknown',
-        lastName: 'Teacher',
+        firstName: l10n.commonUnknown,
+        lastName: l10n.roleTeacher,
         email: email,
         countryCode: '',
         mobilePhone: '',
@@ -2676,7 +2679,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     if (teacherId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.teacherIdNotFound),
             backgroundColor: Colors.red,
           ),
@@ -3005,7 +3008,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -3516,6 +3519,7 @@ class ShiftDataSource extends DataGridSource {
   final Set<String> selectedShiftIds;
   final Function(String, bool) onSelectionChanged;
   final bool isAdmin;
+  final BuildContext context;
 
   ShiftDataSource({
     required this.shifts,
@@ -3527,6 +3531,7 @@ class ShiftDataSource extends DataGridSource {
     required this.selectedShiftIds,
     required this.onSelectionChanged,
     required this.isAdmin,
+    required this.context,
   });
 
   @override

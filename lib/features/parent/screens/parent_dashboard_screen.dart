@@ -19,7 +19,7 @@ import 'package:alluwalacademyadmin/features/parent/widgets/children_list_widget
 import 'package:alluwalacademyadmin/features/parent/widgets/financial_summary_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/invoice_card.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/student_detail_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   final String? parentId;

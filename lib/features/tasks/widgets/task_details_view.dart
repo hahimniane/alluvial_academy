@@ -15,7 +15,7 @@ import '../../../core/models/enhanced_recurrence.dart';
 import '../../../core/enums/shift_enums.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TaskDetailsView extends StatefulWidget {
   final Task task;
@@ -91,7 +91,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                   .trim();
           if (mounted)
             setState(() => _assignedByName =
-                fullName.isNotEmpty ? fullName : (data['e-mail'] ?? 'Unknown'));
+                fullName.isNotEmpty
+                    ? fullName
+                    : (data['e-mail'] ?? AppLocalizations.of(context)!.commonUnknown));
         }
       }
 
@@ -306,7 +308,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             Icons.person,
             'Assigned To',
             _assignedToNames.isEmpty
-                ? (widget.task.assignedTo.isEmpty ? 'Unassigned' : 'Loading...')
+                ? (widget.task.assignedTo.isEmpty
+                    ? AppLocalizations.of(context)!.taskUnassigned
+                    : AppLocalizations.of(context)!.commonLoading)
                 : _assignedToNames.join(', '),
           ),
           const SizedBox(height: 16),
@@ -315,7 +319,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
             'Assigned By',
             (_assignedByName != null && _assignedByName!.isNotEmpty)
                 ? _assignedByName!
-                : (widget.task.createdBy.isNotEmpty ? 'Loading...' : 'Unknown'),
+                : (widget.task.createdBy.isNotEmpty
+                    ? AppLocalizations.of(context)!.commonLoading
+                    : AppLocalizations.of(context)!.commonUnknown),
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
@@ -346,7 +352,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         _buildInfoRow(
           Icons.repeat,
           'Recurrence',
-          recurrence.description,
+          recurrence.localizedDescription(AppLocalizations.of(context)!),
         ),
         const SizedBox(height: 16),
         // Next Occurrence
@@ -1226,7 +1232,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to download file: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!
+                .taskDownloadFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -1307,7 +1314,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to remove attachment: ${e.toString()}'),
+              content: Text(AppLocalizations.of(context)!
+                  .taskRemoveAttachmentFailed(e.toString())),
               backgroundColor: Colors.red,
             ),
           );

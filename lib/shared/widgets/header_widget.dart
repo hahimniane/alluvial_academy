@@ -2,7 +2,7 @@ import 'package:alluwalacademyadmin/widgets/export_widget.dart';
 import 'package:flutter/material.dart';
 import '../../features/user_management/screens/add_user_screen.dart';
 import '../../core/constants/app_constants.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class HeaderWidget extends StatelessWidget {
   final Function(String) onSearchChanged;
@@ -45,7 +45,7 @@ class HeaderWidget extends StatelessWidget {
                 },
                 itemBuilder: (BuildContext context) => [
                   // User Type Filters
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'all',
                     child: Row(
                       children: [
@@ -56,7 +56,7 @@ class HeaderWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'teacher',
                     child: Row(
                       children: [
@@ -67,7 +67,7 @@ class HeaderWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'student',
                     child: Row(
                       children: [
@@ -78,7 +78,7 @@ class HeaderWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'admin',
                     child: Row(
                       children: [
@@ -90,7 +90,7 @@ class HeaderWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'parent',
                     child: Row(
                       children: [
@@ -105,7 +105,7 @@ class HeaderWidget extends StatelessWidget {
                   // Divider
                   const PopupMenuDivider(),
                   // Status Filters
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'active',
                     child: Row(
                       children: [
@@ -116,7 +116,7 @@ class HeaderWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'archived',
                     child: Row(
                       children: [
@@ -127,7 +127,7 @@ class HeaderWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'never_logged_in',
                     child: Row(
                       children: [
@@ -147,7 +147,7 @@ class HeaderWidget extends StatelessWidget {
                     border: Border.all(color: Colors.blue),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.filter_list, color: Colors.blue, size: 18),
@@ -194,8 +194,7 @@ class HeaderWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Row(
-                children: [
+              child: Row(children: [
                   Icon(Icons.login, color: Colors.white),
                   SizedBox(width: 5),
                   Text(AppLocalizations.of(context)!.usersDidnTLogInYet,
@@ -213,8 +212,7 @@ class HeaderWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Row(
-                  children: [
+                child: Row(children: [
                     Icon(Icons.family_restroom, color: Colors.white),
                     SizedBox(width: 5),
                     Text(AppLocalizations.of(context)!.filterByParent,

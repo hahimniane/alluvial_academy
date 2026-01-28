@@ -135,7 +135,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
     } catch (e) {
       debugPrint('Error showing language picker: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingLanguageSettingsPleaseRestart)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingLanguageSettingsPleaseRestart)),
       );
     }
   }
@@ -437,22 +437,22 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             _buildHelpItem(
               icon: Icons.book_outlined,
               title: AppLocalizations.of(context)!.howToJoinAClass,
-              description: 'Tap on any upcoming class card and click "Join Class" when it\'s time.',
+              description: AppLocalizations.of(context)!.settingsTourJoinClassDescription,
             ),
             _buildHelpItem(
               icon: Icons.notifications_outlined,
               title: AppLocalizations.of(context)!.gettingNotifications,
-              description: 'Enable notifications in Settings to get reminders before your classes.',
+              description: AppLocalizations.of(context)!.settingsTourEnableNotificationsDescription,
             ),
             _buildHelpItem(
               icon: Icons.video_call_outlined,
               title: AppLocalizations.of(context)!.duringClass,
-              description: 'Use the mic and camera buttons to control your audio and video.',
+              description: AppLocalizations.of(context)!.settingsTourMediaControlsDescription,
             ),
             _buildHelpItem(
               icon: Icons.chat_outlined,
               title: AppLocalizations.of(context)!.chatFeature,
-              description: 'Send messages to your teacher using the Chat tab.',
+              description: AppLocalizations.of(context)!.settingsTourChatDescription,
             ),
             
             const SizedBox(height: 20),
@@ -562,7 +562,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                 child: const Icon(Icons.school, color: Color(0xff0386FF)),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -598,7 +598,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              AppLocalizations.of(context)!.2024AlluwalEducationHub,
+              '© 2024 Alluvial Education Hub',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xff9CA3AF),
@@ -765,10 +765,10 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
               backgroundColor: const Color(0xff0386FF),
               behavior: SnackBarBehavior.floating,
               action: SnackBarAction(
-                label: 'Copy',
+                label: AppLocalizations.of(context)!.commonCopy,
                 textColor: Colors.white,
                 onPressed: () {
-                  Clipboard.setData(const ClipboardData(text: AppLocalizations.of(context)!.supportAlluwaleducationhubOrg));
+                  Clipboard.setData(ClipboardData(text: AppLocalizations.of(context)!.supportAlluwaleducationhubOrg));
                 },
               ),
             ),

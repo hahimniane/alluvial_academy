@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/teacher_audit_full.dart';
 import '../../core/services/teacher_audit_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Windows 11 Fluent Design Colors
 class Win11Colors {
@@ -87,7 +87,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
       if (mounted) {
         // Show success snackbar FIRST (before onSaved which reloads data)
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.auditSubmittedSuccessfully),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
@@ -131,7 +131,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
           child: Column(
             children: [
               _buildPanelHeader(0, 0, 0),
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

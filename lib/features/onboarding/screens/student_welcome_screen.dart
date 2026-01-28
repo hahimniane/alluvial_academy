@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../../core/services/onboarding_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Welcome onboarding slides for new students
 class StudentWelcomeScreen extends StatefulWidget {
@@ -22,41 +22,49 @@ class StudentWelcomeScreen extends StatefulWidget {
 class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  static const _pageCount = 4;
+  late List<_OnboardingPage> _pages;
+  bool _pagesInitialized = false;
 
-  final List<_OnboardingPage> _pages = [
-    _OnboardingPage(
-      icon: Icons.school_rounded,
-      iconColor: const Color(0xFF0E72ED),
-      title: AppLocalizations.of(context)!.welcomeToAlluvialAcademy,
-      subtitle: AppLocalizations.of(context)!.yourIslamicEducationJourneyStartsHere,
-      description:
-          'Join live classes with qualified teachers, learn at your own pace, and grow in knowledge.',
-    ),
-    _OnboardingPage(
-      icon: Icons.videocam_rounded,
-      iconColor: const Color(0xFF10B981),
-      title: AppLocalizations.of(context)!.joinLiveClasses,
-      subtitle: AppLocalizations.of(context)!.interactiveLearningExperience,
-      description:
-          'See your upcoming classes, join with one tap when it\'s time, and learn directly from your teachers.',
-    ),
-    _OnboardingPage(
-      icon: Icons.notifications_active_rounded,
-      iconColor: const Color(0xFFF59E0B),
-      title: AppLocalizations.of(context)!.neverMissAClass,
-      subtitle: AppLocalizations.of(context)!.stayOnTrackWithReminders,
-      description:
-          'Get notified before your classes start so you\'re always prepared and ready to learn.',
-    ),
-    _OnboardingPage(
-      icon: Icons.rocket_launch_rounded,
-      iconColor: const Color(0xFF8B5CF6),
-      title: AppLocalizations.of(context)!.youReAllSet,
-      subtitle: AppLocalizations.of(context)!.letSGetStarted,
-      description:
-          'We\'ll show you around the app so you know exactly where everything is. Ready?',
-    ),
-  ];
+  void _initPages(BuildContext context) {
+    if (_pagesInitialized) return;
+    _pagesInitialized = true;
+    final l10n = AppLocalizations.of(context)!;
+    _pages = [
+      _OnboardingPage(
+        icon: Icons.school_rounded,
+        iconColor: const Color(0xFF0E72ED),
+        title: l10n.welcomeToAlluvialAcademy,
+        subtitle: l10n.yourIslamicEducationJourneyStartsHere,
+        description:
+            'Join live classes with qualified teachers, learn at your own pace, and grow in knowledge.',
+      ),
+      _OnboardingPage(
+        icon: Icons.videocam_rounded,
+        iconColor: const Color(0xFF10B981),
+        title: l10n.joinLiveClasses,
+        subtitle: l10n.interactiveLearningExperience,
+        description:
+            'See your upcoming classes, join with one tap when it\'s time, and learn directly from your teachers.',
+      ),
+      _OnboardingPage(
+        icon: Icons.notifications_active_rounded,
+        iconColor: const Color(0xFFF59E0B),
+        title: l10n.neverMissAClass,
+        subtitle: l10n.stayOnTrackWithReminders,
+        description:
+            'Get notified before your classes start so you\'re always prepared and ready to learn.',
+      ),
+      _OnboardingPage(
+        icon: Icons.rocket_launch_rounded,
+        iconColor: const Color(0xFF8B5CF6),
+        title: l10n.youReAllSet,
+        subtitle: l10n.letSGetStarted,
+        description:
+            'We\'ll show you around the app so you know exactly where everything is. Ready?',
+      ),
+    ];
+  }
 
   @override
   void dispose() {
@@ -66,7 +74,7 @@ class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
 
   void _nextPage() {
     HapticFeedback.mediumImpact(); // Haptic feedback for kids
-    if (_currentPage < _pages.length - 1) {
+    if (_currentPage < _pageCount - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -84,8 +92,9 @@ class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _initPages(context);
     final size = MediaQuery.of(context).size;
-    final isLastPage = _currentPage == _pages.length - 1;
+    final isLastPage = _currentPage == _pageCount - 1;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -118,7 +127,7 @@ class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
                 onPageChanged: (index) {
                   setState(() => _currentPage = index);
                 },
-                itemCount: _pages.length,
+                itemCount: _pageCount,
                 itemBuilder: (context, index) {
                   final page = _pages[index];
                   return LayoutBuilder(
@@ -234,7 +243,7 @@ class _StudentWelcomeScreenState extends State<StudentWelcomeScreen> {
                   // Page indicator
                   SmoothPageIndicator(
                     controller: _pageController,
-                    count: _pages.length,
+                    count: _pageCount,
                     effect: ExpandingDotsEffect(
                       dotWidth: 8,
                       dotHeight: 8,

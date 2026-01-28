@@ -13,7 +13,7 @@ import 'parent_invoices_screen.dart';
 import 'payment_history_screen.dart';
 import 'parent_profile_screen.dart';
 import '../../settings/screens/role_settings_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Parent Dashboard Layout with sidebar navigation
 class ParentDashboardLayout extends StatefulWidget {
@@ -88,7 +88,7 @@ class _ParentDashboardLayoutState extends State<ParentDashboardLayout> {
       case 4:
         return const ParentProfileScreen();
       case 5:
-        return const RoleSettingsScreen(title: AppLocalizations.of(context)!.parentSettings);
+        return RoleSettingsScreen(title: AppLocalizations.of(context)!.parentSettings);
       default:
         return const _AccessDeniedScreen();
     }
@@ -341,12 +341,12 @@ class _AccessDeniedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFFF8FAFC),
+    return ColoredBox(
+      color: const Color(0xFFF8FAFC),
       child: Center(
         child: Text(
           AppLocalizations.of(context)!.accessRestricted,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             color: Color(0xFF6B7280),
             fontWeight: FontWeight.w600,

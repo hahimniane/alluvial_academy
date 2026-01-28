@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/enhanced_recurrence.dart';
 import '../../core/enums/shift_enums.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../../core/utils/weekday_localization.dart';
 
 class EnhancedRecurrencePicker extends StatefulWidget {
   final EnhancedRecurrence initialRecurrence;
@@ -65,7 +66,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
       ),
       child: DropdownButtonFormField<EnhancedRecurrenceType>(
         initialValue: _recurrence.type,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.recurrenceType,
           border: InputBorder.none,
           contentPadding: EdgeInsets.all(16),
@@ -121,6 +122,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
   }
 
   Widget _buildDailySettings() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -155,7 +157,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
             children: WeekDay.values.map((day) {
               final isExcluded = _recurrence.excludedWeekdays.contains(day);
               return FilterChip(
-                label: Text(day.shortName),
+                label: Text(day.localizedShortName(l10n)),
                 selected: isExcluded,
                 onSelected: (selected) {
                   final newExcludedDays =
@@ -222,6 +224,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
   }
 
   Widget _buildWeeklySettings() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -256,7 +259,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
             children: WeekDay.values.map((day) {
               final isSelected = _recurrence.selectedWeekdays.contains(day);
               return FilterChip(
-                label: Text(day.shortName),
+                label: Text(day.localizedShortName(l10n)),
                 selected: isSelected,
                 onSelected: (selected) {
                   final newSelectedDays =
@@ -501,7 +504,7 @@ class _EnhancedRecurrencePickerState extends State<EnhancedRecurrencePicker> {
                     _recurrence.endDate != null
                         ? DateFormat('MMM dd, yyyy')
                             .format(_recurrence.endDate!)
-                        : 'Select end date',
+                        : AppLocalizations.of(context)!.selectEndDate,
                     style: GoogleFonts.inter(
                       color: _recurrence.endDate != null
                           ? const Color(0xff374151)

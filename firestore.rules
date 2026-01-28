@@ -109,11 +109,12 @@ service cloud.firestore {
     
 
     // Helper to ensure sensitive fields remain unchanged during updates
+    // Returns true if field is unchanged OR if field doesn't exist in both docs
 
     function fieldUnchanged(fieldName) {
-
-      return request.resource.data[fieldName] == resource.data[fieldName];
-
+      return (!request.resource.data.keys().hasAny([fieldName]) && !resource.data.keys().hasAny([fieldName])) ||
+             (request.resource.data.keys().hasAny([fieldName]) && resource.data.keys().hasAny([fieldName]) && 
+              request.resource.data[fieldName] == resource.data[fieldName]);
     }
 
     
@@ -279,6 +280,25 @@ service cloud.firestore {
 
       allow write: if isAdmin();
 
+    }
+
+    // Form templates collection (used by FormTemplateService)
+    // All authenticated users can read, only admins can write
+    match /form_templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Form template configuration
+    match /form_template_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Settings collection (used for form template config, app settings, etc.)
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     

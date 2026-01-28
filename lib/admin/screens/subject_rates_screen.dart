@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/models/teacher_audit_full.dart';
 import '../../core/services/teacher_audit_service.dart';
 import '../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin screen for managing subject hourly rates
 class SubjectRatesScreen extends StatefulWidget {
@@ -100,20 +100,20 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   TextField(
                     controller: nameController,
                     enabled: !isSaving,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.subjectName,
                       hintText: AppLocalizations.of(context)!.eGMathematics,
                     ),
                   ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 TextField(
                   controller: hourlyRateController,
                   enabled: !isSaving,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.hourlyRate,
                     prefixText: '\$ ',
-                    hintText: AppLocalizations.of(context)!.1500,
+                    hintText: '15.00',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -121,10 +121,10 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   controller: penaltyController,
                   enabled: !isSaving,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.penaltyPerMissedClass,
                     prefixText: '\$ ',
-                    hintText: AppLocalizations.of(context)!.500,
+                    hintText: '5.00',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -132,10 +132,10 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                   controller: bonusController,
                   enabled: !isSaving,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.bonusPerExcellence,
                     prefixText: '\$ ',
-                    hintText: AppLocalizations.of(context)!.1000,
+                    hintText: '10.00',
                   ),
                 ),
                 if (isSaving) ...[
@@ -182,7 +182,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
                             if (mounted) {
                               _loadRates();
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(AppLocalizations.of(context)!.rateUpdatedSuccessfully),
                                   duration: Duration(seconds: 2),
                                 ),
@@ -516,7 +516,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          AppLocalizations.of(context)!.thisWillSetDefaultRatesFor
+          '${AppLocalizations.of(context)!.thisWillSetDefaultRatesFor}\n'
           '• English, Maths, Science, Programming: \$5.00/hr\n'
           '• Quran, Arabic, Hadith, Fiqh, Tutoring: \$4.00/hr\n\n'
           'Existing rates will be overwritten. Continue?',
@@ -590,7 +590,7 @@ class _SubjectRatesScreenState extends State<SubjectRatesScreen> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          AppLocalizations.of(context)!.thisWillUpdateTheDefaultwageField
+          '${AppLocalizations.of(context)!.thisWillUpdateTheDefaultwageField} '
           'to match the hourly rates configured here. This ensures that when '
           'creating new shifts, the correct default rate is used.\n\n'
           'Continue?',

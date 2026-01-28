@@ -7,7 +7,7 @@ import 'package:alluwalacademyadmin/core/services/invoice_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/invoice_card.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ParentInvoicesScreen extends StatefulWidget {
   final String parentId;
@@ -175,28 +175,28 @@ class _ParentInvoicesScreenState extends State<ParentInvoicesScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _filterChip(label: 'All', selected: _statusFilter == null, onTap: () => setState(() => _statusFilter = null)),
+          _filterChip(label: AppLocalizations.of(context)!.timesheetAll, selected: _statusFilter == null, onTap: () => setState(() => _statusFilter = null)),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Pending',
+            label: AppLocalizations.of(context)!.timesheetPending,
             selected: _statusFilter == InvoiceStatus.pending,
             onTap: () => setState(() => _statusFilter = InvoiceStatus.pending),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Paid',
+            label: AppLocalizations.of(context)!.parentInvoicesPaid,
             selected: _statusFilter == InvoiceStatus.paid,
             onTap: () => setState(() => _statusFilter = InvoiceStatus.paid),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Overdue',
+            label: AppLocalizations.of(context)!.overdue,
             selected: _statusFilter == InvoiceStatus.overdue,
             onTap: () => setState(() => _statusFilter = InvoiceStatus.overdue),
           ),
           const SizedBox(width: 8),
           _filterChip(
-            label: 'Cancelled',
+            label: AppLocalizations.of(context)!.shiftCancelled,
             selected: _statusFilter == InvoiceStatus.cancelled,
             onTap: () => setState(() => _statusFilter = InvoiceStatus.cancelled),
           ),

@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/user_role_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class RoleSwitcher extends StatefulWidget {
   final Function(String)? onRoleChanged;
@@ -127,7 +127,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
 
               // Show notification
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Row(
                     children: [
                       Icon(Icons.info, color: Colors.white, size: 20),
@@ -231,7 +231,7 @@ class _RoleSwitcherState extends State<RoleSwitcher> {
       AppLogger.error('Error switching role: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.failedToSwitchRolePleaseTry),
             backgroundColor: Colors.red,
           ),

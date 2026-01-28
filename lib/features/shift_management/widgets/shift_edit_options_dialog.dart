@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/shift_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 enum ShiftEditOptionMode {
   single,
@@ -94,7 +94,8 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
                 }
 
                 return _buildOption(
-                  title: 'Edit all in series (${series.shifts.length})',
+                  title: AppLocalizations.of(context)!
+                      .editAllInSeriesCount(series.shifts.length),
                   subtitle:
                       AppLocalizations.of(context)!.applyChangesToAllShiftsAnd,
                   icon: Icons.repeat,
@@ -102,7 +103,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
                     context,
                     const ShiftEditOptionsResult(mode: ShiftEditOptionMode.series),
                   ),
-                  badge: 'Updates Template',
+                  badge: AppLocalizations.of(context)!.shiftUpdatesTemplate,
                 );
               },
             ),
@@ -304,7 +305,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
     final start = await showTimePicker(
       context: context,
       initialTime: const TimeOfDay(hour: 9, minute: 0),
-      helpText: 'Select start time',
+      helpText: AppLocalizations.of(context)!.selectStartTime,
     );
     if (start == null) return;
     if (!mounted) return;
@@ -312,7 +313,7 @@ class _ShiftEditOptionsDialogState extends State<ShiftEditOptionsDialog> {
     final end = await showTimePicker(
       context: context,
       initialTime: const TimeOfDay(hour: 10, minute: 0),
-      helpText: 'Select end time',
+      helpText: AppLocalizations.of(context)!.selectEndTime,
     );
     if (end == null) return;
 

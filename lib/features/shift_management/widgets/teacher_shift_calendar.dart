@@ -4,7 +4,7 @@ import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Calendar view of teacher shifts using Syncfusion SfCalendar
 class TeacherShiftCalendar extends StatefulWidget {

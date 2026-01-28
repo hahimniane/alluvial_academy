@@ -42,7 +42,7 @@ import 'role_based_dashboard.dart';
 import 'features/dashboard/widgets/custom_sidebar.dart';
 
 import 'core/constants/dashboard_constants.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Main Dashboard widget that serves as the app's primary navigation interface
 class DashboardPage extends StatefulWidget {
@@ -1259,7 +1259,7 @@ class _DashboardPageState extends State<DashboardPage> {
         minHeight: 12,
       ),
       child: Text(
-        AppLocalizations.of(context)!.1,
+        '1',
         style:
             openSansHebrewTextStyle.copyWith(fontSize: 10, color: Colors.white),
         textAlign: TextAlign.center,

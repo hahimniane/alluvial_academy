@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TaskCard extends StatelessWidget {
   final Task task;

@@ -11,7 +11,7 @@ import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TeacherApplicationManagementScreen extends StatefulWidget {
   const TeacherApplicationManagementScreen({super.key});
@@ -158,6 +158,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
         onViewDetails: _viewDetails,
         onSelectionChanged: _onSelectionChanged,
         selectedIds: _selectedApplicationIds,
+        localizations: AppLocalizations.of(context)!,
       );
     });
   }
@@ -178,7 +179,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.errorYouMustBeLoggedIn)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorYouMustBeLoggedIn)),
         );
         return;
       }
@@ -272,7 +273,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
   @override
   Widget build(BuildContext context) {
     if (!_hasAccess) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Color(0xffF8FAFC),
         body: Center(
           child: Text(
@@ -395,7 +396,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
             icon: const Icon(Icons.calendar_today, size: 16),
             label: Text(
               _selectedDateRange == null
-                  ? 'Select Date Range'
+                  ? AppLocalizations.of(context)!.selectDateRange
                   : '${DateFormat('MMM d').format(_selectedDateRange!.start)} - ${DateFormat('MMM d').format(_selectedDateRange!.end)}',
             ),
           ),
@@ -531,6 +532,7 @@ class ApplicationDataSource extends DataGridSource {
   final Function(TeacherApplication) onViewDetails;
   final Function(String, bool) onSelectionChanged;
   final Set<String> selectedIds;
+  final AppLocalizations localizations;
 
   ApplicationDataSource({
     required this.applications,
@@ -538,6 +540,7 @@ class ApplicationDataSource extends DataGridSource {
     required this.onViewDetails,
     required this.onSelectionChanged,
     required this.selectedIds,
+    required this.localizations,
   }) {
     _data = applications
         .map((app) => DataGridRow(
@@ -640,7 +643,7 @@ class ApplicationDataSource extends DataGridSource {
                 IconButton(
                   icon: const Icon(Icons.visibility, size: 18),
                   onPressed: () => onViewDetails(app),
-                  tooltip: AppLocalizations.of(context)!.shiftViewDetails,
+                  tooltip: localizations.shiftViewDetails,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -650,10 +653,10 @@ class ApplicationDataSource extends DataGridSource {
                   constraints: const BoxConstraints(),
                   onSelected: (value) => onStatusUpdate(app.id!, value),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'Reviewed', child: Text(AppLocalizations.of(context)!.markAsReviewed)),
-                    const PopupMenuItem(value: 'Approved', child: Text(AppLocalizations.of(context)!.approve)),
-                    const PopupMenuItem(value: 'Rejected', child: Text(AppLocalizations.of(context)!.reject)),
-                    const PopupMenuItem(value: 'Pending', child: Text(AppLocalizations.of(context)!.markAsPending)),
+                    PopupMenuItem(value: 'Reviewed', child: Text(localizations.markAsReviewed)),
+                    PopupMenuItem(value: 'Approved', child: Text(localizations.approve)),
+                    PopupMenuItem(value: 'Rejected', child: Text(localizations.reject)),
+                    PopupMenuItem(value: 'Pending', child: Text(localizations.markAsPending)),
                   ],
                 ),
               ],
@@ -710,7 +713,7 @@ class _ApplicationDetailsDialog extends StatelessWidget {
                 ],
               ),
               const Divider(),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _buildSection('Personal Info'),
               _buildDetailRow('Name', application.fullName),
               _buildDetailRow('Email', application.email),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat_user.dart';
+import '../../../core/utils/presence_utils.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Relationship type between two users for chat permissions
@@ -530,14 +531,15 @@ class ChatPermissionService {
   
   ChatUser _docToChatUser(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final presence = PresenceUtils.resolvePresence(data);
     return ChatUser(
       id: doc.id,
       name: '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
       email: data['email'] ?? data['e-mail'] ?? '',
       profilePicture: data['profile_picture'],
       role: data['user_type'],
-      isOnline: _isUserOnline(data['last_login']),
-      lastSeen: (data['last_login'] as Timestamp?)?.toDate(),
+      isOnline: presence.isOnline,
+      lastSeen: presence.lastSeen,
     );
   }
   

@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/models/form_template.dart';
 import '../core/services/form_template_service.dart';
 import '../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin screen for managing form templates
 /// Allows viewing, creating, and setting active templates for each frequency type
@@ -93,7 +93,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.activeTemplateUpdated),
             backgroundColor: Colors.green,
           ),
@@ -115,7 +115,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
       await _loadTemplates();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.defaultTemplatesCreated),
             backgroundColor: Colors.green,
           ),
@@ -164,7 +164,7 @@ class _FormTemplateConfigScreenState extends State<FormTemplateConfigScreen>
           unselectedLabelColor: const Color(0xff64748B),
           indicatorColor: const Color(0xff0386FF),
           labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
-          tabs: const [
+          tabs: [
             Tab(text: AppLocalizations.of(context)!.dailyReports),
             Tab(text: AppLocalizations.of(context)!.weekly),
             Tab(text: AppLocalizations.of(context)!.monthly),

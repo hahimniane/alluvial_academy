@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/performance_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class PerformanceLogViewer extends StatefulWidget {
   final String title;
@@ -176,17 +176,17 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _buildToggleChip(
-              label: 'Only END events',
+              label: AppLocalizations.of(context)!.performanceLogViewerOnlyendevents,
               value: _showOnlyEnds,
               onChanged: (v) => setState(() => _showOnlyEnds = v),
             ),
             _buildToggleChip(
-              label: 'Perf enabled',
+              label: AppLocalizations.of(context)!.performanceLogViewerPerfenabled,
               value: PerformanceLogger.enabled,
               onChanged: (v) => setState(() => PerformanceLogger.enabled = v),
             ),
             _buildToggleChip(
-              label: 'Capture enabled',
+              label: AppLocalizations.of(context)!.performanceLogViewerCaptureenabled,
               value: PerformanceLogger.captureEnabled,
               onChanged: (v) =>
                   setState(() => PerformanceLogger.captureEnabled = v),
@@ -227,27 +227,27 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
       runSpacing: 10,
       children: [
         _summaryPill(
-          label: 'END ops',
+          label: AppLocalizations.of(context)!.performanceLogViewerEndops,
           value: aggregates.endCount.toString(),
           color: const Color(0xff111827),
         ),
         _summaryPill(
-          label: 'SLOW',
+          label: AppLocalizations.of(context)!.performanceLogViewerSlow,
           value: aggregates.slowCount.toString(),
           color: const Color(0xffDC2626),
         ),
         _summaryPill(
-          label: 'MODERATE',
+          label: AppLocalizations.of(context)!.performanceLogViewerModerate,
           value: aggregates.moderateCount.toString(),
           color: const Color(0xffD97706),
         ),
         _summaryPill(
-          label: 'FAST',
+          label: AppLocalizations.of(context)!.performanceLogViewerFast,
           value: aggregates.fastCount.toString(),
           color: const Color(0xff059669),
         ),
         _summaryPill(
-          label: 'Avg',
+          label: AppLocalizations.of(context)!.performanceLogViewerAvg,
           value: avgText,
           color: const Color(0xff2563EB),
         ),

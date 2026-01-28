@@ -11,7 +11,7 @@ import '../../../utility_functions/export_helpers.dart';
 import 'dart:async';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/utils/performance_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // Admin system timezone - all times displayed in this timezone for consistency
 const String ADMIN_SYSTEM_TIMEZONE = 'UTC';
@@ -360,6 +360,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
       if (mounted) {
         final stateStopwatch = Stopwatch()..start();
         final dataSource = TimesheetReviewDataSource(
+          context: context,
           timesheets: filtered,
           onApprove: _approveTimesheet,
           onReject: _rejectTimesheet,
@@ -583,12 +584,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           children: [
             const Icon(Icons.notification_important, color: Colors.white),
             const SizedBox(width: 8),
-            Text('$count new timesheet${count > 1 ? 's' : ''} pending review'),
+            Text(AppLocalizations.of(context)!.timesheetPendingReview(count)),
           ],
         ),
         backgroundColor: Colors.orange,
         action: SnackBarAction(
-          label: 'View',
+          label: AppLocalizations.of(context)!.commonView,
           textColor: Colors.white,
           onPressed: () {
             setState(() {
@@ -635,6 +636,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
         onViewDetails: _viewTimesheetDetails,
         onSelectionChanged: _onTimesheetSelectionChanged,
         selectedIds: _selectedTimesheetIds,
+        context: context,
       );
     });
   }
@@ -983,7 +985,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1042,7 +1044,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               ),
               child: const Icon(Icons.cancel, color: Colors.red, size: 20),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(AppLocalizations.of(context)!.bulkRejectTimesheets,
                 style: GoogleFonts.inter(
                     fontSize: 18, fontWeight: FontWeight.w600)),
@@ -1683,7 +1685,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.undo, color: Color(0xFF0386FF)),
+              leading: Icon(Icons.undo, color: Color(0xFF0386FF)),
               title: Text(
                 AppLocalizations.of(context)!.revertToOriginal,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
@@ -1693,7 +1695,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               onTap: () => Navigator.of(context).pop('revert'),
             ),
             ListTile(
-              leading: const Icon(Icons.cancel, color: Colors.red),
+              leading: Icon(Icons.cancel, color: Colors.red),
               title: Text(
                 AppLocalizations.of(context)!.rejectTimesheet,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
@@ -1733,7 +1735,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   child: const Icon(Icons.check_circle,
                       color: Colors.green, size: 20),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Text(AppLocalizations.of(context)!.approveTimesheet,
                     style: GoogleFonts.inter(
                         fontSize: 18, fontWeight: FontWeight.w600)),
@@ -1808,7 +1810,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
               ),
               child: const Icon(Icons.cancel, color: Colors.red, size: 20),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(AppLocalizations.of(context)!.rejectTimesheet,
                 style: GoogleFonts.inter(
                     fontSize: 18, fontWeight: FontWeight.w600)),
@@ -1880,10 +1882,12 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text('Total Entries: ${timesheet.childEntries!.length}'),
-                Text('Total Hours: ${timesheet.totalHours}'),
-                Text(
-                    'Total Payment: \$${timesheet.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+                Text(AppLocalizations.of(context)!
+                    .timesheetTotalEntries(timesheet.childEntries!.length)),
+                Text(AppLocalizations.of(context)!
+                    .timesheetTotalHours(timesheet.totalHours.toString())),
+                Text(AppLocalizations.of(context)!.timesheetTotalPayment(
+                    timesheet.paymentAmount?.toStringAsFixed(2) ?? '0.00')),
                 const SizedBox(height: 16),
                 const Divider(),
                 Expanded(
@@ -1893,9 +1897,13 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     itemBuilder: (context, index) {
                       final child = timesheet.childEntries![index];
                       return ListTile(
-                        title: Text('${child.start} - ${child.end}'),
-                        subtitle: Text(
-                            '${child.totalHours} hours • \$${child.paymentAmount?.toStringAsFixed(2) ?? "0.00"}'),
+                        title: Text(AppLocalizations.of(context)!
+                            .timesheetTimeRange(child.start, child.end)),
+                        subtitle: Text(AppLocalizations.of(context)!
+                            .timesheetEntrySummary(
+                                child.totalHours.toString(),
+                                child.paymentAmount?.toStringAsFixed(2) ??
+                                    '0.00')),
                         trailing: _buildStatusChip(child.status),
                         onTap: () {
                           // Allow drilling down into individual entry
@@ -1939,7 +1947,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       child: const Icon(Icons.schedule,
                           color: Color(0xff0386FF), size: 20),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Text(AppLocalizations.of(context)!.timesheetDetails2,
                           style: GoogleFonts.inter(
@@ -1965,7 +1973,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                       _buildDetailRow('Description:', timesheet.description),
                       // Show edit warning if edited but not approved
                       if (timesheet.isEdited && !timesheet.editApproved) ...[
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -2426,7 +2434,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
   void _exportTimesheets() {
     if (_filteredTimesheets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
       );
       return;
     }
@@ -3062,7 +3070,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
             end: currentMonthEnd,
           ),
       currentDate: now,
-      helpText: 'Select Date Range for Timesheet Review',
+      helpText: AppLocalizations.of(context)!.selectDateRangeForTimesheetReview,
       cancelText: 'Cancel',
       confirmText: 'Apply Filter',
       saveText: 'Apply',
@@ -3264,7 +3272,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                           });
                           _applyFilter(_selectedFilter);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(AppLocalizations.of(context)!.dateFilterCleared),
                               backgroundColor: Colors.green,
                               behavior: SnackBarBehavior.floating,
@@ -3513,7 +3521,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 // Teacher Filter
                 Row(
                   children: [
@@ -3587,7 +3595,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
                     ],
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 // Date Range Picker
                 _buildDateRangeSelector(),
               ],
@@ -3596,7 +3604,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           // Data Table Section
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator())
                 : _filteredTimesheets.isEmpty
                     ? Center(
                         child: Column(
@@ -3767,6 +3775,8 @@ class TimesheetReviewDataSource extends DataGridSource {
   final Function(String, bool) onSelectionChanged;
   final Set<String> selectedIds;
 
+  final BuildContext context;
+
   TimesheetReviewDataSource({
     required this.timesheets,
     required this.onApprove,
@@ -3774,6 +3784,7 @@ class TimesheetReviewDataSource extends DataGridSource {
     required this.onViewDetails,
     required this.onSelectionChanged,
     required this.selectedIds,
+    required this.context,
   });
 
   @override

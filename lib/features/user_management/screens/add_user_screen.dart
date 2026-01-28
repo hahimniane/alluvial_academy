@@ -9,7 +9,7 @@ import 'dart:math' as math;
 import '../../../core/utils/timezone_utils.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AddUsersScreen extends StatefulWidget {
   const AddUsersScreen({super.key});
@@ -683,9 +683,11 @@ class _AddUsersScreenState extends State<AddUsersScreen> {
   String _getGuardianNameById(String guardianId) {
     final guardian = _allGuardians.firstWhere(
       (g) => g['id'] == guardianId,
-      orElse: () => {'name': 'Unknown Parent'},
+      orElse: () => {
+            'name': AppLocalizations.of(context)!.commonUnknownParent,
+          },
     );
-    return guardian['name'] ?? 'Unknown Parent';
+    return guardian['name'] ?? AppLocalizations.of(context)!.commonUnknownParent;
   }
 
   // Generate preview student code (similar to Cloud Function logic)
@@ -1142,7 +1144,7 @@ class _UserInputRowState extends State<UserInputRow> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController kioskCodeController = TextEditingController();
   final TextEditingController hourlyRateController =
-      TextEditingController(text: AppLocalizations.of(context)!.1500);
+      TextEditingController(text: '15.00');
   String countryCode = "1";
   String selectedUserType = "Admin"; // Default to Admin
 
@@ -1190,9 +1192,11 @@ class _UserInputRowState extends State<UserInputRow> {
   String _getGuardianName(String guardianId) {
     final guardian = availableGuardians.firstWhere(
       (g) => g['id'] == guardianId,
-      orElse: () => {'name': 'Unknown Parent'},
+      orElse: () => {
+            'name': AppLocalizations.of(context)!.commonUnknownParent,
+          },
     );
-    return guardian['name'] ?? 'Unknown Parent';
+    return guardian['name'] ?? AppLocalizations.of(context)!.commonUnknownParent;
   }
 
   String _getGuardianEmail(String guardianId) {
@@ -1791,7 +1795,7 @@ class _UserInputRowState extends State<UserInputRow> {
                                       selectedGuardianId != null
                                           ? _getGuardianName(
                                               selectedGuardianId!)
-                                          : 'Select Parent/Guardian*',
+                                          : '${AppLocalizations.of(context)!.userSelectParent}*',
                                       style: GoogleFonts.openSans(
                                         fontSize: 14,
                                         color: selectedGuardianId != null
@@ -2355,11 +2359,11 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _buildInfoRow('Name', '$firstName $lastName'),
-                        _buildInfoRow('Type',
+                        _buildInfoRow(context, 'Name', '$firstName $lastName'),
+                        _buildInfoRow(context, 'Type',
                             isAdultStudent ? 'Adult Student' : 'Minor Student'),
                         if (!isAdultStudent && guardianName != null)
-                          _buildInfoRow('Guardian', guardianName!),
+                          _buildInfoRow(context, 'Guardian', guardianName!),
                       ],
                     ),
                   ),
@@ -2395,8 +2399,8 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _buildCredentialRow('Student ID', studentCode, true),
-                        _buildCredentialRow('Login Email', aliasEmail, false),
+                        _buildCredentialRow(context, 'Student ID', studentCode, true),
+                        _buildCredentialRow(context, 'Login Email', aliasEmail, false),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -2479,7 +2483,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -2510,7 +2514,7 @@ class StudentCredentialsPreviewDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildCredentialRow(String label, String value, bool isStudentId) {
+  Widget _buildCredentialRow(BuildContext context, String label, String value, bool isStudentId) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(

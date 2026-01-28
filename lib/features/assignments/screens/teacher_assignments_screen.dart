@@ -8,7 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:universal_html/html.dart' as html; // for web file handling
 import '../services/assignment_file_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TeacherAssignmentsScreen extends StatefulWidget {
   const TeacherAssignmentsScreen({super.key});
@@ -137,8 +137,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Row(
-                children: [
+              content: Row(children: [
                   Icon(Icons.info_outline, color: Colors.white),
                   SizedBox(width: 8),
                   Expanded(
@@ -192,7 +191,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               content: Row(
                 children: [
                   const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(AppLocalizations.of(context)!.openingFilename),
                   ),
@@ -225,9 +224,10 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
             content: Row(
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
-                  child: Text('Error opening file: ${e.toString()}'),
+                  child: Text(AppLocalizations.of(context)!
+                      .assignmentErrorOpeningFile(e.toString())),
                 ),
               ],
             ),
@@ -337,7 +337,8 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteAssignment, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-        content: Text('Are you sure you want to delete "${assignment['title']}"? This action cannot be undone.'),
+        content: Text(AppLocalizations.of(context)!
+            .assignmentDeleteConfirm(assignment['title'])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -354,7 +355,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                   Navigator.pop(context);
                   _loadMyAssignments();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text(AppLocalizations.of(context)!.assignmentDeleted), backgroundColor: Colors.green),
+                    SnackBar(content: Text(AppLocalizations.of(context)!.assignmentDeleted), backgroundColor: Colors.green),
                   );
                 }
               } catch (e) {
@@ -474,8 +475,10 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Assignments loaded (limit 10): ${allAssignments.docs.length}'),
-                            Text('Your user ID: ${user.uid}'),
+                            Text(AppLocalizations.of(context)!
+                                .assignmentLoadedCount(allAssignments.docs.length)),
+                            Text(AppLocalizations.of(context)!
+                                .assignmentUserId(user.uid)),
                             const SizedBox(height: 16),
                             if (allAssignments.docs.isNotEmpty) ...[
                               Text(AppLocalizations.of(context)!.sampleAssignments, style: TextStyle(fontWeight: FontWeight.bold)),
@@ -486,9 +489,18 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('ID: ${doc.id}'),
-                                      Text('Title: ${data['title'] ?? 'N/A'}'),
-                                      Text('Teacher ID: ${data['teacher_id'] ?? 'N/A'}'),
+                                      Text(AppLocalizations.of(context)!
+                                          .assignmentDocId(doc.id)),
+                                      Text(AppLocalizations.of(context)!
+                                          .assignmentTitle(
+                                              data['title'] ??
+                                                  AppLocalizations.of(context)!
+                                                      .commonNotAvailable)),
+                                      Text(AppLocalizations.of(context)!
+                                          .assignmentTeacherId(
+                                              data['teacher_id'] ??
+                                                  AppLocalizations.of(context)!
+                                                      .commonNotAvailable)),
                                       const Divider(),
                                     ],
                                   ),
@@ -621,7 +633,9 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                   const SizedBox(height: 12),
                   ...(assignment['attachments'] as List).map<Widget>((attachment) {
                     final attachmentMap = attachment as Map<String, dynamic>;
-                    final fileName = attachmentMap['name'] ?? attachmentMap['originalName'] ?? 'Unknown file';
+                    final fileName = attachmentMap['name'] ??
+                        attachmentMap['originalName'] ??
+                        AppLocalizations.of(context)!.commonUnknownFile;
                     final downloadUrl = attachmentMap['downloadURL'] ?? attachmentMap['url'] ?? '';
                     // Check if URL is valid (not placeholder or local path)
                     final isValidUrl = downloadUrl.isNotEmpty && 
@@ -747,7 +761,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                       ),
                     ),
                     if (isOverdue) ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
@@ -763,8 +777,8 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                   if (value == 'delete') _deleteAssignment(assignment);
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text(AppLocalizations.of(context)!.commonEdit)])),
-                  const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red))])),
+                  PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text(AppLocalizations.of(context)!.commonEdit)])),
+                  PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red))])),
                 ],
               ),
             ],
@@ -789,7 +803,12 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                 children: [
                   Icon(Icons.people, size: 14, color: Colors.grey[600]),
                   const SizedBox(width: 4),
-                  Text('${assignedTo.length} students', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff6B7280))),
+                  Text(
+                    AppLocalizations.of(context)!
+                        .assignmentStudentsCount(assignedTo.length),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: const Color(0xff6B7280)),
+                  ),
                 ],
               ),
               if (dueDate != null)
@@ -839,7 +858,9 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               runSpacing: 8,
               children: (assignment['attachments'] as List).map<Widget>((attachment) {
                 final attachmentMap = attachment as Map<String, dynamic>;
-                final fileName = attachmentMap['name'] ?? attachmentMap['originalName'] ?? 'Unknown file';
+                final fileName = attachmentMap['name'] ??
+                    attachmentMap['originalName'] ??
+                    AppLocalizations.of(context)!.commonUnknownFile;
                 final downloadUrl = attachmentMap['downloadURL'] ?? attachmentMap['url'] ?? '';
                 // Check if URL is valid (not placeholder or local path)
                 final isValidUrl = downloadUrl.isNotEmpty && 
@@ -969,7 +990,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       List<Map<String, dynamic>> students = [];
       for (var doc in usersSnapshot.docs) {
         final data = doc.data();
-        String displayName = 'Unknown';
+        String displayName = AppLocalizations.of(context)!.commonUnknown;
         if (data['first_name'] != null && data['last_name'] != null) {
           displayName = '${data['first_name']} ${data['last_name']}';
         } else if (data['name'] != null) {
@@ -1016,14 +1037,15 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               SnackBar(
                 content: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text('Uploading "${file.name}"...'),
+                      child: Text(AppLocalizations.of(context)!
+                          .assignmentUploadingFile(file.name)),
                     ),
                   ],
                 ),
@@ -1047,9 +1069,10 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                 content: Row(
                   children: [
                     const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
-                      child: Text('File "${file.name}" uploaded successfully!'),
+                      child: Text(AppLocalizations.of(context)!
+                          .assignmentUploadSuccess(file.name)),
                     ),
                   ],
                 ),
@@ -1076,14 +1099,15 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
               SnackBar(
                 content: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text('Uploading "${file.name}"...'),
+                      child: Text(AppLocalizations.of(context)!
+                          .assignmentUploadingFile(file.name)),
                     ),
                   ],
                 ),
@@ -1107,9 +1131,10 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                 content: Row(
                   children: [
                     const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
-                      child: Text('File "${file.name}" uploaded successfully!'),
+                      child: Text(AppLocalizations.of(context)!
+                          .assignmentUploadSuccess(file.name)),
                     ),
                   ],
                 ),
@@ -1121,7 +1146,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
           // User cancelled file picker
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(AppLocalizations.of(context)!.fileSelectionCancelled),
                 backgroundColor: Colors.orange,
               ),
@@ -1138,9 +1163,10 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
             content: Row(
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
-                  child: Text('Error uploading file: ${e.toString()}'),
+                  child: Text(AppLocalizations.of(context)!
+                      .assignmentUploadError(e.toString())),
                 ),
               ],
             ),
@@ -1175,7 +1201,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
   Future<void> _saveAssignment() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent), backgroundColor: Colors.red));
       return;
     }
 
@@ -1283,7 +1309,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                 TextFormField(
                   controller: _dueDateController,
                   readOnly: true,
-                  decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.dueDate, suffixIcon: Icon(Icons.calendar_today), border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: AppLocalizations.of(context)!.dueDate, suffixIcon: Icon(Icons.calendar_today), border: OutlineInputBorder()),
                   onTap: () async {
                     final date = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 7)), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
                     if (date != null) {
@@ -1294,7 +1320,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                     }
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Text(AppLocalizations.of(context)!.assignTo2, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                 if (_isLoading) const CircularProgressIndicator() else Container(
                   height: 150,

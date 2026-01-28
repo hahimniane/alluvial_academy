@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/build_info.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class RoleSettingsScreen extends StatelessWidget {
   final String title;
@@ -21,16 +21,16 @@ class RoleSettingsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             const SizedBox(height: 24),
-            _buildVersionCard(versionText),
+            _buildVersionCard(context, versionText),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -84,7 +84,7 @@ class RoleSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVersionCard(String versionText) {
+  Widget _buildVersionCard(BuildContext context, String versionText) {
     final labelStyle = GoogleFonts.inter(
       fontSize: 13,
       fontWeight: FontWeight.w600,

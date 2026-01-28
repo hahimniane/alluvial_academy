@@ -21,7 +21,7 @@ import '../../../core/services/user_role_service.dart';
 import 'edit_user_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -133,7 +133,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -173,7 +173,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
                 ),
                 child: TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: AppLocalizations.of(context)!.searchByNameOrEmail,
                     hintStyle: TextStyle(
                       fontSize: 14,
@@ -210,7 +210,7 @@ class _ParentSearchDialogState extends State<_ParentSearchDialog> {
             // Content
             Expanded(
               child: _filteredParents.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -483,28 +483,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     });
   }
 
+  bool _didInitDataSources = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _employeeDataSource = UserEmployeeDataSource(
-      employees: [],
-      onPromoteToAdmin: _promoteToAdminTeacher,
-      onDeactivateUser: _deactivateUser,
-      onActivateUser: _activateUser,
-      onEditUser: _editUser,
-      onDeleteUser: _deleteUser,
-      onViewCredentials: _viewStudentCredentials,
-    );
-    _adminDataSource = AdminEmployeeDataSource(
-      employees: [],
-      onPromoteToAdmin: _promoteToAdminTeacher,
-      onRevokeAdmin: _revokeAdminPrivileges,
-      onDeactivateUser: _deactivateUser,
-      onActivateUser: _activateUser,
-      onEditUser: _editUser,
-      onDeleteUser: _deleteUser,
-    );
 
     _userStreamSubscription = FirebaseFirestore.instance
         .collection('users')
@@ -523,6 +507,34 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         _applyFilters();
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didInitDataSources) {
+      _didInitDataSources = true;
+      _employeeDataSource = UserEmployeeDataSource(
+        employees: [],
+        onPromoteToAdmin: _promoteToAdminTeacher,
+        onDeactivateUser: _deactivateUser,
+        onActivateUser: _activateUser,
+        onEditUser: _editUser,
+        onDeleteUser: _deleteUser,
+        onViewCredentials: _viewStudentCredentials,
+        context: context,
+      );
+      _adminDataSource = AdminEmployeeDataSource(
+        employees: [],
+        onPromoteToAdmin: _promoteToAdminTeacher,
+        onRevokeAdmin: _revokeAdminPrivileges,
+        onDeactivateUser: _deactivateUser,
+        onActivateUser: _activateUser,
+        onEditUser: _editUser,
+        onDeleteUser: _deleteUser,
+        context: context,
+      );
+    }
   }
 
   @override
@@ -784,7 +796,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             'Failed to promote user. Only teachers can be promoted to admin-teacher role.');
       }
     } catch (e) {
-      _showErrorSnackBar('Error promoting user: $e');
+      _showErrorSnackBar(
+        AppLocalizations.of(context)!.userPromoteError(e.toString()),
+      );
     }
   }
 
@@ -801,10 +815,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             'Admin privileges revoked for ${employee.firstName} ${employee.lastName}');
         _refreshData();
       } else {
-        _showErrorSnackBar('Failed to revoke admin privileges.');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.userRevokeFailed,
+        );
       }
     } catch (e) {
-      _showErrorSnackBar('Error revoking privileges: $e');
+      _showErrorSnackBar(
+        AppLocalizations.of(context)!.userRevokeError(e.toString()),
+      );
     }
   }
 
@@ -820,10 +838,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             '${employee.firstName} ${employee.lastName} has been archived');
         _refreshData();
       } else {
-        _showErrorSnackBar('Failed to archive user.');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.userArchiveFailed,
+        );
       }
     } catch (e) {
-      _showErrorSnackBar('Error deactivating user: $e');
+      _showErrorSnackBar(
+        AppLocalizations.of(context)!.userDeactivateError(e.toString()),
+      );
     }
   }
 
@@ -839,10 +861,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             '${employee.firstName} ${employee.lastName} has been restored');
         _refreshData();
       } else {
-        _showErrorSnackBar('Failed to restore user.');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.userRestoreFailed,
+        );
       }
     } catch (e) {
-      _showErrorSnackBar('Error activating user: $e');
+      _showErrorSnackBar(
+        AppLocalizations.of(context)!.userActivateError(e.toString()),
+      );
     }
   }
 
@@ -870,7 +896,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
           .get();
 
       if (!doc.exists) {
-        _showErrorSnackBar('User document not found');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.userDocumentNotFound,
+        );
         return;
       }
 
@@ -901,7 +929,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 ),
                 child: const Icon(Icons.key, color: Color(0xff06B6D4)),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(AppLocalizations.of(context)!.studentLoginCredentials),
             ],
           ),
@@ -976,7 +1004,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         ),
       );
     } catch (e) {
-      _showErrorSnackBar('Error loading credentials: $e');
+      _showErrorSnackBar(
+        AppLocalizations.of(context)!.userCredentialsLoadError(e.toString()),
+      );
     }
   }
 
@@ -1038,7 +1068,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     'Reset password for ${employee.firstName} ${employee.lastName}?',
                     style: GoogleFonts.inter(fontSize: 16),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   TextField(
                     controller: passwordController,
                     obscureText: obscurePassword,
@@ -1070,7 +1100,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      AppLocalizations.of(context)!.ifLeftBlankASecurePassword
+                      '${AppLocalizations.of(context)!.ifLeftBlankASecurePassword}\n'
                       'If the student has a parent linked, they will receive an email with the new credentials.',
                       style: GoogleFonts.inter(
                         fontSize: 13,
@@ -1125,7 +1155,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const AlertDialog(
+          builder: (context) => AlertDialog(
             content: Row(
               children: [
                 CircularProgressIndicator(),
@@ -1157,8 +1187,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
+            title: Row(children: [
                 Icon(Icons.check_circle, color: Colors.green),
                 SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.passwordResetSuccessfully),
@@ -1168,8 +1197,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New password for ${employee.firstName}:'),
-                const SizedBox(height: 12),
+                Text(AppLocalizations.of(context)!
+                    .userNewPasswordFor(employee.firstName)),
+                SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1233,7 +1263,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       } catch (e) {
         if (mounted) {
           Navigator.pop(context); // Close loading dialog if still open
-          _showErrorSnackBar('Error resetting password: $e');
+          _showErrorSnackBar(
+            AppLocalizations.of(context)!.userResetPasswordError(e.toString()),
+          );
         }
       }
     }
@@ -1247,7 +1279,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       final targetEmail = employee.email.trim().toLowerCase();
       if ((currentEmail != null && currentEmail.isNotEmpty && currentEmail == targetEmail) ||
           currentUser.uid == employee.documentId) {
-        _showErrorSnackBar('You cannot delete your own account.');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.userDeleteSelfNotAllowed,
+        );
         return;
       }
     }
@@ -1267,7 +1301,9 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       if (employee.isActive) {
         final archived = await UserRoleService.deactivateUser(employee.email);
         if (!archived) {
-          _showErrorSnackBar('Failed to archive user before deletion.');
+          _showErrorSnackBar(
+            AppLocalizations.of(context)!.userArchiveBeforeDeleteFailed,
+          );
           return;
         }
         // Give Firestore a moment to reflect the archive flag before calling the function.
@@ -1280,14 +1316,18 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       );
 
       if (success) {
-        _showSuccessSnackBar(
-            '${employee.firstName} ${employee.lastName} has been permanently deleted');
+        _showSuccessSnackBar(AppLocalizations.of(context)!
+            .userDeletedSuccess('${employee.firstName} ${employee.lastName}'));
         _refreshData();
       } else {
-        _showErrorSnackBar('Failed to delete user.');
+        _showErrorSnackBar(
+          AppLocalizations.of(context)!.userDeleteFailed,
+        );
       }
     } catch (e) {
-      _showErrorSnackBar('Error deleting user: $e');
+      _showErrorSnackBar(
+        AppLocalizations.of(context)!.userDeleteError(e.toString()),
+      );
     }
   }
 
@@ -1307,8 +1347,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               const SizedBox(width: 12),
               Text(
                 employee.isActive
-                    ? 'Archive & Permanently Delete'
-                    : 'Permanently Delete User',
+                    ? AppLocalizations.of(context)!.userArchiveAndDeleteTitle
+                    : AppLocalizations.of(context)!.userDeletePermanentTitle,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -1348,8 +1388,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               const SizedBox(height: 16),
               Text(
                 employee.isActive
-                    ? 'This user is currently active. They will be archived first, then permanently deleted.'
-                    : 'Are you sure you want to permanently delete this user?',
+                    ? AppLocalizations.of(context)!.userDeleteActiveInfo
+                    : AppLocalizations.of(context)!.userDeleteConfirm('${employee.firstName} ${employee.lastName}'),
                 style: GoogleFonts.inter(fontSize: 16),
               ),
               const SizedBox(height: 12),
@@ -1371,9 +1411,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text('Name: ${employee.firstName} ${employee.lastName}'),
-                    Text('Email: ${employee.email}'),
-                    Text('Role: ${employee.userType}'),
+                    Text(AppLocalizations.of(context)!.userDetailName(
+                        '${employee.firstName} ${employee.lastName}')),
+                    Text(AppLocalizations.of(context)!
+                        .userDetailEmail(employee.email)),
+                    Text(AppLocalizations.of(context)!
+                        .userDetailRole(employee.userType)),
                   ],
                 ),
               ),
@@ -1460,7 +1503,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             title: Row(
               children: [
                 const Icon(Icons.admin_panel_settings, color: Colors.orange),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.promoteToAdminTeacher,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
@@ -1523,7 +1566,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             title: Row(
               children: [
                 const Icon(Icons.remove_moderator, color: Colors.red),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.revokeAdminPrivileges,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
@@ -1585,7 +1628,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             title: Row(
               children: [
                 const Icon(Icons.delete_outline, color: Colors.red),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.archiveUser,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
@@ -1675,7 +1718,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
             title: Row(
               children: [
                 const Icon(Icons.restore, color: Colors.green),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.restoreUser,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
@@ -1971,7 +2014,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Icon(
                         Icons.person,
@@ -2011,7 +2054,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 elevation: 4,
                 color: Colors.white,
                 child: _isLoading
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(),
                       )
                     : Column(
@@ -2291,7 +2334,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                       // Admin users grid
                                       Expanded(
                                         child: _adminDataSource == null
-                                            ? const Center(
+                                            ? Center(
                                                 child:
                                                     CircularProgressIndicator())
                                             : _adminUsers.isEmpty
@@ -2359,7 +2402,7 @@ class TasksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Text(AppLocalizations.of(context)!.thisIsTheTaskscreenScreen),
       ),
@@ -2372,7 +2415,7 @@ class TimeOffScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Text(AppLocalizations.of(context)!.thisIsTheTimeoffscreenScreen),
       ),

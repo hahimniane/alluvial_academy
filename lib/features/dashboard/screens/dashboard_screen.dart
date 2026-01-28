@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../widgets/navigation_menu.dart';
 import '../../chat/screens/chat_page.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class DashboardScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -51,7 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 3:
         return const UserListScreen();
       default:
-        return const Center(child: Text(AppLocalizations.of(context)!.screenNotFound));
+        return Center(child: Text(AppLocalizations.of(context)!.screenNotFound));
     }
   }
 

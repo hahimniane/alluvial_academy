@@ -9,7 +9,7 @@ import '../../../core/models/job_opportunity.dart';
 import '../../../core/services/job_board_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FilledOpportunitiesScreen extends StatefulWidget {
   const FilledOpportunitiesScreen({super.key});
@@ -41,7 +41,7 @@ class _FilledOpportunitiesScreenState extends State<FilledOpportunitiesScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(snapshot.error ?? 'Unknown error')));
                 }
 
                 final jobs = snapshot.data ?? [];
@@ -244,7 +244,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
   Future<void> _createShift() async {
     if (widget.job.acceptedByTeacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.teacherInformationNotAvailable), backgroundColor: Colors.red),
+        SnackBar(content: Text(AppLocalizations.of(context)!.teacherInformationNotAvailable), backgroundColor: Colors.red),
       );
       return;
     }
@@ -332,7 +332,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
           onShiftCreated: () {
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(AppLocalizations.of(context)!.shiftCreatedSyncedToTeacherTimezone),
                 backgroundColor: Colors.green,
               ),
@@ -448,14 +448,14 @@ class _FilledJobCardState extends State<_FilledJobCard> {
               ],
             ),
 
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Divider(height: 1),
             ),
             
             // Teacher Section
             _isLoadingTeacher
-                ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                ? Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
                 : Row(
                     children: [
                       Container(
@@ -472,7 +472,8 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _teacherName ?? 'Unknown Teacher',
+                              _teacherName ??
+                                  AppLocalizations.of(context)!.commonUnknownTeacher,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,

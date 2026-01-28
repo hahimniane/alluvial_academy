@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/services/settings_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class PaySettingsDialog extends StatefulWidget {
   const PaySettingsDialog({super.key});
@@ -44,13 +44,14 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Hourly rate updated to \$${value.toStringAsFixed(2)}'),
+          content: Text(AppLocalizations.of(context)!.payHourlyRateUpdated(
+              value.toStringAsFixed(2))),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       setState(() {
-        _error = 'Failed to save: $e';
+        _error = AppLocalizations.of(context)!.paySaveFailed(e.toString());
       });
     } finally {
       if (mounted) {
@@ -83,10 +84,10 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
             TextFormField(
               controller: _controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 prefixText: '\$',
                 border: OutlineInputBorder(),
-                hintText: AppLocalizations.of(context)!.400,
+                hintText: '4.00',
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Enter a rate';
@@ -98,7 +99,7 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
               },
             ),
             if (_error != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(_error!, style: const TextStyle(color: Colors.red)),
             ],
           ],
@@ -120,4 +121,3 @@ class _PaySettingsDialogState extends State<PaySettingsDialog> {
     );
   }
 }
-

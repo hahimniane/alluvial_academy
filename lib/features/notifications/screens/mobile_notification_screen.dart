@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class MobileNotificationScreen extends StatefulWidget {
   const MobileNotificationScreen({super.key});
@@ -139,7 +139,10 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['message'] ?? 'Notifications sent successfully'),
+            content: Text(
+              data['message'] ??
+                  AppLocalizations.of(context)!.notificationSentSuccess,
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -155,13 +158,15 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Recipients: ${results['totalRecipients']}'),
-                  const SizedBox(height: 8),
+                  Text(AppLocalizations.of(context)!
+                      .notificationRecipients(results['totalRecipients'])),
+                  SizedBox(height: 8),
                   Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.green, size: 20),
                       const SizedBox(width: 8),
-                      Text('Success: ${results['fcmSuccess']}'),
+                      Text(AppLocalizations.of(context)!
+                          .notificationSuccessCount(results['fcmSuccess'])),
                     ],
                   ),
                   if (results['fcmFailed'] > 0) ...[
@@ -170,7 +175,8 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                       children: [
                         Icon(Icons.error, color: Colors.red, size: 20),
                         const SizedBox(width: 8),
-                        Text('Failed: ${results['fcmFailed']}'),
+                        Text(AppLocalizations.of(context)!
+                            .notificationFailedCount(results['fcmFailed'])),
                       ],
                     ),
                   ],
@@ -199,7 +205,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!.commonErrorWithDetails(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -310,7 +316,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                 // User list
                 Expanded(
                   child: _isLoadingUsers
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Center(child: CircularProgressIndicator())
                       : _filteredUsers.isEmpty
                           ? Center(
                               child: Column(
@@ -320,8 +326,8 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                                   const SizedBox(height: 16),
                                   Text(
                                     _searchQuery.isEmpty
-                                        ? 'No users found'
-                                        : 'No users match your search',
+                                        ? AppLocalizations.of(context)!.noUsersFound
+                                        : AppLocalizations.of(context)!.noUsersMatchSearch,
                                     style: GoogleFonts.inter(
                                       fontSize: 16,
                                       color: Colors.grey[600],
@@ -417,8 +423,9 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                         ),
                         child: Text(
                           _selectedUserIds.isEmpty
-                              ? 'Select at least one user'
-                              : 'Confirm (${_selectedUserIds.length} selected)',
+                              ? AppLocalizations.of(context)!.notificationSelectAtLeastOneUser
+                              : AppLocalizations.of(context)!
+                                  .notificationConfirmSelected(_selectedUserIds.length),
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -561,7 +568,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
 
                     // Role selection dropdown (when role is selected)
                     if (_recipientType == 'role') ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _selectedRole,
                         decoration: InputDecoration(
@@ -571,7 +578,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.allTeachers)),
                           DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.allStudents)),
                           DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.allParents)),
@@ -582,7 +589,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                         },
                         validator: (value) {
                           if (_recipientType == 'role' && value == null) {
-                            return 'Please select a role';
+                            return AppLocalizations.of(context)!.pleaseSelectARole;
                           }
                           return null;
                         },
@@ -606,7 +613,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                               Expanded(
                                 child: Text(
                                   _selectedUserIds.isEmpty
-                                      ? 'Tap to select users'
+                                      ? AppLocalizations.of(context)!.tapToSelectUsers
                                       : _getSelectedUsersText(),
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
@@ -631,8 +638,8 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                               orElse: () => Employee(
                                 documentId: '',
                                 email: '',
-                                firstName: 'Unknown',
-                                lastName: 'User',
+                                firstName: AppLocalizations.of(context)!.commonUnknown,
+                                lastName: AppLocalizations.of(context)!.commonUser,
                                 countryCode: '',
                                 mobilePhone: '',
                                 userType: '',
@@ -712,7 +719,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a title';
+                          return AppLocalizations.of(context)!.notificationEnterTitle;
                         }
                         return null;
                       },
@@ -735,7 +742,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a message';
+                          return AppLocalizations.of(context)!.notificationEnterMessage;
                         }
                         return null;
                       },
@@ -827,8 +834,8 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
         orElse: () => Employee(
           documentId: '',
           email: '',
-          firstName: 'Unknown',
-          lastName: 'User',
+          firstName: AppLocalizations.of(context)!.commonUnknown,
+          lastName: AppLocalizations.of(context)!.commonUser,
           countryCode: '',
           mobilePhone: '',
           userType: '',
@@ -842,7 +849,7 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
       );
       return '${user.firstName} ${user.lastName}'.trim();
     }
-    return '${_selectedUserIds.length} users selected';
+    return AppLocalizations.of(context)!.notificationUsersSelected(_selectedUserIds.length);
   }
 
   Color _getRoleColor(String role) {
@@ -861,15 +868,16 @@ class _MobileNotificationScreenState extends State<MobileNotificationScreen> {
   }
 
   String _getRoleName(String role) {
+    final l10n = AppLocalizations.of(context)!;
     switch (role) {
       case 'admin':
-        return 'Admin';
+        return l10n.roleAdmin;
       case 'teacher':
-        return 'Teacher';
+        return l10n.roleTeacher;
       case 'student':
-        return 'Student';
+        return l10n.roleStudent;
       case 'parent':
-        return 'Parent';
+        return l10n.roleParent;
       default:
         return role;
     }

@@ -84,257 +84,130 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF8FAFC),
-      body: Column(
-        children: [
-          // Modern Header with enhanced design
-          _buildModernHeader(),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Compact tab bar at top
+            _buildCompactTabBar(),
 
-          // Chat Content Container
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                    spreadRadius: 0,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 1),
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Column(
+            // Search bar
+            _buildCompactSearchBar(),
+
+            // Content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
                 children: [
-                  // Enhanced Tab bar
-                  _buildModernTabBar(),
-
-                  // Enhanced Search bar
-                  _buildModernSearchBar(),
-
-                  // Content with proper padding
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildRecentChats(),
-                        _buildMyContacts(),
-                      ],
-                    ),
-                  ),
+                  _buildRecentChats(),
+                  _buildMyContacts(),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
 
-      // Modern floating action button
+      // Floating action button for group creation
       floatingActionButton: _isAdmin ? _buildModernCreateGroupFAB() : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
-  Widget _buildModernHeader() {
+  Widget _buildCompactTabBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade100,
+            width: 1,
           ),
-        ],
+        ),
       ),
-      child: Row(
-        children: [
-          // Modern Icon Container
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xff0386FF),
-                  const Color(0xff0386FF).withOpacity(0.8),
-                ],
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xffF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xff0386FF),
+          unselectedLabelColor: const Color(0xff64748B),
+          labelStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          indicator: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
               ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff0386FF).withOpacity(0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.chat_bubble_outline,
-              color: Colors.white,
-              size: 28,
-            ),
+            ],
           ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Builder(
-              builder: (context) {
-                final l10n = AppLocalizations.of(context);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n?.chatMessages ?? 'Messages',
-                      style: GoogleFonts.inter(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xff111827),
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n?.chatConnectTeam ?? 'Connect and collaborate with your team',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        color: const Color(0xff6B7280),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                );
-              },
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
+          tabs: [
+            Tab(
+              height: 36,
+              text: AppLocalizations.of(context)?.chatRecentChats ?? 'Recent',
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernTabBar() {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xffF1F5F9),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        labelColor: const Color(0xff0386FF),
-        unselectedLabelColor: const Color(0xff64748B),
-        labelStyle: GoogleFonts.inter(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: GoogleFonts.inter(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-        indicator: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+            Tab(
+              height: 36,
+              text: AppLocalizations.of(context)?.chatMyContacts ?? 'Contacts',
             ),
           ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        tabs: [
-          Tab(
-            height: 44,
-            text: AppLocalizations.of(context)?.chatRecentChats ?? 'Recent Chats',
-          ),
-          Tab(
-            height: 44,
-            text: AppLocalizations.of(context)?.chatMyContacts ?? 'My Contacts',
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildModernSearchBar() {
+  Widget _buildCompactSearchBar() {
     final l10n = AppLocalizations.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: TextField(
         controller: _searchController,
         style: GoogleFonts.inter(
-          fontSize: 16,
+          fontSize: 15,
           color: const Color(0xff111827),
         ),
         decoration: InputDecoration(
-          hintText: l10n?.chatSearchConversations ?? 'Search conversations and users...',
+          hintText: l10n?.chatSearchConversations ?? 'Search conversations...',
           hintStyle: GoogleFonts.inter(
+            fontSize: 15,
             color: const Color(0xff9CA3AF),
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
           ),
-          prefixIcon: Container(
-            margin: const EdgeInsets.all(12),
-            child: const Icon(
-              Icons.search,
-              color: Color(0xff6B7280),
-              size: 20,
-            ),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: Color(0xff9CA3AF),
+            size: 22,
           ),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {
-                      _searchQuery = '';
-                    });
-                  },
-                  icon: const Icon(
-                    Icons.clear,
-                    color: Color(0xff9CA3AF),
-                    size: 18,
-                  ),
-                )
-              : null,
           filled: true,
-          fillColor: const Color(0xffF8FAFC),
+          fillColor: const Color(0xffF3F4F6),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xffE2E8F0),
-              width: 1,
-            ),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xffE2E8F0),
-              width: 1,
-            ),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xff0386FF),
-              width: 2,
-            ),
+            borderSide: const BorderSide(color: Color(0xff0386FF), width: 1.5),
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );

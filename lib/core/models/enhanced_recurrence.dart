@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../enums/shift_enums.dart';
 import '../utils/timezone_utils.dart';
+import '../utils/weekday_localization.dart';
 
 /// Enhanced recurrence configuration
 class EnhancedRecurrence {
@@ -85,6 +88,43 @@ class EnhancedRecurrence {
     }
   }
 
+  /// Get localized human-readable description
+  String localizedDescription(AppLocalizations l10n) {
+    switch (type) {
+      case EnhancedRecurrenceType.none:
+        return l10n.recurrenceNone;
+      case EnhancedRecurrenceType.daily:
+        String desc = l10n.recurrenceDaily;
+        if (excludedWeekdays.isNotEmpty) {
+          final excludedNames = excludedWeekdays
+              .map((day) => day.localizedShortName(l10n))
+              .join(', ');
+          desc = l10n.recurrenceDailyExcludingDays(excludedNames);
+        }
+        if (excludedDates.isNotEmpty) {
+          desc = '$desc ${l10n.recurrenceExcludedDates(excludedDates.length)}';
+        }
+        return desc;
+      case EnhancedRecurrenceType.weekly:
+        final dayNames =
+            selectedWeekdays.map((day) => day.localizedShortName(l10n)).join(', ');
+        return l10n.recurrenceWeeklyOn(dayNames);
+      case EnhancedRecurrenceType.monthly:
+        if (selectedMonthDays.length <= 3) {
+          final dayNumbers = selectedMonthDays
+              .map((day) => _formatDayNumber(l10n, day))
+              .join(', ');
+          return l10n.recurrenceMonthlyOn(dayNumbers);
+        }
+        return l10n.recurrenceMonthlyOnCount(selectedMonthDays.length);
+      case EnhancedRecurrenceType.yearly:
+        final monthNames = selectedMonths
+            .map((month) => _getLocalizedMonthName(l10n, month))
+            .join(', ');
+        return l10n.recurrenceYearlyIn(monthNames);
+    }
+  }
+
   /// Helper to get ordinal suffix (1st, 2nd, 3rd, etc.)
   String _getOrdinalSuffix(int number) {
     if (number >= 11 && number <= 13) return 'th';
@@ -98,6 +138,13 @@ class EnhancedRecurrence {
       default:
         return 'th';
     }
+  }
+
+  String _formatDayNumber(AppLocalizations l10n, int day) {
+    if (l10n.localeName.toLowerCase().startsWith('fr')) {
+      return day == 1 ? '1er' : '${day}e';
+    }
+    return '$day${_getOrdinalSuffix(day)}';
   }
 
   /// Helper to get month name
@@ -117,6 +164,11 @@ class EnhancedRecurrence {
       'Dec'
     ];
     return months[month - 1];
+  }
+
+  String _getLocalizedMonthName(AppLocalizations l10n, int month) {
+    final date = DateTime(2020, month, 1);
+    return DateFormat.MMM(l10n.localeName).format(date);
   }
 
   /// Convert to Firestore document

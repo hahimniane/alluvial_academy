@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/core/widgets/performance_log_viewer.dart';
 import 'package:alluwalacademyadmin/core/widgets/performance_summary_dashboard.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FirestoreDebugScreen extends StatefulWidget {
   const FirestoreDebugScreen({super.key});
@@ -419,14 +419,14 @@ This helps us debug the login tracking system.''';
                     color: const Color(0xff6B7280),
                   ),
                 ),
-                children: const [
+                children: [
                   PerformanceLogViewer(),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             if (isLoading)
-              const Center(child: CircularProgressIndicator())
+              Center(child: CircularProgressIndicator())
             else if (error != null)
               Center(
                 child: Column(
@@ -774,7 +774,8 @@ This helps us debug the login tracking system.''';
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ID: ${doc['docId']}',
+                          AppLocalizations.of(context)!
+                              .debugDocumentId('${doc['docId']}'),
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -783,12 +784,15 @@ This helps us debug the login tracking system.''';
                         ),
                         const SizedBox(height: 4),
                         if (doc['email'] != null)
-                          Text('Email: ${doc['email']}'),
+                          Text(AppLocalizations.of(context)!
+                              .debugEmail('${doc['email']}')),
                         if (doc['first_name'] != null)
                           Text(
-                              'Name: ${doc['first_name']} ${doc['lastName'] ?? ''}'),
+                              AppLocalizations.of(context)!.debugName(
+                                  '${doc['first_name']} ${doc['lastName'] ?? ''}')),
                         if (doc['user_type'] != null)
-                          Text('Type: ${doc['user_type']}'),
+                          Text(AppLocalizations.of(context)!
+                              .debugType('${doc['user_type']}')),
                       ],
                     ),
                   );
@@ -796,7 +800,8 @@ This helps us debug the login tracking system.''';
               ),
             if (documents.length > 5)
               Text(
-                '... and ${documents.length - 5} more documents',
+                AppLocalizations.of(context)!
+                    .debugMoreDocuments(documents.length - 5),
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   color: Colors.grey[600],

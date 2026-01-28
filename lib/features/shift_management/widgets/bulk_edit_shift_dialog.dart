@@ -8,7 +8,7 @@ import '../../../core/services/shift_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'create_shift_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class BulkEditShiftDialog extends StatefulWidget {
   final List<TeachingShift> shifts;
@@ -331,7 +331,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                 children: [
                   Expanded(
                     child: _TimeField(
-                      label: 'Start',
+                      label: AppLocalizations.of(context)!.timesheetStart,
                       value: _newStartTime,
                       onTap: () async {
                         final picked = await showTimePicker(
@@ -347,7 +347,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _TimeField(
-                      label: 'End',
+                      label: AppLocalizations.of(context)!.timesheetEnd,
                       value: _newEndTime,
                       onTap: () async {
                         final picked = await showTimePicker(
@@ -372,9 +372,9 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
           value: _changeTeacher,
           onChanged: (v) => setState(() => _changeTeacher = v),
           child: _PickerField(
-            label: 'Teacher',
+            label: AppLocalizations.of(context)!.roleTeacher,
             value: _selectedTeacher == null
-                ? 'Select teacher'
+                ? AppLocalizations.of(context)!.selectTeacher
                 : '${_selectedTeacher!.firstName} ${_selectedTeacher!.lastName}',
             onTap: _pickTeacher,
           ),
@@ -386,10 +386,10 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
           value: _changeStudents,
           onChanged: (v) => setState(() => _changeStudents = v),
           child: _PickerField(
-            label: 'Students',
+            label: AppLocalizations.of(context)!.students,
             value: _selectedStudentIds.isEmpty
-                ? 'Select students'
-                : '${_selectedStudentIds.length} selected',
+                ? AppLocalizations.of(context)!.selectStudents
+                : AppLocalizations.of(context)!.shiftSelectedCount(_selectedStudentIds.length),
             onTap: _pickStudents,
           ),
         ),
@@ -400,8 +400,8 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
           value: _changeSubject,
           onChanged: (v) => setState(() => _changeSubject = v),
           child: _PickerField(
-            label: 'Subject',
-            value: _selectedSubject?.displayName ?? 'Select subject',
+            label: AppLocalizations.of(context)!.subject,
+            value: _selectedSubject?.displayName ?? AppLocalizations.of(context)!.selectSubject,
             onTap: _pickSubject,
           ),
         ),
@@ -694,7 +694,7 @@ class _BulkEditShiftDialogState extends State<BulkEditShiftDialog> {
     final updates = _buildUpdateMap();
     if (updates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.selectAtLeastOneChangeTo),
           backgroundColor: Colors.orange,
         ),

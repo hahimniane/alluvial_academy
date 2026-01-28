@@ -6,7 +6,7 @@ import '../../../core/models/employee_model.dart';
 import '../../../core/enums/shift_enums.dart';
 import 'shift_block.dart';
 import 'empty_cell_hover_indicator.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// ConnectTeam-inspired weekly schedule grid view
 /// Shows users as rows, days as columns, with shift blocks
@@ -103,7 +103,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                 itemBuilder: (context, index) {
                   final item = _buildGroupedUserList(filteredUsers)[index];
                   if (item.isHeader) {
-                    return _buildSectionHeader(item.title ?? '');
+                    return _buildSectionHeader(item);
                   }
                   // FIX: Pass the weekNavWidth here
                   return _buildUserShiftRow(
@@ -153,6 +153,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 
   List<_GroupedItem> _buildGroupedUserList(List<Employee> users) {
+    final l10n = AppLocalizations.of(context)!;
     final items = <_GroupedItem>[];
     
     // Separate teachers and leaders
@@ -163,7 +164,13 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
 
     // Add teachers section
     if (teachersList.isNotEmpty && (widget.scheduleTypeFilter == 'all' || widget.scheduleTypeFilter == 'teachers')) {
-      items.add(_GroupedItem(isHeader: true, title: 'TEACHERS (${teachersList.length})'));
+      items.add(
+        _GroupedItem(
+          isHeader: true,
+          headerType: _GroupHeaderType.teachers,
+          title: l10n.weeklyScheduleTeachersCount(teachersList.length),
+        ),
+      );
       for (var teacher in teachersList) {
         items.add(_GroupedItem(isHeader: false, user: teacher));
       }
@@ -171,7 +178,13 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
 
     // Add leaders section
     if (leadersList.isNotEmpty && (widget.scheduleTypeFilter == 'all' || widget.scheduleTypeFilter == 'leaders')) {
-      items.add(_GroupedItem(isHeader: true, title: 'LEADERS (${leadersList.length})'));
+      items.add(
+        _GroupedItem(
+          isHeader: true,
+          headerType: _GroupHeaderType.leaders,
+          title: l10n.weeklyScheduleLeadersCount(leadersList.length),
+        ),
+      );
       for (var leader in leadersList) {
         items.add(_GroupedItem(isHeader: false, user: leader));
       }
@@ -181,8 +194,11 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 
   Widget _buildDayHeaderRow(List<DateTime> weekDays, double userColumnWidth, double dayColumnWidth) {
+    final l10n = AppLocalizations.of(context)!;
     final today = DateTime.now();
     final weekEnd = weekDays.last;
+    final rangeStart = DateFormat('EEE M/d').format(weekDays.first);
+    final rangeEnd = DateFormat('EEE M/d').format(weekEnd);
     
     return Container(
       height: 56, // Compact header height
@@ -244,7 +260,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                         ),
                         Expanded(
                           child: Text(
-                            '${DateFormat('EEE M/d').format(weekDays.first)} → ${DateFormat('EEE M/d').format(weekEnd)}',
+                            l10n.weeklyScheduleDateRange(rangeStart, rangeEnd),
                             style: GoogleFonts.inter(
                               fontSize: 9,
                               fontWeight: FontWeight.w500,
@@ -333,7 +349,8 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(_GroupedItem item) {
+    final title = item.title ?? '';
     return Container(
       height: 32, // Compact section header
       color: const Color(0xffF3F4F6),
@@ -341,7 +358,9 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
       child: Row(
         children: [
           Icon(
-            title.startsWith('TEACHERS') ? Icons.school : Icons.admin_panel_settings,
+            item.headerType == _GroupHeaderType.teachers
+                ? Icons.school
+                : Icons.admin_panel_settings,
             size: 14,
             color: const Color(0xff6B7280),
           ),
@@ -577,6 +596,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 
   void _showMultipleShiftsMenu(Employee user, DateTime day, List<TeachingShift> shifts) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -591,7 +611,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${shifts.length} shifts scheduled',
+                l10n.weeklyScheduleShiftsScheduled(shifts.length),
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xff6B7280),
@@ -615,7 +635,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
                         Row(
                           children: [
                             Text(
-                              'Shift #${index + 1}',
+                              l10n.weeklyScheduleShiftNumber(index + 1),
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
@@ -798,15 +818,22 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 }
 
+enum _GroupHeaderType {
+  teachers,
+  leaders,
+}
+
 class _GroupedItem {
   final bool isHeader;
   final String? title;
   final Employee? user;
+  final _GroupHeaderType? headerType;
 
   _GroupedItem({
     required this.isHeader,
     this.title,
     this.user,
+    this.headerType,
   });
 }
 

@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/services/teacher_audit_service.dart';
 import '../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TestAuditGenerationScreen extends StatefulWidget {
   const TestAuditGenerationScreen({super.key});
@@ -212,7 +212,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     if (_total > 0) ...[
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: _progress / _total,
                       ),
@@ -264,7 +264,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(16.0),
                       child: Text(
                         AppLocalizations.of(context)!.logs,
@@ -275,7 +275,7 @@ class _TestAuditGenerationScreenState extends State<TestAuditGenerationScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
                         child: _logs.isEmpty
-                            ? const Center(child: Text(AppLocalizations.of(context)!.aucunLogPourLeMoment))
+                            ? Center(child: Text(AppLocalizations.of(context)!.aucunLogPourLeMoment))
                             : ListView.builder(
                                 itemCount: _logs.length,
                                 itemBuilder: (context, index) {

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/shift_form_service.dart';
 import '../../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ReadinessFormPromptDialog extends StatefulWidget {
   final String timesheetId;
@@ -126,7 +126,7 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.formSubmittedSuccess),
             backgroundColor: Colors.green,
           ),
@@ -460,7 +460,9 @@ class _ReadinessFormPromptDialogState extends State<ReadinessFormPromptDialog> {
           child: DropdownButtonFormField<String>(
             value: _responses[id] as String?,
             decoration: InputDecoration(
-              hintText: placeholder.isEmpty ? 'Select an option' : placeholder,
+              hintText: placeholder.isEmpty
+                  ? AppLocalizations.of(context)!.formSelectOption
+                  : placeholder,
               hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

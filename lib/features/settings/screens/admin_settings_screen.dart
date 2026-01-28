@@ -5,7 +5,7 @@ import '../../../core/constants/build_info.dart';
 import '../../../core/services/user_role_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AdminSettingsScreen extends StatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -101,7 +101,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.settingsSavedSuccessfully2),
             backgroundColor: Colors.green,
           ),
@@ -126,7 +126,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_hasAccess) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Color(0xffF8FAFC),
         body: Center(
           child: Text(
@@ -149,7 +149,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           _buildHeader(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator())
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Form(
@@ -160,7 +160,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                           _buildSectionTitle('Notification Settings'),
                           const SizedBox(height: 16),
                           _buildTextField(
-                            label: 'Notification Email',
+                            label: AppLocalizations.of(context)!.adminSettingsNotificationemail,
                             hint: 'email@example.com',
                             controller: _notificationEmailController,
                             helperText: AppLocalizations.of(context)!.thisEmailWillReceiveNotificationsFor,

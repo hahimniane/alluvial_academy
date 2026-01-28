@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentQuickStatsCard extends StatelessWidget {
   final int totalClasses;
@@ -38,21 +39,21 @@ class StudentQuickStatsCard extends StatelessWidget {
           _buildStatItem(
             icon: Icons.calendar_today_rounded,
             iconColor: const Color(0xFF1D4ED8),
-            label: 'Total Classes',
+            label: AppLocalizations.of(context)!.totalClasses,
             value: totalClasses.toString(),
           ),
           const SizedBox(width: 24),
           _buildStatItem(
             icon: Icons.check_circle_rounded,
             iconColor: const Color(0xFF16A34A),
-            label: 'Attendance',
+            label: AppLocalizations.of(context)!.studentQuickStatsAttendance,
             value: '$attendancePercent%',
           ),
           const SizedBox(width: 24),
           _buildStatItem(
             icon: Icons.assignment_turned_in_rounded,
             iconColor: const Color(0xFFF59E0B),
-            label: 'Tasks Done',
+            label: AppLocalizations.of(context)!.studentQuickStatsTasksdone,
             value: '$completedTasks/$totalTasks',
           ),
         ],

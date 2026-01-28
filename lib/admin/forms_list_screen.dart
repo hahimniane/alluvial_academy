@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'form_builder.dart';
 import '../core/models/form_template.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Forms List Screen - Google Forms style list view
 /// Allows viewing, editing, duplicating, and deleting forms
@@ -73,7 +73,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                   size: 28,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +166,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _statusFilter,
-                    items: const [
+                    items: [
                       DropdownMenuItem(value: 'all', child: Text(AppLocalizations.of(context)!.allForms)),
                       DropdownMenuItem(value: 'active', child: Text(AppLocalizations.of(context)!.shiftActive)),
                       DropdownMenuItem(value: 'inactive', child: Text(AppLocalizations.of(context)!.userInactive)),
@@ -176,7 +176,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                 ),
               ),
               
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               
               // Sort
               Container(
@@ -189,7 +189,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _sortBy,
-                    items: const [
+                    items: [
                       DropdownMenuItem(value: 'newest', child: Text(AppLocalizations.of(context)!.newestFirst)),
                       DropdownMenuItem(value: 'oldest', child: Text(AppLocalizations.of(context)!.oldestFirst)),
                       DropdownMenuItem(value: 'name', child: Text(AppLocalizations.of(context)!.nameAZ)),
@@ -430,7 +430,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
               ),
               child: Stack(
                 children: [
-                  const Center(
+                  Center(
                     child: Icon(
                       Icons.dynamic_form,
                       size: 40,
@@ -445,14 +445,14 @@ class _FormsListScreenState extends State<FormsListScreen> {
                       icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
                       onSelected: (action) => _handleTemplateAction(action, templateId, template),
                       itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'edit', child: Row(
+                        PopupMenuItem(value: 'edit', child: Row(
                           children: [
                             Icon(Icons.edit, size: 18),
                             SizedBox(width: 8),
                             Text(AppLocalizations.of(context)!.commonEdit),
                           ],
                         )),
-                        const PopupMenuItem(value: 'duplicate', child: Row(
+                        PopupMenuItem(value: 'duplicate', child: Row(
                           children: [
                             Icon(Icons.content_copy, size: 18),
                             SizedBox(width: 8),
@@ -470,7 +470,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                           ),
                         ),
                         const PopupMenuDivider(),
-                        const PopupMenuItem(value: 'delete', child: Row(
+                        PopupMenuItem(value: 'delete', child: Row(
                           children: [
                             Icon(Icons.delete, size: 18, color: Colors.red),
                             SizedBox(width: 8),
@@ -623,14 +623,14 @@ class _FormsListScreenState extends State<FormsListScreen> {
                       icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
                       onSelected: (action) => _handleFormAction(action, formId, data),
                       itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'edit', child: Row(
+                        PopupMenuItem(value: 'edit', child: Row(
                           children: [
                             Icon(Icons.edit, size: 18),
                             SizedBox(width: 8),
                             Text(AppLocalizations.of(context)!.commonEdit),
                           ],
                         )),
-                        const PopupMenuItem(value: 'duplicate', child: Row(
+                        PopupMenuItem(value: 'duplicate', child: Row(
                           children: [
                             Icon(Icons.content_copy, size: 18),
                             SizedBox(width: 8),
@@ -648,7 +648,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
                           ),
                         ),
                         const PopupMenuDivider(),
-                        const PopupMenuItem(value: 'delete', child: Row(
+                        PopupMenuItem(value: 'delete', child: Row(
                           children: [
                             Icon(Icons.delete, size: 18, color: Colors.red),
                             SizedBox(width: 8),
@@ -887,7 +887,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.formDuplicatedSuccessfully)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.formDuplicatedSuccessfully)),
         );
       }
     } catch (e) {
@@ -953,7 +953,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.templateDuplicatedSuccessfully)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.templateDuplicatedSuccessfully)),
         );
       }
     } catch (e) {
@@ -1015,7 +1015,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.templateDeleted)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.templateDeleted)),
         );
       }
     } catch (e) {
@@ -1053,7 +1053,7 @@ class _FormsListScreenState extends State<FormsListScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.formDeleted)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.formDeleted)),
         );
       }
     } catch (e) {
@@ -1200,14 +1200,14 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
   Future<void> _saveTemplate() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.templateNameCannotBeEmpty)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.templateNameCannotBeEmpty)),
       );
       return;
     }
 
     if (_fields.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.templateMustHaveAtLeastOne)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.templateMustHaveAtLeastOne)),
       );
       return;
     }
@@ -1246,7 +1246,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.templateUpdatedSuccessfully),
             backgroundColor: Colors.green,
           ),
@@ -1488,7 +1488,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 // Field info
                 Expanded(
                   child: Column(
@@ -1697,7 +1697,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
   void _saveField() {
     if (_labelController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.fieldLabelCannotBeEmpty)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.fieldLabelCannotBeEmpty)),
       );
       return;
     }
@@ -1708,7 +1708,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
 
     if (_needsOptions(_fieldType) && (options == null || options.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseProvideAtLeastOneOption)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseProvideAtLeastOneOption)),
       );
       return;
     }
@@ -1908,7 +1908,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                           ),
                         );
                       }),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                     ],
                     
                     // Required checkbox
@@ -1943,7 +1943,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(AppLocalizations.of(context)!.commonCancel),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: _saveField,
                     style: ElevatedButton.styleFrom(

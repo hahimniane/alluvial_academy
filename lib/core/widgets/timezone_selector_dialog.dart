@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/timezone_utils.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TimezoneSelectorDialog extends StatefulWidget {
   final String? initialTimezone;
-  final String title;
+  final String? title;
 
   const TimezoneSelectorDialog({
     super.key,
     required this.initialTimezone,
-    this.title = 'Select Timezone',
+    this.title,
   });
 
   @override
@@ -92,7 +92,9 @@ class _TimezoneSelectorDialogState extends State<TimezoneSelectorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final query = _searchController.text.trim();
+    final dialogTitle = widget.title ?? l10n.selectTimezone;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -103,7 +105,7 @@ class _TimezoneSelectorDialogState extends State<TimezoneSelectorDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(context),
+            _buildHeader(context, dialogTitle),
             const SizedBox(height: 10),
             _buildSearchField(),
             const SizedBox(height: 12),
@@ -116,12 +118,12 @@ class _TimezoneSelectorDialogState extends State<TimezoneSelectorDialog> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, String title) {
     return Row(
       children: [
         Expanded(
           child: Text(
-            widget.title,
+            title,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,

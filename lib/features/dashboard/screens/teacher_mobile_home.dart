@@ -10,7 +10,7 @@ import '../../../core/services/user_role_service.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../time_clock/screens/time_clock_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // --- WIDGETS INTERNES ---
 
@@ -391,7 +391,7 @@ class _TeacherMobileHomeState extends State<TeacherMobileHome> {
             // 3. Main Content (Scrollable)
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 24),

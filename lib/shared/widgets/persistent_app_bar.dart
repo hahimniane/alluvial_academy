@@ -5,7 +5,7 @@ import '../../screens/islamic_courses_page.dart';
 import '../../screens/tutoring_literacy_page.dart';
 import '../../screens/afrolingual_page.dart';
 import '../../main.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class PersistentAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String currentPage;

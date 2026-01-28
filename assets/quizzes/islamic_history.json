@@ -1,0 +1,97 @@
+{
+  "category": "islamic_history",
+  "name": "Islamic History",
+  "description": "Important events in Islamic history",
+  "questions": [
+    {
+      "id": "ih_001",
+      "category": "islamic_history",
+      "difficulty": "easy",
+      "question": "What is the Hijrah?",
+      "options": ["A prayer", "Migration from Mecca to Medina", "A battle", "A festival"],
+      "correctAnswer": 1,
+      "explanation": "The Hijrah was Prophet Muhammad's migration from Mecca to Medina in 622 CE."
+    },
+    {
+      "id": "ih_002",
+      "category": "islamic_history",
+      "difficulty": "easy",
+      "question": "Which city is known as the birthplace of Prophet Muhammad?",
+      "options": ["Medina", "Jerusalem", "Mecca", "Damascus"],
+      "correctAnswer": 2,
+      "explanation": "Prophet Muhammad was born in Mecca, Saudi Arabia."
+    },
+    {
+      "id": "ih_003",
+      "category": "islamic_history",
+      "difficulty": "easy",
+      "question": "What is Eid al-Fitr?",
+      "options": ["Day of sacrifice", "Festival after Ramadan", "Friday prayer", "Night of Power"],
+      "correctAnswer": 1,
+      "explanation": "Eid al-Fitr is the festival celebrating the end of Ramadan."
+    },
+    {
+      "id": "ih_004",
+      "category": "islamic_history",
+      "difficulty": "medium",
+      "question": "What is Eid al-Adha?",
+      "options": ["End of Ramadan", "Festival of Sacrifice", "New Year", "Prophet's birthday"],
+      "correctAnswer": 1,
+      "explanation": "Eid al-Adha is the Festival of Sacrifice, commemorating Prophet Ibrahim's willingness to sacrifice his son."
+    },
+    {
+      "id": "ih_005",
+      "category": "islamic_history",
+      "difficulty": "medium",
+      "question": "What is Laylat al-Qadr?",
+      "options": ["First day of Ramadan", "Night of Power", "Day of Arafah", "Last day of Hajj"],
+      "correctAnswer": 1,
+      "explanation": "Laylat al-Qadr (Night of Power) is the night when the Quran was first revealed."
+    },
+    {
+      "id": "ih_006",
+      "category": "islamic_history",
+      "difficulty": "easy",
+      "question": "What is the holiest city in Islam?",
+      "options": ["Medina", "Jerusalem", "Mecca", "Cairo"],
+      "correctAnswer": 2,
+      "explanation": "Mecca is the holiest city in Islam, home to the Kaaba."
+    },
+    {
+      "id": "ih_007",
+      "category": "islamic_history",
+      "difficulty": "medium",
+      "question": "What year did Prophet Muhammad migrate to Medina?",
+      "options": ["610 CE", "622 CE", "632 CE", "650 CE"],
+      "correctAnswer": 1,
+      "explanation": "The Hijrah to Medina happened in 622 CE, which marks the start of the Islamic calendar."
+    },
+    {
+      "id": "ih_008",
+      "category": "islamic_history",
+      "difficulty": "easy",
+      "question": "What is the name of the cube-shaped building in Mecca?",
+      "options": ["Masjid al-Nabawi", "Al-Aqsa", "The Kaaba", "The Dome"],
+      "correctAnswer": 2,
+      "explanation": "The Kaaba is the cube-shaped building that Muslims face during prayer."
+    },
+    {
+      "id": "ih_009",
+      "category": "islamic_history",
+      "difficulty": "medium",
+      "question": "Who was the first Muezzin (caller to prayer)?",
+      "options": ["Abu Bakr", "Umar", "Bilal", "Uthman"],
+      "correctAnswer": 2,
+      "explanation": "Bilal ibn Rabah was the first Muezzin in Islam, chosen by Prophet Muhammad."
+    },
+    {
+      "id": "ih_010",
+      "category": "islamic_history",
+      "difficulty": "easy",
+      "question": "What is the first month of the Islamic calendar?",
+      "options": ["Ramadan", "Muharram", "Shawwal", "Dhul Hijjah"],
+      "correctAnswer": 1,
+      "explanation": "Muharram is the first month of the Islamic (Hijri) calendar."
+    }
+  ]
+}

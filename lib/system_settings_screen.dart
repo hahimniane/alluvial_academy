@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/services/wage_management_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key});
@@ -943,7 +943,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               Navigator.of(context).pop();
               // Implement password reset logic
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                     content: Text(AppLocalizations.of(context)!.passwordResetInitiatedForAllUsers)),
               );
             },
@@ -964,7 +964,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           width: double.maxFinite,
           height: 300,
           child: ListView(
-            children: const [
+            children: [
               ListTile(
                 leading: Icon(Icons.login, color: Colors.green),
                 title: Text(AppLocalizations.of(context)!.johnDoeEmailCom),
@@ -1012,13 +1012,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   void _testNotifications() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppLocalizations.of(context)!.testNotificationSentSuccessfully)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.testNotificationSentSuccessfully)),
     );
   }
 
   void _createBackup() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppLocalizations.of(context)!.backupCreatedSuccessfully)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.backupCreatedSuccessfully)),
     );
   }
 
@@ -1040,7 +1040,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   void _clearCache() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppLocalizations.of(context)!.cacheClearedSuccessfully)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.cacheClearedSuccessfully)),
     );
   }
 
@@ -1049,7 +1049,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.systemDiagnostics),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
@@ -1155,7 +1155,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (context) => AlertDialog(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1204,7 +1204,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             children: [
               Text('✅ Updated ${results['shifts']} shifts'),
               Text('✅ Updated ${results['timesheets']} timesheet entries'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 AppLocalizations.of(context)!.allRecordsNowReflectTheNew,
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -1278,7 +1278,7 @@ class _RoleWageDialogState extends State<_RoleWageDialog> {
       content: SizedBox(
         width: 400,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1399,7 +1399,7 @@ class _IndividualWageDialogState extends State<_IndividualWageDialog> {
         width: 600,
         height: 400,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : Column(
                 children: [
                   TextField(
@@ -1544,7 +1544,7 @@ class _EnhancedRoleWageDialogState extends State<_EnhancedRoleWageDialog> {
       content: SizedBox(
         width: 400,
         child: _isLoading
-            ? const Center(
+            ? Center(
                 child: Padding(
                   padding: EdgeInsets.all(32.0),
                   child: CircularProgressIndicator(),
@@ -1682,7 +1682,7 @@ class _EnhancedIndividualWageDialogState
         width: 700,
         height: 500,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : Column(
                 children: [
                   // Search bar
@@ -1901,7 +1901,7 @@ class _ApplyWageChangesDialogState extends State<_ApplyWageChangesDialog> {
         width: 500,
         height: 400,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -6,7 +6,7 @@ import '../debug_firestore_screen.dart';
 import 'form_builder.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Screen for managing form drafts
 class DraftManagementScreen extends StatefulWidget {

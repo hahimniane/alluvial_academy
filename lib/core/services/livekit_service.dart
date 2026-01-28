@@ -19,8 +19,8 @@ import 'livekit_session_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/environment_utils.dart';
 import '../utils/picture_in_picture.dart'
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
     if (dart.library.io) '../utils/picture_in_picture_stub.dart' as pip;
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// LiveKit join token response from Cloud Functions
 class LiveKitJoinResult {
@@ -250,8 +250,7 @@ class LiveKitService {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
+          title: Row(children: [
               Icon(Icons.videocam_off, color: Colors.orange, size: 28),
               SizedBox(width: 12),
               Expanded(child: Text(AppLocalizations.of(context)!.permissionsRequired)),
@@ -265,15 +264,14 @@ class LiveKitService {
                 AppLocalizations.of(context)!.cameraAndMicrophoneAccessAreNeeded,
                 style: TextStyle(fontSize: 15),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
-                  children: [
+                child: Row(children: [
                     Icon(Icons.info_outline, color: Colors.orange, size: 20),
                     SizedBox(width: 8),
                     Expanded(
@@ -319,15 +317,14 @@ class LiveKitService {
       await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
+          title: Row(children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
               SizedBox(width: 12),
               Expanded(child: Text(AppLocalizations.of(context)!.permissionsDenied)),
             ],
           ),
           content: Text(
-            AppLocalizations.of(context)!.cameraAndMicrophonePermissionsAreRequired
+            '${AppLocalizations.of(context)!.cameraAndMicrophonePermissionsAreRequired} '
             'Please grant these permissions when prompted.',
           ),
           actions: [
@@ -747,13 +744,13 @@ class LiveKitService {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const PopScope(
+        builder: (_) => PopScope(
           canPop: false,
           child: AlertDialog(
             content: Row(
               children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
+                const CircularProgressIndicator(),
+                const SizedBox(width: 20),
                 Expanded(child: Text(AppLocalizations.of(context)!.connectingToClass)),
               ],
             ),
@@ -1031,7 +1028,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
                   AppLocalizations.of(context)!.teacherNotHere,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -1125,7 +1122,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
                   AppLocalizations.of(context)!.noStudentsYet,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -1967,7 +1964,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     if (local == null) return;
     if (!widget.isTeacher) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.onlyTeachersCanShareTheirScreen),
           behavior: SnackBarBehavior.floating,
         ),
@@ -2592,7 +2589,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(AppLocalizations.of(context)!.thisWillMuteAllParticipantsExcept),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: allowUnmute,
@@ -2699,7 +2696,8 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               title: Row(
                 children: [
                   Expanded(
-                    child: Text('Participants (${participants.length})'),
+                    child: Text(AppLocalizations.of(context)!
+                        .livekitParticipantsCount(participants.length)),
                   ),
                   if (widget.isTeacher)
                     IconButton(
@@ -2912,12 +2910,12 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                         child:
                                             Text(micOn ? 'Mute mic' : 'Unmute mic'),
                                       ),
-                                      const PopupMenuItem(
+                                      PopupMenuItem(
                                         value: 'kick',
                                         child: Text(AppLocalizations.of(context)!.remove),
                                       ),
                                       if (canPiP)
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
                                           value: 'pip',
                                           child: Text(AppLocalizations.of(context)!.pictureInPicture),
                                         ),
@@ -3055,7 +3053,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
   Widget _buildBody(_ActiveScreenShare? activeScreenShare) {
     if (_connecting) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -3097,7 +3095,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
 
     if (_room == null) {
-      return const Center(
+      return Center(
         child: Text(
           AppLocalizations.of(context)!.notConnected,
           style: TextStyle(color: Colors.white70),
@@ -3179,7 +3177,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               child: DecoratedBox(
                 decoration: const BoxDecoration(color: Colors.black),
                 child: screenShareTrack == null
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           AppLocalizations.of(context)!.startingScreenShare,
                           style: TextStyle(color: Colors.white70, fontSize: 16),
@@ -3456,7 +3454,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
 
     if (participants.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           AppLocalizations.of(context)!.waitingForOthersToJoin,
           style: TextStyle(color: Colors.white70, fontSize: 16),
@@ -3549,7 +3547,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
             if (widget.isTeacher)
               _ControlButton(
                 icon: Icons.volume_off,
-                label: 'Mute all',
+                label: AppLocalizations.of(context)!.livekitMuteAll,
                 isActive: true,
                 onPressed: !hasRemoteParticipants
                     ? () => _showSnack(
@@ -3582,7 +3580,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 icon: _pipIdentity != null
                     ? Icons.picture_in_picture_alt
                     : Icons.picture_in_picture_alt_outlined,
-                label: 'PiP',
+                label: AppLocalizations.of(context)!.livekitPip,
                 isActive: _pipIdentity != null,
                 onPressed: _pipBusy || !hasRemoteParticipants
                     ? () => _showSnack(
@@ -3593,13 +3591,13 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
               ),
             _ControlButton(
               icon: Icons.menu_book,
-              label: 'Quran',
+              label: AppLocalizations.of(context)!.livekitQuran,
               isActive: true,
               onPressed: _openQuranDialog,
             ),
             _ControlButton(
               icon: Icons.call_end,
-              label: 'Leave',
+              label: AppLocalizations.of(context)!.livekitLeave,
               isActive: true,
               activeColor: Colors.red,
               backgroundColor: Colors.red,
@@ -3680,8 +3678,8 @@ class _ParticipantTile extends StatelessWidget {
         border: Border.all(
           color: isScreenSharing
               ? Colors.orange.shade400
-              : (isLocal ? Colors.blue.shade400 : Colors.white24),
-          width: isScreenSharing ? 3 : (isLocal ? 2 : 1),
+              : (isLocal ? Colors.white30 : Colors.white24),
+          width: isScreenSharing ? 3 : 1,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -3736,7 +3734,7 @@ class _ParticipantTile extends StatelessWidget {
                         color: Colors.orange.shade600,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -3933,7 +3931,7 @@ class _ParticipantsOverlayChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white24),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.people, color: Colors.white, size: 16),
@@ -4001,7 +3999,8 @@ class _ParticipantsOverlayWindow extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Participants (${participants.length})',
+                        AppLocalizations.of(context)!
+                            .livekitParticipantsCount(participants.length),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -4026,7 +4025,7 @@ class _ParticipantsOverlayWindow extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(6),
                 child: participants.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           AppLocalizations.of(context)!.noParticipantsYet,
                           style: TextStyle(color: Colors.white70, fontSize: 12),

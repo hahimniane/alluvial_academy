@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/shift_form_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Button widget that shows "Fill" if form doesn't exist, or "View" (eye icon) if it does
 class PendingFormButton extends StatefulWidget {
@@ -74,7 +74,8 @@ class _PendingFormButtonState extends State<PendingFormButton> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading form details: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!
+                .dashboardErrorLoadingFormDetails(e.toString())),
             backgroundColor: Colors.red,
           ),
         );

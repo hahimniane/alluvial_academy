@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/subject.dart';
 import '../../../core/services/subject_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class SubjectManagementDialog extends StatefulWidget {
   const SubjectManagementDialog({super.key});
@@ -42,7 +42,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
         title: Row(
           children: [
             const Icon(Icons.delete_forever, color: Color(0xFFEF4444)),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Text(AppLocalizations.of(context)!.deleteSubject, style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ],
         ),
@@ -702,21 +702,21 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
             children: [
               _buildTextField(
                 controller: displayNameController,
-                label: 'Display Name *',
+                label: AppLocalizations.of(context)!.subjectManagementDisplayname,
                 hint: 'e.g., Quran Studies',
                 icon: Icons.label,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: arabicNameController,
-                label: 'Arabic Name (Optional)',
+                label: AppLocalizations.of(context)!.subjectManagementArabicnameoptional,
                 hint: 'e.g., دراسات القرآن',
                 icon: Icons.language,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: wageController,
-                label: 'Default Hourly Wage (Optional)',
+                label: AppLocalizations.of(context)!.subjectManagementDefaulthourlywageoptional,
                 hint: 'e.g., 15.00',
                 icon: Icons.attach_money,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -724,7 +724,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               const SizedBox(height: 16),
               _buildTextField(
                 controller: descriptionController,
-                label: 'Description (Optional)',
+                label: AppLocalizations.of(context)!.chatGroupDescription,
                 hint: 'Brief description of the subject',
                 maxLines: 3,
                 icon: Icons.description,
@@ -747,7 +747,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
@@ -760,7 +760,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 wage = double.tryParse(wageText);
                 if (wage == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(AppLocalizations.of(context)!.pleaseEnterAValidWageAmount),
                       backgroundColor: Colors.red,
                     ),
@@ -856,19 +856,19 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
             children: [
               _buildTextField(
                 controller: displayNameController,
-                label: 'Display Name *',
+                label: AppLocalizations.of(context)!.subjectManagementDisplayname,
                 icon: Icons.label,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: arabicNameController,
-                label: 'Arabic Name (Optional)',
+                label: AppLocalizations.of(context)!.subjectManagementArabicnameoptional,
                 icon: Icons.language,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: wageController,
-                label: 'Default Hourly Wage (Optional)',
+                label: AppLocalizations.of(context)!.subjectManagementDefaulthourlywageoptional,
                 hint: 'e.g., 15.00',
                 icon: Icons.attach_money,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -876,7 +876,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
               const SizedBox(height: 16),
               _buildTextField(
                 controller: descriptionController,
-                label: 'Description (Optional)',
+                label: AppLocalizations.of(context)!.chatGroupDescription,
                 maxLines: 3,
                 icon: Icons.description,
               ),
@@ -898,7 +898,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
 
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
@@ -911,7 +911,7 @@ class _SubjectManagementDialogState extends State<SubjectManagementDialog> {
                 wage = double.tryParse(wageText);
                 if (wage == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(AppLocalizations.of(context)!.pleaseEnterAValidWageAmount),
                       backgroundColor: Colors.red,
                     ),

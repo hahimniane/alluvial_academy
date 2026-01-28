@@ -6,7 +6,7 @@ import 'dart:html' as html;
 import 'dart:convert';
 import '../../core/models/teacher_audit_metrics.dart';
 import '../../core/services/audit_metrics_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin dashboard for viewing teacher audit metrics
 class AuditDashboardScreen extends StatefulWidget {
@@ -209,7 +209,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               },
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           // Teacher picker
           Expanded(
             child: DropdownButtonFormField<String?>(
@@ -220,7 +220,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                const DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTeachers)),
+                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTeachers)),
                 ..._teachers.map((t) => DropdownMenuItem(
                       value: t['userId'],
                       child: Text(t['name'] ?? t['email'] ?? 'Unknown'),
@@ -232,7 +232,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
               },
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           // Tier picker
           Expanded(
             child: DropdownButtonFormField<PerformanceTier?>(
@@ -243,7 +243,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                const DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTiers)),
+                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allTiers)),
                 ...PerformanceTier.values.map((t) => DropdownMenuItem(
                       value: t,
                       child: Row(
@@ -604,7 +604,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
   Future<void> _computeMetricsForPilot() async {
     // Compute metrics directly in Dart for the pilot user
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppLocalizations.of(context)!.computingMetricsThisMayTakeA)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.computingMetricsThisMayTakeA)),
     );
 
     try {
@@ -643,7 +643,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
   void _exportToCSV() {
     if (_metrics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
       );
       return;
     }
@@ -669,7 +669,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     html.Url.revokeObjectUrl(url);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully2)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully2)),
     );
   }
 
@@ -677,7 +677,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     // For now, generate a simple HTML report that can be printed as PDF
     if (_metrics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noDataToExport)),
       );
       return;
     }
@@ -773,7 +773,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
     html.window.open(url, '_blank');
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppLocalizations.of(context)!.reportOpenedInNewTabUse)),
+      SnackBar(content: Text(AppLocalizations.of(context)!.reportOpenedInNewTabUse)),
     );
   }
 }

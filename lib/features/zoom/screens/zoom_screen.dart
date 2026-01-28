@@ -11,7 +11,7 @@ import '../../../core/services/video_call_service.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../shift_management/widgets/create_shift_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 enum _ClassesTimeFilter {
   all,
@@ -483,7 +483,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                 child: InputDecorator(
                                   decoration: InputDecoration(
                                     prefixIcon: isLoadingTeachers
-                                        ? const Padding(
+                                        ? Padding(
                                             padding: EdgeInsets.all(12),
                                             child: SizedBox(
                                               width: 18,
@@ -774,7 +774,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                      Align(
 	                        alignment: Alignment.centerLeft,
 	                        child: Text(
-	                          AppLocalizations.of(context)!.0Results,
+	                          AppLocalizations.of(context)!.zeroResults,
 	                          style: GoogleFonts.inter(
 	                            fontSize: 12,
 	                            fontWeight: FontWeight.w600,
@@ -1148,12 +1148,14 @@ class _ZoomShiftCard extends StatelessWidget {
                         if (lower.contains('unavailable')) {
                           return 'Service unavailable';
                         }
-                        return text.isEmpty ? 'Unknown error' : text;
+                        return text.isEmpty
+                            ? AppLocalizations.of(context)!.commonUnknownError
+                            : text;
                       }
 
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return _LiveKitPresenceRow(
-                          label: 'Checking who’s in the room…',
+                          label: AppLocalizations.of(context)!.zoomCheckingwhosintheroom,
                           trailing: IconButton(
                             onPressed: onRefreshLiveKitPresence,
                             icon: const Icon(Icons.refresh, size: 18),
@@ -1172,7 +1174,7 @@ class _ZoomShiftCard extends StatelessWidget {
                           presence.error != null) {
                         final subtitle = presence?.error ?? formatPresenceError(snapshot.error);
                         return _LiveKitPresenceRow(
-                          label: 'Unable to load participants',
+                          label: AppLocalizations.of(context)!.zoomUnabletoloadparticipants,
                           subtitle: subtitle,
                           trailing: IconButton(
                             onPressed: onRefreshLiveKitPresence,
@@ -1206,7 +1208,7 @@ class _ZoomShiftCard extends StatelessWidget {
                       }
 
                       return _LiveKitPresenceRow(
-                        label: 'In class now: $count',
+                        label: AppLocalizations.of(context)!.zoomInclassnowcount,
                         subtitle: subtitle,
                         onTap: count > 0
                             ? () => _showLiveKitParticipantsDialog(context, presence)

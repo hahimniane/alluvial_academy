@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/form_labels_cache_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Reusable form details modal for teachers
 class FormDetailsModal {
@@ -184,11 +184,11 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
   }
 
   String _getDayOfWeekString(int weekday) {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    if (weekday >= 1 && weekday <= 7) {
-      return days[weekday - 1];
+    if (weekday < 1 || weekday > 7) {
+      return AppLocalizations.of(context)!.commonUnknown;
     }
-    return 'Unknown';
+    final date = DateTime(2020, 1, 6).add(Duration(days: weekday - 1));
+    return DateFormat.EEEE(AppLocalizations.of(context)!.localeName).format(date);
   }
 
   String _getFieldLabel(String fieldId) {
@@ -205,7 +205,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
     }
     
     if (RegExp(r'^\d+$').hasMatch(fieldId)) {
-      return 'Question $fieldId';
+      return AppLocalizations.of(context)!.formQuestionNumber(fieldId);
     }
     
     return fieldId
@@ -321,7 +321,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
           ),
           const SizedBox(height: 8),
           if (_isLoadingLabels)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(12.0),
               child: Center(
                 child: SizedBox(

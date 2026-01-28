@@ -6,7 +6,7 @@ import 'package:alluwalacademyadmin/features/tasks/models/task.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
 import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/task_card.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentTasksTab extends StatefulWidget {
   final String studentId;

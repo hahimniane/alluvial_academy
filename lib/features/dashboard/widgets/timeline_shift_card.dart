@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TimelineShiftCard extends StatelessWidget {
   final TeachingShift shift;
@@ -35,7 +35,7 @@ class TimelineShiftCard extends StatelessWidget {
     final now = DateTime.now();
     
     // 2. Get visual configuration (colors, text) based on current state
-    final config = _getVisualConfig(now);
+    final config = _getVisualConfig(context, now);
     
     // 3. Pre-calculate time strings
     final startTime = DateFormat('HH:mm').format(shift.shiftStart);
@@ -154,7 +154,7 @@ class TimelineShiftCard extends StatelessWidget {
 
                     // Action Buttons
                     const SizedBox(height: 12),
-                    _buildActionButtons(now),
+                    _buildActionButtons(context, now),
                   ],
                 ),
               ),
@@ -198,7 +198,7 @@ class TimelineShiftCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(DateTime now) {
+  Widget _buildActionButtons(BuildContext context, DateTime now) {
     final canClockIn = _checkCanClockIn(now);
     final canProgramClockIn = _checkCanProgramClockIn(now);
     final isActive = shift.isClockedIn;
@@ -212,7 +212,7 @@ class TimelineShiftCard extends StatelessWidget {
     // 2. Active State (Clock Out)
     if (isActive) {
       return _buildButton(
-        label: "Clock Out",
+        label: AppLocalizations.of(context)!.clockOut,
         icon: Icons.logout,
         color: const Color(0xFFEF4444),
         onPressed: onClockOut ?? onTap,
@@ -286,7 +286,7 @@ class TimelineShiftCard extends StatelessWidget {
     // 4. Ready State (Clock In) - Shift has started
     if (canClockIn) {
       return _buildButton(
-        label: "Clock In Now",
+        label: AppLocalizations.of(context)!.clockInNow,
         icon: Icons.login,
         color: const Color(0xFF10B981),
         onPressed: onClockIn ?? onTap,
@@ -299,7 +299,7 @@ class TimelineShiftCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildButton(
-            label: "Program Clock-In",
+            label: AppLocalizations.of(context)!.clockInProgram,
             icon: Icons.schedule_send,
             color: const Color(0xFF3B82F6),
             onPressed: onClockIn ?? onTap, // Will start programmed clock-in
@@ -320,7 +320,7 @@ class TimelineShiftCard extends StatelessWidget {
     // 6. Upcoming State (Disabled)
     if (isUpcoming) {
       return _buildButton(
-        label: "Clock In (Not Yet)",
+        label: AppLocalizations.of(context)!.timelineShiftClockinnotyet,
         icon: Icons.schedule,
         color: const Color(0xFF94A3B8),
         bgColor: const Color(0xFFE2E8F0),
@@ -400,87 +400,87 @@ class TimelineShiftCard extends StatelessWidget {
 
   // --- VISUAL CONFIGURATION ---
 
-  _VisualConfig _getVisualConfig(DateTime now) {
+  _VisualConfig _getVisualConfig(BuildContext context, DateTime now) {
     // 0. Show PROGRAMMED if this shift is programmed
     if (isProgrammed) {
-      return const _VisualConfig(
-        primaryColor: Color(0xFF3B82F6),
-        bgColor: Color(0xFFDBEAFE),
-        textColor: Color(0xFF1E40AF),
-        label: "PROGRAMMED",
+      return _VisualConfig(
+        primaryColor: const Color(0xFF3B82F6),
+        bgColor: const Color(0xFFDBEAFE),
+        textColor: const Color(0xFF1E40AF),
+        label: AppLocalizations.of(context)!.timelineShiftProgrammed,
       );
     }
     
     // 1. Force Green if actually clocked in
     if (shift.isClockedIn) {
-      return const _VisualConfig(
-        primaryColor: Color(0xFF10B981),
-        bgColor: Color(0xFFDCFCE7),
-        textColor: Color(0xFF166534),
-        label: "IN PROGRESS",
+      return _VisualConfig(
+        primaryColor: const Color(0xFF10B981),
+        bgColor: const Color(0xFFDCFCE7),
+        textColor: const Color(0xFF166534),
+        label: AppLocalizations.of(context)!.dashboardInProgress,
       );
     }
 
     // 2. Handle standard statuses
     switch (shift.status) {
       case ShiftStatus.active:
-        return const _VisualConfig(
-          primaryColor: Color(0xFF10B981),
-          bgColor: Color(0xFFDCFCE7),
-          textColor: Color(0xFF166534),
-          label: "ACTIVE",
+        return _VisualConfig(
+          primaryColor: const Color(0xFF10B981),
+          bgColor: const Color(0xFFDCFCE7),
+          textColor: const Color(0xFF166534),
+          label: AppLocalizations.of(context)!.timelineShiftActive,
         );
       case ShiftStatus.completed:
       case ShiftStatus.fullyCompleted:
-        return const _VisualConfig(
-          primaryColor: Color(0xFF8B5CF6),
-          bgColor: Color(0xFFF3E8FF),
-          textColor: Color(0xFF6B21A8),
-          label: "COMPLETED",
+        return _VisualConfig(
+          primaryColor: const Color(0xFF8B5CF6),
+          bgColor: const Color(0xFFF3E8FF),
+          textColor: const Color(0xFF6B21A8),
+          label: AppLocalizations.of(context)!.timelineShiftCompleted,
         );
       case ShiftStatus.partiallyCompleted:
-        return const _VisualConfig(
-          primaryColor: Color(0xFFF59E0B),
-          bgColor: Color(0xFFFEF3C7),
-          textColor: Color(0xFFB45309),
-          label: "PARTIAL",
+        return _VisualConfig(
+          primaryColor: const Color(0xFFF59E0B),
+          bgColor: const Color(0xFFFEF3C7),
+          textColor: const Color(0xFFB45309),
+          label: AppLocalizations.of(context)!.timelineShiftPartial,
         );
       case ShiftStatus.missed:
-        return const _VisualConfig(
-          primaryColor: Color(0xFFEF4444),
-          bgColor: Color(0xFFFEE2E2),
-          textColor: Color(0xFF991B1B),
-          label: "MISSED",
+        return _VisualConfig(
+          primaryColor: const Color(0xFFEF4444),
+          bgColor: const Color(0xFFFEE2E2),
+          textColor: const Color(0xFF991B1B),
+          label: AppLocalizations.of(context)!.timelineShiftMissed,
         );
       case ShiftStatus.cancelled:
-        return const _VisualConfig(
-          primaryColor: Color(0xFF9CA3AF),
-          bgColor: Color(0xFFF3F4F6),
-          textColor: Color(0xFF374151),
-          label: "CANCELLED",
+        return _VisualConfig(
+          primaryColor: const Color(0xFF9CA3AF),
+          bgColor: const Color(0xFFF3F4F6),
+          textColor: const Color(0xFF374151),
+          label: AppLocalizations.of(context)!.timelineShiftCancelled,
         );
       default:
         // 3. Handle Scheduled dynamic states (Missed vs Ready vs Upcoming)
         if (shift.shiftEnd.isBefore(now) && shift.status == ShiftStatus.scheduled) {
-          return const _VisualConfig(
-            primaryColor: Color(0xFFEF4444),
-            bgColor: Color(0xFFFEE2E2),
-            textColor: Color(0xFF991B1B),
-            label: "MISSED",
+          return _VisualConfig(
+            primaryColor: const Color(0xFFEF4444),
+            bgColor: const Color(0xFFFEE2E2),
+            textColor: const Color(0xFF991B1B),
+            label: AppLocalizations.of(context)!.timelineShiftMissed,
           );
         } else if (_checkCanClockIn(now)) {
-          return const _VisualConfig(
-            primaryColor: Color(0xFF10B981),
-            bgColor: Color(0xFFDCFCE7),
-            textColor: Color(0xFF166534),
-            label: "READY",
+          return _VisualConfig(
+            primaryColor: const Color(0xFF10B981),
+            bgColor: const Color(0xFFDCFCE7),
+            textColor: const Color(0xFF166534),
+            label: AppLocalizations.of(context)!.timelineShiftReady,
           );
         } else {
-          return const _VisualConfig(
-            primaryColor: Color(0xFF0386FF),
-            bgColor: Color(0xFFDBEAFE),
-            textColor: Color(0xFF1E40AF),
-            label: "UPCOMING",
+          return _VisualConfig(
+            primaryColor: const Color(0xFF0386FF),
+            bgColor: const Color(0xFFDBEAFE),
+            textColor: const Color(0xFF1E40AF),
+            label: AppLocalizations.of(context)!.timelineShiftUpcoming,
           );
         }
     }

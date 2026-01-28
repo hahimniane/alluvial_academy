@@ -9,7 +9,7 @@ import '../../../core/utils/performance_logger.dart';
 import '../widgets/form_submissions_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FormResponsesScreen extends StatefulWidget {
   const FormResponsesScreen({super.key});
@@ -185,7 +185,9 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
               .firstWhere((s) => s.trim().isNotEmpty, orElse: () => '');
           if (name.isEmpty) {
             final email = (ud['e-mail'] ?? ud['email'] ?? '').toString();
-            name = email.isNotEmpty ? email.split('@').first : 'Unknown User';
+            name = email.isNotEmpty
+                ? email.split('@').first
+                : AppLocalizations.of(context)!.commonUnknownUser;
           }
           _uidToFullName[u.id] = name;
         }
@@ -244,7 +246,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
   void _exportResponses() {
     if (_filteredFormIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.noFormResponsesToExport),
           backgroundColor: Colors.orange,
         ),
@@ -691,8 +693,8 @@ class _FormResponsesScreenState extends State<FormResponsesScreen>
     final byName = (formData['createdByName'] ?? '').toString().trim();
     if (byName.isNotEmpty) return byName;
     final by = (formData['createdBy'] ?? '').toString();
-    if (by.isEmpty) return 'Unknown User';
-    return _uidToFullName[by] ?? 'Unknown User';
+    if (by.isEmpty) return AppLocalizations.of(context)!.commonUnknownUser;
+    return _uidToFullName[by] ?? AppLocalizations.of(context)!.commonUnknownUser;
   }
 
   int _resolveEntriesCount(String formId, Map<String, dynamic> formData) {

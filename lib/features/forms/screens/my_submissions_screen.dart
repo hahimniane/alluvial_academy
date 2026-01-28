@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/services/form_labels_cache_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
 /// Now supports month filtering for better organization
@@ -1040,7 +1040,7 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
               // Content
               Expanded(
                 child: _isLoadingLabels
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(),
                       )
                     : responses.isEmpty
@@ -1319,7 +1319,7 @@ class _FormSubmissionsSheet extends StatelessWidget {
                           child: Text(
                             submittedAt != null
                                 ? DateFormat('MMM d, yyyy • h:mm a').format(submittedAt)
-                                : 'Unknown date',
+                                : AppLocalizations.of(context)!.commonUnknownDate,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1403,4 +1403,3 @@ class _FormSubmissionsSheet extends StatelessWidget {
     );
   }
 }
-

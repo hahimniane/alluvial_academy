@@ -2,7 +2,7 @@ import 'dart:html' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ResponseDetailsPanel extends StatelessWidget {
   final QueryDocumentSnapshot? response;
@@ -139,6 +139,7 @@ class ResponseDetailsPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   ..._buildResponseFields(
+                    context,
                     Map<String, dynamic>.from(data['responses'] as Map),
                     formTemplate!,
                   ),
@@ -187,6 +188,7 @@ class ResponseDetailsPanel extends StatelessWidget {
   }
 
   List<Widget> _buildResponseFields(
+    BuildContext context,
     Map<String, dynamic> responses,
     DocumentSnapshot formTemplate,
   ) {
@@ -231,7 +233,7 @@ class ResponseDetailsPanel extends StatelessWidget {
                   ),
                 )
               else if (response is Map)
-                _buildImagePreview(Map<String, dynamic>.from(response))
+                _buildImagePreview(context, Map<String, dynamic>.from(response))
               else if (response is List)
                 Text(
                   response.join(', '),
@@ -257,7 +259,7 @@ class ResponseDetailsPanel extends StatelessWidget {
     return widgets;
   }
 
-  Widget _buildImagePreview(Map<String, dynamic> imageData) {
+  Widget _buildImagePreview(BuildContext context, Map<String, dynamic> imageData) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

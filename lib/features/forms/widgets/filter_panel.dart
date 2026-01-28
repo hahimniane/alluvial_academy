@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'user_selection_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FilterPanel extends StatefulWidget {
   final TextEditingController searchController;
@@ -65,7 +65,7 @@ class _FilterPanelState extends State<FilterPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // Form filter
           _buildFilterSection(
@@ -88,7 +88,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 isExpanded: true,
                 underline: const SizedBox(),
                 items: [
-                  const DropdownMenuItem(
+                  DropdownMenuItem(
                     value: '',
                     child: Text(AppLocalizations.of(context)!.allForms),
                   ),
@@ -106,7 +106,7 @@ class _FilterPanelState extends State<FilterPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // Status filter
           _buildFilterSection(
@@ -126,7 +126,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 value: widget.selectedStatus,
                 isExpanded: true,
                 underline: const SizedBox(),
-                items: const [
+                items: [
                   DropdownMenuItem(value: 'All', child: Text(AppLocalizations.of(context)!.allStatus)),
                   DropdownMenuItem(
                       value: 'Completed', child: Text(AppLocalizations.of(context)!.formCompleted)),
@@ -137,7 +137,7 @@ class _FilterPanelState extends State<FilterPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // Creator filter
           _buildFilterSection(
@@ -157,7 +157,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 value: widget.selectedCreator,
                 isExpanded: true,
                 underline: const SizedBox(),
-                items: const [
+                items: [
                   DropdownMenuItem(value: 'All', child: Text(AppLocalizations.of(context)!.allForms)),
                   DropdownMenuItem(
                       value: 'Admin', child: Text(AppLocalizations.of(context)!.adminCreated)),
@@ -214,7 +214,7 @@ class _FilterPanelState extends State<FilterPanel> {
                                   end: currentMonthEnd,
                                 ),
                       currentDate: now,
-                      helpText: 'Select Date Range for Form Responses',
+                      helpText: AppLocalizations.of(context)!.selectDateRangeForFormResponses,
                       cancelText: 'Cancel',
                       confirmText: 'Apply Filter',
                       saveText: 'Apply',
@@ -267,7 +267,7 @@ class _FilterPanelState extends State<FilterPanel> {
                           child: Text(
                             widget.startDate != null && widget.endDate != null
                                 ? '${widget.startDate!.toLocal().toString().split(' ')[0]} - ${widget.endDate!.toLocal().toString().split(' ')[0]}'
-                                : 'Select Date Range',
+                                : AppLocalizations.of(context)!.selectDateRange,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: const Color(0xff374151),

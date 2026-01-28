@@ -16,7 +16,7 @@ import '../widgets/form_details_modal.dart';
 import '../screens/my_submissions_screen.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../time_clock/widgets/edit_timesheet_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// New Teacher Forms Screen - Shows all form templates organized by category
 /// Categories: Teaching (daily/weekly/monthly), Feedback, Student Assessment, Administrative
@@ -510,7 +510,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.cloud_off_rounded, size: 64, color: Colors.blueGrey.shade200),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(
             AppLocalizations.of(context)!.errorSomethingWentWrong,
             style: GoogleFonts.plusJakartaSans(
@@ -1411,7 +1411,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (shiftsWithFormStatus.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.noRecentShiftsFoundToReport)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.noRecentShiftsFoundToReport)),
         );
         return;
       }
@@ -1500,7 +1500,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                       // Display student names, or subject if no student names available
                       final displayName = studentNames.isNotEmpty
                           ? studentNames.join(', ')
-                          : (shiftData['subject']?.toString() ?? 'Unknown Subject');
+                          : (shiftData['subject']?.toString() ??
+                              AppLocalizations.of(context)!.commonUnknownSubject);
                       
                       Color statusColor = Colors.grey;
                       if (status == 'completed' || status == 'fullyCompleted') statusColor = Colors.green;
@@ -1580,7 +1581,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
                                           if (mounted) {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(
-                                                content: Text('Error loading form: ${e.toString()}'),
+                                                content: Text(AppLocalizations.of(context)!
+                                                    .formsErrorLoadingForm(e.toString())),
                                                 backgroundColor: Colors.red,
                                               ),
                                             );
@@ -1686,7 +1688,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       if (timesheetSnapshot.docs.isEmpty) {
         // No timesheet found - show message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.noTimesheetFoundForThisShift)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.noTimesheetFoundForThisShift)),
         );
         return;
       }
@@ -1753,7 +1755,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       final shift = TeachingShift(
         id: shiftId,
         teacherId: shiftData['teacher_id'] ?? '',
-        teacherName: shiftData['teacher_name'] ?? 'Unknown',
+        teacherName: shiftData['teacher_name'] ?? AppLocalizations.of(context)!.commonUnknown,
         studentIds: List<String>.from(shiftData['student_ids'] ?? []),
         studentNames: List<String>.from(shiftData['student_names'] ?? []),
         shiftStart: shiftStart,

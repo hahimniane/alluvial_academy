@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/performance_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class PerformanceSummaryDashboard extends StatelessWidget {
   final String title;
@@ -410,7 +410,7 @@ class PerformanceSummaryDashboard extends StatelessWidget {
 
   static Widget _noData() {
     return Text(
-      AppLocalizations.of(context)!.noDataYet,
+      'No data yet',
       style: GoogleFonts.inter(
         fontSize: 12,
         color: const Color(0xff9CA3AF),

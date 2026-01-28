@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 import '../utils/timezone_utils.dart';
 import 'timezone_selector_dialog.dart';
@@ -8,8 +9,8 @@ class TimezoneSelectorField extends StatelessWidget {
   final String? selectedTimezone;
   final ValueChanged<String> onTimezoneSelected;
 
-  final String dialogTitle;
-  final String placeholder;
+  final String? dialogTitle;
+  final String? placeholder;
 
   final BorderRadius borderRadius;
   final Color borderColor;
@@ -25,8 +26,8 @@ class TimezoneSelectorField extends StatelessWidget {
     super.key,
     required this.selectedTimezone,
     required this.onTimezoneSelected,
-    this.dialogTitle = 'Select Timezone',
-    this.placeholder = 'Select timezone…',
+    this.dialogTitle,
+    this.placeholder,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
     this.borderColor = const Color(0xFFE2E8F0),
     this.backgroundColor = Colors.white,
@@ -38,9 +39,12 @@ class TimezoneSelectorField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final displayText = selectedTimezone == null
         ? null
         : TimezoneUtils.formatTimezoneForDisplay(selectedTimezone!);
+    final effectiveDialogTitle = dialogTitle ?? l10n.selectTimezone;
+    final effectivePlaceholder = placeholder ?? l10n.selectTimezonePlaceholder;
 
     final effectiveTextStyle = textStyle ??
         GoogleFonts.inter(
@@ -56,7 +60,7 @@ class TimezoneSelectorField extends StatelessWidget {
         );
 
     return InkWell(
-      onTap: enabled ? () => _openDialog(context) : null,
+      onTap: enabled ? () => _openDialog(context, effectiveDialogTitle) : null,
       borderRadius: borderRadius,
       child: Container(
         padding: padding,
@@ -69,7 +73,7 @@ class TimezoneSelectorField extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                displayText ?? placeholder,
+                displayText ?? effectivePlaceholder,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: displayText == null
@@ -89,12 +93,12 @@ class TimezoneSelectorField extends StatelessWidget {
     );
   }
 
-  Future<void> _openDialog(BuildContext context) async {
+  Future<void> _openDialog(BuildContext context, String dialogTitleParam) async {
     final selected = await showDialog<String>(
       context: context,
       builder: (context) => TimezoneSelectorDialog(
         initialTimezone: selectedTimezone,
-        title: dialogTitle,
+        title: dialogTitleParam,
       ),
     );
 

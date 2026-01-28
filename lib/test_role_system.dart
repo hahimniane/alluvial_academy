@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'core/services/user_role_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 class TestRoleSystemScreen extends StatefulWidget {
   const TestRoleSystemScreen({super.key});
 
@@ -43,19 +43,24 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                        'Auth User: ${FirebaseAuth.instance.currentUser?.email ?? "Not signed in"}'),
-                    Text(
-                        'User ID: ${FirebaseAuth.instance.currentUser?.uid ?? "N/A"}'),
+                    SizedBox(height: 12),
+                    Text(AppLocalizations.of(context)!.testRoleAuthUser(
+                        FirebaseAuth.instance.currentUser?.email ??
+                            AppLocalizations.of(context)!.commonNotSignedIn)),
+                    Text(AppLocalizations.of(context)!.testRoleUserId(
+                        FirebaseAuth.instance.currentUser?.uid ??
+                            AppLocalizations.of(context)!.commonNotAvailable)),
                     const SizedBox(height: 8),
-                    Text('Role: ${currentUserRole ?? "Not loaded"}'),
+                    Text(AppLocalizations.of(context)!.testRoleRole(
+                        currentUserRole ??
+                            AppLocalizations.of(context)!.commonNotLoaded)),
                     const SizedBox(height: 8),
                     if (currentUserData != null) ...[
                       Text(AppLocalizations.of(context)!.userData,
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       for (final entry in currentUserData!.entries)
-                        Text('${entry.key}: ${entry.value}'),
+                        Text(AppLocalizations.of(context)!
+                            .testRoleKeyValue(entry.key, '${entry.value}')),
                     ] else
                       Text(AppLocalizations.of(context)!.userDataNotLoaded),
                     if (error != null) ...[
@@ -146,7 +151,7 @@ class _TestRoleSystemScreenState extends State<TestRoleSystemScreen> {
   Future<void> _testRoleChecks() async {
     if (currentUserRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.loadUserRoleFirst)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.loadUserRoleFirst)),
       );
       return;
     }

@@ -1,0 +1,97 @@
+{
+  "category": "arabic_basics",
+  "name": "Arabic Letters",
+  "description": "Learn Arabic letters and words",
+  "questions": [
+    {
+      "id": "ab_001",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What is the first letter of the Arabic alphabet?",
+      "options": ["Ba", "Alif", "Ta", "Jim"],
+      "correctAnswer": 1,
+      "explanation": "Alif (أ) is the first letter of the Arabic alphabet."
+    },
+    {
+      "id": "ab_002",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "How many letters are in the Arabic alphabet?",
+      "options": ["24", "26", "28", "30"],
+      "correctAnswer": 2,
+      "explanation": "The Arabic alphabet has 28 letters."
+    },
+    {
+      "id": "ab_003",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What does 'Allah' mean?",
+      "options": ["Prophet", "God", "Angel", "Book"],
+      "correctAnswer": 1,
+      "explanation": "Allah is the Arabic word for God."
+    },
+    {
+      "id": "ab_004",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "In which direction do you read Arabic?",
+      "options": ["Left to right", "Right to left", "Top to bottom", "Bottom to top"],
+      "correctAnswer": 1,
+      "explanation": "Arabic is read from right to left."
+    },
+    {
+      "id": "ab_005",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What does 'Shukran' mean?",
+      "options": ["Hello", "Goodbye", "Thank you", "Please"],
+      "correctAnswer": 2,
+      "explanation": "Shukran means 'Thank you' in Arabic."
+    },
+    {
+      "id": "ab_006",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What does 'Marhaba' mean?",
+      "options": ["Hello/Welcome", "Goodbye", "Thank you", "Sorry"],
+      "correctAnswer": 0,
+      "explanation": "Marhaba means 'Hello' or 'Welcome' in Arabic."
+    },
+    {
+      "id": "ab_007",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What is 'water' in Arabic?",
+      "options": ["Khubz", "Maa", "Laban", "Samak"],
+      "correctAnswer": 1,
+      "explanation": "Maa (ماء) means 'water' in Arabic."
+    },
+    {
+      "id": "ab_008",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What does 'Naam' mean?",
+      "options": ["No", "Yes", "Maybe", "Please"],
+      "correctAnswer": 1,
+      "explanation": "Naam (نعم) means 'Yes' in Arabic."
+    },
+    {
+      "id": "ab_009",
+      "category": "arabic_basics",
+      "difficulty": "easy",
+      "question": "What is 'book' in Arabic?",
+      "options": ["Qalam", "Kitab", "Kursi", "Bayt"],
+      "correctAnswer": 1,
+      "explanation": "Kitab (كتاب) means 'book' in Arabic."
+    },
+    {
+      "id": "ab_010",
+      "category": "arabic_basics",
+      "difficulty": "medium",
+      "question": "What letter comes after 'Alif' in Arabic?",
+      "options": ["Jim", "Ba", "Ta", "Tha"],
+      "correctAnswer": 1,
+      "explanation": "Ba (ب) is the second letter of the Arabic alphabet, coming after Alif."
+    }
+  ]
+}

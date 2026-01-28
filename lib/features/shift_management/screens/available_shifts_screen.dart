@@ -6,7 +6,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../widgets/shift_details_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AvailableShiftsScreen extends StatefulWidget {
   const AvailableShiftsScreen({super.key});
@@ -172,7 +172,8 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
             .collection('users')
             .doc(currentUser.uid)
             .get();
-        final userName = userDoc.data()?['name'] ?? 'Unknown';
+        final userName =
+            userDoc.data()?['name'] ?? AppLocalizations.of(context)!.commonUnknown;
 
         // Update shift: change teacher, keep original teacher info, set isPublished to false
         await FirebaseFirestore.instance
@@ -556,4 +557,3 @@ class _AvailableShiftsScreenState extends State<AvailableShiftsScreen> {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 }
-

@@ -20,7 +20,7 @@ import 'reschedule_shift_dialog.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
 import '../../../core/services/video_call_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
   final TeachingShift shift;
@@ -504,7 +504,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.autoClockedOutShiftTimeEnded),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 3),
@@ -594,7 +594,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     
     if (!VideoCallService.hasVideoCall(shift)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.noVideoCallIsConfiguredFor),
           backgroundColor: Colors.orange,
         ),
@@ -669,7 +669,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       if (location == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.clockInLocationError),
               backgroundColor: Colors.red,
             ),
@@ -693,7 +693,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.clockInSuccess),
               backgroundColor: Colors.green,
             ),
@@ -705,7 +705,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'Failed to clock in'),
+              content: Text(
+                result['message'] ?? AppLocalizations.of(context)!.timeClockClockInFailed,
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -734,7 +736,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       if (location == null) {
       if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.clockInLocationError),
               backgroundColor: Colors.red,
             ),
@@ -801,7 +803,9 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'Failed to clock out'),
+              content: Text(
+                result['message'] ?? AppLocalizations.of(context)!.timeClockClockOutFailed,
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -1002,6 +1006,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   }
 
   Widget _buildStatusBanner() {
+    final l10n = AppLocalizations.of(context)!;
     Color color;
     String label;
     IconData icon;
@@ -1009,44 +1014,47 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
     if (_isActive) {
       color = const Color(0xFF10B981);
-      label = "In Progress";
+      label = l10n.shiftStatusInProgress;
       icon = Icons.play_circle_fill;
-      subtitle = "Elapsed Time: $_elapsedTime";
+      subtitle = l10n.shiftElapsedTime(_elapsedTime);
     } else if (_isCompleted) {
       color = const Color(0xFF8B5CF6);
-      label = "Fully Completed";
+      label = l10n.shiftStatusFullyCompleted;
       icon = Icons.check_circle;
-      subtitle = "All scheduled time was worked";
+      subtitle = l10n.shiftStatusAllScheduledTimeWorked;
     } else if ((_liveShift?.status ?? widget.shift.status) == ShiftStatus.partiallyCompleted) {
       color = const Color(0xFFF59E0B);
-      label = "Partially Completed";
+      label = l10n.shiftStatusPartiallyCompleted;
       icon = Icons.timelapse;
-      subtitle = "Some time was worked";
+      subtitle = l10n.shiftStatusSomeTimeWorked;
     } else if (_isMissed) {
       color = const Color(0xFFEF4444);
-      label = "Missed";
+      label = l10n.shiftStatusMissed;
       icon = Icons.cancel;
-      subtitle = "This shift was not attended";
+      subtitle = l10n.shiftStatusNotAttended;
     } else if (_canClockInNow) {
       color = const Color(0xFF10B981);
-      label = "Ready to Start";
+      label = l10n.shiftStatusReadyToStart;
       icon = Icons.login;
-      subtitle = "You can clock in now!";
+      subtitle = l10n.shiftStatusCanClockInNow;
     } else if (_isUpcoming) {
       color = const Color(0xFF0386FF);
-      label = "Upcoming";
+      label = l10n.shiftStatusUpcoming;
       icon = Icons.schedule;
       final timeUntil = widget.shift.shiftStart.difference(DateTime.now());
       if (timeUntil.inDays > 0) {
-        subtitle = "Starts in ${timeUntil.inDays} day${timeUntil.inDays > 1 ? 's' : ''}";
+        subtitle = l10n.shiftStartsInDays(timeUntil.inDays);
       } else if (timeUntil.inHours > 0) {
-        subtitle = "Starts in ${timeUntil.inHours} hour${timeUntil.inHours > 1 ? 's' : ''}";
+        subtitle = l10n.shiftStartsInHours(timeUntil.inHours);
       } else {
-        subtitle = "Starts in ${timeUntil.inMinutes} minute${timeUntil.inMinutes > 1 ? 's' : ''}";
+        subtitle = l10n.shiftStartsInMinutes(timeUntil.inMinutes);
       }
     } else {
       color = const Color(0xFF64748B);
-      label = (_liveShift?.status ?? widget.shift.status).name.toUpperCase();
+      label = _localizedShiftStatusLabel(
+        _liveShift?.status ?? widget.shift.status,
+        l10n,
+      );
       icon = Icons.info_outline;
     }
 
@@ -1099,10 +1107,18 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       children: [
         _detailRow("Date", DateFormat('EEEE, MMMM d, yyyy').format(widget.shift.shiftStart)),
         _detailRow("Time", "${DateFormat('h:mm a').format(widget.shift.shiftStart)} - ${DateFormat('h:mm a').format(widget.shift.shiftEnd)}"),
-        _detailRow("Duration", "${hours.toStringAsFixed(1)} hours"),
+        _detailRow(
+          "Duration",
+          AppLocalizations.of(context)!
+              .shiftDurationHours(hours.toStringAsFixed(1)),
+        ),
         _detailRow("Subject", widget.shift.effectiveSubjectDisplayName),
         if (widget.shift.hourlyRate > 0)
-          _detailRow("Hourly Rate", "\$${widget.shift.hourlyRate.toStringAsFixed(2)}/hr"),
+          _detailRow(
+            "Hourly Rate",
+            AppLocalizations.of(context)!
+                .shiftHourlyRateValue(widget.shift.hourlyRate.toStringAsFixed(2)),
+          ),
         if (widget.shift.notes != null && widget.shift.notes!.isNotEmpty)
           _detailRow("Notes", widget.shift.notes!),
       ],
@@ -1179,7 +1195,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
            _buildSection(
-            title: "Timesheet Records (${_allTimesheetEntries.length})",
+            title: AppLocalizations.of(context)!
+                .shiftTimesheetRecords(_allTimesheetEntries.length),
             icon: Icons.access_time,
             children: [
               if (totalSeconds > 0)
@@ -1208,8 +1225,18 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                  return Column(
                    crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                     _detailRow("Clock In", start != null ? DateFormat('h:mm a').format(start) : "Unknown"),
-                     _detailRow("Clock Out", end != null ? DateFormat('h:mm a').format(end) : "Active Now"),
+                     _detailRow(
+                       "Clock In",
+                       start != null
+                           ? DateFormat('h:mm a').format(start)
+                           : AppLocalizations.of(context)!.commonUnknown,
+                     ),
+                     _detailRow(
+                       "Clock Out",
+                       end != null
+                           ? DateFormat('h:mm a').format(end)
+                           : AppLocalizations.of(context)!.shiftActiveNow,
+                     ),
                      if (end != null && start != null) ...[
                        // Cap start time at shift start for display
                        _detailRow("Duration", _formatDuration(end.difference(start.isBefore(widget.shift.shiftStart) ? widget.shift.shiftStart : start))),
@@ -1326,6 +1353,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
 
   // Approval status and earnings section
   Widget _buildApprovalStatusSection() {
+    final l10n = AppLocalizations.of(context)!;
     // Only show if there are timesheet entries
     if (_allTimesheetEntries.isEmpty) return const SizedBox.shrink();
     
@@ -1423,36 +1451,38 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       case 'approved':
         statusColor = const Color(0xFF10B981);
         statusIcon = Icons.check_circle;
-        statusText = 'Approved';
+        statusText = l10n.shiftStatusApproved;
         if (approvedAt != null) {
-          statusSubtitle = 'Approved on ${DateFormat('MMM d, yyyy').format(approvedAt.toDate())}';
+          statusSubtitle = l10n.shiftStatusApprovedOn(
+            DateFormat('MMM d, yyyy').format(approvedAt.toDate()),
+          );
         }
         break;
       case 'paid':
         statusColor = const Color(0xFF059669);
         statusIcon = Icons.payments;
-        statusText = 'Paid';
-        statusSubtitle = 'Payment processed';
+        statusText = l10n.shiftStatusPaid;
+        statusSubtitle = l10n.shiftStatusPaymentProcessed;
         break;
       case 'rejected':
         statusColor = const Color(0xFFEF4444);
         statusIcon = Icons.cancel;
-        statusText = 'Rejected';
-        statusSubtitle = 'Please review and resubmit';
+        statusText = l10n.shiftStatusRejected;
+        statusSubtitle = l10n.shiftStatusReviewResubmit;
         break;
       default: // pending
         statusColor = const Color(0xFFF59E0B);
         statusIcon = Icons.pending;
-        statusText = 'Pending Approval';
-        statusSubtitle = 'Awaiting admin review';
+        statusText = l10n.shiftStatusPendingApproval;
+        statusSubtitle = l10n.shiftStatusAwaitingAdminReview;
     }
     
     // Check for edit status
     if (isEdited && !editApproved) {
       statusColor = const Color(0xFF8B5CF6);
       statusIcon = Icons.edit_note;
-      statusText = 'Edit Pending';
-      statusSubtitle = 'Your edit is awaiting approval';
+      statusText = l10n.shiftStatusEditPending;
+      statusSubtitle = l10n.shiftStatusEditAwaitingApproval;
     }
     
     return _buildSection(
@@ -1464,7 +1494,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Text(
-              _useTeacherTimeZone ? "Shift Time" : "Local Time",
+              _useTeacherTimeZone ? l10n.shiftTime : l10n.localTime,
               style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
             ),
             Switch(
@@ -1589,18 +1619,20 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildEarningDetail(
-                    label: 'Time Worked',
+                    label: AppLocalizations.of(context)!.shiftDetailsTimeworked,
                     value: formattedTime,
                     icon: Icons.access_time,
                   ),
                   _buildEarningDetail(
-                    label: 'Rate',
-                    value: '\$${hourlyRate.toStringAsFixed(2)}/hr',
+                    label: AppLocalizations.of(context)!.shiftDetailsRate,
+                    value: l10n.shiftHourlyRateValue(hourlyRate.toStringAsFixed(2)),
                     icon: Icons.attach_money,
                   ),
                   _buildEarningDetail(
-                    label: 'Status',
-                    value: status == 'approved' || status == 'paid' ? '✓ Confirmed' : 'Pending',
+                    label: AppLocalizations.of(context)!.status,
+                    value: status == 'approved' || status == 'paid'
+                        ? l10n.shiftStatusConfirmed
+                        : l10n.shiftStatusPending,
                     icon: (status == 'approved' || status == 'paid') 
                         ? Icons.verified 
                         : Icons.pending,
@@ -2393,7 +2425,54 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     );
   }
 
+  String _localizedShiftStatusLabel(ShiftStatus status, AppLocalizations l10n) {
+    switch (status) {
+      case ShiftStatus.scheduled:
+        return l10n.shiftStatusScheduled;
+      case ShiftStatus.active:
+        return l10n.shiftStatusActive;
+      case ShiftStatus.completed:
+        return l10n.shiftStatusCompleted;
+      case ShiftStatus.partiallyCompleted:
+        return l10n.shiftStatusPartiallyCompleted;
+      case ShiftStatus.fullyCompleted:
+        return l10n.shiftStatusFullyCompleted;
+      case ShiftStatus.missed:
+        return l10n.shiftStatusMissed;
+      case ShiftStatus.cancelled:
+        return l10n.shiftStatusCancelled;
+    }
+  }
+
+  String _localizeDetailLabel(String label, AppLocalizations l10n) {
+    switch (label) {
+      case 'Date':
+        return l10n.shiftDetailDate;
+      case 'Time':
+        return l10n.shiftDetailTime;
+      case 'Duration':
+        return l10n.shiftDetailDuration;
+      case 'Subject':
+        return l10n.shiftDetailSubject;
+      case 'Hourly Rate':
+        return l10n.shiftDetailHourlyRate;
+      case 'Notes':
+        return l10n.shiftDetailNotes;
+      case 'Teacher':
+        return l10n.shiftDetailTeacher;
+      case 'Total Worked':
+        return l10n.shiftDetailTotalWorked;
+      case 'Clock In':
+        return l10n.shiftDetailClockIn;
+      case 'Clock Out':
+        return l10n.shiftDetailClockOut;
+      default:
+        return label;
+    }
+  }
+
   Widget _detailRow(String label, String value) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -2402,7 +2481,7 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
           SizedBox(
             width: 100,
             child: Text(
-              label,
+              _localizeDetailLabel(label, l10n),
             style: GoogleFonts.inter(
                 fontSize: 13,
                 color: const Color(0xFF64748B),
@@ -2557,4 +2636,3 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     );
   }
 }
-

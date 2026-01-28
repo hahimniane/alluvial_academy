@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/task.dart';
 import '../../../core/enums/task_enums.dart';
 import '../../../core/utils/connecteam_style.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// ConnectTeam-style task list grouped by assignee
 /// Displays tasks in a table format with status, labels, dates
@@ -107,7 +107,7 @@ class _ConnectTeamTaskListState extends State<ConnectTeamTaskList> {
                       }
                     },
                   )
-                : const SizedBox(),
+                : SizedBox(),
           ),
           Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName2, style: ConnecteamStyle.tableHeader)),
           Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.status, style: ConnecteamStyle.tableHeader)),

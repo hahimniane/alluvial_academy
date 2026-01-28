@@ -7,7 +7,7 @@ import '../../../core/models/job_opportunity.dart';
 import '../../../core/services/job_board_service.dart';
 import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TeacherJobBoardScreen extends StatelessWidget {
   const TeacherJobBoardScreen({super.key});
@@ -52,7 +52,7 @@ class TeacherJobBoardScreen extends StatelessWidget {
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(snapshot.error ?? 'Unknown error')));
                 }
 
                 final allJobs = snapshot.data ?? [];
@@ -255,7 +255,7 @@ class _JobCardState extends State<_JobCard> {
       await JobBoardService().acceptJob(widget.job.id, currentUser.uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.jobAcceptedSuccess),
             backgroundColor: Colors.green,
           ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class JobSchedulingScreen extends StatefulWidget {
   const JobSchedulingScreen({super.key});
@@ -42,7 +42,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
               // Form Title
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.formTitle,
                   hintText: AppLocalizations.of(context)!.enterFormTitle,
                 ),
@@ -58,7 +58,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
               // Form Description
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.formDescription,
                   hintText: AppLocalizations.of(context)!.enterFormDescription,
                 ),
@@ -107,7 +107,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                 Expanded(
                   child: TextFormField(
                     initialValue: field.label,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.fieldLabel,
                       hintText: AppLocalizations.of(context)!.enterFieldLabel,
                     ),
@@ -128,7 +128,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: field.type,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.fieldType,
                     ),
                     items: [
@@ -159,7 +159,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
                 Expanded(
                   child: TextFormField(
                     initialValue: field.placeholder,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.placeholder,
                       hintText: AppLocalizations.of(context)!.enterPlaceholderText,
                     ),
@@ -234,7 +234,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (fields.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.addAtLeastOneField)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.addAtLeastOneField)),
       );
       return;
     }
@@ -270,7 +270,7 @@ class _FormBuilderState extends State<JobSchedulingScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.formSavedSuccessfully)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.formSavedSuccessfully)),
       );
 
       Navigator.pop(context);

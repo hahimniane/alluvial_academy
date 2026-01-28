@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import '../core/models/form_template.dart';
 import '../core/services/form_template_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // --- MODELS ---
 enum QuestionType {
@@ -175,7 +175,7 @@ class FormBuilder extends StatefulWidget {
 
 class _FormBuilderState extends State<FormBuilder> {
   // Data
-  final TextEditingController _titleController = TextEditingController(text: AppLocalizations.of(context)!.untitledForm);
+  late final TextEditingController _titleController;
   final TextEditingController _descriptionController = TextEditingController();
   List<FormQuestion> _questions = [];
   String _selectedThemeColor = '#673AB7';
@@ -202,23 +202,38 @@ class _FormBuilderState extends State<FormBuilder> {
     '#DB4437', '#FF6D00', '#00ACC1', '#AB47BC'
   ];
 
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController();
     if (widget.editFormId != null && widget.editFormData != null) {
       _loadExistingForm();
-    } else {
-      _questions = [
-        FormQuestion(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          type: QuestionType.shortAnswer,
-          title: AppLocalizations.of(context)!.text2,
-          required: false,
-        ),
-      ];
     }
     _titleController.addListener(_markUnsaved);
     _descriptionController.addListener(_markUnsaved);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      if (_titleController.text.isEmpty && widget.editFormId == null) {
+        _titleController.text = AppLocalizations.of(context)!.untitledForm;
+      }
+      if (_questions.isEmpty && widget.editFormId == null) {
+        _questions = [
+          FormQuestion(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            type: QuestionType.shortAnswer,
+            title: AppLocalizations.of(context)!.text2,
+            required: false,
+          ),
+        ];
+      }
+    }
   }
 
   void _loadExistingForm() {
@@ -491,7 +506,7 @@ class _FormBuilderState extends State<FormBuilder> {
                   TextField(
                     controller: _titleController,
                     style: GoogleFonts.roboto(fontSize: 32, fontWeight: FontWeight.w400),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: AppLocalizations.of(context)!.untitledForm2,
                       isDense: true,
@@ -503,7 +518,7 @@ class _FormBuilderState extends State<FormBuilder> {
                     controller: _descriptionController,
                     style: GoogleFonts.roboto(fontSize: 14),
                     maxLines: null,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: AppLocalizations.of(context)!.formDescription2,
                       isDense: true,
@@ -792,7 +807,7 @@ class _FormBuilderState extends State<FormBuilder> {
   Future<void> _saveForm() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAFormTitle)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAFormTitle)),
       );
       return;
     }
@@ -870,7 +885,7 @@ class _FormBuilderState extends State<FormBuilder> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.formSavedSuccessfullyPreviousVersionsDeactivated),
             backgroundColor: Colors.green,
           ),
@@ -1130,7 +1145,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                 child: TextField(
                   controller: _titleController,
                   style: GoogleFonts.roboto(fontSize: 16),
-                  decoration: const InputDecoration.collapsed(
+                  decoration: InputDecoration.collapsed(
                     hintText: AppLocalizations.of(context)!.formQuestion,
                   ),
                   onChanged: (v) {
@@ -1276,7 +1291,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                 Expanded(
                   child: TextField(
                     controller: controller,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(vertical: 8),
                       border: UnderlineInputBorder(),
@@ -1359,7 +1374,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                 },
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Text(AppLocalizations.of(context)!.to),
             const SizedBox(width: 16),
             // Max value
@@ -1494,7 +1509,7 @@ class _QuestionCardState extends State<_QuestionCard> {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Text(AppLocalizations.of(context)!.select),
               Icon(Icons.arrow_drop_down),
             ],

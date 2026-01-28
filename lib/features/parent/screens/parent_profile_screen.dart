@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ParentProfileScreen extends StatefulWidget {
   const ParentProfileScreen({super.key});
@@ -237,7 +237,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
                       children: [
                         Expanded(
                           child: _buildTextField(
-                            label: 'First Name',
+                            label: AppLocalizations.of(context)!.firstName,
                             controller: _firstNameController,
                             icon: Icons.person_outline,
                             validator: (value) {
@@ -251,7 +251,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: _buildTextField(
-                            label: 'Last Name',
+                            label: AppLocalizations.of(context)!.lastName,
                             controller: _lastNameController,
                             icon: Icons.person_outline,
                             validator: (value) {
@@ -266,7 +266,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildTextField(
-                      label: 'Email',
+                      label: AppLocalizations.of(context)!.profileEmail,
                       controller: _emailController,
                       icon: Icons.email_outlined,
                       enabled: false,
@@ -274,7 +274,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildTextField(
-                      label: 'Phone Number',
+                      label: AppLocalizations.of(context)!.userPhone,
                       controller: _phoneController,
                       icon: Icons.phone_outlined,
                       keyboardType: TextInputType.phone,

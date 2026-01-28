@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:alluwalacademyadmin/core/models/payment.dart';
 import 'package:alluwalacademyadmin/core/services/payment_service.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/invoice_detail_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class PaymentHistoryScreen extends StatelessWidget {
   final String parentId;

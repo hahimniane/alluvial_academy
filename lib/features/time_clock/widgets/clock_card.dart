@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ClockCard extends StatelessWidget {
   const ClockCard({super.key});
@@ -12,13 +12,13 @@ class ClockCard extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              AppLocalizations.of(context)!.120000Pm,
+              AppLocalizations.of(context)!.time1200Pm,
               style: TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [

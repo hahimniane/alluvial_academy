@@ -7,7 +7,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import '../../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Quick edit popup for modifying shift times and basic info
 /// More streamlined than the full CreateShiftDialog
@@ -137,7 +137,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             // Teacher info (read-only)
             _buildInfoRow(
               'Teacher',
-              widget.shift.teacherName ?? 'Unknown',
+              widget.shift.teacherName ?? AppLocalizations.of(context)!.commonUnknown,
               Icons.person,
             ),
             const SizedBox(height: 12),
@@ -499,7 +499,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         Navigator.pop(context);
         widget.onDeleted();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
               content: Text(AppLocalizations.of(context)!.shiftDeleted), backgroundColor: Colors.green),
         );
       }
@@ -561,7 +561,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         Navigator.pop(context);
         widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
               content: Text(AppLocalizations.of(context)!.shiftUpdated), backgroundColor: Colors.green),
         );
       }

@@ -4,7 +4,6 @@ import '../services/version_service.dart';
 import 'force_update_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Wrapper widget that checks for required updates on mobile platforms
 class VersionCheckWrapper extends StatefulWidget {
@@ -87,9 +86,9 @@ class _VersionCheckWrapperState extends State<VersionCheckWrapper>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text(AppLocalizations.of(context)!.checkingForUpdates),
+                const Text('Checking for updates...'),
               ],
             ),
           ),

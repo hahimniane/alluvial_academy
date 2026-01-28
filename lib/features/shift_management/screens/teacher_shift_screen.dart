@@ -16,7 +16,7 @@ import '../widgets/shift_details_dialog.dart';
 import '../widgets/report_schedule_issue_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TeacherShiftScreen extends StatefulWidget {
   const TeacherShiftScreen({super.key});
@@ -167,7 +167,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
     } else {
       // Too early - shouldn't happen but handle gracefully
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
               AppLocalizations.of(context)!.tooEarlyToClockInPlease),
           backgroundColor: Colors.orange,
@@ -298,7 +298,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.clockInCancelled),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 2),
@@ -314,7 +314,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.clockInNotAuthenticated),
             backgroundColor: Colors.red,
           ),
@@ -343,7 +343,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
 
       if (location == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
                 AppLocalizations.of(context)!.clockInLocationError),
             backgroundColor: Colors.red,
@@ -529,7 +529,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           title: Row(
             children: [
               const Icon(Icons.access_time, color: Color(0xFF0386FF)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 AppLocalizations.of(context)!.fixTimezone,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),

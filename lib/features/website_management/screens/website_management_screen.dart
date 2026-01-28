@@ -9,7 +9,7 @@ import '../widgets/courses_section_editor.dart';
 import '../widgets/testimonials_section_editor.dart';
 import '../widgets/cta_section_editor.dart';
 import '../widgets/footer_section_editor.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class WebsiteManagementScreen extends StatefulWidget {
   const WebsiteManagementScreen({super.key});
@@ -25,21 +25,29 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
+  static const _tabCount = 7;
+  late List<Tab> _tabs;
+  bool _tabsInitialized = false;
 
-  final List<Tab> _tabs = [
-    const Tab(text: AppLocalizations.of(context)!.heroSection, icon: Icon(Icons.home, size: 20)),
-    const Tab(text: AppLocalizations.of(context)!.features, icon: Icon(Icons.star, size: 20)),
-    const Tab(text: AppLocalizations.of(context)!.statistics, icon: Icon(Icons.analytics, size: 20)),
-    const Tab(text: AppLocalizations.of(context)!.courses, icon: Icon(Icons.school, size: 20)),
-    const Tab(text: AppLocalizations.of(context)!.testimonials, icon: Icon(Icons.reviews, size: 20)),
-    const Tab(text: AppLocalizations.of(context)!.callToAction, icon: Icon(Icons.campaign, size: 20)),
-    const Tab(text: AppLocalizations.of(context)!.footer, icon: Icon(Icons.info, size: 20)),
-  ];
+  void _initTabs(BuildContext context) {
+    if (_tabsInitialized) return;
+    _tabsInitialized = true;
+    final l10n = AppLocalizations.of(context)!;
+    _tabs = [
+      Tab(text: l10n.heroSection, icon: const Icon(Icons.home, size: 20)),
+      Tab(text: l10n.features, icon: const Icon(Icons.star, size: 20)),
+      Tab(text: l10n.statistics, icon: const Icon(Icons.analytics, size: 20)),
+      Tab(text: l10n.courses, icon: const Icon(Icons.school, size: 20)),
+      Tab(text: l10n.testimonials, icon: const Icon(Icons.reviews, size: 20)),
+      Tab(text: l10n.callToAction, icon: const Icon(Icons.campaign, size: 20)),
+      Tab(text: l10n.footer, icon: const Icon(Icons.info, size: 20)),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: _tabCount, vsync: this);
     _loadContent();
   }
 
@@ -84,8 +92,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
-              children: [
+            content: Row(children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
                 Expanded(
@@ -131,6 +138,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
 
   @override
   Widget build(BuildContext context) {
+    _initTabs(context);
     return Scaffold(
       backgroundColor: const Color(0xffF8FAFC),
       appBar: AppBar(
@@ -236,7 +244,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -264,7 +272,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
               size: 48,
               color: Colors.red,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
               _error!,
               style: const TextStyle(
@@ -284,7 +292,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen>
     }
 
     if (_content == null) {
-      return const Center(
+      return Center(
         child: Text(
           AppLocalizations.of(context)!.noContentAvailable,
           style: TextStyle(

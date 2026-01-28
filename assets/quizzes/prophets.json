@@ -1,0 +1,97 @@
+{
+  "category": "prophets",
+  "name": "Prophets",
+  "description": "Stories of the Prophets",
+  "questions": [
+    {
+      "id": "pr_001",
+      "category": "prophets",
+      "difficulty": "easy",
+      "question": "Who was the first Prophet in Islam?",
+      "options": ["Prophet Muhammad", "Prophet Ibrahim", "Prophet Adam", "Prophet Nuh"],
+      "correctAnswer": 2,
+      "explanation": "Prophet Adam (peace be upon him) was the first human and the first Prophet."
+    },
+    {
+      "id": "pr_002",
+      "category": "prophets",
+      "difficulty": "easy",
+      "question": "Who is the last Prophet in Islam?",
+      "options": ["Prophet Isa", "Prophet Musa", "Prophet Muhammad", "Prophet Ibrahim"],
+      "correctAnswer": 2,
+      "explanation": "Prophet Muhammad (peace be upon him) is the last and final Prophet."
+    },
+    {
+      "id": "pr_003",
+      "category": "prophets",
+      "difficulty": "easy",
+      "question": "Which Prophet built the Kaaba with his son?",
+      "options": ["Prophet Nuh", "Prophet Ibrahim", "Prophet Musa", "Prophet Sulaiman"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Ibrahim and his son Ismail built the Kaaba in Mecca."
+    },
+    {
+      "id": "pr_004",
+      "category": "prophets",
+      "difficulty": "medium",
+      "question": "Which Prophet survived the great flood with his Ark?",
+      "options": ["Prophet Adam", "Prophet Nuh", "Prophet Yunus", "Prophet Dawud"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Nuh (Noah) built an Ark and survived the great flood with the believers."
+    },
+    {
+      "id": "pr_005",
+      "category": "prophets",
+      "difficulty": "easy",
+      "question": "Which Prophet was swallowed by a whale?",
+      "options": ["Prophet Musa", "Prophet Yunus", "Prophet Ayyub", "Prophet Yusuf"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Yunus (Jonah) was swallowed by a whale and prayed to Allah for forgiveness."
+    },
+    {
+      "id": "pr_006",
+      "category": "prophets",
+      "difficulty": "medium",
+      "question": "Which Prophet could talk to animals?",
+      "options": ["Prophet Dawud", "Prophet Sulaiman", "Prophet Yusuf", "Prophet Isa"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Sulaiman (Solomon) was given the ability to understand and communicate with animals."
+    },
+    {
+      "id": "pr_007",
+      "category": "prophets",
+      "difficulty": "easy",
+      "question": "Which Prophet was known for his patience?",
+      "options": ["Prophet Yusuf", "Prophet Ayyub", "Prophet Musa", "Prophet Harun"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Ayyub (Job) was known for his incredible patience during hardships."
+    },
+    {
+      "id": "pr_008",
+      "category": "prophets",
+      "difficulty": "medium",
+      "question": "Which Prophet could interpret dreams?",
+      "options": ["Prophet Sulaiman", "Prophet Yusuf", "Prophet Dawud", "Prophet Musa"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Yusuf (Joseph) was blessed with the ability to interpret dreams."
+    },
+    {
+      "id": "pr_009",
+      "category": "prophets",
+      "difficulty": "easy",
+      "question": "Which Prophet parted the Red Sea?",
+      "options": ["Prophet Ibrahim", "Prophet Isa", "Prophet Musa", "Prophet Nuh"],
+      "correctAnswer": 2,
+      "explanation": "Prophet Musa (Moses) parted the Red Sea to save his people from Pharaoh."
+    },
+    {
+      "id": "pr_010",
+      "category": "prophets",
+      "difficulty": "medium",
+      "question": "Who was the father of Prophet Ismail?",
+      "options": ["Prophet Nuh", "Prophet Ibrahim", "Prophet Adam", "Prophet Yaqub"],
+      "correctAnswer": 1,
+      "explanation": "Prophet Ibrahim was the father of both Ismail and Ishaq."
+    }
+  ]
+}

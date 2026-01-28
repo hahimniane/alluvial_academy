@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/teacher_audit_full.dart';
 import '../../../core/services/teacher_audit_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Teacher's detailed audit view with ability to dispute/edit
 class TeacherAuditDetailScreen extends StatefulWidget {
@@ -145,7 +145,7 @@ class _TeacherAuditDetailScreenState extends State<TeacherAuditDetailScreen>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
+          tabs: [
             Tab(text: AppLocalizations.of(context)!.overview, icon: Icon(Icons.dashboard)),
             Tab(text: AppLocalizations.of(context)!.dashboardClasses, icon: Icon(Icons.school)),
             Tab(text: AppLocalizations.of(context)!.navForms, icon: Icon(Icons.assignment)),
@@ -251,7 +251,7 @@ class _OverviewTab extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Detailed metrics sections
-          _buildDetailedMetrics(),
+          _buildDetailedMetrics(context),
           const SizedBox(height: 24),
 
           // Issues section
@@ -391,7 +391,7 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailedMetrics() {
+  Widget _buildDetailedMetrics(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -411,11 +411,15 @@ class _OverviewTab extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildDetailRow('Scheduled', '${audit.totalClassesScheduled}'),
-                _buildDetailRow('Completed', '${audit.totalClassesCompleted}'),
-                _buildDetailRow('Missed', '${audit.totalClassesMissed}'),
+                _buildDetailRow(context, 'Scheduled', '${audit.totalClassesScheduled}'),
+                _buildDetailRow(context, 'Completed', '${audit.totalClassesCompleted}'),
+                _buildDetailRow(context, 'Missed', '${audit.totalClassesMissed}'),
                 const Divider(height: 24),
-                _buildDetailRow('Completion Rate', '${audit.completionRate.toStringAsFixed(1)}%'),
+                _buildDetailRow(
+                  context,
+                  'Completion Rate',
+                  '${audit.completionRate.toStringAsFixed(1)}%',
+                ),
               ],
             ),
           ),
@@ -438,11 +442,15 @@ class _OverviewTab extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildDetailRow('Total Clock-Ins', '${audit.totalClockIns}'),
-                _buildDetailRow('On-Time', '${audit.onTimeClockIns}'),
-                _buildDetailRow('Late', '${audit.lateClockIns}'),
+                _buildDetailRow(context, 'Total Clock-Ins', '${audit.totalClockIns}'),
+                _buildDetailRow(context, 'On-Time', '${audit.onTimeClockIns}'),
+                _buildDetailRow(context, 'Late', '${audit.lateClockIns}'),
                 const Divider(height: 24),
-                _buildDetailRow('Punctuality Rate', '${audit.punctualityRate.toStringAsFixed(1)}%'),
+                _buildDetailRow(
+                  context,
+                  'Punctuality Rate',
+                  '${audit.punctualityRate.toStringAsFixed(1)}%',
+                ),
               ],
             ),
           ),
@@ -465,10 +473,14 @@ class _OverviewTab extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildDetailRow('Required', '${audit.readinessFormsRequired}'),
-                _buildDetailRow('Submitted', '${audit.readinessFormsSubmitted}'),
+                _buildDetailRow(context, 'Required', '${audit.readinessFormsRequired}'),
+                _buildDetailRow(context, 'Submitted', '${audit.readinessFormsSubmitted}'),
                 const Divider(height: 24),
-                _buildDetailRow('Compliance Rate', '${audit.formComplianceRate.toStringAsFixed(1)}%'),
+                _buildDetailRow(
+                  context,
+                  'Compliance Rate',
+                  '${audit.formComplianceRate.toStringAsFixed(1)}%',
+                ),
               ],
             ),
           ),
@@ -477,14 +489,44 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  String _localizeDetailLabel(String label, AppLocalizations l10n) {
+    switch (label) {
+      case 'Scheduled':
+        return l10n.auditScheduled;
+      case 'Completed':
+        return l10n.auditCompleted;
+      case 'Missed':
+        return l10n.auditMissed;
+      case 'Completion Rate':
+        return l10n.auditCompletionRate;
+      case 'Total Clock-Ins':
+        return l10n.auditTotalClockIns;
+      case 'On-Time':
+        return l10n.auditOnTime;
+      case 'Late':
+        return l10n.auditLate;
+      case 'Punctuality Rate':
+        return l10n.auditPunctualityRate;
+      case 'Required':
+        return l10n.auditRequired;
+      case 'Submitted':
+        return l10n.auditSubmitted;
+      case 'Compliance Rate':
+        return l10n.auditComplianceRate;
+      default:
+        return label;
+    }
+  }
+
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            label,
+            _localizeDetailLabel(label, l10n),
             style: GoogleFonts.inter(color: Colors.grey.shade600),
           ),
           Text(
@@ -510,28 +552,32 @@ class _OverviewTab extends StatelessWidget {
         _MetricCard(
           title: AppLocalizations.of(context)!.classesCompleted,
           value: '${audit.totalClassesCompleted}/${audit.totalClassesScheduled}',
-          subtitle: '${audit.completionRate.toStringAsFixed(0)}% completion',
+          subtitle: AppLocalizations.of(context)!
+              .auditCompletionPercent(audit.completionRate.toStringAsFixed(0)),
           icon: Icons.school,
           color: Colors.green,
         ),
         _MetricCard(
           title: AppLocalizations.of(context)!.hoursTaught,
           value: '${audit.totalHoursTaught.toStringAsFixed(1)}h',
-          subtitle: '${audit.hoursTaughtBySubject.length} subjects',
+          subtitle: AppLocalizations.of(context)!
+              .auditSubjectsCount(audit.hoursTaughtBySubject.length),
           icon: Icons.schedule,
           color: Colors.blue,
         ),
         _MetricCard(
           title: AppLocalizations.of(context)!.punctuality,
           value: '${audit.punctualityRate.toStringAsFixed(0)}%',
-          subtitle: '${audit.onTimeClockIns}/${audit.totalClockIns} on-time',
+          subtitle: AppLocalizations.of(context)!
+              .auditOnTimeClockIns(audit.onTimeClockIns, audit.totalClockIns),
           icon: Icons.timer,
           color: audit.punctualityRate >= 80 ? Colors.green : Colors.orange,
         ),
         _MetricCard(
           title: AppLocalizations.of(context)!.navForms,
           value: '${audit.readinessFormsSubmitted}/${audit.readinessFormsRequired}',
-          subtitle: '${audit.formComplianceRate.toStringAsFixed(0)}% compliance',
+          subtitle: AppLocalizations.of(context)!
+              .auditCompliancePercent(audit.formComplianceRate.toStringAsFixed(0)),
           icon: Icons.assignment,
           color: audit.formComplianceRate >= 80 ? Colors.green : Colors.orange,
         ),
@@ -759,7 +805,7 @@ class _ShiftCardState extends State<_ShiftCard> {
     final status = widget.data['status'] as String? ?? 'scheduled';
     final subject = widget.data['subject_display_name'] as String? ??
         widget.data['subject'] as String? ??
-        'Unknown';
+        AppLocalizations.of(context)!.commonUnknown;
     final studentNames = (widget.data['student_names'] as List<dynamic>?)?.cast<String>() ?? [];
 
     Color statusColor;
@@ -941,7 +987,7 @@ class _PaymentTab extends StatelessWidget {
             child: Row(
               children: [
                 Icon(Icons.account_balance_wallet, size: 48, color: Colors.green.shade700),
-                const SizedBox(width: 24),
+                SizedBox(width: 24),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1463,7 +1509,7 @@ class _DisputeTabState extends State<_DisputeTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.disputeSubmittedSuccessfully),
             backgroundColor: Colors.green,
           ),
@@ -1562,9 +1608,11 @@ class _DisputeTabState extends State<_DisputeTab> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text('Field: ${existingDispute.field}'),
+                  Text(AppLocalizations.of(context)!
+                      .auditDisputeField(existingDispute.field)),
                   const SizedBox(height: 4),
-                  Text('Reason: ${existingDispute.reason}'),
+                  Text(AppLocalizations.of(context)!
+                      .auditDisputeReason(existingDispute.reason)),
                   if (existingDispute.adminResponse.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -1592,7 +1640,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                 children: [
                   DropdownButtonFormField<String>(
                     value: _selectedField,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.fieldToDispute,
                       border: OutlineInputBorder(),
                     ),
@@ -1609,7 +1657,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                   TextFormField(
                     controller: _reasonController,
                     maxLines: 4,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.reasonForDispute,
                       hintText: AppLocalizations.of(context)!.pleaseExplainWhyYouBelieveThis,
                       border: OutlineInputBorder(),
@@ -1627,7 +1675,7 @@ class _DisputeTabState extends State<_DisputeTab> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _suggestedValueController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: AppLocalizations.of(context)!.suggestedCorrectValueOptional,
                       hintText: AppLocalizations.of(context)!.whatShouldTheCorrectValueBe,
                       border: OutlineInputBorder(),
@@ -1684,4 +1732,3 @@ class _DisputeTabState extends State<_DisputeTab> {
     }
   }
 }
-

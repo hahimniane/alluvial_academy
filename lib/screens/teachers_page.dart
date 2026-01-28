@@ -7,7 +7,7 @@ import 'teacher_application_screen.dart';
 import 'leadership_application_screen.dart';
 import 'contact_page.dart';
 import 'dart:async';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TeachersPage extends StatefulWidget {
   const TeachersPage({super.key});
@@ -20,49 +20,8 @@ class _TeachersPageState extends State<TeachersPage> {
   late PageController _pageController;
   int _currentPage = 0;
   Timer? _timer;
-
-  final List<Teacher> _teachers = [
-    Teacher(
-      name: 'Ibrahim M. Baldee',
-      title: AppLocalizations.of(context)!.teacherUstaz,
-      bio: 'Ustaz Ibrahim is a Liberian international student currently based in Saudi Arabia. He completed the memorization of the Holy Qur\'an in 2012 and studied Tajweed in depth, memorizing many Tajweed texts. He has been teaching Qur\'an since 2012 and finds teaching among the most pleasant acts. He looks forward to meeting new students. (University of Madinah. Languages: Pular, English, Arabic)',
-      specialties: ['Pular', 'English', 'Arabic'],
-      imagePath: 'assets/teachers/ibrahim_baldee.jpg',
-      color: const Color(0xff3B82F6),
-    ),
-    Teacher(
-      name: 'Elham Shifa',
-      title: AppLocalizations.of(context)!.teacherUstaza,
-      bio: 'Elham is pursuing a degree in Islamic Psychology at Ankara University (Turkey). Originally from Ethiopia, she has been teaching for several years. Learning and teaching the Qur\'an to understand Allah\'s message has always been her life goal, inspired by the hadith: "The best of you are those who learn the Qur\'an and teach it." (Languages: English, Arabic)',
-      specialties: ['English', 'Arabic'],
-      imagePath: 'assets/teachers/elham_shifa.jpg',
-      color: const Color(0xff10B981),
-    ),
-    Teacher(
-      name: 'Mohammed Kosiah',
-      title: AppLocalizations.of(context)!.teacherUstaz,
-      bio: 'Brother Kosiah graduated from Kahatain Children Village Islamic Mission (2016) with foundations in Islam and secular education. He has delivered sermons and public talks since 5th grade and is active in youth/community development programs. He recently graduated from the intensive Arabic Institute of the Islamic University of Madinah and studies Economics at the same university. (Languages: Mandingo, French, English, Arabic)',
-      specialties: ['Mandingo', 'French', 'English'],
-      imagePath: 'assets/teachers/mohammed_kosiah.jpg',
-      color: const Color(0xffF59E0B),
-    ),
-    Teacher(
-      name: 'Ustaz Abdul Hadee Balde',
-      title: AppLocalizations.of(context)!.teacherUstaz,
-      bio: 'Abdul Hadee graduated as valedictorian from Fanima Islamic School System and is a Hafiz from a renowned mission in Conakry, Guinea. Born in Ivory Coast and raised in Liberia, he later moved to Guinea for Islamic studies and earned a diploma. (King Khalid University. Languages: English, Arabic, Pular)',
-      specialties: ['English', 'Arabic', 'Pular'],
-      imagePath: 'assets/teachers/abdul_hadee_balde.jpg',
-      color: const Color(0xff8B5CF6),
-    ),
-    Teacher(
-      name: 'Ousman Cham',
-      title: AppLocalizations.of(context)!.roleTeacher,
-      bio: 'Ousman is a graduate of Muslim Congress High School (Liberia) and studies at the Islamic University of Madinah (Department of Dawah). His passion for learning and teaching Islam began in childhood while listening to lectures from imams and preachers. He loves teaching Qur\'an for its great reward in this world and the Hereafter. (Languages: Pular, English, Arabic)',
-      specialties: ['Pular', 'English', 'Arabic'],
-      imagePath: 'assets/teachers/ousman_cham.jpg',
-      color: const Color(0xffEF4444),
-    ),
-  ];
+  List<Teacher> _teachers = [];
+  bool _pagesInitialized = false;
 
   @override
   void initState() {
@@ -94,6 +53,59 @@ class _TeachersPageState extends State<TeachersPage> {
     _timer?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _initPages(BuildContext context) {
+    if (_pagesInitialized) return;
+    final l10n = AppLocalizations.of(context)!;
+    _teachers = [
+      Teacher(
+        name: 'Ibrahim M. Baldee',
+        title: l10n.teacherUstaz,
+        bio:
+            'Ustaz Ibrahim is a Liberian international student currently based in Saudi Arabia. He completed the memorization of the Holy Qur\'an in 2012 and studied Tajweed in depth, memorizing many Tajweed texts. He has been teaching Qur\'an since 2012 and finds teaching among the most pleasant acts. He looks forward to meeting new students. (University of Madinah. Languages: Pular, English, Arabic)',
+        specialties: ['Pular', 'English', 'Arabic'],
+        imagePath: 'assets/teachers/ibrahim_baldee.jpg',
+        color: const Color(0xff3B82F6),
+      ),
+      Teacher(
+        name: 'Elham Shifa',
+        title: l10n.teacherUstaza,
+        bio:
+            'Elham is pursuing a degree in Islamic Psychology at Ankara University (Turkey). Originally from Ethiopia, she has been teaching for several years. Learning and teaching the Qur\'an to understand Allah\'s message has always been her life goal, inspired by the hadith: "The best of you are those who learn the Qur\'an and teach it." (Languages: English, Arabic)',
+        specialties: ['English', 'Arabic'],
+        imagePath: 'assets/teachers/elham_shifa.jpg',
+        color: const Color(0xff10B981),
+      ),
+      Teacher(
+        name: 'Mohammed Kosiah',
+        title: l10n.teacherUstaz,
+        bio:
+            'Brother Kosiah graduated from Kahatain Children Village Islamic Mission (2016) with foundations in Islam and secular education. He has delivered sermons and public talks since 5th grade and is active in youth/community development programs. He recently graduated from the intensive Arabic Institute of the Islamic University of Madinah and studies Economics at the same university. (Languages: Mandingo, French, English, Arabic)',
+        specialties: ['Mandingo', 'French', 'English'],
+        imagePath: 'assets/teachers/mohammed_kosiah.jpg',
+        color: const Color(0xffF59E0B),
+      ),
+      Teacher(
+        name: 'Ustaz Abdul Hadee Balde',
+        title: l10n.teacherUstaz,
+        bio:
+            'Abdul Hadee graduated as valedictorian from Fanima Islamic School System and is a Hafiz from a renowned mission in Conakry, Guinea. Born in Ivory Coast and raised in Liberia, he later moved to Guinea for Islamic studies and earned a diploma. (King Khalid University. Languages: English, Arabic, Pular)',
+        specialties: ['English', 'Arabic', 'Pular'],
+        imagePath: 'assets/teachers/abdul_hadee_balde.jpg',
+        color: const Color(0xff8B5CF6),
+      ),
+      Teacher(
+        name: 'Ousman Cham',
+        title: l10n.roleTeacher,
+        bio:
+            'Ousman is a graduate of Muslim Congress High School (Liberia) and studies at the Islamic University of Madinah (Department of Dawah). His passion for learning and teaching Islam began in childhood while listening to lectures from imams and preachers. He loves teaching Qur\'an for its great reward in this world and the Hereafter. (Languages: Pular, English, Arabic)',
+        specialties: ['Pular', 'English', 'Arabic'],
+        imagePath: 'assets/teachers/ousman_cham.jpg',
+        color: const Color(0xffEF4444),
+      ),
+    ];
+    _pagesInitialized = true;
   }
 
   void _nextPage() {
@@ -136,6 +148,7 @@ class _TeachersPageState extends State<TeachersPage> {
 
   @override
   Widget build(BuildContext context) {
+    _initPages(context);
     final isDesktop = MediaQuery.of(context).size.width > 1024;
 
     return Scaffold(
@@ -527,7 +540,7 @@ class _TeachersPageState extends State<TeachersPage> {
             child: Column(
               children: [
                 TabBar(
-                  tabs: const [
+                  tabs: [
                     Tab(text: AppLocalizations.of(context)!.becomeATeacher),
                     Tab(text: AppLocalizations.of(context)!.career),
                   ],
@@ -668,4 +681,3 @@ class Teacher {
     required this.color,
   });
 }
-

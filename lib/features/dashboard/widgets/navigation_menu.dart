@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class NavigationMenu extends StatelessWidget {
   final int selectedIndex;
@@ -17,7 +17,7 @@ class NavigationMenu extends StatelessWidget {
       selectedIndex: selectedIndex,
       onDestinationSelected: onItemSelected,
       labelType: NavigationRailLabelType.selected,
-      destinations: const [
+      destinations: [
         NavigationRailDestination(
           icon: Icon(Icons.dashboard),
           label: Text(AppLocalizations.of(context)!.navDashboard),

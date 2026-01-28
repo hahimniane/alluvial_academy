@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TopNavigationBar extends StatelessWidget {
   const TopNavigationBar({super.key});
@@ -17,7 +17,7 @@ class TopNavigationBar extends StatelessWidget {
                 'assets/logo_navigation_bar.PNG',
                 height: 30,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Text(
                 AppLocalizations.of(context)!.connecteam,
                 style: TextStyle(
@@ -75,7 +75,7 @@ class TopNavigationBar extends StatelessWidget {
                         minHeight: 12,
                       ),
                       child: Text(
-                        AppLocalizations.of(context)!.5,
+                        '5',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 8,
@@ -103,7 +103,7 @@ class TopNavigationBar extends StatelessWidget {
                         minHeight: 12,
                       ),
                       child: Text(
-                        AppLocalizations.of(context)!.1,
+                        '1',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 8,
@@ -115,7 +115,7 @@ class TopNavigationBar extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 20),
-              const CircleAvatar(
+               CircleAvatar(
                 backgroundColor: Colors.teal,
                 child: Text(AppLocalizations.of(context)!.hn),
               ),

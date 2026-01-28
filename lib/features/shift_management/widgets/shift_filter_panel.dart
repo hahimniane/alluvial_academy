@@ -5,7 +5,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/models/employee_model.dart';
 import '../../../core/models/subject.dart';
 import 'create_shift_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ShiftFilterPanel extends StatefulWidget {
   final List<Employee> teachers;
@@ -153,7 +153,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
             children: [
               if (widget.teachers.isNotEmpty || _teacherId != null)
                 _FilterField(
-                  label: 'Teacher',
+                  label: AppLocalizations.of(context)!.roleTeacher,
                   value: selectedTeacher != null
                       ? '${selectedTeacher.firstName} ${selectedTeacher.lastName}'
                       : 'All',
@@ -161,7 +161,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                   onTap: widget.teachers.isEmpty ? null : _pickTeacher,
                 ),
               _FilterField(
-                label: 'Student',
+                label: AppLocalizations.of(context)!.roleStudent,
                 value: selectedStudent != null
                     ? '${selectedStudent.firstName} ${selectedStudent.lastName}'
                     : 'All',
@@ -169,7 +169,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                 onTap: widget.students.isEmpty ? null : _pickStudent,
               ),
               _FilterField(
-                label: 'Subject',
+                label: AppLocalizations.of(context)!.subject,
                 value: selectedSubject != null
                     ? selectedSubject.displayName
                     : 'All',
@@ -177,7 +177,7 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                 onTap: widget.subjects.isEmpty ? null : _pickSubject,
               ),
               _FilterField(
-                label: 'Date Range',
+                label: AppLocalizations.of(context)!.dateRange,
                 value: _dateRange == null
                     ? 'Any'
                     : '${_formatDate(_dateRange!.start)} - ${_formatDate(_dateRange!.end)}',
@@ -185,13 +185,13 @@ class _ShiftFilterPanelState extends State<ShiftFilterPanel> {
                 onTap: _pickDateRange,
               ),
               _FilterField(
-                label: 'Start Time',
+                label: AppLocalizations.of(context)!.shiftStartTime,
                 value: _timeStart == null ? 'Any' : _timeStart!.format(context),
                 icon: Icons.schedule,
                 onTap: _pickStartTime,
               ),
               _FilterField(
-                label: 'End Time',
+                label: AppLocalizations.of(context)!.shiftEndTime,
                 value: _timeEnd == null ? 'Any' : _timeEnd!.format(context),
                 icon: Icons.schedule,
                 onTap: _pickEndTime,

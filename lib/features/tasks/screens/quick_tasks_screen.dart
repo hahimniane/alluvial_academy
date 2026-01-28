@@ -17,7 +17,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import '../../../core/utils/connecteam_style.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class QuickTasksScreen extends StatefulWidget {
   const QuickTasksScreen({super.key});
@@ -226,7 +226,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text('Error: ${snapshot.error}'),
+                    child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(snapshot.error ?? 'Unknown error')),
                   );
                 }
 
@@ -278,7 +278,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                                 });
                               },
                               icon: Icon(_isBulkMode ? Icons.check_box : Icons.check_box_outline_blank),
-                              label: Text(_isBulkMode ? 'Exit Selection' : 'Select Multiple'),
+                              label: Text(
+                                _isBulkMode
+                                    ? AppLocalizations.of(context)!.taskExitSelection
+                                    : AppLocalizations.of(context)!.taskSelectMultiple,
+                              ),
                               style: TextButton.styleFrom(
                                 foregroundColor: ConnecteamStyle.primaryBlue,
                               ),
@@ -358,7 +362,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                     _searchQuery = value;
                   });
                 },
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: AppLocalizations.of(context)!.searchTasks,
                   prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
                   border: InputBorder.none,
@@ -436,7 +440,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         children: [
           // Status Filter
           _buildFilterChip(
-            label: 'Status',
+            label: AppLocalizations.of(context)!.status,
             icon: Icons.flag_outlined,
             isActive: _selectedStatus != null,
             onTap: () => _showStatusFilter(),
@@ -444,7 +448,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
           // Priority Filter
           _buildFilterChip(
-            label: 'Priority',
+            label: AppLocalizations.of(context)!.priority,
             icon: Icons.priority_high,
             isActive: _selectedPriority != null,
             onTap: () => _showPriorityFilter(),
@@ -452,7 +456,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
           // Assigned To Filter
           _buildFilterChip(
-            label: 'Assigned To',
+            label: AppLocalizations.of(context)!.assignedTo,
             icon: Icons.person_outline,
             isActive: _filterAssignedToUserIds.isNotEmpty,
             onTap: () => _showAssignedToFilter(),
@@ -463,17 +467,18 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           // Assigned By Filter (Admin only)
           if (_isAdmin)
             _buildFilterChip(
-              label: 'Assigned By',
+              label: AppLocalizations.of(context)!.quickTasksAssignedby,
               icon: Icons.person_add_outlined,
               isActive: _filterAssignedByUserId != null,
               onTap: () => _showAssignedByFilter(),
               activeLabel: _filterAssignedByUserId != null 
-                  ? _userIdToName[_filterAssignedByUserId] ?? 'Unknown'
+                  ? _userIdToName[_filterAssignedByUserId] ??
+                      AppLocalizations.of(context)!.commonUnknown
                   : null,
             ),
           // Due Date Filter
           _buildFilterChip(
-            label: 'Due Date',
+            label: AppLocalizations.of(context)!.dueDate,
             icon: Icons.calendar_today_outlined,
             isActive: _dueDateRange != null,
             onTap: () => _showDueDateFilter(),
@@ -483,7 +488,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
           // Recurring Filter
           _buildFilterChip(
-            label: 'Recurring',
+            label: AppLocalizations.of(context)!.recurring,
             icon: Icons.repeat,
             isActive: _filterRecurring != null,
             onTap: () => _showRecurringFilter(),
@@ -495,7 +500,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
           ),
           // Labels/Tags Filter
           _buildFilterChip(
-            label: 'Labels',
+            label: AppLocalizations.of(context)!.quickTasksLabels,
             icon: Icons.label_outline,
             isActive: _filterLabels.isNotEmpty,
             onTap: () => _showLabelsFilter(),
@@ -863,7 +868,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               AppLocalizations.of(context)!.groupBy,
               style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff6B7280)),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Text(
               _groupBy == 'none' ? 'None' : (_groupBy == 'assignee' ? 'Assigned to' : _groupBy),
               style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
@@ -873,10 +878,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         ),
       ),
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'none', child: Text(AppLocalizations.of(context)!.commonNone)),
-        const PopupMenuItem(value: 'assignee', child: Text(AppLocalizations.of(context)!.assignedTo)),
-        const PopupMenuItem(value: 'status', child: Text(AppLocalizations.of(context)!.userStatus)),
-        const PopupMenuItem(value: 'priority', child: Text(AppLocalizations.of(context)!.priority)),
+        PopupMenuItem(value: 'none', child: Text(AppLocalizations.of(context)!.commonNone)),
+        PopupMenuItem(value: 'assignee', child: Text(AppLocalizations.of(context)!.assignedTo)),
+        PopupMenuItem(value: 'status', child: Text(AppLocalizations.of(context)!.userStatus)),
+        PopupMenuItem(value: 'priority', child: Text(AppLocalizations.of(context)!.priority)),
       ],
     );
   }
@@ -1107,7 +1112,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       children: [
         // All Tasks chip
         _buildModernFilterChip(
-          label: 'All Tasks',
+          label: AppLocalizations.of(context)!.allTasks,
           isSelected: _selectedStatus == null &&
               _selectedPriority == null &&
               _dueDateRange == null &&
@@ -1167,7 +1172,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 initialDateRange: DateTimeRange(
                     start: currentMonthStart, end: currentMonthEnd),
                 currentDate: now,
-                helpText: 'Select Date Range for Tasks',
+                helpText: AppLocalizations.of(context)!.selectDateRangeForTasks,
                 cancelText: 'Cancel',
                 confirmText: 'Apply Filter',
                 saveText: 'Apply',
@@ -1251,7 +1256,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         // Assigned By Me - Quick Filter
         if (_isAdmin)
           _buildModernFilterChip(
-            label: 'Assigned by Me',
+            label: AppLocalizations.of(context)!.quickTasksAssignedbyme,
             isSelected: _filterAssignedByUserId ==
                 FirebaseAuth.instance.currentUser?.uid,
             onSelected: () {
@@ -1272,7 +1277,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         // Assigned To Me - Quick Filter
         if (_isAdmin)
           _buildModernFilterChip(
-            label: 'Assigned to Me',
+            label: AppLocalizations.of(context)!.quickTasksAssignedtome,
             isSelected: _filterAssignedToUserIds.length == 1 &&
                 _filterAssignedToUserIds.first ==
                     FirebaseAuth.instance.currentUser?.uid,
@@ -1339,7 +1344,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       runSpacing: 8,
       children: [
         _buildModernFilterChip(
-          label: 'All Tasks',
+          label: AppLocalizations.of(context)!.allTasks,
           isSelected: _selectedStatus == null && _selectedPriority == null,
           onSelected: () => setState(() {
             _selectedStatus = null;
@@ -1378,7 +1383,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
               initialDateRange: _dueDateRange ??
                   DateTimeRange(start: currentMonthStart, end: currentMonthEnd),
               currentDate: now,
-              helpText: 'Select Date Range for Tasks',
+              helpText: AppLocalizations.of(context)!.selectDateRangeForTasks,
               cancelText: 'Cancel',
               confirmText: 'Apply Filter',
               saveText: 'Apply',
@@ -1557,7 +1562,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       } else {
         // User document doesn't exist, use a fallback
         if (mounted) {
-          setState(() => _userIdToName[userId] = 'Unknown User');
+          setState(() =>
+              _userIdToName[userId] = AppLocalizations.of(context)!.commonUnknownUser);
         }
       }
     } catch (e) {
@@ -1778,7 +1784,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SliverToBoxAdapter(
+          return SliverToBoxAdapter(
             child: Center(
               child: Padding(
                 padding: EdgeInsets.all(32.0),
@@ -2094,9 +2100,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'edit', child: Text(AppLocalizations.of(context)!.editTask)),
+        PopupMenuItem(value: 'edit', child: Text(AppLocalizations.of(context)!.editTask)),
         if (canDelete)
-          const PopupMenuItem(value: 'delete', child: Text(AppLocalizations.of(context)!.deleteTask)),
+          PopupMenuItem(value: 'delete', child: Text(AppLocalizations.of(context)!.deleteTask)),
       ],
     );
   }
@@ -3150,8 +3156,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
         ),
-        child: const Row(
-          children: [
+        child: Row(children: [
             Icon(Icons.add_circle_outline, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
@@ -3220,7 +3225,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       await _taskService.archiveTask(task.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.taskArchived)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.taskArchived)),
         );
       }
     } catch (e) {
@@ -3238,7 +3243,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       await _taskService.unarchiveTask(task.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.taskUnarchived)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.taskUnarchived)),
         );
       }
     } catch (e) {
@@ -3458,7 +3463,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       lastDate: DateTime(now.year + 5),
       initialDateRange: _dueDateRange,
       currentDate: now,
-      helpText: 'Select Due Date Range',
+      helpText: AppLocalizations.of(context)!.selectDueDateRange,
     );
     if (range != null) {
       setState(() => _dueDateRange = range);
@@ -3603,7 +3608,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Change Status for ${_selectedTaskIds.length} Tasks', 
+        title: Text(AppLocalizations.of(context)!
+            .taskBulkChangeStatus(_selectedTaskIds.length),
             style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -3623,7 +3629,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Change Priority for ${_selectedTaskIds.length} Tasks',
+        title: Text(AppLocalizations.of(context)!
+            .taskBulkChangePriority(_selectedTaskIds.length),
             style: ConnecteamStyle.headerTitle.copyWith(fontSize: 18)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -3644,7 +3651,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteTasks),
-        content: Text('Are you sure you want to delete ${_selectedTaskIds.length} task(s)? This action cannot be undone.'),
+        content: Text(AppLocalizations.of(context)!
+            .taskBulkDeleteConfirm(_selectedTaskIds.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -3727,7 +3735,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.youMustBeLoggedInTo),
           backgroundColor: Colors.red,
         ),
@@ -3756,7 +3764,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
 
     if (tasksToDelete.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.youCanOnlyDeleteTasksYou),
           backgroundColor: Colors.red,
         ),
@@ -3904,7 +3912,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
     
     if (!canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.onlyTheTaskCreatorCanDelete),
           backgroundColor: Colors.red,
         ),
@@ -3917,7 +3925,8 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(AppLocalizations.of(context)!.deleteTask),
-        content: Text('Are you sure you want to delete "${task.title}"?'),
+        content:
+            Text(AppLocalizations.of(context)!.taskDeleteConfirm(task.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -3930,7 +3939,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                 if (mounted) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(AppLocalizations.of(context)!.taskDeletedSuccessfully),
                       backgroundColor: Colors.green,
                     ),

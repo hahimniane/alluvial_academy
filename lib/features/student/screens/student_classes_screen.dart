@@ -12,7 +12,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/services/onboarding_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Student Classes Screen - Shows upcoming classes and allows students to join
 class StudentClassesScreen extends StatefulWidget {
@@ -147,9 +147,35 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
         return shiftDate.isAfter(todayDate);
       }).toList();
 
-      // Sort both lists by start time (soonest first)
-      todayClasses.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
-      futureClasses.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+      // Sort both lists: joinable/active classes first, then by start time (soonest first)
+      todayClasses.sort((a, b) {
+        // Joinable classes (can join now) come first
+        final aCanJoin = VideoCallService.canJoinClass(a);
+        final bCanJoin = VideoCallService.canJoinClass(b);
+        if (aCanJoin && !bCanJoin) return -1;
+        if (!aCanJoin && bCanJoin) return 1;
+        // Then active/clocked-in classes
+        final aIsActive = a.status == ShiftStatus.active || a.isClockedIn;
+        final bIsActive = b.status == ShiftStatus.active || b.isClockedIn;
+        if (aIsActive && !bIsActive) return -1;
+        if (!aIsActive && bIsActive) return 1;
+        // Then sort by start time
+        return a.shiftStart.compareTo(b.shiftStart);
+      });
+      futureClasses.sort((a, b) {
+        // Joinable classes (can join now) come first
+        final aCanJoin = VideoCallService.canJoinClass(a);
+        final bCanJoin = VideoCallService.canJoinClass(b);
+        if (aCanJoin && !bCanJoin) return -1;
+        if (!aCanJoin && bCanJoin) return 1;
+        // Then active/clocked-in classes
+        final aIsActive = a.status == ShiftStatus.active || a.isClockedIn;
+        final bIsActive = b.status == ShiftStatus.active || b.isClockedIn;
+        if (aIsActive && !bIsActive) return -1;
+        if (!aIsActive && bIsActive) return 1;
+        // Then sort by start time
+        return a.shiftStart.compareTo(b.shiftStart);
+      });
 
       if (mounted) {
         setState(() {
@@ -818,7 +844,7 @@ class _StudentClassesScreenState extends State<StudentClassesScreen> {
                     size: 18,
                   ),
                   label: Text(
-                    isActive ? 'Join Live Class' : 'Join Class',
+                    isActive ? AppLocalizations.of(context)!.joinLiveClass : AppLocalizations.of(context)!.joinClass,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,

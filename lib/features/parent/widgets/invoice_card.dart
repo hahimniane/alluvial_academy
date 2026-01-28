@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/models/invoice.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class InvoiceCard extends StatelessWidget {
   final Invoice invoice;
@@ -95,7 +95,8 @@ class InvoiceCard extends StatelessWidget {
                   Expanded(
                     child: _infoChip(
                       icon: Icons.calendar_month_rounded,
-                      label: 'Due ${DateFormat.yMMMd().format(invoice.dueDate)}',
+                      label: AppLocalizations.of(context)!.parentInvoiceDueDate(
+                          DateFormat.yMMMd().format(invoice.dueDate)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -176,4 +177,3 @@ class InvoiceCard extends StatelessWidget {
     }
   }
 }
-

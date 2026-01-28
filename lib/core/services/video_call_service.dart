@@ -8,7 +8,7 @@ import '../utils/app_logger.dart';
 import 'user_role_service.dart';
 import 'livekit_service.dart';
 import 'join_link_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Unified video call service for joining classes
 ///
@@ -42,7 +42,7 @@ class VideoCallService {
     if (uid == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.pleaseSignInAgainToJoin),
             backgroundColor: Colors.red,
           ),
@@ -67,7 +67,7 @@ class VideoCallService {
           'VideoCallService: Blocked join for uid=$uid on shift=${shift.id} (not assigned)');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.youAreNotAssignedToThis),
             backgroundColor: Colors.red,
           ),
@@ -112,7 +112,7 @@ class VideoCallService {
     await Clipboard.setData(ClipboardData(text: uri.toString()));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(AppLocalizations.of(context)!.guestClassLinkCopied),
         behavior: SnackBarBehavior.floating,
       ),

@@ -1,0 +1,97 @@
+{
+  "category": "daily_duas",
+  "name": "Daily Duas",
+  "description": "Everyday prayers and supplications",
+  "questions": [
+    {
+      "id": "dd_001",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What do we say before eating?",
+      "options": ["Alhamdulillah", "Bismillah", "SubhanAllah", "Astaghfirullah"],
+      "correctAnswer": 1,
+      "explanation": "We say 'Bismillah' (In the name of Allah) before eating."
+    },
+    {
+      "id": "dd_002",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What do we say after eating?",
+      "options": ["Bismillah", "Alhamdulillah", "MashaAllah", "InshaAllah"],
+      "correctAnswer": 1,
+      "explanation": "We say 'Alhamdulillah' (All praise is due to Allah) after eating."
+    },
+    {
+      "id": "dd_003",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What does 'As-salamu Alaykum' mean?",
+      "options": ["Goodbye", "Peace be upon you", "Thank you", "Please"],
+      "correctAnswer": 1,
+      "explanation": "'As-salamu Alaykum' means 'Peace be upon you' and is the Islamic greeting."
+    },
+    {
+      "id": "dd_004",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What do we say when we sneeze?",
+      "options": ["SubhanAllah", "Alhamdulillah", "Allahu Akbar", "Astaghfirullah"],
+      "correctAnswer": 1,
+      "explanation": "We say 'Alhamdulillah' when we sneeze, thanking Allah."
+    },
+    {
+      "id": "dd_005",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What do we say to someone who sneezes?",
+      "options": ["Bismillah", "Yarhamukallah", "InshaAllah", "SubhanAllah"],
+      "correctAnswer": 1,
+      "explanation": "We say 'Yarhamukallah' (May Allah have mercy on you) to someone who sneezes."
+    },
+    {
+      "id": "dd_006",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What does 'InshaAllah' mean?",
+      "options": ["Thank you", "If Allah wills", "God is great", "I seek forgiveness"],
+      "correctAnswer": 1,
+      "explanation": "'InshaAllah' means 'If Allah wills' and is said when planning to do something."
+    },
+    {
+      "id": "dd_007",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What does 'MashaAllah' mean?",
+      "options": ["God willing", "What Allah has willed", "Thank God", "God is great"],
+      "correctAnswer": 1,
+      "explanation": "'MashaAllah' means 'What Allah has willed' and is said to express appreciation."
+    },
+    {
+      "id": "dd_008",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What do we say when entering the bathroom?",
+      "options": ["Bismillah", "Allahumma inni a'udhu bika", "Alhamdulillah", "SubhanAllah"],
+      "correctAnswer": 1,
+      "explanation": "We seek Allah's protection before entering the bathroom."
+    },
+    {
+      "id": "dd_009",
+      "category": "daily_duas",
+      "difficulty": "medium",
+      "question": "What do we say when waking up?",
+      "options": ["Bismillah", "Alhamdulillah", "Allahu Akbar", "SubhanAllah"],
+      "correctAnswer": 1,
+      "explanation": "We thank Allah with 'Alhamdulillah' for waking us up."
+    },
+    {
+      "id": "dd_010",
+      "category": "daily_duas",
+      "difficulty": "easy",
+      "question": "What does 'SubhanAllah' mean?",
+      "options": ["God is great", "Glory be to Allah", "Thank God", "God willing"],
+      "correctAnswer": 1,
+      "explanation": "'SubhanAllah' means 'Glory be to Allah' and is said to praise Him."
+    }
+  ]
+}

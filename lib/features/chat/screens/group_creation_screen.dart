@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/chat_service.dart';
 import '../models/chat_user.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class GroupCreationScreen extends StatefulWidget {
   const GroupCreationScreen({super.key});
@@ -333,7 +333,7 @@ class _GroupCreationScreenState extends State<GroupCreationScreen> {
                         ),
                         Text(
                           _selectedUserIds.isEmpty
-                              ? 'Select users to add to the group'
+                              ? AppLocalizations.of(context)!.chatGroupSelectMembers
                               : '${_selectedUserIds.length} member${_selectedUserIds.length == 1 ? '' : 's'} selected',
                           style: GoogleFonts.inter(
                             fontSize: 14,

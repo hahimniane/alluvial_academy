@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'core/services/form_draft_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Debug screen to help diagnose Firestore draft issues
 class DebugFirestoreScreen extends StatefulWidget {
@@ -37,12 +37,12 @@ class _DebugFirestoreScreenState extends State<DebugFirestoreScreen> {
                   onPressed: _runBasicTests,
                   child: Text(AppLocalizations.of(context)!.runBasicTests),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 ElevatedButton(
                   onPressed: _testDraftCreation,
                   child: Text(AppLocalizations.of(context)!.testDraftCreation),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 ElevatedButton(
                   onPressed: _clearOutput,
                   child: Text(AppLocalizations.of(context)!.commonClear),

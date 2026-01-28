@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FormSubmissionsScreen extends StatefulWidget {
   final String formId;
@@ -52,7 +52,10 @@ class _FormSubmissionsScreenState extends State<FormSubmissionsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FA),
       appBar: AppBar(
-        title: Text('Submissions • ${widget.formTitle}', style: GoogleFonts.inter()),
+        title: Text(
+          AppLocalizations.of(context)!.formSubmissionsTitle(widget.formTitle),
+          style: GoogleFonts.inter(),
+        ),
         backgroundColor: const Color(0xff0386FF),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -85,8 +88,13 @@ class _FormSubmissionsScreenState extends State<FormSubmissionsScreen> {
                     color: const Color(0xff0386FF).withOpacity(0.08),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('${filtered.length} submissions',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xff0386FF))),
+                  child: Text(
+                    AppLocalizations.of(context)!
+                        .formSubmissionsCount(filtered.length),
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff0386FF)),
+                  ),
                 )
               ],
             ),
@@ -114,7 +122,7 @@ class _SubmissionsTable extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          columns: const [
+          columns: [
             DataColumn(label: Text(AppLocalizations.of(context)!.text4)),
             DataColumn(label: Text(AppLocalizations.of(context)!.roleUser)),
             DataColumn(label: Text(AppLocalizations.of(context)!.dateSubmitted)),
@@ -164,4 +172,3 @@ class _SubmissionsTable extends StatelessWidget {
     );
   }
 }
-

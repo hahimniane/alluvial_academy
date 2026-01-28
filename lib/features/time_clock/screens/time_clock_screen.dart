@@ -43,7 +43,7 @@ import '../../../form_screen.dart';
 import 'dart:convert';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Main time clock screen widget - stateful to manage clock-in/out sessions
 class TimeClockScreen extends StatefulWidget {
@@ -678,7 +678,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
   void _showStateMismatchError() {
     _debugLog('Showing state mismatch error to user');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content:
             Text(AppLocalizations.of(context)!.sessionAlreadyClosedBySystemTimer),
         backgroundColor: Colors.orange,
@@ -1060,7 +1060,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
             ),
             if (message.contains('not scheduled') ||
                 message.contains('outside shift hours'))
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Text(
                   AppLocalizations.of(context)!.pleaseContactYourSupervisorIfYou,
@@ -1307,7 +1307,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         context: context,
         builder: (context) => AlertDialog(
           title: Text(AppLocalizations.of(context)!.locationError),
-          content: Text(AppLocalizations.of(context)!.unableToGetYourLocationE
+          content: Text('${AppLocalizations.of(context)!.unableToGetYourLocationE}\n'
               'Would you like to proceed without location tracking?'),
           actions: [
             TextButton(
@@ -1320,8 +1320,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                 _proceedWithClockIn(LocationData(
                   latitude: 0.0,
                   longitude: 0.0,
-                  address: 'Location not available',
-                  neighborhood: 'Unknown',
+                  address: AppLocalizations.of(context)!.timesheetLocationUnavailable,
+                  neighborhood: AppLocalizations.of(context)!.commonUnknown,
                 ));
               },
               child: Text(AppLocalizations.of(context)!.proceedAnyway),
@@ -1495,7 +1495,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Shift ended - automatically clocked out from ${shift.displayName}'),
+            content: Text(AppLocalizations.of(context)!
+                .timeClockAutoClockOut(shift.displayName)),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -1533,7 +1534,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
         _resetClockOutState(null, skipExplicitFlag: true);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.shiftEndedClockOutRecorded),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
@@ -1705,7 +1706,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Clock-out failed: ${result['message']}'),
+                content: Text(AppLocalizations.of(context)!
+                    .timeClockClockOutFailed(result['message'])),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 4),
               ),
@@ -1732,7 +1734,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Clock-out failed: ${e.toString()}'),
+          content: Text(AppLocalizations.of(context)!
+              .timeClockClockOutFailed(e.toString())),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 4),
         ),
@@ -1768,7 +1771,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
     if (_currentShift == null) {
       _debugLog('No current shift for clock-in', isError: true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.noValidShiftFoundForClock),
           backgroundColor: Colors.red,
         ),
@@ -1839,7 +1842,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
            // Normal manual failure
            ScaffoldMessenger.of(context).showSnackBar(
              SnackBar(
-               content: Text('Clock-in failed: ${result['message']}'),
+               content: Text(AppLocalizations.of(context)!
+                   .timeClockClockInFailed(result['message'])),
                backgroundColor: Colors.red,
                duration: const Duration(seconds: 4),
              ),
@@ -1857,7 +1861,8 @@ class _TimeClockScreenState extends State<TimeClockScreen>
       } else if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Clock-in failed: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!
+                .timeClockClockInFailed(e.toString())),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -2096,7 +2101,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                             else
                               const CircularProgressIndicator(),
                             
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
                             Text(
                               _timeUntilAutoStart.contains('Failed') || _timeUntilAutoStart.contains('Error') 
                                   ? 'Auto-Start Failed' 

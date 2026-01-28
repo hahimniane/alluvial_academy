@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/quran_models.dart';
 import '../../../core/services/quran_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class QuranReader extends StatefulWidget {
   final int initialSurahNumber;
@@ -125,34 +125,34 @@ class _QuranReaderState extends State<QuranReader> {
                 _ToggleChip(
                   selected: _showTranslation,
                   icon: Icons.translate,
-                  label: 'Translation',
+                  label: AppLocalizations.of(context)!.quranReaderTranslation,
                   onPressed: () => setState(() => _showTranslation = !_showTranslation),
                 ),
                 _IconChip(
                   icon: Icons.text_decrease,
-                  label: 'Arabic',
+                  label: AppLocalizations.of(context)!.languageArabic,
                   onPressed: () => _adjustArabicFontSize(-2),
                 ),
                 _IconChip(
                   icon: Icons.text_increase,
-                  label: 'Arabic',
+                  label: AppLocalizations.of(context)!.languageArabic,
                   onPressed: () => _adjustArabicFontSize(2),
                 ),
                 if (_showTranslation) ...[
                   _IconChip(
                     icon: Icons.remove,
-                    label: 'Text',
+                    label: AppLocalizations.of(context)!.text,
                     onPressed: () => _adjustTranslationFontSize(-1),
                   ),
                   _IconChip(
                     icon: Icons.add,
-                    label: 'Text',
+                    label: AppLocalizations.of(context)!.text,
                     onPressed: () => _adjustTranslationFontSize(1),
                   ),
                 ],
                 _IconChip(
                   icon: Icons.refresh,
-                  label: 'Reload',
+                  label: AppLocalizations.of(context)!.quranReaderReload,
                   onPressed: () {
                     if (_selectedSurah == null) return;
                     setState(() {
@@ -213,7 +213,7 @@ class _QuranReaderState extends State<QuranReader> {
 
               final content = snapshot.data;
               if (content == null) {
-                return const Center(child: Text(AppLocalizations.of(context)!.noData));
+                return Center(child: Text(AppLocalizations.of(context)!.noData));
               }
 
               return ListView.builder(

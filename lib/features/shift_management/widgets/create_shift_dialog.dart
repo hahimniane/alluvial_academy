@@ -16,7 +16,7 @@ import '../../../core/enums/shift_enums.dart';
 import 'subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class CreateShiftDialog extends StatefulWidget {
   final TeachingShift? shift; // For editing existing shift
@@ -1065,7 +1065,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                         Text(
                           _selectedTeacherId != null
                               ? 'Change teacher (optional)'
-                              : 'Select a teacher',
+                              : AppLocalizations.of(context)!.selectTeacher,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -1073,7 +1073,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextField(
                       controller: _teacherSearchController,
                       decoration: InputDecoration(
@@ -1120,14 +1120,14 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               Container(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: availableUsers.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
                           child: Text(AppLocalizations.of(context)!.commonLoading),
                         ),
                       )
                     : filteredUsers.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Padding(
                               padding: EdgeInsets.all(16),
                               child: Text(AppLocalizations.of(context)!.userNoUsersFound),
@@ -1574,7 +1574,8 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                         Text(
                           _selectedStudentIds.isNotEmpty && widget.shift != null
                               ? 'Change students (optional)'
-                              : 'Select students (${_selectedStudentIds.length} selected)',
+                              : AppLocalizations.of(context)!
+                                  .selectStudentsWithCount(_selectedStudentIds.length),
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: const Color(0xff6B7280),
@@ -1582,7 +1583,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextField(
                       controller: _studentSearchController,
                       decoration: InputDecoration(
@@ -1621,7 +1622,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               Container(
                 constraints: const BoxConstraints(maxHeight: 200),
                 child: _availableStudents.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Padding(
                           padding: EdgeInsets.all(16),
                           child: Text(AppLocalizations.of(context)!.loadingStudents),
@@ -2087,7 +2088,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
         const SizedBox(height: 8),
         TimezoneSelectorField(
           selectedTimezone: _selectedTimezone,
-          dialogTitle: 'Select Timezone',
+          dialogTitle: AppLocalizations.of(context)!.selectTimezone,
           borderRadius: BorderRadius.circular(8),
           borderColor: const Color(0xffD1D5DB),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -2430,7 +2431,13 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Selected (${selectedAbbr}): ${DateFormat('MMM d').format(_shiftDate)}, ${_startTime.format(context)} - ${spansNextDay ? DateFormat('MMM d').format(endDate) + ', ' : ''}${_endTime.format(context)}',
+            AppLocalizations.of(context)!.shiftSelectedTimeRange(
+              selectedAbbr,
+              DateFormat('MMM d').format(_shiftDate),
+              _startTime.format(context),
+              spansNextDay ? '${DateFormat('MMM d').format(endDate)}, ' : '',
+              _endTime.format(context),
+            ),
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -2598,7 +2605,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                             ? const Color(0xff0386FF)
                             : const Color(0xff6B7280),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text(
                         _startTime.format(context),
                         style: GoogleFonts.inter(
@@ -2616,7 +2623,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 ),
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Text(AppLocalizations.of(context)!.text8),
             ),
@@ -2939,7 +2946,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     if (_selectedCategory == ShiftCategory.teaching) {
       if (_selectedStudentIds.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content:
                 Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent2),
             backgroundColor: Colors.red,
@@ -2950,7 +2957,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     } else {
       if (_selectedLeaderRole == null || _selectedLeaderRole!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.pleaseSelectADutyTypeFor),
             backgroundColor: Colors.red,
           ),
@@ -2966,7 +2973,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
     // Cross-midnight shifts are allowed (end < start). Disallow only zero-length.
     if (endMinutes == startMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.shiftEndTimeMustBeDifferent),
           backgroundColor: Colors.red,
         ),
@@ -3477,7 +3484,8 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                 if (widget.multiSelect) ...[
                   const SizedBox(width: 12),
                   FilterChip(
-                    label: Text('Selected (${_currentSelectedIds.length})'),
+                    label: Text(AppLocalizations.of(context)!
+                        .shiftSelectedCount(_currentSelectedIds.length)),
                     selected: _showSelectedOnly,
                     onSelected: (bool value) {
                       setState(() {
@@ -3587,7 +3595,7 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                       },
                     ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -3611,7 +3619,8 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: Text('Confirm (${_currentSelectedIds.length})'),
+                    child: Text(AppLocalizations.of(context)!
+                        .shiftConfirmCount(_currentSelectedIds.length)),
                   ),
                 ],
               ],

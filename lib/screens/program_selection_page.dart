@@ -8,7 +8,7 @@ import '../shared/widgets/fade_in_slide.dart';
 import '../core/models/enrollment_request.dart';
 import '../core/services/enrollment_service.dart';
 import 'enrollment_success_page.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 // Helper class for time ranges
 class _TimeRange {

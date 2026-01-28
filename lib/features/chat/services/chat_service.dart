@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../models/chat_message.dart';
 import '../models/chat_user.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../../core/utils/presence_utils.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -22,6 +23,7 @@ class ChatService {
             .where((doc) => doc.data()['email'] != currentUserEmail)
             .map((doc) {
           final data = doc.data();
+          final presence = PresenceUtils.resolvePresence(data);
           return ChatUser(
             id: doc.id,
             name:
@@ -29,10 +31,8 @@ class ChatService {
             email: data['email'] ?? data['e-mail'] ?? '',
             profilePicture: data['profile_picture_url'] ?? data['profile_picture'],
             role: data['user_type'],
-            isOnline: _isUserOnline(data['last_login']),
-            lastSeen: data['last_login'] != null
-                ? (data['last_login'] as Timestamp?)?.toDate()
-                : null,
+            isOnline: presence.isOnline,
+            lastSeen: presence.lastSeen,
           );
         }).toList());
   }
@@ -56,8 +56,10 @@ class ChatService {
               List<String>.from(chatData['participants'] ?? []);
 
           if (chatData['chat_type'] == 'group') {
-            chatFutures
-                .add(Future.value(_createGroupChatUser(chatDoc, chatData)));
+            chatFutures.add(_getUnreadCount(chatDoc.id).then(
+              (unreadCount) =>
+                  _createGroupChatUser(chatDoc, chatData, unreadCount),
+            ));
           } else {
             final otherUserId = participants
                 .firstWhere((id) => id != currentUserId, orElse: () => '');
@@ -77,8 +79,14 @@ class ChatService {
             final otherUserId = participants
                 .firstWhere((id) => id != currentUserId, orElse: () => '');
             if (otherUserId.isNotEmpty && usersData.containsKey(otherUserId)) {
-              chatFutures.add(Future.value(_createIndividualChatUser(
-                  chatDoc, otherUserId, usersData[otherUserId]!)));
+              chatFutures.add(_getUnreadCount(chatDoc.id).then(
+                (unreadCount) => _createIndividualChatUser(
+                  chatDoc,
+                  otherUserId,
+                  usersData[otherUserId]!,
+                  unreadCount,
+                ),
+              ));
             }
           }
         }
@@ -110,7 +118,10 @@ class ChatService {
   }
 
   ChatUser _createGroupChatUser(
-      DocumentSnapshot chatDoc, Map<String, dynamic> chatData) {
+    DocumentSnapshot chatDoc,
+    Map<String, dynamic> chatData,
+    int unreadCount,
+  ) {
     final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
     final participants = List<String>.from(chatData['participants'] ?? []);
 
@@ -125,13 +136,19 @@ class ChatService {
       lastMessage: lastMessage?['content'] ?? '',
       lastMessageTime: (lastMessage?['timestamp'] as Timestamp?)?.toDate() ??
           (chatData['created_at'] as Timestamp?)?.toDate(),
+      unreadCount: unreadCount,
     );
   }
 
   ChatUser _createIndividualChatUser(
-      DocumentSnapshot chatDoc, String userId, Map<String, dynamic> userData) {
+    DocumentSnapshot chatDoc,
+    String userId,
+    Map<String, dynamic> userData,
+    int unreadCount,
+  ) {
     final chatData = chatDoc.data() as Map<String, dynamic>;
     final lastMessage = chatData['last_message'] as Map<String, dynamic>?;
+    final presence = PresenceUtils.resolvePresence(userData);
 
     return ChatUser(
       id: userId,
@@ -140,13 +157,14 @@ class ChatService {
       email: userData['email'] ?? userData['e-mail'] ?? '',
       profilePicture: userData['profile_picture_url'] ?? userData['profile_picture'],
       role: userData['user_type'],
-      isOnline: _isUserOnline(userData['last_login']),
-      lastSeen: (userData['last_login'] as Timestamp?)?.toDate(),
+      isOnline: presence.isOnline,
+      lastSeen: presence.lastSeen,
       lastMessage: lastMessage?['content'] ?? '',
       lastMessageTime: lastMessage != null
           ? (lastMessage['timestamp'] as Timestamp?)?.toDate()
           : (chatData['created_at'] as Timestamp?)
               ?.toDate(), // Use creation time if no messages yet
+      unreadCount: unreadCount,
     );
   }
 
@@ -518,10 +536,13 @@ class ChatService {
   }
 
   // Mark messages as read
-  Future<void> markMessagesAsRead(String otherUserId) async {
+  Future<void> markMessagesAsRead(String chatIdOrUserId,
+      {bool isGroupChat = false}) async {
     if (currentUserId == null) return;
 
-    final chatId = _generateChatId(currentUserId!, otherUserId);
+    final chatId = isGroupChat
+        ? chatIdOrUserId
+        : _generateChatId(currentUserId!, chatIdOrUserId);
     // Get all messages and filter in client to avoid compound index requirement
     final messagesQuery = await _firestore
         .collection('chats')
@@ -539,6 +560,15 @@ class ChatService {
       }
     }
     await batch.commit();
+
+    // Touch the chat doc so chat list listeners refresh unread counts.
+    try {
+      await _firestore.collection('chats').doc(chatId).update({
+        'last_read_by.$currentUserId': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      // Ignore if chat doc is missing or update fails.
+    }
   }
 
   // Helper methods

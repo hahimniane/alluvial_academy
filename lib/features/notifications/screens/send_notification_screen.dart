@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/employee_model.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class SendNotificationScreen extends StatefulWidget {
   const SendNotificationScreen({super.key});
@@ -118,13 +118,13 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
     if (_recipientType == 'individual' || _recipientType == 'selected') {
       if (_selectedUserIds.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneRecipient)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneRecipient)),
         );
         return;
       }
     } else if (_recipientType == 'role' && _selectedRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectARole)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectARole)),
       );
       return;
     }
@@ -201,7 +201,10 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['message'] ?? 'Notifications sent successfully'),
+            content: Text(
+              data['message'] ??
+                  AppLocalizations.of(context)!.notificationSentSuccess,
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -217,16 +220,21 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Total Recipients: ${results['totalRecipients']}'),
-                  const SizedBox(height: 8),
+                  Text(AppLocalizations.of(context)!
+                      .notificationTotalRecipients(results['totalRecipients'])),
+                  SizedBox(height: 8),
                   Text(AppLocalizations.of(context)!.pushNotifications),
-                  Text('  ✓ Success: ${results['fcmSuccess']}'),
-                  Text('  ✗ Failed: ${results['fcmFailed']}'),
+                  Text(AppLocalizations.of(context)!
+                      .notificationSuccessCount(results['fcmSuccess'])),
+                  Text(AppLocalizations.of(context)!
+                      .notificationFailedCount(results['fcmFailed'])),
                   if (_sendEmail) ...[
                     const SizedBox(height: 8),
                     Text(AppLocalizations.of(context)!.emailNotifications),
-                    Text('  ✓ Sent: ${results['emailsSent']}'),
-                    Text('  ✗ Failed: ${results['emailsFailed']}'),
+                    Text(AppLocalizations.of(context)!
+                        .notificationEmailsSentCount(results['emailsSent'])),
+                    Text(AppLocalizations.of(context)!
+                        .notificationEmailsFailedCount(results['emailsFailed'])),
                   ],
                 ],
               ),
@@ -385,7 +393,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       
                       // Role Selection (when sending to role)
                       if (_recipientType == 'role') ...[
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         Text(
                           AppLocalizations.of(context)!.selectRole,
                           style: GoogleFonts.inter(
@@ -408,7 +416,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                               borderSide: const BorderSide(color: Color(0xffE5E7EB)),
                             ),
                           ),
-                          items: const [
+                          items: [
                             DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers2)),
                             DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.shiftStudents)),
                             DropdownMenuItem(value: 'parent', child: Text(AppLocalizations.of(context)!.parents)),
@@ -515,7 +523,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
                       
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       
                       // Send Button
                       SizedBox(
@@ -576,7 +584,9 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _recipientType == 'individual' ? 'Select User' : 'Select Users',
+                        _recipientType == 'individual'
+                            ? AppLocalizations.of(context)!.selectUser
+                            : AppLocalizations.of(context)!.selectUsers,
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -615,7 +625,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                           hint: Text(AppLocalizations.of(context)!.filterByRole),
                           isExpanded: true,
                           underline: const SizedBox(),
-                          items: const [
+                          items: [
                             DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.allRoles)),
                             DropdownMenuItem(value: 'teacher', child: Text(AppLocalizations.of(context)!.teachers2)),
                             DropdownMenuItem(value: 'student', child: Text(AppLocalizations.of(context)!.shiftStudents)),

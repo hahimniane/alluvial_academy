@@ -5,7 +5,7 @@ import 'package:alluwalacademyadmin/features/parent/widgets/student_overview_tab
 import 'package:alluwalacademyadmin/features/parent/widgets/student_classes_tab.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_tasks_tab.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_progress_tab.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentDetailScreen extends StatefulWidget {
   final String studentId;
@@ -71,7 +71,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-          tabs: const [
+          tabs: [
             Tab(text: AppLocalizations.of(context)!.overview),
             Tab(text: AppLocalizations.of(context)!.dashboardClasses),
             Tab(text: AppLocalizations.of(context)!.navTasks),

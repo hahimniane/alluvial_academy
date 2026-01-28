@@ -9,7 +9,7 @@ import 'package:alluwalacademyadmin/core/models/payment.dart';
 import 'package:alluwalacademyadmin/core/services/invoice_service.dart';
 import 'package:alluwalacademyadmin/core/services/payment_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String invoiceId;

@@ -12,7 +12,7 @@ import '../screens/math_page.dart';
 import '../screens/programming_page.dart';
 import '../screens/teachers_page.dart';
 import '../main.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ModernHeader extends StatefulWidget {
   const ModernHeader({super.key});

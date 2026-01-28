@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../../../core/enums/shift_enums.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Compact header for shift management screen (ConnectTeam-inspired)
 /// Height: 60px, contains essential controls only
@@ -59,19 +59,19 @@ class CompactShiftHeader extends StatelessWidget {
           const Spacer(),
 
           // View Options Dropdown
-          _buildViewOptionsDropdown(),
+          _buildViewOptionsDropdown(context),
 
           const SizedBox(width: 12),
 
           // Actions Dropdown (Settings, Subjects, Pay, DST)
           if (isAdmin) ...[
-            _buildActionsDropdown(),
+            _buildActionsDropdown(context),
             const SizedBox(width: 12),
           ],
 
           // Add Shift Button with Dropdown
           if (isAdmin) ...[
-            _buildAddShiftButton(),
+            _buildAddShiftButton(context),
             const SizedBox(width: 12),
           ],
 
@@ -148,7 +148,7 @@ class CompactShiftHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildViewOptionsDropdown() {
+  Widget _buildViewOptionsDropdown(BuildContext context) {
     return PopupMenuButton<String>(
       onSelected: onViewOptionSelected,
       child: Container(
@@ -164,24 +164,24 @@ class CompactShiftHeader extends StatelessWidget {
               AppLocalizations.of(context)!.viewOptions,
               style: GoogleFonts.inter(fontSize: 14),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, size: 20),
           ],
         ),
       ),
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'grid', child: Text(AppLocalizations.of(context)!.gridView)),
-        const PopupMenuItem(value: 'week', child: Text(AppLocalizations.of(context)!.weekCalendar)),
-        const PopupMenuItem(value: 'list', child: Text(AppLocalizations.of(context)!.listView)),
+        PopupMenuItem(value: 'grid', child: Text(AppLocalizations.of(context)!.gridView)),
+        PopupMenuItem(value: 'week', child: Text(AppLocalizations.of(context)!.weekCalendar)),
+        PopupMenuItem(value: 'list', child: Text(AppLocalizations.of(context)!.listView)),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'teachers', child: Text(AppLocalizations.of(context)!.teachersOnly)),
-        const PopupMenuItem(value: 'leaders', child: Text(AppLocalizations.of(context)!.leadersOnly)),
-        const PopupMenuItem(value: 'all', child: Text(AppLocalizations.of(context)!.allSchedules)),
+        PopupMenuItem(value: 'teachers', child: Text(AppLocalizations.of(context)!.teachersOnly)),
+        PopupMenuItem(value: 'leaders', child: Text(AppLocalizations.of(context)!.leadersOnly)),
+        PopupMenuItem(value: 'all', child: Text(AppLocalizations.of(context)!.allSchedules)),
       ],
     );
   }
 
-  Widget _buildActionsDropdown() {
+  Widget _buildActionsDropdown(BuildContext context) {
     return PopupMenuButton<String>(
       onSelected: onActionSelected,
       child: Container(
@@ -220,7 +220,7 @@ class CompactShiftHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildAddShiftButton() {
+  Widget _buildAddShiftButton(BuildContext context) {
     return PopupMenuButton<String>(
       onSelected: onAddSelected,
       child: ElevatedButton.icon(

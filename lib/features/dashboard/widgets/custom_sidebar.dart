@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/sidebar_model.dart';
 import '../services/sidebar_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../utils/sidebar_localization.dart';
 
 class CustomSidebar extends StatefulWidget {
   final int selectedIndex;
@@ -219,7 +220,8 @@ class _CustomSidebarState extends State<CustomSidebar> {
                   // Title
                   Expanded(
                     child: Text(
-                      section.title.toUpperCase(),
+                      SidebarLocalization.translate(context, section.title)
+                          .toUpperCase(),
                       style: GoogleFonts.inter(
                         fontSize: 9, // Further reduced
                         fontWeight: FontWeight.w700,
@@ -304,7 +306,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
             const SizedBox(width: 10), // Reduced from 12
             Expanded(
               child: Text(
-                item.label,
+                SidebarLocalization.translate(context, item.label),
                 style: GoogleFonts.inter(
                   fontSize: 13, // Reduced from 14
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -446,7 +448,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
         : const Color(0xFF4B5563);
 
     return Tooltip(
-      message: item.label,
+      message: SidebarLocalization.translate(context, item.label),
       waitDuration: const Duration(milliseconds: 300),
       child: Container(
         margin: const EdgeInsets.only(bottom: 4), // Reduced from 8
@@ -490,7 +492,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
                         const SizedBox(width: 10), // Reduced from 12
                         Flexible(
                           child: Text(
-                            item.label,
+                            SidebarLocalization.translate(context, item.label),
                             style: GoogleFonts.inter(
                               fontSize: 12, // Reduced from 13
                               color: Colors.white,

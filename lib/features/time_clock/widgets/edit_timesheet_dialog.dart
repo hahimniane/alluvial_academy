@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/enums/timesheet_enums.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class EditTimesheetDialog extends StatefulWidget {
   final String timesheetId;
@@ -53,7 +53,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
         if (mounted) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.timesheetApprovedLocked),
               backgroundColor: Colors.red,
             ),
@@ -178,8 +178,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       _timesheetDate = DateTime.now();
       _clockInDateTime = DateTime.now().copyWith(hour: 9, minute: 0);
       _clockOutDateTime = DateTime.now().copyWith(hour: 10, minute: 0);
-      _clockInTimeController = TextEditingController(text: AppLocalizations.of(context)!.900Am);
-      _clockOutTimeController = TextEditingController(text: AppLocalizations.of(context)!.1000Am);
+      _clockInTimeController = TextEditingController(text: '9:00 AM');
+      _clockOutTimeController = TextEditingController(text: AppLocalizations.of(context)!.time1000Am);
     }
   }
 
@@ -306,7 +306,8 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
       if (_shiftEndTime != null && newClockOutDateTime.isAfter(_shiftEndTime!)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Clock-out time cannot exceed scheduled shift end time (${DateFormat('h:mm a').format(_shiftEndTime!)})'),
+            content: Text(AppLocalizations.of(context)!.timeClockClockOutExceed(
+                DateFormat('h:mm a').format(_shiftEndTime!))),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
           ),
@@ -329,7 +330,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     if (_clockOutDateTime!.isBefore(_clockInDateTime!) || 
         _clockOutDateTime!.isAtSameMomentAs(_clockInDateTime!)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.clockOutTimeMustBeAfter),
           backgroundColor: Colors.red,
         ),
@@ -384,7 +385,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.timesheetUpdatedSuccess),
             backgroundColor: Colors.green,
           ),
@@ -542,7 +543,10 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Clock-out time cannot exceed shift end: ${DateFormat('h:mm a').format(_shiftEndTime!)}',
+                            AppLocalizations.of(context)!
+                                .timeClockClockOutExceedShort(
+                                    DateFormat('h:mm a')
+                                        .format(_shiftEndTime!)),
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFF0386FF),
@@ -672,7 +676,7 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
 
                 // Total Hours (calculated, read-only)
                 Text(
-                  AppLocalizations.of(context)!.timesheetTotalHours,
+                  'Total Hours',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -867,4 +871,3 @@ class _EditTimesheetDialogState extends State<EditTimesheetDialog> {
     );
   }
 }
-

@@ -1,0 +1,115 @@
+{
+  "category": "five_pillars",
+  "name": "Five Pillars of Islam",
+  "description": "Learn about the 5 pillars of Islam",
+  "questions": [
+    {
+      "id": "fp_001",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "How many pillars of Islam are there?",
+      "options": ["3", "4", "5", "6"],
+      "correctAnswer": 2,
+      "explanation": "There are 5 pillars of Islam: Shahada, Salah, Zakat, Sawm, and Hajj."
+    },
+    {
+      "id": "fp_002",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "What is the first pillar of Islam?",
+      "options": ["Salah (Prayer)", "Shahada (Declaration of Faith)", "Zakat (Charity)", "Sawm (Fasting)"],
+      "correctAnswer": 1,
+      "explanation": "Shahada is the declaration that there is no god but Allah and Muhammad is His messenger."
+    },
+    {
+      "id": "fp_003",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "How many times a day do Muslims pray?",
+      "options": ["3 times", "4 times", "5 times", "7 times"],
+      "correctAnswer": 2,
+      "explanation": "Muslims pray 5 times a day: Fajr, Dhuhr, Asr, Maghrib, and Isha."
+    },
+    {
+      "id": "fp_004",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "What is Zakat?",
+      "options": ["Fasting", "Prayer", "Charity", "Pilgrimage"],
+      "correctAnswer": 2,
+      "explanation": "Zakat is the obligatory charity that Muslims give to help those in need."
+    },
+    {
+      "id": "fp_005",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "During which month do Muslims fast?",
+      "options": ["Muharram", "Ramadan", "Shawwal", "Dhul Hijjah"],
+      "correctAnswer": 1,
+      "explanation": "Ramadan is the holy month during which Muslims fast from dawn to sunset."
+    },
+    {
+      "id": "fp_006",
+      "category": "five_pillars",
+      "difficulty": "medium",
+      "question": "What is the pilgrimage to Mecca called?",
+      "options": ["Umrah", "Hajj", "Salah", "Tawaf"],
+      "correctAnswer": 1,
+      "explanation": "Hajj is the annual pilgrimage to Mecca that every able Muslim should perform at least once."
+    },
+    {
+      "id": "fp_007",
+      "category": "five_pillars",
+      "difficulty": "medium",
+      "question": "Which prayer is performed before sunrise?",
+      "options": ["Dhuhr", "Asr", "Fajr", "Isha"],
+      "correctAnswer": 2,
+      "explanation": "Fajr is the dawn prayer performed before sunrise."
+    },
+    {
+      "id": "fp_008",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "What do Muslims do during Sawm (fasting)?",
+      "options": ["Pray extra prayers", "Give charity", "Not eat or drink from dawn to sunset", "Visit Mecca"],
+      "correctAnswer": 2,
+      "explanation": "During Sawm, Muslims abstain from food and drink from dawn until sunset."
+    },
+    {
+      "id": "fp_009",
+      "category": "five_pillars",
+      "difficulty": "medium",
+      "question": "What percentage of savings should be given as Zakat?",
+      "options": ["1%", "2.5%", "5%", "10%"],
+      "correctAnswer": 1,
+      "explanation": "Muslims give 2.5% of their savings as Zakat each year."
+    },
+    {
+      "id": "fp_010",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "What is the meaning of Shahada?",
+      "options": ["Prayer", "Testimony of Faith", "Fasting", "Charity"],
+      "correctAnswer": 1,
+      "explanation": "Shahada is the testimony that there is no god but Allah and Muhammad is His messenger."
+    },
+    {
+      "id": "fp_011",
+      "category": "five_pillars",
+      "difficulty": "medium",
+      "question": "Which prayer is performed at noon?",
+      "options": ["Fajr", "Dhuhr", "Asr", "Maghrib"],
+      "correctAnswer": 1,
+      "explanation": "Dhuhr is the noon prayer performed when the sun starts to decline."
+    },
+    {
+      "id": "fp_012",
+      "category": "five_pillars",
+      "difficulty": "easy",
+      "question": "When is the last day of Hajj?",
+      "options": ["8th Dhul Hijjah", "9th Dhul Hijjah", "10th Dhul Hijjah", "12th Dhul Hijjah"],
+      "correctAnswer": 3,
+      "explanation": "Hajj ends on the 12th of Dhul Hijjah."
+    }
+  ]
+}

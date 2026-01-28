@@ -360,7 +360,7 @@ class MyApp extends StatelessWidget {
           // DevicePreview configuration
           locale: appLocale,
           supportedLocales: LanguageService.supportedLocales,
-          localizationsDelegates: const [
+          localizationsDelegates: [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -651,7 +651,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
       if (!mounted) return;
       if (shift == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.thisClassLinkIsNoLonger),
             backgroundColor: Colors.red,
           ),

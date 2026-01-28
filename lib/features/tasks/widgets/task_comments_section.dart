@@ -6,7 +6,7 @@ import '../models/task.dart';
 import '../services/task_comment_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TaskCommentsSection extends StatefulWidget {
   final Task task;
@@ -78,7 +78,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!.commonErrorWithDetails(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -131,7 +131,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
         await TaskCommentService.deleteComment(commentId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.commentDeletedSuccessfully),
               backgroundColor: Colors.green,
             ),
@@ -147,7 +147,8 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting comment: ${e.toString()}'),
+              content: Text(AppLocalizations.of(context)!
+                  .taskDeleteCommentError(e.toString())),
               backgroundColor: Colors.red,
             ),
           );
@@ -228,7 +229,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'edit',
                       child: Row(
                         children: [
@@ -238,7 +239,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
@@ -294,7 +295,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
             Row(
               children: [
                 Icon(Icons.edit, size: 16, color: Colors.orange[600]),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   AppLocalizations.of(context)!.editingComment,
                   style: TextStyle(

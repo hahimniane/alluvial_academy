@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teacher_audit_metrics.dart';
 import '../../../core/services/audit_metrics_service.dart';
 import '../../../core/services/pilot_flag_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Teacher's personal audit dashboard
 /// Shows their performance metrics, details by class, and improvement areas
@@ -234,7 +234,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           labelColor: const Color(0xff0386FF),
           unselectedLabelColor: const Color(0xff6B7280),
           indicatorColor: const Color(0xff0386FF),
-          tabs: const [
+          tabs: [
             Tab(icon: Icon(Icons.dashboard), text: AppLocalizations.of(context)!.overview),
             Tab(icon: Icon(Icons.calendar_today), text: AppLocalizations.of(context)!.dashboardClasses),
             Tab(icon: Icon(Icons.access_time), text: AppLocalizations.of(context)!.clockIns),
@@ -649,7 +649,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
         subtitle: Text(
           startDate != null
               ? DateFormat('EEE, MMM d, h:mm a').format(startDate)
-              : 'Unknown date',
+              : AppLocalizations.of(context)!.commonUnknownDate,
           style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600]),
         ),
         trailing: Container(
@@ -749,7 +749,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
           ),
         ),
         title: Text(
-          timesheet['shiftTitle'] ?? 'Unknown Shift',
+          timesheet['shiftTitle'] ?? AppLocalizations.of(context)!.commonUnknownShift,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
@@ -854,12 +854,12 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
             color: const Color(0xff8B5CF6).withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Center(
+          child: Center(
             child: Text(AppLocalizations.of(context)!.text7, style: TextStyle(fontSize: 20)),
           ),
         ),
         title: Text(
-          form['shiftTitle'] ?? 'Unknown Class',
+          form['shiftTitle'] ?? AppLocalizations.of(context)!.commonUnknownClass,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(

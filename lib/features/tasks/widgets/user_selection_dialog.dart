@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class UserSelectionDialog extends StatefulWidget {
   final String title;
@@ -303,7 +303,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                   ],
                   Flexible(
                     child: TextButton(
@@ -333,7 +333,9 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                         ),
                       ),
                       child: Text(
-                        widget.allowMultiple ? 'Select Users' : 'Select User',
+                        widget.allowMultiple
+                            ? AppLocalizations.of(context)!.selectUsers
+                            : AppLocalizations.of(context)!.selectUser,
                         style: GoogleFonts.openSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

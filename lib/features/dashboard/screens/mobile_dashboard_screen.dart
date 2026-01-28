@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../chat/screens/chat_page.dart';
+import '../../chat/services/chat_service.dart';
+import '../../chat/models/chat_user.dart';
 import '../../time_clock/screens/time_clock_screen.dart';
 import './admin_dashboard_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
@@ -21,6 +23,7 @@ import './teacher_job_board_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 import '../../admin/screens/admin_classes_screen.dart'; // Admin classes screen
+import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
 
 // Onboarding imports
 import '../../../core/services/onboarding_service.dart';
@@ -34,8 +37,9 @@ class _NavItemData {
   final IconData icon;
   final String label;
   final int index;
+  final bool isChat;
   
-  _NavItemData(this.icon, this.label, this.index);
+  _NavItemData(this.icon, this.label, this.index, {this.isChat = false});
 }
 
 /// Beautiful mobile-optimized dashboard with bottom navigation
@@ -54,6 +58,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   String? _profilePictureUrl;
   bool _showOnboarding = false;
   bool _onboardingChecked = false;
+  final ChatService _chatService = ChatService();
 
   @override
   void initState() {
@@ -452,6 +457,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     if (role == 'student') {
       return [
         const StudentClassesScreen(), // Main screen for students
+        const QuizHomeScreen(), // Quiz feature
         const ChatPage(),
         const QuickTasksScreen(),
       ];
@@ -467,46 +473,48 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
   
   // Get navigation items based on role
   List<_NavItemData> get _navItems {
+    final l10n = AppLocalizations.of(context)!;
     final role = _userRole?.toLowerCase();
 
     // ONLY Teachers get Clock, Shifts, Forms, and Job Board tabs
     if (role == 'teacher') {
       return [
-        _NavItemData(Icons.home_rounded, 'Home', 0),
-        _NavItemData(Icons.calendar_today_rounded, 'Shifts', 1),
-        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 2),
-        _NavItemData(Icons.description_rounded, 'Forms', 3),
-        _NavItemData(Icons.work_outline_rounded, 'Jobs', 4),
+        _NavItemData(Icons.home_rounded, l10n.navHome, 0),
+        _NavItemData(Icons.calendar_today_rounded, l10n.navShifts, 1),
+        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
+        _NavItemData(Icons.description_rounded, l10n.navForms, 3),
+        _NavItemData(Icons.work_outline_rounded, l10n.navJobs, 4),
       ];
     }
 
     // Admins get admin features
     if (role == 'admin') {
       return [
-        _NavItemData(Icons.home_rounded, 'Home', 0),
-        _NavItemData(Icons.school_rounded, 'Classes', 1), // All classes view
-        _NavItemData(Icons.description_rounded, 'Forms', 2),
-        _NavItemData(Icons.notifications_rounded, 'Notify', 3),
-        _NavItemData(Icons.people_rounded, 'Users', 4),
-        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 5),
-        _NavItemData(Icons.task_alt_rounded, 'Tasks', 6),
+        _NavItemData(Icons.home_rounded, l10n.navHome, 0),
+        _NavItemData(Icons.school_rounded, l10n.navClasses, 1), // All classes view
+        _NavItemData(Icons.description_rounded, l10n.navForms, 2),
+        _NavItemData(Icons.notifications_rounded, l10n.navNotify, 3),
+        _NavItemData(Icons.people_rounded, l10n.navUsers, 4),
+        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 5, isChat: true),
+        _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 6),
       ];
     }
 
     // Students get classes-focused navigation
     if (role == 'student') {
       return [
-        _NavItemData(Icons.school_rounded, 'Classes', 0),
-        _NavItemData(Icons.chat_bubble_rounded, 'Chat', 1),
-        _NavItemData(Icons.task_alt_rounded, 'Tasks', 2),
+        _NavItemData(Icons.school_rounded, l10n.navClasses, 0),
+        _NavItemData(Icons.quiz_rounded, l10n.navQuiz, 1),
+        _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 2, isChat: true),
+        _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 3),
       ];
     }
 
     // Parents get basic features
     return [
-      _NavItemData(Icons.home_rounded, 'Home', 0),
-      _NavItemData(Icons.chat_bubble_rounded, 'Chat', 1),
-      _NavItemData(Icons.task_alt_rounded, 'Tasks', 2),
+      _NavItemData(Icons.home_rounded, l10n.navHome, 0),
+      _NavItemData(Icons.chat_bubble_rounded, l10n.navChat, 1, isChat: true),
+      _NavItemData(Icons.task_alt_rounded, l10n.navTasks, 2),
     ];
   }
 
@@ -791,7 +799,13 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                     itemKey = studentFeatureTour.tasksTabKey;
                   }
                 }
-                return _buildNavItem(item.icon, item.label, item.index, key: itemKey);
+                return _buildNavItem(
+                  item.icon,
+                  item.label,
+                  item.index,
+                  isChat: item.isChat,
+                  key: itemKey,
+                );
               }).toList(),
             ),
           ),
@@ -800,9 +814,18 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index, {GlobalKey? key}) {
+  Widget _buildNavItem(IconData icon, String label, int index,
+      {bool isChat = false, GlobalKey? key}) {
     final isSelected = _selectedIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isSelected
+        ? Theme.of(context).primaryColor
+        : Theme.of(context).iconTheme.color;
+    final baseIcon = Icon(
+      icon,
+      color: iconColor,
+      size: 26,
+    );
     
     return Expanded(
       key: key,
@@ -821,13 +844,10 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                color: isSelected
-                    ? Theme.of(context).primaryColor
-                    : Theme.of(context).iconTheme.color,
-                size: 26,
-              ),
+              if (isChat)
+                _buildChatBadgeIcon(baseIcon)
+              else
+                baseIcon,
               const SizedBox(height: 4),
               Text(
                 label,
@@ -846,5 +866,49 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     );
   }
 
-}
+  Widget _buildChatBadgeIcon(Widget icon) {
+    return StreamBuilder<List<ChatUser>>(
+      stream: _chatService.getUserChats(),
+      builder: (context, snapshot) {
+        final chats = snapshot.data ?? const [];
+        int totalUnread = 0;
+        for (final chat in chats) {
+          totalUnread += chat.unreadCount;
+        }
+        if (totalUnread <= 0) {
+          return icon;
+        }
 
+        final badgeText = totalUnread > 99 ? '99+' : totalUnread.toString();
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            icon,
+            Positioned(
+              right: -6,
+              top: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xff10B981),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  badgeText,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+}

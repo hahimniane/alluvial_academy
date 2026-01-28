@@ -5,7 +5,7 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import '../../../core/services/onboarding_service.dart';
 import '../../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Manages the student feature tour using coach marks
 class StudentFeatureTour {
@@ -112,6 +112,7 @@ class StudentFeatureTour {
               align: ContentAlign.top,
               builder: (context, controller) {
                 return _buildTooltipContent(
+                  context,
                   icon: Icons.school_rounded,
                   iconColor: const Color(0xFF0E72ED),
                   title: AppLocalizations.of(context)!.yourClasses,
@@ -146,6 +147,7 @@ class StudentFeatureTour {
               align: ContentAlign.bottom,
               builder: (context, controller) {
                 return _buildTooltipContent(
+                  context,
                   icon: Icons.videocam_rounded,
                   iconColor: const Color(0xFF10B981),
                   title: AppLocalizations.of(context)!.classCards,
@@ -189,6 +191,7 @@ class StudentFeatureTour {
             ),
             builder: (context, controller) {
               return _buildColorLegendContent(
+                context,
                 stepNumber: currentLegendStep,
                 totalSteps: totalSteps,
                 onNext: () {
@@ -217,6 +220,7 @@ class StudentFeatureTour {
               align: ContentAlign.top,
               builder: (context, controller) {
                 return _buildTooltipContent(
+                  context,
                   icon: Icons.chat_bubble_rounded,
                   iconColor: const Color(0xFF8B5CF6),
                   title: AppLocalizations.of(context)!.chatMessages,
@@ -251,6 +255,7 @@ class StudentFeatureTour {
               align: ContentAlign.top,
               builder: (context, controller) {
                 return _buildTooltipContent(
+                  context,
                   icon: Icons.task_alt_rounded,
                   iconColor: const Color(0xFF10B981),
                   title: AppLocalizations.of(context)!.navTasks,
@@ -284,6 +289,7 @@ class StudentFeatureTour {
               align: ContentAlign.bottom,
               builder: (context, controller) {
                 return _buildTooltipContent(
+                  context,
                   icon: Icons.person_rounded,
                   iconColor: const Color(0xFFF59E0B),
                   title: AppLocalizations.of(context)!.yourProfileSettings,
@@ -318,7 +324,7 @@ class StudentFeatureTour {
   }
 
   /// Build the color legend explanation widget
-  Widget _buildColorLegendContent({
+  Widget _buildColorLegendContent(BuildContext context, {
     required int stepNumber,
     required int totalSteps,
     required VoidCallback onNext,
@@ -361,7 +367,7 @@ class StudentFeatureTour {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  AppLocalizations.of(context)!.stepnumberOfTotalsteps,
+                  'Step ${stepNumber} of ${totalSteps}',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -399,32 +405,37 @@ class StudentFeatureTour {
           // Color legend items
           _buildColorLegendItem(
             color: const Color(0xFF10B981),
-            label: 'LIVE',
-            description: 'Class is happening now! Join immediately.',
+            label: AppLocalizations.of(context)!.studentFeatureTourLive,
+            description:
+                AppLocalizations.of(context)!.studentFeatureTourLiveDesc,
           ),
           const SizedBox(height: 10),
           _buildColorLegendItem(
             color: const Color(0xFF0E72ED),
-            label: 'JOIN NOW',
-            description: 'Class is ready to join.',
+            label: AppLocalizations.of(context)!.studentFeatureTourJoinnow,
+            description:
+                AppLocalizations.of(context)!.studentFeatureTourJoinNowDesc,
           ),
           const SizedBox(height: 10),
           _buildColorLegendItem(
             color: const Color(0xFFDC2626),
-            label: 'Starting soon',
-            description: 'Less than 5 minutes away!',
+            label: AppLocalizations.of(context)!.studentFeatureTourStartingsoon,
+            description:
+                AppLocalizations.of(context)!.studentFeatureTourStartingSoonDesc,
           ),
           const SizedBox(height: 10),
           _buildColorLegendItem(
             color: const Color(0xFFF59E0B),
-            label: 'Starting in 15 min',
-            description: 'Get ready, class is coming up.',
+            label: AppLocalizations.of(context)!.studentFeatureTourStartingin15min,
+            description:
+                AppLocalizations.of(context)!.studentFeatureTourStartingSoon15Desc,
           ),
           const SizedBox(height: 10),
           _buildColorLegendItem(
             color: const Color(0xFF6B7280),
-            label: 'Scheduled',
-            description: 'Future class, wait for the right time.',
+            label: AppLocalizations.of(context)!.shiftScheduled,
+            description:
+                AppLocalizations.of(context)!.studentFeatureTourScheduledDesc,
           ),
           
           const SizedBox(height: 20),
@@ -510,7 +521,8 @@ class StudentFeatureTour {
   }
 
   /// Build the tooltip content widget
-  Widget _buildTooltipContent({
+  Widget _buildTooltipContent(
+    BuildContext context, {
     required IconData icon,
     required Color iconColor,
     required String title,
@@ -558,7 +570,7 @@ class StudentFeatureTour {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  AppLocalizations.of(context)!.stepnumberOfTotalsteps,
+                  'Step ${stepNumber} of ${totalSteps}',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

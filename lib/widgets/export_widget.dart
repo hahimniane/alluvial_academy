@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_constants.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ExportWidget extends StatelessWidget {
   const ExportWidget({

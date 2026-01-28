@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/enrollment_request.dart';
 import '../../../core/services/job_board_service.dart';
 import 'filled_opportunities_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class EnrollmentManagementScreen extends StatefulWidget {
   const EnrollmentManagementScreen({super.key});
@@ -156,7 +156,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
           _buildTabItem('Inbox', _inboxCount, Icons.inbox_rounded),
           _buildTabItem('Ready', _contactedCount, Icons.call_end_rounded),
           _buildTabItem('Live', _broadcastCount, Icons.sensors_rounded),
-          const Tab(text: AppLocalizations.of(context)!.enrolledFilled),
+          Tab(text: AppLocalizations.of(context)!.enrolledFilled),
         ],
       ),
     );
@@ -237,7 +237,7 @@ class _EnrollmentListState extends State<_EnrollmentList> with AutomaticKeepAliv
 
         if (snapshot.hasError) {
           return Center(
-            child: Text('Error: ${snapshot.error}'),
+            child: Text(AppLocalizations.of(context)!.commonErrorWithDetails(snapshot.error ?? 'Unknown error')),
           );
         }
 
@@ -359,7 +359,7 @@ class _EnrollmentCard extends StatelessWidget {
                 if (isLive) ...[
                   const Icon(Icons.sensors,
                       size: 14, color: Color(0xff059669)),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     AppLocalizations.of(context)!.liveOnJobBoard,
                     style: GoogleFonts.inter(
@@ -415,7 +415,8 @@ class _EnrollmentCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            enrollment.subject ?? 'Unknown Subject',
+                            enrollment.subject ??
+                                AppLocalizations.of(context)!.commonUnknownSubject,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -424,7 +425,7 @@ class _EnrollmentCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${enrollment.studentName ?? 'Unknown'} • ${enrollment.gradeLevel}',
+                            '${enrollment.studentName ?? AppLocalizations.of(context)!.commonUnknown} • ${enrollment.gradeLevel}',
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xff64748B),
@@ -560,7 +561,7 @@ class _EnrollmentCard extends StatelessWidget {
                         fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 20),
                 ListTile(
-                  leading: const Icon(Icons.email),
+                  leading: Icon(Icons.email),
                   title: Text(enrollment.email),
                   onTap: () =>
                       launchUrl(Uri.parse('mailto:${enrollment.email}')),
@@ -603,7 +604,7 @@ class _EnrollmentCard extends StatelessWidget {
     if (status == 'pending') {
       await _handleStatusChange(context, 'contacted');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(AppLocalizations.of(context)!.markedAsContactedMovedToReady)));
       }
     }
@@ -633,7 +634,7 @@ class _EnrollmentCard extends StatelessWidget {
                 // but we can force UI update if needed via the stream
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                         content: Text(
                             AppLocalizations.of(context)!.broadcastLiveTeachersCanNowSee)),
                   );

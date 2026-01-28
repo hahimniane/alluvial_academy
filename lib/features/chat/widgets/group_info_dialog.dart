@@ -4,7 +4,7 @@ import '../services/chat_service.dart';
 import '../models/chat_user.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class GroupInfoDialog extends StatefulWidget {
   final ChatUser groupChat;
@@ -196,7 +196,8 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
                   itemCount: widget.groupChat.participants?.length ?? 0,
                   itemBuilder: (context, index) {
                     final participantId = widget.groupChat.participants![index];
-                    final participantName = memberNames[participantId] ?? 'Unknown User';
+                    final participantName =
+                        memberNames[participantId] ?? AppLocalizations.of(context)!.commonUnknownUser;
                     final isCreator = participantId == widget.groupChat.createdBy;
 
                     return Container(

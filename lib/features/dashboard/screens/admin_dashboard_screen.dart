@@ -22,7 +22,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_screen.dart';
 import '../../profile/widgets/teacher_profile_edit_dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
@@ -742,17 +742,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
             runSpacing: 12,
             children: [
               _buildHeroMetricChip(
-                label: 'Active today',
+                label: AppLocalizations.of(context)!.adminDashboardActivetoday,
                 value: _formatCompactNumber(stats['active_users']),
                 icon: Icons.groups_rounded,
               ),
               _buildHeroMetricChip(
-                label: 'Online now',
+                label: AppLocalizations.of(context)!.adminDashboardOnlinenow,
                 value: _formatCompactNumber(stats['online_now']),
                 icon: Icons.wifi_tethering_rounded,
               ),
               _buildHeroMetricChip(
-                label: 'Live forms',
+                label: AppLocalizations.of(context)!.adminDashboardLiveforms,
                 value: _formatCompactNumber(stats['active_forms']),
                 icon: Icons.assignment_rounded,
               ),
@@ -1328,7 +1328,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildDefaultDashboard() {
-    return const Center(
+    return Center(
       child: Text(AppLocalizations.of(context)!.loadingDashboard),
     );
   }
@@ -2495,19 +2495,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 'Add New User':
         // Navigate to add user screen
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToAddNewUser)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToAddNewUser)),
         );
         break;
       case 'Create Form':
         // Navigate to form builder
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToFormBuilder)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToFormBuilder)),
         );
         break;
       case 'View Reports':
         // Navigate to reports
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToReports)),
+          SnackBar(content: Text(AppLocalizations.of(context)!.navigatingToReports)),
         );
         break;
       case 'Export Form Responses':
@@ -2657,7 +2657,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  AppLocalizations.of(context)!.2MinutesAgo,
+                  '2 minutes ago',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -4119,7 +4119,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       AppLogger.error('Error launching URL: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.errorOpeningLink),
             backgroundColor: Colors.red,
           ),
@@ -6376,7 +6376,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedStudents.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.pleaseSelectAtLeastOneStudent),
           backgroundColor: Colors.red,
         ),
@@ -6471,7 +6471,8 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create assignment: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!
+                .dashboardAssignmentCreateFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -6796,7 +6797,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         ),
         const SizedBox(height: 8),
         if (_isLoading)
-          const Center(child: CircularProgressIndicator())
+          Center(child: CircularProgressIndicator())
         else if (_myStudents.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
@@ -7034,7 +7035,8 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                   children: [
                     const Icon(Icons.check_circle, color: Colors.white),
                     const SizedBox(width: 8),
-                    Text('File "${file.name}" added successfully!'),
+                    Text(AppLocalizations.of(context)!
+                        .dashboardFileAdded(file.name)),
                   ],
                 ),
                 backgroundColor: const Color(0xff10B981),
@@ -7045,7 +7047,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content:
                   Text(AppLocalizations.of(context)!.fileAttachmentIsOnlySupportedOn),
               backgroundColor: Colors.orange,
@@ -7061,7 +7063,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
             content: Row(
               children: [
                 const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(child: Text(AppLocalizations.of(context)!.failedToAddFileE)),
               ],
             ),
@@ -7370,7 +7372,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
@@ -7380,7 +7382,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
@@ -7691,7 +7693,7 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                 _loadMyAssignments(); // Refresh list
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(AppLocalizations.of(context)!.assignmentDeletedSuccessfully),
                     backgroundColor: Color(0xff10B981),
                   ),

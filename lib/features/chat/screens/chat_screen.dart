@@ -70,12 +70,13 @@ class _ChatScreenState extends State<ChatScreen> {
       isGroupChat: widget.chatUser.isGroup,
     );
     
-    // Mark messages as read when opening chat (only for individual chats)
-    if (!widget.chatUser.isGroup) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _chatService.markMessagesAsRead(widget.chatUser.id);
-      });
-    }
+    // Mark messages as read when opening chat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chatService.markMessagesAsRead(
+        widget.chatUser.id,
+        isGroupChat: widget.chatUser.isGroup,
+      );
+    });
   }
 
   Future<void> _checkPermissionAndContext() async {
@@ -460,6 +461,21 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         final messages = snapshot.data ?? [];
+        if (messages.isNotEmpty) {
+          final hasUnread = messages.any(
+            (message) =>
+                !message.isRead &&
+                message.senderId != _chatService.currentUserId,
+          );
+          if (hasUnread) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _chatService.markMessagesAsRead(
+                widget.chatUser.id,
+                isGroupChat: widget.chatUser.isGroup,
+              );
+            });
+          }
+        }
 
         if (messages.isEmpty) {
           return Center(
@@ -1673,7 +1689,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
             }
 
             if (snapshot.hasError) {
-              return const Center(
+              return Center(
                 child: Text(AppLocalizations.of(context)!.errorLoadingUsers),
               );
             }
@@ -1685,7 +1701,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
                 .toList();
 
             if (availableUsers.isEmpty) {
-              return const Center(
+              return Center(
                 child: Text(AppLocalizations.of(context)!.noUsersAvailableToAdd),
               );
             }
@@ -1769,7 +1785,7 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(AppLocalizations.of(context)!.failedToAddMembers),
                           backgroundColor: Colors.red,
                         ),

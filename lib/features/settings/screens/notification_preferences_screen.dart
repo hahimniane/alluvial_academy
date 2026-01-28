@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/notification_preferences_service.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -261,7 +261,7 @@ class _NotificationPreferencesScreenState
                                 .shiftNotificationOptions
                                 .map(
                               (minutes) => _buildTimeChip(
-                                label: '$minutes min',
+                                label: AppLocalizations.of(context)!.notificationPreferencesMinutesmin,
                                 value: minutes,
                                 isSelected:
                                     _shiftNotificationMinutes == minutes,
@@ -546,4 +546,3 @@ class _NotificationPreferencesScreenState
     );
   }
 }
-

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/services/user_role_service.dart';
 import 'dashboard.dart';
@@ -10,7 +12,7 @@ import 'features/parent/screens/parent_dashboard_layout.dart';
 import 'features/dashboard/screens/mobile_dashboard_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Check if running on native mobile platform
 bool get _isNativeMobile {
@@ -25,16 +27,87 @@ class RoleBasedDashboard extends StatefulWidget {
   State<RoleBasedDashboard> createState() => _RoleBasedDashboardState();
 }
 
-class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
+class _RoleBasedDashboardState extends State<RoleBasedDashboard>
+    with WidgetsBindingObserver {
   String? userRole;
   Map<String, dynamic>? userData;
   bool isLoading = true;
   String? error;
+  Timer? _presenceTimer;
+  DateTime? _lastPresenceUpdate;
+  String? _presenceUserId;
+
+  static const Duration _presenceInterval = Duration(minutes: 1);
+  static const Duration _presenceMinInterval = Duration(seconds: 20);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startPresenceTracking();
     _loadUserRole();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopPresenceTracking(setOffline: true);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPresenceTracking();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _stopPresenceTracking(setOffline: true);
+    }
+  }
+
+  void _startPresenceTracking() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    _presenceUserId = userId;
+    _presenceTimer?.cancel();
+    _updatePresence(isOnline: true);
+    _presenceTimer =
+        Timer.periodic(_presenceInterval, (_) => _updatePresence(isOnline: true));
+  }
+
+  void _stopPresenceTracking({required bool setOffline}) {
+    _presenceTimer?.cancel();
+    _presenceTimer = null;
+    if (setOffline) {
+      _updatePresence(isOnline: false);
+    }
+  }
+
+  Future<void> _updatePresence({required bool isOnline}) async {
+    final userId = _presenceUserId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final now = DateTime.now();
+    if (_lastPresenceUpdate != null &&
+        now.difference(_lastPresenceUpdate!) < _presenceMinInterval) {
+      return;
+    }
+    _lastPresenceUpdate = now;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(userId).set(
+        {
+          'is_online': isOnline,
+          'last_seen': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      AppLogger.error('Presence update failed: $e');
+    }
   }
 
   Future<void> _loadUserRole() async {
@@ -292,7 +365,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Role: ${userRole ?? "Unknown"}\nPlease contact an administrator.',
+              AppLocalizations.of(context)!.roleUnknownMessage(
+                userRole ?? AppLocalizations.of(context)!.commonUnknown,
+              ),
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xff6B7280),

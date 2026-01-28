@@ -9,7 +9,7 @@ import '../../../core/services/video_call_service.dart';
 import '../../../core/services/livekit_service.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Admin Classes Screen - Shows all classes and allows admins to join any class
 class AdminClassesScreen extends StatefulWidget {
@@ -119,9 +119,35 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
           }
         }
 
-        // Sort by start time
-        todayClasses.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
-        upcomingClasses.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        // Sort: joinable/active classes first, then by start time
+        todayClasses.sort((a, b) {
+          // Joinable classes come first
+          final aCanJoin = VideoCallService.canJoinClass(a);
+          final bCanJoin = VideoCallService.canJoinClass(b);
+          if (aCanJoin && !bCanJoin) return -1;
+          if (!aCanJoin && bCanJoin) return 1;
+          // Then active classes
+          final aIsActive = a.status == ShiftStatus.active;
+          final bIsActive = b.status == ShiftStatus.active;
+          if (aIsActive && !bIsActive) return -1;
+          if (!aIsActive && bIsActive) return 1;
+          // Then sort by start time
+          return a.shiftStart.compareTo(b.shiftStart);
+        });
+        upcomingClasses.sort((a, b) {
+          // Joinable classes come first
+          final aCanJoin = VideoCallService.canJoinClass(a);
+          final bCanJoin = VideoCallService.canJoinClass(b);
+          if (aCanJoin && !bCanJoin) return -1;
+          if (!aCanJoin && bCanJoin) return 1;
+          // Then active classes
+          final aIsActive = a.status == ShiftStatus.active;
+          final bIsActive = b.status == ShiftStatus.active;
+          if (aIsActive && !bIsActive) return -1;
+          if (!aIsActive && bIsActive) return 1;
+          // Then sort by start time
+          return a.shiftStart.compareTo(b.shiftStart);
+        });
         pastClasses.sort((a, b) => b.shiftStart.compareTo(a.shiftStart)); // Newest first
 
         setState(() {
@@ -201,7 +227,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(_error!, style: GoogleFonts.inter(fontSize: 16)),
           const SizedBox(height: 16),
           ElevatedButton(
@@ -250,10 +276,9 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
 
   Widget _buildClassCard(TeachingShift shift) {
     final now = DateTime.now();
-    final isActive = shift.status == ShiftStatus.active;
+    final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
     final isUpcoming = shift.shiftStart.isAfter(now);
-    final canJoin = isActive ||
-        (isUpcoming && shift.shiftStart.difference(now).inMinutes <= 15);
+    final canJoin = isActive || VideoCallService.canJoinClass(shift);
 
     Color statusColor;
     String statusText;
@@ -279,7 +304,11 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
         statusText = 'Missed';
         statusIcon = Icons.warning;
       case ShiftStatus.scheduled:
-        if (shift.shiftStart.isBefore(now)) {
+        if (shift.isClockedIn) {
+          statusColor = const Color(0xFF10B981);
+          statusText = 'In Progress';
+          statusIcon = Icons.play_circle;
+        } else if (shift.shiftStart.isBefore(now)) {
           statusColor = const Color(0xFFF59E0B);
           statusText = 'Missed';
           statusIcon = Icons.warning;
@@ -418,7 +447,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Teacher: ${shift.teacherName.isNotEmpty ? shift.teacherName : 'Unknown'}',
+                      'Teacher: ${shift.teacherName.isNotEmpty ? shift.teacherName : AppLocalizations.of(context)!.commonUnknown}',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: const Color(0xFF64748B),
@@ -696,7 +725,8 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to join class: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context)!
+                .classJoinFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -720,10 +750,8 @@ class _ClassDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final isActive = shift.status == ShiftStatus.active;
-    final canJoin = isActive ||
-        (shift.shiftStart.isAfter(now) &&
-            shift.shiftStart.difference(now).inMinutes <= 15);
+    final isActive = shift.status == ShiftStatus.active || shift.isClockedIn;
+    final canJoin = isActive || VideoCallService.canJoinClass(shift);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -827,7 +855,7 @@ class _ClassDetailsSheet extends StatelessWidget {
                     'Teacher',
                     Icons.person,
                     [
-                      _buildInfoRow('Name', shift.teacherName.isNotEmpty ? shift.teacherName : 'Unknown'),
+                      _buildInfoRow('Name', shift.teacherName.isNotEmpty ? shift.teacherName : AppLocalizations.of(context)!.commonUnknown),
                       if (shift.clockInTime != null)
                         _buildInfoRow(
                           'Clocked in',
@@ -863,7 +891,7 @@ class _ClassDetailsSheet extends StatelessWidget {
                       presence!.participants.map((p) {
                         final duration = p.joinedAt != null
                             ? _formatDuration(DateTime.now().difference(p.joinedAt!))
-                            : 'Unknown';
+                            : AppLocalizations.of(context)!.commonUnknown;
                         return _buildParticipantRow(
                           p.name.isNotEmpty ? p.name : p.identity,
                           p.role ?? 'Participant',

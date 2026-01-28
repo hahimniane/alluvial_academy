@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class SubjectStatCard extends StatelessWidget {
   final String subjectName;
@@ -104,7 +104,7 @@ class SubjectStatCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      AppLocalizations.of(context)!.timesheetTotalHours,
+                      'Total Hours',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

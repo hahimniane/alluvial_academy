@@ -5,7 +5,7 @@ import 'package:alluwalacademyadmin/core/services/parent_service.dart';
 import 'package:alluwalacademyadmin/core/models/teaching_shift.dart';
 import 'package:alluwalacademyadmin/core/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/subject_stat_card.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentProgressTab extends StatefulWidget {
   final String studentId;
@@ -321,7 +321,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                 child: _buildLearningStatItem(
                   icon: Icons.access_time_rounded,
                   iconColor: const Color(0xFF0386FF),
-                  label: 'Total Hours',
+                  label: AppLocalizations.of(context)!.studentProgressTabTotalhours,
                   value: '${totalHours.toStringAsFixed(1)}h',
                 ),
               ),
@@ -329,7 +329,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                 child: _buildLearningStatItem(
                   icon: Icons.calendar_view_week_rounded,
                   iconColor: const Color(0xFF16A34A),
-                  label: 'This Week',
+                  label: AppLocalizations.of(context)!.timesheetThisWeek,
                   value: classesThisWeek.toString(),
                 ),
               ),
@@ -342,7 +342,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                 child: _buildLearningStatItem(
                   icon: Icons.calendar_month_rounded,
                   iconColor: const Color(0xFFF59E0B),
-                  label: 'This Month',
+                  label: AppLocalizations.of(context)!.timesheetThisMonth,
                   value: classesThisMonth.toString(),
                 ),
               ),
@@ -350,7 +350,7 @@ class _StudentProgressTabState extends State<StudentProgressTab> {
                 child: _buildLearningStatItem(
                   icon: Icons.subject_rounded,
                   iconColor: const Color(0xFF8B5CF6),
-                  label: 'Subjects',
+                  label: AppLocalizations.of(context)!.studentProgressTabSubjects,
                   value: uniqueSubjects.toString(),
                 ),
               ),

@@ -12,7 +12,7 @@ import '../../../core/services/location_service.dart';
 import '../../../utility_functions/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class TimesheetTable extends StatefulWidget {
   final List<dynamic>? clockInEntries;
@@ -107,8 +107,9 @@ class _TimesheetTableState extends State<TimesheetTable>
               start: entry['start'] ?? '',
               end: entry['end'] ?? '',
               totalHours: entry['totalHours'] ?? '00:00',
-              description:
-                  'Teaching session with ${entry['type'] ?? 'Unknown Student'}',
+              description: AppLocalizations.of(context)!.timeClockTeachingSessionWith(
+                entry['type'] ?? AppLocalizations.of(context)!.commonUnknownStudent,
+              ),
               status: TimesheetStatus.draft, // Clock-in entries start as draft
             );
 
@@ -133,6 +134,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         // Combine Firebase entries (priority) with unique clock-in entries
         timesheetData = [...savedEntries, ...clockInData];
         _timesheetDataSource = TimesheetDataSource(
+          context: context,
           timesheetData: timesheetData,
           onEdit: _editEntry,
           onView: _viewEntry,
@@ -236,7 +238,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 8),
               action: SnackBarAction(
-                label: 'Refresh',
+                label: AppLocalizations.of(context)!.commonRefresh,
                 textColor: Colors.white,
                 onPressed: () {
                   // Trigger a hard refresh on web
@@ -358,7 +360,7 @@ class _TimesheetTableState extends State<TimesheetTable>
             // Show success message
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text(AppLocalizations.of(context)!.entryUpdatedSuccessfully),
                   backgroundColor: Colors.green,
                 ),
@@ -394,7 +396,7 @@ class _TimesheetTableState extends State<TimesheetTable>
               ),
               child: const Icon(Icons.send, color: Colors.blue, size: 20),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               AppLocalizations.of(context)!.timesheetSubmitForReview,
               style: constants.openSansHebrewTextStyle.copyWith(
@@ -495,8 +497,7 @@ class _TimesheetTableState extends State<TimesheetTable>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
-              children: [
+            content: Row(children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
                 Text(AppLocalizations.of(context)!.timesheetSubmittedSuccess),
@@ -559,7 +560,7 @@ class _TimesheetTableState extends State<TimesheetTable>
             // Location information
             if (entry.clockInLatitude != null ||
                 entry.clockOutLatitude != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _buildLocationSection(entry),
             ],
           ],
@@ -762,7 +763,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                 Row(
                   children: [
                     _buildFilterDropdown(),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     _buildExportButton(),
                     const SizedBox(width: 8),
                     _buildSubmitButton(),
@@ -779,7 +780,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                     headerColor: const Color(0xff0386FF).withOpacity(0.1),
                   ),
                   child: _timesheetDataSource == null
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Center(child: CircularProgressIndicator())
                       : SfDataGrid(
                           source: _timesheetDataSource!,
                           columnWidthMode: ColumnWidthMode.fill,
@@ -874,7 +875,7 @@ class _TimesheetTableState extends State<TimesheetTable>
                                     ),
                                   ),
                                 ),
-                                child: Text(AppLocalizations.of(context)!.timesheetTotalHours,
+                                child: Text('Total Hours',
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
                               ),
@@ -1123,7 +1124,9 @@ class _TimesheetTableState extends State<TimesheetTable>
         }
       },
       icon: const Icon(Icons.send, size: 16),
-      label: Text('Submit Drafts (${drafts.length})'),
+      label: Text(
+        AppLocalizations.of(context)!.timesheetSubmitDrafts(drafts.length),
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xff10B981),
         foregroundColor: Colors.white,
@@ -1205,6 +1208,7 @@ class _TimesheetTableState extends State<TimesheetTable>
         onEdit: _editEntry,
         onView: _viewEntry,
         onSubmit: _submitEntry,
+        context: context,
       );
     });
   }
@@ -1216,11 +1220,14 @@ class TimesheetDataSource extends DataGridSource {
   final Function(TimesheetEntry)? onView;
   final Function(TimesheetEntry)? onSubmit;
 
+  final BuildContext context;
+
   TimesheetDataSource({
     required List<TimesheetEntry> timesheetData,
     this.onEdit,
     this.onView,
     this.onSubmit,
+    required this.context,
   }) {
     _timesheetData = timesheetData
         .map<DataGridRow>((entry) => DataGridRow(
@@ -1893,8 +1900,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
+        Row(children: [
             Icon(Icons.calendar_today, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
@@ -1979,8 +1985,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
+        Row(children: [
             Icon(Icons.person, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
@@ -2028,7 +2033,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
                   ),
                   child: TextFormField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: AppLocalizations.of(context)!.searchStudents,
                       prefixIcon: Icon(Icons.search, color: Color(0xff0386FF)),
                       border: InputBorder.none,
@@ -2256,8 +2261,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
+        Row(children: [
             Icon(Icons.coffee, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
@@ -2281,7 +2285,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             ),
             child: DropdownButtonFormField<int>(
               initialValue: _breakMinutes,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.all(16),
                 suffixIcon: Icon(Icons.expand_more, color: Color(0xff0386FF)),
@@ -2308,8 +2312,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
+        Row(children: [
             Icon(Icons.notes, size: 16, color: Color(0xff0386FF)),
             SizedBox(width: 8),
             Text(
@@ -2356,8 +2359,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
+        Row(children: [
             Icon(Icons.location_on, size: 16, color: Color(0xff10B981)),
             SizedBox(width: 8),
             Text(
@@ -2637,7 +2639,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     // Custom validation for student selection
     if (_selectedStudent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.pleaseSelectAStudent),
           backgroundColor: Colors.red,
         ),
@@ -2648,7 +2650,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     // Mandatory location validation
     if (_currentLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
               AppLocalizations.of(context)!.locationIsMandatoryPleaseWaitFor),
           backgroundColor: Colors.red,
@@ -2687,7 +2689,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     // Custom validation for student selection
     if (_selectedStudent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.pleaseSelectAStudent),
           backgroundColor: Colors.red,
         ),
@@ -2698,7 +2700,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
     // Mandatory location validation
     if (_currentLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
               AppLocalizations.of(context)!.locationIsMandatoryPleaseWaitFor),
           backgroundColor: Colors.red,

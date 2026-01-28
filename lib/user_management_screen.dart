@@ -14,7 +14,7 @@ import 'core/models/employee_model.dart';
 import 'utility_functions/export_helpers.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -176,7 +176,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Icon(
                         Icons.person,
@@ -270,7 +270,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                 Tab(
                                   text: 'USERS (${numberOfUsers.toString()})',
                                 ),
-                                const Tab(text: AppLocalizations.of(context)!.admins1),
+                                Tab(text: AppLocalizations.of(context)!.admins1),
                               ],
                             ),
                           ),
@@ -454,7 +454,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                     ),
                                   ),
                                 ),
-                                const Center(
+                                Center(
                                   child: Text(AppLocalizations.of(context)!.adminsTabContent),
                                 ),
                               ],
@@ -467,7 +467,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                       _employeeDataSource!.updateDataSource(_filteredEmployees);
                     }
 
-                    return const Center(child: Text(AppLocalizations.of(context)!.noDataAvailable));
+                    return Center(child: Text(AppLocalizations.of(context)!.noDataAvailable));
                   },
                 ),
               ),
@@ -647,7 +647,7 @@ class TasksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Text(AppLocalizations.of(context)!.thisIsTheTaskscreenScreen),
       ),
@@ -660,7 +660,7 @@ class TimeOffScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Text(AppLocalizations.of(context)!.thisIsTheTimeoffscreenScreen),
       ),

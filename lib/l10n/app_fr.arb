@@ -100,13 +100,14 @@
   "languageArabic": "Arabe",
   "navHome": "Accueil",
   "navShifts": "Cours",
-  "navChat": "Messages",
-  "navForms": "Formulaires",
+  "navChat": "Chat",
+  "navForms": "Forms",
   "navJobs": "Emplois",
   "navClasses": "Classes",
-  "navNotify": "Notifier",
-  "navUsers": "Utilisateurs",
+  "navNotify": "Alertes",
+  "navUsers": "Comptes",
   "navTasks": "Tâches",
+  "navQuiz": "Quiz",
   "navDashboard": "Tableau de bord",
   "navTimeClock": "Pointage",
   "navSchedule": "Emploi du temps",
@@ -183,7 +184,7 @@
   "shiftReschedule": "Reprogrammer le cours",
   "shiftReportIssue": "Signaler un problème",
   "shiftDate": "Date",
-  "shiftTime": "Heure",
+  "shiftTime": "Heure du cours",
   "shiftStartTime": "Heure de début",
   "shiftEndTime": "Heure de fin",
   "shiftHourlyRate": "Taux horaire",
@@ -191,8 +192,8 @@
   "shiftAddNotes": "Ajouter des notes...",
   "chatMessages": "Messages",
   "chatConnectTeam": "Connectez-vous et collaborez avec votre équipe",
-  "chatRecentChats": "Conversations récentes",
-  "chatMyContacts": "Mes contacts",
+  "chatRecentChats": "Récents",
+  "chatMyContacts": "Contacts",
   "chatSearchConversations": "Rechercher des conversations et utilisateurs...",
   "chatNoConversations": "Aucune conversation",
   "chatStartConversation": "Commencez une conversation en parcourant tous les utilisateurs",
@@ -304,7 +305,7 @@
   "timesheetDate": "Date",
   "timesheetStart": "Début",
   "timesheetEnd": "Fin",
-  "timesheetTotalHours": "Heures totales",
+  "timesheetTotalHours": "Total des heures : {hours}",
   "timesheetClockInLocation": "Lieu de pointage",
   "timesheetClockOutLocation": "Lieu de dépointage",
   "timesheetStatus": "Statut",
@@ -360,7 +361,7 @@
   "userStudentLoginNote": "Les étudiants se connectent avec leur ID et mot de passe",
   "userResetPassword": "Réinitialiser le mot de passe",
   "userPasswordReset": "Réinitialisation du mot de passe",
-  "userNewPasswordFor": "Nouveau mot de passe pour {name}",
+  "userNewPasswordFor": "Nouveau mot de passe pour {name} :",
   "userEmailSentToParent": "Email envoyé au parent avec les nouveaux identifiants",
   "userShareCredentials": "Partagez ce mot de passe avec l'étudiant ou son parent.",
   "userPasswordNotStored": "Mot de passe non stocké",
@@ -376,16 +377,16 @@
   "userResettingPassword": "Réinitialisation en cours...",
   "userArchived": "Utilisateur archivé",
   "userRestored": "Utilisateur restauré",
-  "userPromoteConfirm": "Êtes-vous sûr de vouloir promouvoir {name} administrateur ?",
+  "userPromoteConfirm": "Voulez-vous vraiment promouvoir {name} à admin ?",
   "userPromote": "Promouvoir",
   "userPromotedSuccess": "Utilisateur promu administrateur",
   "userCannotDeleteSelf": "Vous ne pouvez pas supprimer votre propre compte.",
-  "userDeleteConfirm": "Êtes-vous sûr de vouloir supprimer définitivement {name} ?",
+  "userDeleteConfirm": "Voulez-vous vraiment supprimer définitivement cet utilisateur ?",
   "userDeleteCannotUndo": "Cette action est irréversible.",
   "userDeleteTeacherClasses": "Supprimer également les cours de ce professeur",
   "userDeleteStudentClasses": "Supprimer également les cours de cet étudiant",
   "userGroupClassesRemain": "Les cours de groupe resteront pour les autres étudiants.",
-  "userDeletedSuccess": "Utilisateur supprimé avec succès",
+  "userDeletedSuccess": "{name} a été définitivement supprimé",
   "userDeleteFailed": "Échec de la suppression.",
   "userAddNewUsers": "Ajouter de nouveaux utilisateurs",
   "userCreateAccounts": "Créez des comptes utilisateurs et attribuez des rôles",
@@ -442,5 +443,3228 @@
   "jobAcceptedOn": "Accepté le {date}",
   "jobAlreadyFilled": "Déjà pourvu",
   "jobAcceptStudent": "Accepter l'étudiant",
-  "jobAcceptedSuccess": "Emploi accepté ! L'administrateur finalisera l'emploi du temps et vous contactera."
+  "jobAcceptedSuccess": "Emploi accepté ! L'administrateur finalisera l'emploi du temps et vous contactera.",
+  "zeroResults": "0 Résultats",
+  "time1000Am": "10h00",
+  "time1200Pm": "12h00",
+  "aComputer": "Un ordinateur",
+  "aNewVersionOfAlluvialAcademy": "Une nouvelle version de l'Académie alluviale",
+  "aNewVersionOfAlluvialAcademy2": "Une nouvelle version de l'Académie alluviale2",
+  "aPhone": "Un téléphone",
+  "aTablet": "Un comprimé",
+  "abilityToSwitchBetweenAdminAnd": "Possibilité de changer d'administrateur et",
+  "about35OrLess": "Environ 35 ou moins",
+  "about50OrMore": "Environ 50 ou plus",
+  "accessRestricted": "Accès restreint",
+  "accessToUserManagementAndSystem": "Accès à la gestion et au système des utilisateurs",
+  "account": "Compte",
+  "accountNotSetUp": "Compte non configuré",
+  "accountSettingsBuildInfo": "Configuration du compte Construisez l'information",
+  "actionFeatureComingSoon": "Une fonctionnalité d'action à venir",
+  "active": "Activité",
+  "activeForms": "Formulaires actifs",
+  "activeTemplateUpdated": "Modèle actif mis à jour",
+  "activeUsers": "Usagers actifs",
+  "activityWillAppearHereAsYour": "L'activité apparaîtra ici comme votre",
+  "actualPaymentsBackgroundLoad": "Paiements réels Charge de base",
+  "add": "Ajouter",
+  "addAndManageSubjectsForShifts": "Ajouter et gérer des sujets pour les postes",
+  "addAnotherShift": "Ajouter un autre quart de travail",
+  "addAnotherShift2": "Ajouter un autre Maj2",
+  "addAnotherStudent": "Ajouter un autre élève",
+  "addAnotherTask": "Ajouter une autre tâche",
+  "addAnotherUser": "Ajouter un autre utilisateur",
+  "addAnyAdditionalNotesOrInstructions": "Ajouter des notes ou instructions supplémentaires",
+  "addAnyCommentsOrCorrections": "Ajouter des commentaires ou des corrections",
+  "addAssignment": "Ajouter une tâche",
+  "addAtLeastOneField": "Ajouter au moins un champ",
+  "addDate": "Ajouter une date",
+  "addDetailsSubtasksOrFiles": "Ajouter les détails Sous-tâches ou fichiers",
+  "addField": "Ajouter un champ",
+  "addFile": "Ajouter un fichier",
+  "addFilesToShareResourcesOr": "Ajouter des fichiers pour partager des ressources ou",
+  "addFirstRate": "Ajouter le premier taux",
+  "addImage": "Ajouter une image",
+  "addLabel": "Ajouter une étiquette",
+  "addLocation": "Ajouter un emplacement",
+  "addLocationTags": "Ajouter des étiquettes d'emplacement",
+  "addMoreDetailsAboutThisTask": "Ajouter plus de détails sur cette tâche",
+  "addMultipleTasks": "Ajouter plusieurs tâches",
+  "addMultipleTasksInOneGo": "Ajouter plusieurs tâches en une seule fois",
+  "addNewSubject": "Ajouter un nouveau sujet",
+  "addNote": "Ajouter une note",
+  "addOption": "Ajouter une option",
+  "addOption2": "Ajouter l'option2",
+  "addQuestion": "Ajouter une question",
+  "addSection": "Ajouter une section",
+  "addSingleTask": "Ajouter une seule tâche",
+  "addSubject": "Ajouter un sujet",
+  "addTag": "Ajouter une étiquette",
+  "addTag2": "Ajouter une étiquette2",
+  "addTask": "Ajouter une tâche",
+  "addTask2": "Ajouter la tâche2",
+  "addTitle": "Ajouter le titre",
+  "addUsers": "Ajouter des utilisateurs",
+  "addVideo": "Ajouter une vidéo",
+  "additionalInformation": "Informations complémentaires",
+  "additionalNotesOptional": "Notes complémentaires Facultatives",
+  "adjustPayment": "Ajustement du paiement",
+  "adjustPayment2": "Ajuster le paiement2",
+  "adjustmentAmount": "Montant des ajustements",
+  "admin": "Administrateur",
+  "adminApproved": "Administrateur approuvé",
+  "adminCreated": "Création d'un administrateur",
+  "adminDashboard": "Tableau de bord",
+  "adminPrivilegesHaveBeenRevoked": "Privilèges administratifs Ont été révoqués",
+  "adminResponse": "Réponse de l'administrateur",
+  "adminReview": "Examen administratif",
+  "adminRoleManagement": "Gestion des rôles administratifs",
+  "adminSchoolEdu": "École administrative Édu",
+  "adminSettings": "Paramètres d' administration",
+  "adminType": "Type d'administration",
+  "admins": "Administrateurs",
+  "admins1": "Administrateurs1",
+  "adminsTabContent": "Admins Contenu de l'onglet",
+  "adultEnglishLiteracyProgram": "Programme d'alphabétisation en anglais pour adultes",
+  "adultStudent": "Étudiant adulte",
+  "aeh": "Aeh",
+  "afterSchoolTutoring": "Après la scolarité",
+  "allAdmins": "Tous les administrateurs",
+  "allAssociatedDataIncludingTimesheetsForms": "Toutes les données associées incluant les feuilles de temps Formulaires",
+  "allClasses": "Toutes les classes",
+  "allDepartments": "Tous les départements",
+  "allForms": "Tous les formulaires",
+  "allFutureShiftsInThisSeries": "Tous les changements futurs dans cette série",
+  "allParents": "Tous les parents",
+  "allPriorities": "Toutes les priorités",
+  "allRecordsNowReflectTheNew": "Tous les enregistrements reflètent maintenant le nouveau",
+  "allRoles": "Tous les rôles",
+  "allSchedules": "Toutes les annexes",
+  "allSelectedShiftsDeletedSuccessfully": "Tous les postes sélectionnés supprimés avec succès",
+  "allStatus": "Tous les statuts",
+  "allStatuses": "Tous les statuts",
+  "allStudents": "Tous les étudiants",
+  "allSystemsOperational": "Tous systèmes opérationnels",
+  "allTasks": "Toutes les tâches",
+  "allTeachers": "Tous les enseignants",
+  "allTiers": "Tous niveaux",
+  "allUsers": "Tous les utilisateurs",
+  "allUsersGlobal": "Tous les utilisateurs",
+  "allUsersInRole": "Tous les utilisateurs en rôle",
+  "allowParticipantsToUnmute": "Permettre aux participants Pour désamorcer",
+  "allowRestorationAtAnyTime": "Permettre la restauration à tout moment",
+  "allowThemToLogInAgain": "Laissez-les se connecter à nouveau",
+  "alluwal": "Alluwal",
+  "alluwalAcademyIsAQuranEducation": "Alluwal Academy est AQuran Education",
+  "alluwalEducationHub": "Alluwal Education Hub",
+  "alreadyAdminTeacher": "Déjà professeur administrateur",
+  "alreadyClockedIn": "Déjà programmé",
+  "alsoSendAsEmailNotification": "Envoyer aussi sous forme de notification par courriel",
+  "always247": "Toujours247",
+  "annuler": "Année",
+  "appTour": "Visite App",
+  "applicationDetails": "Détails de la demande",
+  "applicationSubmitted": "Demande présentée",
+  "applyAdjustment": "Appliquer le rajustement",
+  "applyAnyway": "Appliquer de toute façon",
+  "applyChanges": "Appliquer les modifications",
+  "applyChangesToAllShiftsAnd": "Appliquer les modifications à tous les postes et",
+  "applyForLeadership": "Demande de leadership",
+  "applyTo": "Appliquer à",
+  "applyToRole": "Appliquer au rôle",
+  "applyToTeach": "Appliquer pour enseigner",
+  "applyWageChangesToRecords": "Appliquer les changements de salaire Aux dossiers",
+  "applyWageToRole": "Appliquer le salaire au rôle",
+  "applyingWageChangesToAllRecords": "Application des modifications salariales à tous les dossiers",
+  "approvalEarnings": "Revenus d'agrément",
+  "approve": "Approuver",
+  "approve2": "Approuver2",
+  "approveAll": "Tout approuver",
+  "approveCalculatePayment": "Approuver le calcul du paiement",
+  "approveConsolidatedShift": "Approuver Déplacement",
+  "approveEditContinue": "Approuver l'édition Continuer",
+  "approveTimesheet": "Approuver la feuille de temps",
+  "arabicNameOptional": "Nom arabe Facultatif",
+  "archive": "Archive",
+  "archivePermanentlyDelete": "Archiver Supprimer définitivement",
+  "archiveTheirAccountNotPermanentlyDelete": "Archiver leur compte Ne pas supprimer définitivement",
+  "archiveUser": "Utilisateur d' archives",
+  "archived": "Archivé",
+  "archivedUsers": "Usagers archivés",
+  "areYouSureYouWantTo": "Tu es sûr de vouloir",
+  "areYouSureYouWantTo10": "Êtes-vous sûr de vouloir 10",
+  "areYouSureYouWantTo11": "Êtes-vous sûr que vous voulez 11",
+  "areYouSureYouWantTo12": "Êtes-vous sûr que vous voulez 12",
+  "areYouSureYouWantTo13": "Êtes-vous sûr de vouloir 13",
+  "areYouSureYouWantTo14": "Êtes-vous sûr que vous voulez 14",
+  "areYouSureYouWantTo2": "Êtes-vous sûr que vous voulez 2",
+  "areYouSureYouWantTo3": "Êtes-vous sûr que vous voulez 3",
+  "areYouSureYouWantTo4": "Êtes-vous sûr de vouloir quitter la classe ?",
+  "areYouSureYouWantTo5": "Êtes-vous sûr que vous voulez 5",
+  "areYouSureYouWantTo6": "Êtes-vous sûr que vous voulez 6",
+  "areYouSureYouWantTo7": "Êtes-vous sûr que vous voulez 7",
+  "areYouSureYouWantTo8": "Êtes-vous sûr que vous voulez 8",
+  "areYouSureYouWantTo9": "Êtes-vous sûr que vous voulez 9",
+  "assalamuAlaikum": "Assalamu Alaikum",
+  "assalamuAlaikumFirstname": "Assalamu Alaikum Prénom",
+  "assignTo": "Affecter à",
+  "assignTo2": "Attribuer à 2",
+  "assignToStudents": "Assigner aux élèves",
+  "assignedByAssignedbyname": "Assigné par Nom",
+  "assignedTo": "Affecté à",
+  "assignedTo2": "Affecté à 2",
+  "assignee": "Assigné",
+  "assignmentDeleted": "Attribution supprimée",
+  "assignmentDeletedSuccessfully": "Attribution supprimée avec succès",
+  "atLeast6CharactersLongN": "Au moins6Caractéristiques Long N",
+  "attachedFiles": "Fichiers joints",
+  "attachedFiles2": "Fichiers joints2",
+  "attachmentRemovedSuccessfully": "Pièce jointe supprimée avec succès",
+  "attachments": "Pièces jointes",
+  "attachments2": "Pièces jointes2",
+  "attachmentsOptional": "Pièces jointes Facultative",
+  "attendancepercent": "Taux de participation",
+  "aucunLogPourLeMoment": "Aucun Log Pour Le Moment",
+  "auditGenerationErrors": "Erreurs liées à la génération de vérification",
+  "auditManagement": "Gestion de l ' audit",
+  "auditSubmittedSuccessfully": "Vérification présentée avec succès",
+  "auditUnderReview": "Vérification en cours",
+  "authenticationError": "Erreur d'authentification",
+  "authenticationService": "Service d'authentification",
+  "autoClockedOutShiftTimeEnded": "Heure de fin du quart de travail automatique",
+  "autoFilledFromSubjectOrLeave": "Auto rempli à partir de sujet ou de congé",
+  "autoGenerated": "Autogénérés",
+  "autoLogoutInTimeuntilautologout": "Déconnexion automatique Dans Timeuntilautologout",
+  "autoSendingReportIn30Seconds": "Envoi automatique de rapport en30secondes",
+  "available": "Disponible",
+  "availableForms": "Formulaires disponibles",
+  "availableFunctions": "Fonctions disponibles",
+  "availableOptions": "Options disponibles",
+  "availableShifts": "Postes disponibles",
+  "availableSubjectsClickToConfigure": "Sujets disponibles Cliquez pour configurer",
+  "average": "Moyenne",
+  "avgResponseResponserate": "Taux de réponse",
+  "avgResponseTimeResponsetimeMs": "Avg Temps de réponse",
+  "backToHome": "Retour à la maison",
+  "backupCreatedSuccessfully": "Sauvegarde réalisée avec succès",
+  "backupSettings": "Paramètres de sauvegarde",
+  "badgeText": "Texte de l'insigne",
+  "ban": "Interdiction",
+  "banForm": "Formulaire d'interdiction",
+  "banShift": "Changement d'interdiction",
+  "beTheFirstToLeaveA": "Soyez le premier à quitter A",
+  "becomeATeacher": "Devenez ATeacher",
+  "becomeATutor": "Devenez ATutor",
+  "beginYourLanguageJourney": "Commencez votre voyage linguistique",
+  "beta": "Bêta",
+  "block": "Bloc",
+  "blueTaskStatusUpdateNotification": "Avis de mise à jour de l'état de la tâche bleue",
+  "bonusPerExcellence": "Bonus par excellence",
+  "bookFreeTrialClass": "Classe d'essai gratuite",
+  "breakDuration": "Durée de la pause",
+  "briefDescriptionOfTheSubject": "Brève description du sujet",
+  "broadcastLiveTeachersCanNowSee": "Les enseignants en direct peuvent maintenant voir",
+  "broadcastNow": "Diffusion actuelle",
+  "broadcastToTeachers": "Diffusion aux enseignants",
+  "browserCacheIssueDetectedPleaseRefresh": "Navigateur Cache Problème détecté S'il vous plaît rafraîchir",
+  "buildTheFutureWithCode": "Construire l'avenir avec le code",
+  "bulkApproveTimesheets": "Approbation en vrac des feuilles de temps",
+  "bulkEditEveryClassForThe": "Modifier en vrac chaque classe pour Les",
+  "bulkEditShifts": "Majs d'édition en vrac",
+  "bulkRejectTimesheets": "Calendrier des rejets en vrac",
+  "bulkUpdateFailedE": "La mise à jour en vrac a échoué E",
+  "byApprovingYouAcceptTheEdited": "En vous approuvant accepter la modification",
+  "byContinuingYouWillApproveBoth": "En continuant, vous approuverez les deux",
+  "byRole": "Par rôle",
+  "cacheClearedSuccessfully": "Cache Effacé avec succès",
+  "callToAction": "Appel à l'action",
+  "cameraAndMicrophoneAccessAreNeeded": "Caméra et accès au microphone sont nécessaires",
+  "cameraAndMicrophonePermissionsAreRequired": "Les autorisations de caméra et de microphone sont requises",
+  "cannotEditClockOutTimeYou": "Impossible de modifier l'heure de sortie",
+  "career": "Carrière",
+  "category": "Catégorie",
+  "ceFormulaireNAPasDe": "Ce Formulaire NAPas De",
+  "ceo": "Ceo",
+  "change": "Changement",
+  "changePassword": "Modifier le mot de passe",
+  "changePriority": "Changement Priorité",
+  "changeProfilePicture": "Modifier l'image du profil",
+  "changeStatus": "Modifier l'état",
+  "changeTheAssignedTeacherForAll": "Changer l'enseignant pour tous",
+  "changeTheSubjectForAllSelected": "Modifier le sujet pour tous les sujets sélectionnés",
+  "changesToApply": "Modifications pour appliquer",
+  "changesWillBeAppliedImmediatelyThe": "Les changements seront appliqués immédiatement Les",
+  "changesWillUpdateTheRecurringTemplate": "Les changements mettront à jour le modèle récurrent",
+  "chatFeature": "Fonction de discussion",
+  "chatMessages2": "Messages de discussion2",
+  "checkOurFrequentlyAskedQuestionsFor": "Consultez notre foire aux questions",
+  "checkPaymentStatus": "Vérifier l'état du paiement",
+  "checkingConnection": "Vérification de la connexion",
+  "checkingForUpdates": "Vérification des mises à jour",
+  "checkingRecurringSeries": "Vérification des séries récurrentes",
+  "checkpoints": "Points de contrôle",
+  "children": "Enfants",
+  "childrenSPrivacy": "Protection des enfants",
+  "chooseAFormFromTheSidebar": "Choisissez AForm dans la barre latérale",
+  "chooseAParentForThisMinor": "Choisissez un parent pour ce mineur",
+  "chooseAParentToViewTheir": "Choisissez AParent pour voir leurs",
+  "chooseARole": "Choisir ARole",
+  "chooseAnAdminOrPromotedTeacher": "Choisir un administrateur ou un enseignant promu",
+  "chooseFromGallery": "Choisissez parmi Galerie",
+  "chooseUsersToAssignThisTask": "Choisir des utilisateurs pour attribuer cette tâche",
+  "chooseYourPreferredExportFormat": "Choisissez votre format d'exportation préféré",
+  "chooseYourProgram": "Choisissez votre programme",
+  "claimShift": "Changement de réclamation",
+  "classCards": "Cartes de classe",
+  "classReportNotSubmitted": "Rapport de classe non présenté",
+  "classReportSubmitted": "Rapport de classe présenté",
+  "classReportSubmittedMissedShift": "Rapport de classe soumis Poste manquant",
+  "classSignUp": "Inscription à la classe",
+  "classSignUp2": "Inscription en classe2",
+  "classcount": "Nombre de classes",
+  "classesCompleted": "Classes terminées",
+  "cleanup": "Nettoyage",
+  "cleanupOld": "Nettoyage ancien",
+  "cleanupOldDrafts": "Nettoyage des anciens brouillons",
+  "clearAll": "Tout effacer",
+  "clearAll2": "Tout effacer2",
+  "clearDateRange": "Effacer la plage de dates",
+  "clearFilter": "Effacer le filtre",
+  "clearFilters": "Effacer les filtres",
+  "clearLogs": "Effacer les journaux",
+  "clearPerformanceLogs": "Effacer les journaux de performance",
+  "clearSearch": "Effacer la recherche",
+  "clearSelection": "Effacer la sélection",
+  "clearTeacherFilter": "Effacer le filtre de l'enseignant",
+  "clickAddSubjectToCreateYour": "Cliquez sur Ajouter un sujet pour créer votre",
+  "clickToAddSignature": "Cliquez pour ajouter une signature",
+  "clickToUploadImage": "Cliquez pour télécharger l'image",
+  "clockIn": "Réveil",
+  "clockInLocation": "Horloge en place",
+  "clockInNotYet": "Pas encore",
+  "clockIns": "Clock Ins",
+  "clockOutLocation": "Emplacement de l'horloge",
+  "clockOutTimeCannotBeEdited": "Temps d'horloge ne peut pas être modifié",
+  "clockOutTimeMustBeAfter": "Le temps de sortie doit être après",
+  "clockedIn": "Enregistré",
+  "codingIsTheLiteracyOfThe": "Le codage est l'alphabétisation",
+  "codingTechnology": "Technologie de codage",
+  "collapseSidebar": "Réduire la barre latérale",
+  "comfortable": "Confortable",
+  "commentDeletedSuccessfully": "Commentaire supprimé avec succès",
+  "commentcount": "Compte de commentaires",
+  "comments": "Commentaires",
+  "completeNow": "Compléter maintenant",
+  "completeProfile": "Profil complet",
+  "completeYourProfileToAppearOn": "Compléter votre profil pour apparaître",
+  "completedClassesWillAppearHere": "Les classes terminées apparaîtront ici",
+  "completedcount": "Nombre achevé",
+  "completedcountCompleted": "Nombre achevé Achevé",
+  "composeNotification": "Composer la notification",
+  "computeMetricsNow": "Calculez les paramètres maintenant",
+  "computingMetricsThisMayTakeA": "Computing Metrics ce qui peut prendre A",
+  "configureAndManageYourEducationPlatform": "Configurer et gérer votre plateforme d'éducation",
+  "configureApplicationSettings": "Configuration des paramètres d'application",
+  "configureIslamicEducationTeachingSchedule": "Configurer le calendrier de l'enseignement islamique",
+  "configuredRates": "Taux configurés",
+  "confirmNewPassword": "Confirmer un nouveau mot de passe",
+  "confirmNewPassword2": "Confirmer le nouveau mot de passe2",
+  "confirmPassword": "Confirmer le mot de passe",
+  "conflictsDetected": "Conflits détectés",
+  "connectWithTheWorldThroughLanguage": "Se connecter au monde par la langue",
+  "connecteam": "Connexion",
+  "connectingToClass": "Connexion à la classe",
+  "connectingToTaskDatabase": "Connexion à la base de données des tâches",
+  "connectionTestErrorE": "Erreur de test de connexion E",
+  "contactInformation": "Coordonnées",
+  "contactSupport": "Contacter le support",
+  "contactUs": "Contactez-nous",
+  "continueWithGoogle": "Continuer avec Google",
+  "convertedslotTeachertzabbr": "Convertedslot Teachertzabbr",
+  "copyAllShiftsFromCurrentWeek": "Copier tous les postes de la semaine actuelle",
+  "copyClassLink": "Copier le lien de classe",
+  "copySummary": "Copier le résumé",
+  "copyToClipboard": "Copier vers le presse-papiers",
+  "coreValues": "Valeurs de base",
+  "couldNotOpenUrl": "Impossible d'ouvrir Url",
+  "count": "Nombre",
+  "countTotal": "Nombre total",
+  "courses": "Cours",
+  "coursesEditor": "Éditeur de cours",
+  "creErPayer": "Cre Er Payer",
+  "createAParentAccountFirst": "Créer un compte Parent d'abord",
+  "createAndManageYourFormTemplates": "Créer et gérer vos modèles de formulaire",
+  "createAssignment": "Créer une attribution",
+  "createDefaultTemplates": "Créer des modèles par défaut",
+  "createForm": "Créer un formulaire",
+  "createMultipleTasks": "Créer plusieurs Fonctions",
+  "createShift": "Créer un Maj",
+  "createTask": "Créer une tâche",
+  "createUsers": "Créer des utilisateurs",
+  "createYourFirstAssignmentToGet": "Créez votre première mission à obtenir",
+  "createYourFirstFormToGet": "Créez votre premier formulaire pour obtenir",
+  "createdBy": "Créé par",
+  "createdBy2": "Créé par2",
+  "createdByMe": "Créé par moi",
+  "creating": "Création",
+  "csv": "Csv",
+  "csvExportedSuccessfully": "Csv exporté avec succès",
+  "csvExportedSuccessfully2": "Csv exporté avec succès2",
+  "ctaEditor": "Éditeur Cta",
+  "currentPassword": "Mot de passe actuel",
+  "currentPayment": "Paiement actuel",
+  "currentSchedule": "Calendrier actuel",
+  "currentUserInfo": "Informations utilisateur actuelles",
+  "dailyRecurrenceSettings": "Paramètres quotidiens de récurrence",
+  "dailyReports": "Rapports quotidiens",
+  "dataComparison": "Comparaison des données",
+  "dataSecurity": "Sécurité des données",
+  "databaseConnection": "Connexion à la base de données",
+  "dateAdded": "Date d'ajout",
+  "dateFilterCleared": "Filtre de date effacé",
+  "datePicker": "Récupérateur de date",
+  "dateRange": "Gamme de dates",
+  "dateRange2": "Gamme de dates2",
+  "dateSubmitted": "Date de soumission",
+  "datestrType": "Type de date",
+  "daylightSavingTimeAdjustment": "Ajustement du temps d'économie de jour",
+  "debug": "Débogues",
+  "debugCheckMyAssignments": "Vérifier mes tâches",
+  "debugErrorE": "Erreur de débogage E",
+  "debugFirestoreDrafts": "Déboguez les ébauches de Firestore",
+  "debugInfo": "Informations de débogage",
+  "debugInfoN": "Info de débogage :",
+  "decision": "Décision",
+  "defaultTemplatesCreated": "Modèles par défaut créés",
+  "deleteAccount": "Supprimer le compte",
+  "deleteAll": "Tout supprimer",
+  "deleteAllTeacherShifts": "Supprimer tous les postes d'enseignant",
+  "deleteAllTeachershifts": "Supprimer tous les postes d'enseignant",
+  "deleteAssignment": "Supprimer l'attribution",
+  "deleteAttachment": "Supprimer la pièce jointe",
+  "deleteComment": "Supprimer le commentaire",
+  "deleteDraft": "Supprimer le projet",
+  "deleteField": "Supprimer le champ",
+  "deleteForm": "Supprimer le formulaire",
+  "deleteMultipleShifts": "Supprimer plusieurs déplacements",
+  "deletePermanently": "Supprimer définitivement",
+  "deleteShift": "Supprimer le déplacement",
+  "deleteShift2": "Supprimer Shift2",
+  "deleteSubject": "Supprimer le sujet",
+  "deleteTask": "Supprimer la tâche",
+  "deleteTasks": "Supprimer les tâches",
+  "deleteTeacherShifts": "Supprimer les postes d'enseignant",
+  "deleteTemplate": "Supprimer le modèle",
+  "deleteThisShift": "Supprimer ce déplacement",
+  "description": "Désignation des marchandises",
+  "description2": "Désignation des marchandises",
+  "designedForAdultsWhoWantTo": "Conçu pour les adultes qui veulent",
+  "detailedPerformanceLogs": "Registres détaillés des performances",
+  "details": "Détails",
+  "directUpdate": "Mise à jour directe",
+  "discoverTheTransformativePowerOfOur": "Découvrez la puissance transformatrice de notre",
+  "displayName": "Afficher le nom",
+  "displayTimezone": "Afficher le fuseau horaire",
+  "dispute": "Conflit",
+  "disputeSubmittedSuccessfully": "Conflit soumis Réussir",
+  "download": "Télécharger",
+  "downloadFile": "Télécharger le fichier",
+  "downloadImage": "Télécharger l'image",
+  "downloadPdf": "Télécharger Pdf",
+  "draft": "Projet",
+  "draftDeletedSuccessfully": "Projet supprimé avec succès",
+  "draftForms": "Projets de formulaires",
+  "dragToMoveClickToClose": "Faites glisser pour déplacer Cliquez pour fermer",
+  "dstAdjustmentComplete": "Dst Réglage terminé",
+  "dstTimeAdjustment": "Dst Réglage du temps",
+  "dueDate": "Date d'échéance",
+  "dueDate2": "Date d'échéance2",
+  "dueDateOptional": "Échéance Facultative",
+  "duplicate": "Dupliquer",
+  "duplicateKioskCodeFoundKioskcodePlease": "Code du Kiosque trouvé S'il vous plaît.",
+  "duplicateWeek": "Semaine du double",
+  "dureEAPayerHeures": "Durée EAPayer Heures",
+  "duringClass": "Pendant la classe",
+  "dutyType": "Type de droit",
+  "eChoueS": "E Choix S",
+  "eG": "E G",
+  "eG021Or5": "E G021Or5",
+  "eGEnterYourAnswerHere": "Votre réponse ici",
+  "eGMathematics": "E GMathématique",
+  "eGOfficeRemote": "E GOffice Remote",
+  "eGQuranStudies": "E GQuran Études",
+  "eGQuranStudies2": "E GQuran Études2",
+  "eGStudentRequestedToMove": "E GÉÉLÉCENDANT DEMANDE DE DÉménAGE",
+  "eGWhatLessonDidYou": "Quelle leçon avez-vous fait?",
+  "eachClassCardHasAColor": "Chaque carte de classe a une couleur",
+  "editAllInSeries": "Tout éditer en série",
+  "editAllShiftsForAStudent": "Modifier tous les postes pour les étudiants AS",
+  "editByTimeRangeStudent": "Modifier par Étudiant de la plage de temps",
+  "editEvaluation": "Modifier l'évaluation",
+  "editField": "Modifier le champ",
+  "editFunctionalityComingSoonUseWeb": "Modifier la fonctionnalité Bientôt Utiliser le Web",
+  "editInformation": "Modifier l'information",
+  "editOptions": "Modifier les options",
+  "editShift": "Modifier le déplacement",
+  "editSubject": "Modifier le sujet",
+  "editTask": "Modifier la tâche",
+  "editTemplate": "Modifier le modèle",
+  "editTheMainLandingPageHero": "Modifier la page d'atterrissage principale Hero",
+  "editThisShiftOnly": "Modifier seulement ce changement",
+  "edited": "Modifié",
+  "editedTimesheetsDetected": "Feuilles de temps modifiées détectées",
+  "editingComment": "Modifier le commentaire",
+  "educationHub": "Centre pour l ' éducation",
+  "emailAddress": "Adresse électronique",
+  "emailNotifications": "Notifications par courriel",
+  "emailSentToParent": "Envoyer un courriel à un parent",
+  "emailSupportAlluwaleducationhubOrg": "Soutien par courriel Alluwaleducationhub Organisme",
+  "emailSystemWebCompatible": "Système de messagerie Web Compatible",
+  "emailTest": "Essai par courriel",
+  "employeeNotes": "Notes aux employés",
+  "employmentStartDate": "Emploi Date de début",
+  "empowerYourselfWithTheSkillsOf": "Donnez-vous les compétences de",
+  "enableDisplaynameMicrophone": "Activer le nom d'affichage Microphone",
+  "endDateOptional": "Date de fin Facultative",
+  "endTimeMustBeAfterStart": "L'heure de fin doit être après le début",
+  "englishIsTheGlobalLanguageOf": "L'anglais est la langue mondiale de",
+  "englishLanguageProgram": "Programme de langue anglaise",
+  "enrollInCoursename": "Inscription au nom du cours",
+  "enrollInTutoring": "Inscription à la formation",
+  "enrollNow": "Inscrivez-vous maintenant",
+  "enrolledFilled": "Remplissage",
+  "enseignantTeachername": "Enseignant Nom du professeur",
+  "enterADescriptiveTitle": "Entrez undescriptif Titre",
+  "enterCurrentPassword": "Saisissez le mot de passe actuel",
+  "enterCustomShiftName": "Saisissez le nom du poste personnalisé",
+  "enterFieldLabel": "Entrez l'étiquette du champ",
+  "enterFormDescription": "Entrez la description du formulaire",
+  "enterFormTitle": "Entrez le titre du formulaire",
+  "enterLessonDetailsNotesOrObservations": "Entrez les détails de la leçon Notes ou observations",
+  "enterNewPassword": "Saisissez un nouveau mot de passe",
+  "enterNotes": "Saisissez les notes",
+  "enterNotificationMessage": "Entrez la notification Message",
+  "enterNotificationTitle": "Entrez la notification Titre",
+  "enterPlaceholderText": "Entrez le détenteur de place Texte",
+  "enterReasonForRejection": "Entrez le motif du rejet",
+  "enterTemplateDescription": "Saisissez la description du modèle",
+  "enterTemplateName": "Saisissez le nom du modèle",
+  "enterYourEmailOrKiosqueCode": "Entrez votre courriel ou votre code Kiosque",
+  "entryUpdatedSuccessfully": "Mise à jour réussie",
+  "entrycountEvents": "Événements du compte d'entrée",
+  "erreurLorsDeLaCreAtion": "Erreur Lors De La Cre Ation",
+  "error": "Erreur",
+  "errorAddingSubjectE": "Erreur lors de l'ajout du sujet E",
+  "errorAdjustingShiftsE": "Erreur lors du réglage des postes E",
+  "errorApplyingPenaltyE": "Erreur d'application de la pénalité E",
+  "errorApplyingWageChangesE": "Erreur d'application des changements de salaire E",
+  "errorArchivingTaskE": "Erreur lors de l'archivage de la tâche E",
+  "errorBanningShiftE": "Erreur Banning Shift E",
+  "errorCouldNotLoadFormTemplate": "Erreur Impossible de charger le modèle de formulaire",
+  "errorCreatingStudentE": "Erreur lors de la création de l'étudiant E",
+  "errorDeletingFormE": "Erreur de suppression du formulaire E",
+  "errorDeletingShiftE": "Erreur de suppression du Maj E",
+  "errorDeletingShiftsE": "Erreur Suppression des déplacements E",
+  "errorDeletingTeacherShiftsE": "Erreur de suppression des postes d'enseignant E",
+  "errorDeletingTemplateE": "Erreur de suppression du modèle E",
+  "errorDeletingUserE": "Erreur de suppression de l'utilisateur E",
+  "errorDetails": "Détails de l'erreur",
+  "errorDuplicatingFormE": "Erreur de duplication du formulaire E",
+  "errorDuplicatingTemplateE": "Erreur de duplication du modèle E",
+  "errorE": "Erreur E",
+  "errorError": "Erreur",
+  "errorExportingCsvE": "Erreur lors de l'exportation de Csv E",
+  "errorExportingE": "Erreur d'exportation E",
+  "errorExportingExcelE": "Erreur lors de l'exportation d'Excel E",
+  "errorFetchingTeachersE": "Erreur de réception des enseignants E",
+  "errorLoadingCredentialsE": "Erreur lors du chargement des lettres de créances E",
+  "errorLoadingDrafts": "Erreur lors du chargement des ébauches",
+  "errorLoadingFormE": "Erreur lors du chargement du formulaire E",
+  "errorLoadingLanguageSettingsPleaseRestart": "Erreur lors du chargement des paramètres de langue S'il vous plaît redémarrer",
+  "errorLoadingMetricsE": "Erreur lors du chargement des mesures E",
+  "errorLoadingProfile": "Erreur lors du chargement du profil",
+  "errorLoadingSettingsE": "Erreur lors du chargement des paramètres E",
+  "errorLoadingShiftDetailsE": "Erreur lors de la chargement des détails E",
+  "errorLoadingShiftE": "Erreur lors de la chargement du Maj E",
+  "errorLoadingShiftsE": "Erreur lors du chargement des Majes E",
+  "errorLoadingStudents": "Erreur lors du chargement des étudiants",
+  "errorLoadingSubjects": "Erreur lors du chargement des sujets",
+  "errorLoadingSubmissionE": "Erreur lors du chargement de la soumission E",
+  "errorLoadingSubmissionsE": "Erreur lors du chargement des soumissions E",
+  "errorLoadingTasks": "Erreur lors du chargement des tâches",
+  "errorLoadingTemplatesE": "Erreur lors du chargement des modèles E",
+  "errorLoadingTimesheetDataE": "Erreur lors du chargement des données de la feuille de temps E",
+  "errorLoadingTimesheetE": "Erreur lors du chargement de la feuille de temps E",
+  "errorLoadingUsers": "Erreur lors du chargement des utilisateurs",
+  "errorLoadingUsersE": "Erreur lors du chargement des utilisateurs E",
+  "errorMissingShiftInformation": "Erreur Informations manquantes",
+  "errorOpeningFileE": "Erreur lors de l'ouverture du fichier E",
+  "errorOpeningLink": "Erreur lors de l'ouverture du lien",
+  "errorPromotingUserE": "Erreur de promotion de l'utilisateur E",
+  "errorReorderingSubjectsE": "Erreur dans la réorganisation des sujets E",
+  "errorReschedulingShiftE": "Erreur de rééchelonnement du déplacement E",
+  "errorResettingPasswordE": "Erreur de réinitialisation du mot de passe E",
+  "errorSavingFormE": "Erreur lors de l'enregistrement du formulaire E",
+  "errorSavingSettingsE": "Erreur lors de l'enregistrement des paramètres E",
+  "errorSavingShiftE": "Erreur lors de l'enregistrement du Maj E",
+  "errorSavingTemplateE": "Erreur lors de l'enregistrement du modèle E",
+  "errorSendingMessageE": "Erreur lors de l'envoi du message E",
+  "errorSendingNotificationE": "Erreur lors de l'envoi de la notification E",
+  "errorSubmittingE": "Erreur de soumission E",
+  "errorSubmittingTimesheetE": "Erreur lors de la soumission de la feuille de temps E",
+  "errorUnarchivingTaskE": "Erreur lors de la désarchivage Tâche E",
+  "errorUpdatingEntryE": "Erreur de mise à jour de l'entrée E",
+  "errorUpdatingStatusE": "Erreur lors de la mise à jour de l'état E",
+  "errorUpdatingSubjectE": "Erreur lors de la mise à jour du sujet E",
+  "errorUpdatingSubjectStatusE": "Erreur de mise à jour de l'état du sujet E",
+  "errorUpdatingTaskE": "Erreur de mise à jour de la tâche E",
+  "errorUpdatingTasksE": "Erreur lors de la mise à jour des tâches E",
+  "errorUpdatingTimesheetE": "Erreur lors de la mise à jour de la feuille de temps E",
+  "errorUpdatingUserE": "Erreur de mise à jour de l'utilisateur E",
+  "errorYouMustBeLoggedIn": "Erreur dans laquelle vous devez être accroché",
+  "errors": "Erreurs",
+  "estimatedEarnings": "Revenus estimés",
+  "evaluate": "Évaluation",
+  "everyone": "Tous",
+  "excelReportExportedSuccessfully": "Rapport Excel exporté avec succès",
+  "excelWithMonthlyPivotTables": "Excel avec tableaux pivots mensuels",
+  "excludeDaysOfWeek": "Exclure les jours de la semaine",
+  "excludeSpecificDates": "Exclure les dates spécifiques",
+  "existingDispute": "Différend actuel",
+  "exitApp": "Sortie de l'application",
+  "exitFullscreen": "Sortie en plein écran",
+  "expand": "Élargir",
+  "explainTheIssue": "Expliquer le problème",
+  "explainWhyYouAreEditingThis": "Expliquez pourquoi vous modifiez ceci",
+  "exportAllMonthsPivotView": "Exporter tous les mois Vue de pivot",
+  "exportAuditReport": "Rapport de vérification des exportations",
+  "exportCsv": "Exportation Csv",
+  "exportData": "Données d'exportation",
+  "exportFailedE": "Échec de l'exportation E",
+  "exportPdf": "Exportation Pdf",
+  "exportToCsv": "Exportation vers Csv",
+  "failedLoginAttempt15MinutesAgo": "Échec de la tentative de connexion15Minutes C'est parti",
+  "failedToAddFileE": "Impossible d'ajouter le fichier E",
+  "failedToAddMembers": "Échec de l'ajout de membres",
+  "failedToClaimShiftPleaseTry": "Échec du changement de demande Essayez s'il vous plaît.",
+  "failedToCleanupDraftsE": "Échec du nettoyage E",
+  "failedToDeleteAssignmentE": "Impossible de supprimer l'assignation E",
+  "failedToDeleteDraftE": "Échec de la suppression du projet E",
+  "failedToGeneratePdfE": "Impossible de générer Pdf E",
+  "failedToInitializeFirebase": "Échec de l'initialisation de la base de pompiers",
+  "failedToLinkFormToShift": "Impossible de lier le formulaire au déplacement",
+  "failedToLoadAssignmentsE": "Échec du chargement des affectations E",
+  "failedToLoadExistingProfileE": "Impossible de charger le profil existant E",
+  "failedToLoadInvoiceNMessage": "Impossible de charger la facture NMessage",
+  "failedToLoadInvoicesNMessage": "Échec du chargement des factures NMessage",
+  "failedToLoadProfileE": "Impossible de charger le profil E",
+  "failedToLoadSeriesE": "Échec au chargement de la série E",
+  "failedToLoadStudentShiftsE": "Échec du chargement des postes d'élève E",
+  "failedToLoadTimeRangeShifts": "Impossible de charger des décalages de temps",
+  "failedToOpenClassLinkE": "Impossible d'ouvrir le lien de classe E",
+  "failedToRemoveProfilePicturePlease": "Impossible de supprimer l'image de profil S'il vous plaît.",
+  "failedToSaveContentE": "Impossible de sauvegarder le contenu E",
+  "failedToSaveNoteE": "Impossible d'enregistrer la note E",
+  "failedToSavePreferencesPleaseTry": "Impossible de sauvegarder les préférences Veuillez essayer",
+  "failedToSaveProfileE": "Impossible d'enregistrer le profil E",
+  "failedToSaveStatusE": "Impossible de sauvegarder l'état E",
+  "failedToSendReportPleaseTry": "Échec de l'envoi du rapport Veuillez essayer",
+  "failedToSwitchRolePleaseTry": "Impossible de changer de rôle Veuillez essayer",
+  "failedToUpdatePayment": "Impossible de mettre à jour le paiement",
+  "failedToUpdateTaskPleaseTry": "Impossible de mettre à jour la tâche Veuillez essayer",
+  "failedToUploadProfilePicturePlease": "Impossible de télécharger l'image de profil S'il vous plaît.",
+  "fallBack1Hour": "Retour 1heure",
+  "faqs": "Faqs",
+  "feature": "Fonctionnalité",
+  "features": "Caractéristiques",
+  "featuresEditorComingSoon": "Caractéristiques Éditeur Bientôt",
+  "featuresSectionEditor": "Éditeur de section",
+  "field": "Champ",
+  "fieldLabel": "Étiquette du champ",
+  "fieldLabelCannotBeEmpty": "Label de champ ne peut pas être vide",
+  "fieldToDispute": "Champ de litige",
+  "fieldType": "Type de champ",
+  "fieldType2": "Type de champ2",
+  "fileAttachmentIsOnlySupportedOn": "La pièce jointe au fichier est uniquement prise en charge",
+  "fileNotUploadedToStorage": "Fichier non téléchargé vers le stockage",
+  "fileSelectionCancelled": "Sélection de fichiers annulée",
+  "fileUpload": "Téléchargement de fichier",
+  "fill": "Remplir",
+  "fillClassReportNow": "Remplir le rapport de classe maintenant",
+  "fillInTheDetailsForEach": "Remplir les détails pour chaque",
+  "filter": "Filtre",
+  "filterByAssignedBy": "Filtrer par Affecté par",
+  "filterByAssignedTo": "Filtrer par Affecté à",
+  "filterByLabels": "Filtrer par les étiquettes",
+  "filterByParent": "Filtrer par parent",
+  "filterByPriority": "Filtrer par priorité",
+  "filterByRole": "Filtrer par rôle",
+  "filterByStatus": "Filtrer par état",
+  "filterByStatus2": "Filtrer par état2",
+  "filterBySubject": "Filtrer par sujet",
+  "filterByTeacher": "Filtrer par enseignant",
+  "filterByTeacher2": "Filtrer par enseignant2",
+  "filterFormResponsesByUser": "Filtrer les réponses des formulaires par l'utilisateur",
+  "filterRecurringTasks": "Filtrer les tâches récurrentes",
+  "filters": "Filtres",
+  "finalizeSchedule": "Finaliser le calendrier",
+  "finalizeSchedulesForMatchedStudentsAnd": "Finaliser les calendriers Pour des étudiants assortis et",
+  "financialSummary": "Résumé financier",
+  "findPrograms": "Trouver des programmes",
+  "findShiftsForAStudentMatching": "Trouver des postes pour l'appariement des étudiants AS",
+  "firstName": "Prénom",
+  "firstName2": "Prénom2",
+  "firstname": "Prénom",
+  "fixMyTimezoneOnly": "Réparer mon fuseau horaire seulement",
+  "fixTimezone": "Correction du fuseau horaire",
+  "fixTimezoneOrReportScheduleIssue": "Correction du fuseau horaire ou du calendrier du rapport",
+  "footer": "Pied de page",
+  "footerEditor": "Éditeur de pied de page",
+  "forPrivacyQuestionsOrConcernsEmail": "Pour des questions ou des préoccupations concernant la vie privée Courriel",
+  "forTheMonthSOfMonth": "Pour le mois",
+  "forTheMonthSOfMonthcovered": "Pour le mois",
+  "forgotPassword": "Mot de passe oublié",
+  "form": "Formulaire",
+  "formAlreadySubmitted": "Formulaire déjà présenté",
+  "formBannedSuccessfully": "Formulaire interdit avec succès",
+  "formCompliance": "Conformité du formulaire",
+  "formDeleted": "Formulaire supprimé",
+  "formDescription": "Désignation du formulaire",
+  "formDescription2": "Désignation du formulaire2",
+  "formDetails": "Détails du formulaire",
+  "formDuplicatedSuccessfully": "Formulaire Dupliquer avec succès",
+  "formFields": "Champs de formulaire",
+  "formLinkedToShiftSuccessfullyPayment": "Formulaire lié au paiement réussi",
+  "formListResponseCounts": "Nombres de réponses à la liste de formulaires",
+  "formNotFoundIdFormidPlease": "Formulaire Non trouvé Id Form S'il vous plaît.",
+  "formNotFoundPleaseContactAdmin": "Formulaire non trouvé Veuillez contacter Admin",
+  "formResponses2": "Réponses au formulaire2",
+  "formSavedSuccessfully": "Formulaire sauvegardé avec succès",
+  "formSavedSuccessfullyPreviousVersionsDeactivated": "Formulaire sauvegardé avec succès Versions antérieures désactivées",
+  "formSettings": "Paramètres du formulaire",
+  "formSubmitted": "Formulaire présenté",
+  "formTemplates": "Modèles de formulaire",
+  "formTitle": "Titre du formulaire",
+  "formsCompliance": "Formulaires Conformité",
+  "formsReports": "Formulaires Rapports",
+  "founder": "Fondateur",
+  "frequency": "Fréquence",
+  "fromBasicArithmeticToAdvancedCalculus": "De l'arithmétique basique au calcul avancé",
+  "fromLogicalThinkingForKidsTo": "De la pensée logique pour les enfants à",
+  "fromMasteringEnglishGrammarAndVocabulary": "De Mastering Grammaire Anglais Et Vocabulaire",
+  "fromParentdisplayForStudentSStudentdisplay": "De Parentdisplay pour l'étudiant SStudentdisplay",
+  "fromParentnameForStudentSStudentname": "De Parentname Pour l'étudiant SStudentname",
+  "fromSupportAlluwaleducationhubOrg": "De Support Alluwaleducationhub Organisme",
+  "fullAdmin": "Admin complet",
+  "fullAdminPrivileges": "Privilèges administratifs complets",
+  "fullscreen": "Plein écran",
+  "generalSettings": "Paramètres généraux",
+  "generateAudits": "Générer des audits",
+  "generateNow": "Générer maintenant",
+  "generatingCsv": "Génération de Csv",
+  "generatingExcelReport": "Générer un rapport Excel",
+  "getHelpContactUs": "Obtenir de l'aide Contactez-nous",
+  "getHelpUsingTheApp": "Obtenir de l'aide Utilisation de l'application",
+  "getInTouch": "Contactez-nous",
+  "getNotifiedBeforeTaskDueDate": "Faites une notification avant la date d'échéance de la tâche",
+  "getNotifiedBeforeYourShiftStarts": "Faites une déclaration avant de commencer votre quart de travail",
+  "getNotifiedWhenYouReceiveMessages": "Soyez informé lorsque vous recevez des messages",
+  "gettingNotifications": "Obtenir des notifications",
+  "globalLanguagesProgram": "Programme des langues mondiales",
+  "globalTeacherHourlyRateUsd": "Global enseignant horaire taux usd",
+  "goToSite": "Aller au site",
+  "goodMorning": "Bonjour.",
+  "gotIt": "Compris.",
+  "gradePerformance": "Rendement par catégorie",
+  "greenWelcomeEmailForNewUsers": "Email de bienvenue vert pour les nouveaux utilisateurs",
+  "gridView": "Affichage de la grille",
+  "groupBy": "Groupe par",
+  "groupChat": "Discussion de groupe",
+  "groupInfo": "Informations sur le groupe",
+  "guestClassLinkCopied": "Lien de classe invité copié",
+  "hasAudit": "Vérification",
+  "hassimiouNiane": "Hassimiou Niane",
+  "healthy": "Santé",
+  "help": "Aide",
+  "heroSection": "Section des héros",
+  "heroSectionEditor": "Éditeur de section Hero",
+  "hide": "Masquer",
+  "high": "Élevé",
+  "highSchoolStudent": "Élève du secondaire",
+  "history": "Historique",
+  "hn": "Hn",
+  "hourlyRate": "Taux horaire",
+  "hourlyRateUsd": "Taux horaire utilisé",
+  "hourlyWage": "Salaire horaire",
+  "hours": "Heures",
+  "hoursBySubject": "Heures par sujet",
+  "hoursTaught": "Heures enseignées",
+  "howToJoinAClass": "Comment rejoindre AClass",
+  "howWeUseYourInformation": "Comment nous utilisons vos informations",
+  "iAmABeginner": "Je suis débutant",
+  "iAmExcellent": "Je suis excellent",
+  "iAmIntermediate": "Je suis intermédiaire",
+  "iMemorizeLessThanJuzuAnma": "Je mémorise moins que Juzu Anna",
+  "iconDescription": "Désignation des icônes",
+  "idCode": "Code d'identification",
+  "idDisplaystudentcode": "Id Affiche le code étudiant",
+  "ifLeftBlankASecurePassword": "Si gauche blanc ASecure Mot de passe",
+  "ifYouBelieveThereSAn": "Si vous y croyez SAn",
+  "imageUploadFailed": "Impossible de télécharger l'image",
+  "immerseInTheProfoundNdepthsOf": "Immerger dans les profondeurs profondes de",
+  "inAMonthFromNow": "À partir de maintenant",
+  "inOneWeekFromNow": "Dans une semaine à partir de maintenant",
+  "inThreeWeeksFromNow": "Dans trois semaines",
+  "inTwoWeeksFromNow": "Dans deux semaines",
+  "individual": "Individuel",
+  "individualUser": "Utilisateur individuel",
+  "informationWeCollect": "Information que nous recueillons",
+  "initializingApplication": "Initialisation de la demande",
+  "interactiveLearningExperience": "Expérience d'apprentissage interactif",
+  "internalName": "Nom interne",
+  "invoiceDetails": "Détails de la facture",
+  "invoiceNotFoundForThisPayment": "Facture non trouvée pour ce paiement",
+  "invoices": "Factures",
+  "isAdminIsadmin": "Est administrateur Isadmin",
+  "isParentIsparent": "Est parent Isparent",
+  "isStudentIsstudent": "Est étudiant étudiant",
+  "isTeacherIsteacher": "C'est l'enseignant.",
+  "islamicCalendar": "Calendrier islamique",
+  "islamicPrograms": "Programmes islamiques",
+  "islamicStudiesTeacher": "Professeur d'études islamiques",
+  "issuesFlags": "Drapeaux",
+  "issuesToAddress": "Questions à régler",
+  "janeSmithEmailCom": "Jane Smith Courriel Com",
+  "johnDoeEmailCom": "John Doe Email Com",
+  "joinClass": "Rejoindre la classe",
+  "joinLiveClass": "Rejoindre la classe en direct",
+  "joinLiveClasses": "Rejoignez les classes en direct",
+  "joinNow": "Rejoignez maintenant",
+  "joinOurLeadershipTeam": "Rejoignez notre équipe de leadership",
+  "joinOurLeadershipTeam2": "Rejoignez notre équipe de leadership2",
+  "joinOurTeam": "Rejoignez notre équipe",
+  "joinOurTeamOfDedicatedIslamic": "Rejoignez notre équipe de l'islam dédié",
+  "joinThousandsOfMuslimFamiliesWorldwide": "Rejoignez des milliers de familles musulmanes dans le monde",
+  "joinThousandsOfStudentsExcellingIn": "Rejoignez des milliers d'étudiants Excelling in",
+  "joinThousandsOfStudentsLearningFrom": "Joignez-vous à des milliers d'étudiants",
+  "joiningClass": "Rejoindre la classe",
+  "jpgPngGifUpTo10mb": "Jpg Png Gif jusqu'à 10m b",
+  "jumpToDate": "Aller à la date",
+  "k12Support": "K12Support",
+  "keepTheirTeacherRoleIntact": "Gardez leur rôle d'enseignant Intact",
+  "keyPerformanceIndicators": "Principaux indicateurs de rendement",
+  "kioskCode": "Code du kiosque",
+  "kioskCodeKioskcodeAlreadyExistsPlease": "Kiosque Code Kiosque existe déjà S'il vous plaît.",
+  "laDureEDoitETre": "La Dure EDoit ETre",
+  "label": "Étiquette",
+  "label2": "Étiquette2",
+  "labelCopied": "Étiquette copiée",
+  "labelOptional": "Étiquette Facultative",
+  "labelValue": "Valeur de l'étiquette",
+  "labelsOptional": "Étiquettes Facultatives",
+  "languageExcellence": "Excellence linguistique",
+  "languagesWeOffer": "Langues que nous offrons",
+  "last24Hours": "Dernières 24heures",
+  "lastClassCompleted": "Dernière classe terminée",
+  "lastLogin": "Dernière connexion",
+  "lastModified": "Dernière modification",
+  "lastName": "Nom de famille",
+  "lastName2": "Nom de famille2",
+  "lastSystemCheck": "Dernière vérification du système",
+  "lastTaskCompleted": "Dernière tâche terminée",
+  "lastUpdatedJanuary2024": "Dernière mise à jour janvier2024",
+  "later": "Plus tard",
+  "lePaiementSeraCalculeDureE": "Le Paiement Sera Calcul Dure E",
+  "leSujetEstRequis": "Le Sujet Est Requis",
+  "leadInspireAndMakeALasting": "Inspirer et faire durer",
+  "leaderDuty": "Chef de file",
+  "leadersOnly": "Leaders seulement",
+  "leadershipInterest": "Intérêt du leadership",
+  "learnEnglishReadingWritingSpeakingFor": "Apprendre l'anglais lecture écriture parler pour",
+  "learnFromCertifiedNislamicScholars": "Apprendre des chercheurs Nislamiques certifiés",
+  "learnLeadThrive": "Apprendre le plomb Thrive",
+  "learnMore": "En savoir plus",
+  "learningTracks": "Les pistes d'apprentissage",
+  "leave": "Quitter",
+  "leaveClass": "Quitter la classe",
+  "lessComfortable": "Moins confortable",
+  "letSGetStarted": "Laissez-le commencer",
+  "link": "Lien",
+  "linkForm": "Formulaire de lien",
+  "linkFormToShift": "Lien vers le formulaire de déplacement",
+  "linkToShift": "Lien vers le déplacement",
+  "linkYourAccountToManageAll": "Lien de votre compte pour gérer tout",
+  "linkingFormAndRecalculatingPayment": "Lier le formulaire et recalculer le paiement",
+  "listView": "Affichage de la liste",
+  "live": "Vivre",
+  "live2": "En direct2",
+  "liveOnJobBoard": "Conseil d'administration en direct",
+  "liveParticipants": "Participants vivants",
+  "livePreview": "Aperçu en direct",
+  "liveWebinars": "Webinaires en direct",
+  "loadUserRole": "Chargement du rôle de l'utilisateur",
+  "loadUserRoleFirst": "Charger d'abord le rôle de l'utilisateur",
+  "loadingAuditsForSelectedyearmonth": "Chargement des audits Pour l'année",
+  "loadingDashboard": "Chargement du tableau de bord",
+  "loadingEvaluationFactors": "Chargement des facteurs d'évaluation",
+  "loadingForms": "Chargement des formulaires",
+  "loadingMessages": "Chargement des messages",
+  "loadingPrayerTimes": "Chargement des heures de prière",
+  "loadingProfile": "Chargement du profil",
+  "loadingSeries": "Chargement des séries",
+  "loadingShiftInformation": "Chargement de l'information sur le déplacement",
+  "loadingStudents": "Chargement des étudiants",
+  "loadingTeachers": "Chargement des enseignants",
+  "loadingUserProfile": "Chargement du profil utilisateur",
+  "loadingWebsiteContent": "Chargement du contenu du site Web",
+  "loadingYourExistingProfileInformation": "Chargement de l'information existante sur votre profil",
+  "locationError": "Erreur d'emplacement",
+  "locationInformation": "Informations sur l'emplacement",
+  "locationInformationRequired": "Renseignements sur l'emplacement requis",
+  "locationInformationWasNotCapturedFor": "L'information sur l'emplacement n'a pas été saisie pour",
+  "locationIsMandatoryForAllTimesheet": "L'emplacement est obligatoire pour tous les horaires",
+  "locationIsMandatoryPleaseWaitFor": "L'emplacement est obligatoire Veuillez attendre",
+  "locationOptional": "Emplacement Facultatif",
+  "logIn": "Connectez-vous",
+  "logInSignUp": "Connexion Inscription",
+  "logOutOfYourAccount": "Déconnexion de votre compte",
+  "loginLogs": "Connexion des journaux",
+  "logs": "Registres",
+  "longAnswerText": "Texte de la longue réponse",
+  "mainHeadline": "En-tête principal",
+  "maintenance": "Entretien",
+  "manageIndividualWages": "Gérer les individus Salaires",
+  "manageRoleBasedWages": "Gérer les salaires basés sur le rôle",
+  "manageShift": "Gérer le déplacement",
+  "manageStudentApplicationsAndEnrollment": "Gérer les demandes des étudiants Et Inscription",
+  "manageSubjects": "Gérer les sujets",
+  "manageSubjectsForShiftCreation": "Gérer les sujets pour la création de postes",
+  "manageTeacherPerformanceAndPayments": "Gérer le rendement et les paiements des enseignants",
+  "managerNotes": "Notes du gestionnaire",
+  "managerNotes2": "Notes du gestionnaire2",
+  "markAsPending": "Marquer comme en attente",
+  "markAsReviewed": "Marques examinées",
+  "markedAsContactedMovedToReady": "Marqué comme contacté déplacé à prêt",
+  "masterEnglishAfricanNindigenousLanguages": "Master Anglais African Nindigenous Langues",
+  "masterEnglishWithNconfidenceFluency": "Maîtriser l'anglais avec confiance en soi",
+  "masterMathematicsWithNconfidenceClarity": "Master Mathématiques Avec confiance en soi Clarity",
+  "matched": "Corrigé",
+  "mathematicsIsMoreThanJustNumbers": "Les mathématiques sont plus que des chiffres",
+  "mathematicsProgram": "Programme de mathématiques",
+  "mayAllahBlessYourTeachingEfforts": "Puisse Allah bénir vos efforts d'enseignement",
+  "maybeButIWillTry": "Peut-être, mais je le ferai Essaie",
+  "meeting": "Réunion",
+  "meetingIsNotReadyYetContact": "La réunion n'est pas encore prête Contact",
+  "menu": "Menu",
+  "message": "Message",
+  "messageDeletionNotYetImplemented": "Suppression du message non encore mise en œuvre",
+  "messageForwardingNotYetImplemented": "Message transmis non encore mis en œuvre",
+  "messageSentSuccessfullyWeWillContact": "Message envoyé avec succès Nous contacterons",
+  "methodFirebaseCloudFunctionHostingerSmtp": "Méthode Firebase Cloud Fonction Hostinger Smtp",
+  "minutesMinutes": "Procès-verbal",
+  "missedShiftClassReportRequired": "Rapport de classe de poste manquant requis",
+  "mobilePhone": "Téléphone portable",
+  "modificationHistory": "Historique des modifications",
+  "modifiedSchedule": "Calendrier modifié",
+  "monthly": "Mensuel",
+  "monthlyFeesPayment": "Paiement des taxes mensuelles",
+  "monthlyRecurrenceSettings": "Paramètres mensuels de récurrence",
+  "moreOptions": "Autres options",
+  "moveAllShifts1HourEarlier": "Déplacer tous les postes1heure plus tôt",
+  "moveAllShifts1HourLater": "Déplacer tous les postes1heure plus tard",
+  "moveDown": "Déplacer vers le bas",
+  "moveUp": "En haut",
+  "muteAll": "Mute tout",
+  "muteEveryone": "Mute tout le monde",
+  "myAssignments": "Mes missions",
+  "myChildren": "Mes enfants",
+  "myClasses": "Mes cours",
+  "myIslamicClasses": "Mes classes islamiques",
+  "myMonthlyReport": "Mon rapport mensuel",
+  "myPerformanceAudit": "Mon audit de rendement",
+  "myProgress": "Mes progrès",
+  "myStudents": "Mes étudiants",
+  "myStudentsOverview": "Aperçu de mes élèves",
+  "nA": "N A",
+  "nameAZ": "Nom AZ",
+  "navigatingToAddNewUser": "Navigation pour ajouter un nouvel utilisateur",
+  "navigatingToFormBuilder": "Naviguer vers le constructeur de formulaire",
+  "navigatingToReports": "Navigation vers les rapports",
+  "navigation": "Navigation",
+  "needHelpWeReHereFor": "Besoin d'aide Nous sommes ici pour",
+  "needsRevision": "Révision des besoins",
+  "never": "Jamais",
+  "neverLoggedIn": "Jamais accroché",
+  "neverMissAClass": "Ne manquez jamais la classe A",
+  "newEndTime": "Nouvelle heure de fin",
+  "newHourlyWage": "Nouveau salaire horaire",
+  "newPassword": "Nouveau mot de passe",
+  "newStartTime": "Nouvelle heure de départ",
+  "newStudentWillBeLinkedTo": "Un nouvel étudiant sera lié à",
+  "newVersion": "Nouvelle version",
+  "newestFirst": "Première",
+  "nextWeek": "Semaine prochaine",
+  "noActiveFormsFound": "Aucun formulaire actif trouvé",
+  "noActiveShift": "Pas de changement actif",
+  "noAdminUsersFound": "Aucun utilisateur Admin trouvé",
+  "noApplicationsFound": "Aucune application trouvée",
+  "noAssignmentsYet": "Aucune affectation Encore",
+  "noAttachments": "Pas de pièces jointes",
+  "noAttachmentsAdded": "Aucune pièce jointe ajoutée",
+  "noAttachmentsYet": "Pas encore de pièces jointes",
+  "noAuditDataAvailable": "Aucune donnée de vérification disponible",
+  "noAuditDataForSelectedmonth": "Pas de données d'audit pour le mois sélectionné",
+  "noAuditsFound": "Aucun audit trouvé",
+  "noAvailableShifts": "Pas de postes disponibles",
+  "noChildrenLinkedToThisParent": "Aucun enfant lié à ce parent",
+  "noClassHistory": "Pas d'historique de classe",
+  "noClassesAvailable": "Aucune catégorie disponible",
+  "noClassesFound": "Aucune classe trouvée",
+  "noClassesRightNow": "Pas de classes en ce moment",
+  "noClassesScheduledToday": "Aucune classe prévue aujourd'hui",
+  "noClassesToday": "Pas de classes aujourd'hui",
+  "noCommentsYet": "Pas encore de commentaire",
+  "noCompleteRowsToSave": "Pas de lignes complètes à enregistrer",
+  "noContentAvailable": "Aucun contenu disponible",
+  "noData": "Aucune donnée",
+  "noDataAvailable": "Aucune donnée disponible",
+  "noDataFoundToExport": "Aucune donnée trouvée pour exporter",
+  "noDataToExport": "Aucune donnée à exporter",
+  "noDataToExportWithCurrent": "Aucune donnée à exporter avec le courant",
+  "noDataWillBePermanentlyLost": "Aucune donnée ne sera définitivement perdue",
+  "noDataYet": "Aucune donnée Encore",
+  "noDevice": "Aucun périphérique",
+  "noDocumentsFoundInThisCollection": "Aucun document trouvé dans cette collection",
+  "noFieldsYetAddYourFirst": "Aucun champ encore ajouter votre premier",
+  "noFilesSelected": "Aucun fichier sélectionné",
+  "noFilledOpportunitiesYet": "Aucune possibilité remplie Encore",
+  "noForm": "Aucun formulaire",
+  "noFormFieldsAreCurrentlyVisible": "Aucun champ de formulaire n'est actuellement visible",
+  "noFormResponsesFound": "Aucune réponse trouvée",
+  "noFormResponsesToExport": "Aucune réponse au formulaire à exporter",
+  "noFormsFound": "Aucun formulaire trouvé",
+  "noFormsSubmittedForThisPeriod": "Aucun formulaire soumis pour cette période",
+  "noFormsYet": "Aucun formulaire Encore",
+  "noICanT": "Non, je ne peux pas.",
+  "noInternet": "Pas d'Internet",
+  "noInvoicesFound": "Aucune facture trouvée",
+  "noInvoicesYet": "Pas encore de factures",
+  "noItemsOnThisInvoice": "Aucun élément sur cette facture",
+  "noKnownStudentsYet": "Aucun élève connu Encore",
+  "noLabelsAvailable": "Aucune étiquette disponible",
+  "noMatchingLogsYet": "Pas de journaux correspondants Encore",
+  "noOneHasJoinedYet": "Personne ne s'est joint Encore",
+  "noOneIsInTheRoom": "Personne n'est dans la chambre",
+  "noOptionsAvailable": "Aucune option disponible",
+  "noOrphanShiftsFoundNearby": "Aucun poste d'orphelin trouvé à proximité",
+  "noParentsFound": "Aucun parent trouvé",
+  "noParticipants": "Pas de participants",
+  "noParticipantsYet": "Pas de participants Encore",
+  "noPaymentDataAvailable": "Aucune donnée de paiement disponible",
+  "noPaymentsYet": "Pas encore de paiements",
+  "noRatesConfigured": "Aucun tarif configuré",
+  "noRecentActivity": "Aucune activité récente",
+  "noRecentLessons": "Pas de leçons récentes",
+  "noRecentShiftsFoundToReport": "Aucun changement récent trouvé pour signaler",
+  "noResponse": "Pas de réponse",
+  "noResponseDataAvailable": "Aucune donnée de réponse disponible",
+  "noResponses": "Pas de réponse",
+  "noResponsesFound": "Aucune réponse trouvée",
+  "noResponsesRecorded": "Aucune réponse enregistrée",
+  "noSavedDrafts": "Pas d'ébauches sauvegardées",
+  "noScheduledShiftsFoundToDelete": "Aucun changement prévu trouvé pour supprimer",
+  "noScheduledShiftsFoundToEdit": "Aucun changement prévu trouvé pour modifier",
+  "noShiftAssociated": "Pas de poste associé",
+  "noShiftsOrFormsFoundFor": "Aucun changement ou formulaire trouvé pour",
+  "noShiftsSelected": "Aucun changement sélectionné",
+  "noShiftsWithFormsFoundLink": "Aucun changement avec les formulaires trouvés lien",
+  "noStudentsAvailableInTheSystem": "Aucun étudiant disponible dans le système",
+  "noStudentsFound": "Aucun étudiant trouvé",
+  "noStudentsHaveJoinedTheClass": "Aucun étudiant n'a rejoint La classe",
+  "noStudentsYet": "Pas encore d'étudiants",
+  "noSubTasksClickAddTo": "Pas de tâches secondaires Cliquez sur Ajouter à",
+  "noSubjectData": "Aucune donnée",
+  "noSubmissionsToExport": "Aucune présentation à l'exportation",
+  "noTasksFound": "Aucune tâche trouvée",
+  "noTeachersFound": "Aucun enseignant trouvé",
+  "noTeachersFoundMakeSureTeachers": "Aucun enseignant trouvé n'assurent les enseignants",
+  "noTemplatesForThisFrequency": "Pas de modèles pour cette fréquence",
+  "noTimesheetFoundForThisShift": "Aucune feuille de temps trouvée pour ce changement",
+  "noTimesheetRecordFoundForThis": "Aucun enregistrement de feuille de temps trouvé pour Cette",
+  "noTimesheetsFound": "Aucune feuille de temps trouvée",
+  "noUnlinkedFormsFoundNearby": "Aucun formulaire non lié trouvé à proximité",
+  "noUpcomingClasses": "Aucune classe à venir",
+  "noUpcomingEvents": "Pas d'événements à venir",
+  "noUsersAvailableToAdd": "Aucun utilisateur disponible à ajouter",
+  "noUsersSelected": "Aucun utilisateur sélectionné",
+  "noValidShiftFoundForClock": "Aucun poste valide trouvé pour l'horloge",
+  "noVideoCallIsConfiguredFor": "Aucun appel vidéo n'est configuré pour",
+  "notAtAll": "Pas du tout",
+  "notConnected": "Non connecté",
+  "noteSavedSuccessfully": "Note enregistrée avec succès",
+  "noteStudentsNeedingEnglishHelpShould": "Remarque Les étudiants qui ont besoin d'aide en anglais devraient",
+  "notes": "Annexe",
+  "notificationContent": "Contenu de la notification",
+  "notificationMessage": "Message de notification",
+  "notificationPreferences": "Préférences de notification",
+  "notificationPreferencesSaved": "Préférences de notification enregistrées",
+  "notificationResults": "Résultats de la notification",
+  "notificationSent": "Notification envoyée",
+  "notificationSettings": "Paramètres de notification",
+  "notificationTitle": "Titre de la notification",
+  "notificationsHelpYouStayOnTop": "Les notifications vous aident à rester en haut",
+  "notificationsPrivacyTheme": "Avis Confidentialité Thème",
+  "notificationsWillBeSentInstantlyTo": "Les notifications seront envoyées immédiatement à",
+  "notifyMeBeforeDueDate": "Avertissez-moi avant la date d'échéance",
+  "notifyMeBeforeShift": "Avertissez-moi avant le changement",
+  "number": "Numéro",
+  "oftenFewDaysAWeek": "Souvent peu de jours",
+  "okay": "Très bien.",
+  "oldDraftsCleanedUpSuccessfully": "Anciens drafts nettoyés avec succès",
+  "oldestFirst": "Les plus vieux d'abord",
+  "onceSubmittedYouCannotEditThis": "Une fois soumis, vous ne pouvez pas modifier Cette",
+  "oneTimeOnly": "Une seule fois",
+  "onlyIfYouNeedTheRaw": "Seulement si vous avez besoin de la brute",
+  "onlyScheduledShiftsThatHavenT": "Seuls les postes programmés qui ont",
+  "onlyTeachersCanShareTheirScreen": "Seuls les enseignants peuvent partager leur écran",
+  "onlyTheTaskCreatorCanDelete": "Seul le Créateur de la tâche peut supprimer",
+  "open": "Ouvrir",
+  "openActivityLog": "Ouvrir le journal des activités",
+  "openCheckoutLinkAgain": "Ouvrez encore le lien de vérification",
+  "openSettings": "Ouvrir les paramètres",
+  "openingFilename": "Ouverture du nom de fichier",
+  "operational": "Opérations",
+  "option1Option2Option3": "Option1Option2Option3",
+  "options": "Options",
+  "or": "Ou",
+  "orangeTaskAssignmentNotification": "Notification d'attribution de tâches orange",
+  "original": "FRANÇAIS Original",
+  "originalDataNotAvailable": "Données originales non disponibles",
+  "originalSchedule": "Calendrier initial",
+  "other": "Autres",
+  "ourIslamicCourses": "Nos cours islamiques",
+  "ourIslamicProgramIsMeticulouslyDesigned": "Notre programme islamique est conçu avec méticulosité",
+  "ourJourney": "Notre voyage",
+  "ourLanguageProgramsAreDesignedTo": "Nos programmes linguistiques sont conçus pour",
+  "ourLeadership": "Notre leadership",
+  "ourMission": "Notre mission",
+  "ourTeachers": "Nos enseignants",
+  "ourTeachersAreCertifiedIslamicScholars": "Nos enseignants sont des chercheurs islamiques certifiés",
+  "ourVision": "Notre vision",
+  "overallAttendance": "Participation générale",
+  "overallScore": "Score général",
+  "overdue": "Excédent",
+  "overdue2": "Excédent2",
+  "overduetasksOverdue": "Excédents",
+  "overview": "Aperçu général",
+  "parentResources": "Ressources parentales",
+  "parentSettings": "Paramètres parent",
+  "parents": "Les parents",
+  "participantcount": "Nombre de participants",
+  "participantcountInClass": "Nombre de participants En classe",
+  "participants": "Participants",
+  "passwordChangedSuccessfully": "Mot de passe modifié avec succès",
+  "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+  "pleaseEnterCurrentPassword": "Veuillez entrer votre mot de passe actuel",
+  "pleaseEnterNewPassword": "Veuillez entrer un nouveau mot de passe",
+  "pleaseConfirmNewPassword": "Veuillez confirmer votre nouveau mot de passe",
+  "passwordMustBeAtLeast6Characters": "Le mot de passe doit contenir au moins 6 caractères",
+  "failedToChangePassword": "Échec de la modification du mot de passe",
+  "incorrectCurrentPassword": "Mot de passe actuel incorrect",
+  "passwordTooWeak": "Le mot de passe est trop faible",
+  "updateYourPassword": "Mettre à jour votre mot de passe",
+  "studentId": "ID étudiant",
+  "passwordRequirements": "Exigences relatives au mot de passe",
+  "passwordResetInitiatedForAllUsers": "Mot de passe Reset Initié pour tous les utilisateurs",
+  "passwordResetSuccessfully": "Mot de passe Réinitialiser avec succès",
+  "payInvoice": "Facture de paye",
+  "payNow": "Payez maintenant",
+  "paySettings": "Paramètres de paye",
+  "payment": "Paiement",
+  "paymentAdjustedSuccessfully": "Paiement ajusté avec succès",
+  "paymentBySubject": "Paiement par sujet",
+  "paymentHistory": "Historique des paiements",
+  "paymentHistoryWillAppearOnceYou": "L'historique des paiements apparaîtra une fois que vous",
+  "payments": "Paiements",
+  "penaltyPerMissedClass": "Peine par classe manquante",
+  "penaltyPerMissing": "Pénalité par manque",
+  "penaltyPerShift": "Peine par poste",
+  "pendingapprovals": "Approbations en attente",
+  "performance": "Rendement",
+  "performanceEvaluation": "Évaluation du rendement",
+  "performanceSummaryCopied": "Résumé du rendement Copié",
+  "performanceSummaryCopiedToClipboard": "Sommaire du rendement Copied to Clipboard",
+  "performanceTier": "Niveau de performance",
+  "permanentlyDeleteUser": "Supprimer définitivement l' utilisateur",
+  "permissionsDenied": "Autorisations refusées",
+  "permissionsRequired": "Autorisations requises",
+  "personalInformation": "Renseignements personnels",
+  "phoneNumberOptional": "Numéro de téléphone Facultatif",
+  "pictureInPicture": "Image en image",
+  "pilot": "Pilote",
+  "pilotOnly": "Pilote seulement",
+  "placeholder": "Titulaire",
+  "placeholderOptional": "Dépositaire Facultatif",
+  "platformUptime": "Mise à jour de la plateforme",
+  "pleaseCheck": "Veuillez vérifier",
+  "pleaseCheckYourInternetConnectionAnd": "Veuillez vérifier votre connexion Internet et",
+  "pleaseContactYourSupervisorIfYou": "Veuillez contacter votre superviseur",
+  "pleaseEnablePermissionsInSettingsTo": "Veuillez activer les permissions dans les paramètres",
+  "pleaseEnterAFormTitle": "Veuillez saisir le titre du formulaire",
+  "pleaseEnterAValidNumber": "Veuillez saisir le numéro AValid",
+  "pleaseEnterAValidWageAmount": "Veuillez saisir le montant du salaire AValid",
+  "pleaseEnterYourCurrentPasswordAnd": "Veuillez saisir votre mot de passe actuel et",
+  "pleaseExplainWhyYouBelieveThis": "Expliquez pourquoi vous croyez Cette",
+  "pleaseFillInAllRequiredFields": "Veuillez remplir tous les champs obligatoires",
+  "pleaseProvideAReason": "Veuillez fournir AReason",
+  "pleaseProvideAReasonForRejection": "Veuillez fournir AReason pour rejet",
+  "pleaseProvideAtLeastOneOption": "Veuillez fournir au moins une option",
+  "pleaseRefreshThePage": "Veuillez rafraîchir La page",
+  "pleaseSelectADutyTypeFor": "Veuillez sélectionner ADuty Type for",
+  "pleaseSelectARole": "Veuillez sélectionner ARole",
+  "pleaseSelectAStudent": "Veuillez sélectionner AStudent",
+  "pleaseSelectATeacher": "Veuillez sélectionner ATeacher",
+  "pleaseSelectAUserRole": "Veuillez sélectionner le rôle AUser",
+  "pleaseSelectAnIssueType": "Veuillez sélectionner un type de problème",
+  "pleaseSelectAtLeastOneLanguage": "Veuillez sélectionner au moins une langue",
+  "pleaseSelectAtLeastOneOption": "Veuillez sélectionner au moins une option",
+  "pleaseSelectAtLeastOneRecipient": "Veuillez sélectionner au moins un bénéficiaire",
+  "pleaseSelectAtLeastOneStudent": "Veuillez sélectionner au moins un élève",
+  "pleaseSelectAtLeastOneStudent2": "Veuillez sélectionner au moins un élève2",
+  "pleaseSelectAtLeastOneTeaching": "Veuillez sélectionner au moins un enseignement",
+  "pleaseSelectBothStartAndEnd": "Veuillez sélectionner le début et la fin",
+  "pleaseSelectWhichClassThisReport": "Veuillez choisir quelle classe ce rapport",
+  "pleaseSignInAgainToJoin": "Veuillez vous identifier à nouveau pour vous joindre",
+  "pleaseSignInToAccessForms": "Veuillez vous connecter pour accéder aux formulaires",
+  "pleaseSignInToViewForms": "Veuillez vous connecter pour voir les formulaires",
+  "pleaseSignInToViewYour": "Veuillez vous connecter pour voir votre",
+  "pleaseSignInToYourAccount": "Veuillez vous connecter à votre compte",
+  "pleaseTrySigningOutAndSigning": "Essayez de signer et de signer",
+  "pleaseUpdateToContinueUsingThe": "Veuillez mettre à jour pour continuer à utiliser Les",
+  "pleaseWaitWhileWeConnectYou": "S'il vous plaît attendez pendant qu'on vous connecte",
+  "pleaseWaitWhileWeLoadYour": "Attendez pendant que nous chargeons votre",
+  "possibleCausesN": "Causes possibles :",
+  "preFilled": "Prérempli",
+  "preserveAllTheirDataSafely": "Préserver tous leurs Données en toute sécurité",
+  "preview": "Aperçu",
+  "previewChanges": "Aperçu des modifications",
+  "previewInTeacherTimezone": "Aperçu dans le fuseau horaire de l'enseignant",
+  "previous": "Précédent",
+  "previousWeek": "Semaine précédente",
+  "price": "Prix",
+  "primaryButton": "Bouton primaire",
+  "priority": "Priorité",
+  "priority2": "Priorité2",
+  "proceedAnyway": "Procéder de toute façon",
+  "processing": "Traitement",
+  "profile": "Profil",
+  "profileCompletionpercentageComplete": "Pourcentage d'achèvement du profil Terminé",
+  "profilePercentageComplete": "Profil Pourcentage Terminé",
+  "profilePictureRemovedSuccessfully": "Image de profil supprimée avec succès",
+  "profilePictureUpdatedSuccessfully": "Image de profil mise à jour avec succès",
+  "profileUpdatedSuccessfully": "Profil mis à jour avec succès",
+  "programDetails": "Détails du programme",
+  "programDetailsForEachStudent": "Détails du programme pour chaque étudiant",
+  "programOverview": "Aperçu du programme",
+  "programs": "Programmes",
+  "programs2": "Programmes2",
+  "progress": "Progrès accomplis",
+  "progress2": "Progrès réalisés2",
+  "progressNotes": "Notes intérimaires",
+  "progressionProgressTotal": "Progrès réalisés Total",
+  "promoteTeachersFromTheUsersTab": "Promouvoir les enseignants à partir de l'onglet utilisateurs",
+  "promoteTeachersToAdminTeacherDual": "Promouvoir les enseignants à l'administration de l'enseignant double",
+  "promoteToAdminTeacher": "Promouvoir l'admin enseignant",
+  "prophetMuhammadPbuh": "Le prophète Muhammad Pbuh",
+  "public": "Public",
+  "published": "Publié",
+  "punctuality": "Ponctualité",
+  "purpleBasicEmailTest": "Test d'email de base pourpre",
+  "pushNotifications": "Notifications de poussée",
+  "qty": "Quantité",
+  "qualifiedIslamicEducators": "Éducateurs islamiques qualifiés",
+  "qualityIslamicEducationFromAnywhereIn": "Éducation islamique de qualité de n'importe où dans",
+  "questionLabel": "Question Étiquette",
+  "quickActions": "Actions rapides",
+  "quickEdit": "Édition rapide",
+  "quickEditOrFullEditorFor": "Édition rapide ou éditeur complet pour",
+  "quickStats": "Statistiques rapides",
+  "quickTasks": "Tâches rapides",
+  "quran": "Coran",
+  "rarely": "Rarement",
+  "rarelyFewHoursAWeek": "Rarement peu d'heures",
+  "rateUpdatedSuccessfully": "Taux actualisé avec succès",
+  "reEnableAccessToTheSystem": "Re Activer l'accès au système",
+  "reGularisationAdministrative": "Re Gularisation Administrative",
+  "reUssis": "RéUssis",
+  "reactionAddedReaction": "Réaction ajoutée Réaction",
+  "readOurPrivacyPolicy": "Lire notre politique de confidentialité",
+  "readinessFormRequired2": "Formulaire de préparation requis2",
+  "reason": "Motifs",
+  "reasonForDispute": "Motif du différend",
+  "reasonForEdit": "Motif de la modification",
+  "reasonForReschedulingRequired": "Motif du rééchelonnement requis",
+  "reasonRequired": "Motif requis",
+  "recentActivity": "Activité récente",
+  "recentInvoices": "Factures récentes",
+  "recentLessons": "Enseignements récents",
+  "recentPayments": "Paiements récents",
+  "recipientsWillReceiveBothPushNotification": "Les récipiendaires recevront les deux notifications Push",
+  "recurrence": "Récurrence",
+  "recurrenceSettings": "Paramètres de récurrence",
+  "recurrenceType": "Type de récidive",
+  "recurring": "Récurrent",
+  "recurringOnly": "Récidive seulement",
+  "refreshData": "Actualiser les données",
+  "regenerateCode": "Code de régénération",
+  "reject": "Rejet",
+  "reject2": "Rejet2",
+  "rejectAll": "Tout rejeter",
+  "rejectEditedTimesheet": "Feuille de temps modifiée de rejet",
+  "rejectTheEntireTimesheetRequiresReason": "Rejeter la feuille de temps entière exige un motif",
+  "rejectTimesheet": "Feuille de temps de rejet",
+  "remainingcount": "Compte restant",
+  "remove": "Supprimer",
+  "removeAccessToAdminFunctions": "Supprimer l'accès aux fonctions administratives",
+  "removeAccessToTheSystem": "Supprimer l'accès au système",
+  "removeAdminPrivileges": "Supprimer les privilèges administratifs",
+  "removeAttachment": "Supprimer la pièce jointe",
+  "removeDisplaynameFromTheMeeting": "Supprimer le nom d'affichage De la Réunion",
+  "removeOverride": "Supprimer le dépassement",
+  "removeParticipant": "Supprimer le participant",
+  "removePicture": "Supprimer l'image",
+  "removeStudent": "Supprimer l'élève",
+  "removeTask": "Supprimer la tâche",
+  "replaceTheStudentListForAll": "Remplacer la liste des élèves pour tous",
+  "reportNow": "Reportez-vous",
+  "reportOpenedInNewTabUse": "Rapport ouvert dans un nouvel onglet Utilisation",
+  "reportScheduleIssue": "Calendrier des rapports Numéro",
+  "reportedIssues": "Questions signalées",
+  "requestReceived": "Demande reçue",
+  "requiredField": "Champ requis",
+  "requiredFieldDefaultReviewed": "Champ obligatoire par défaut examiné",
+  "requiredRatingBelow9": "Note requise ci-dessous9",
+  "rescheduleShift": "Changement de calendrier",
+  "resetAll": "Tout réinitialiser",
+  "resetAllPasswords": "Réinitialiser tous les mots de passe",
+  "resetLayout": "Réinitialiser la mise en page",
+  "resetToDefaults": "Réinitialiser aux valeurs par défaut",
+  "resetZoom": "Réinitialiser Zoom",
+  "responseDetails": "Détails de la réponse",
+  "responses": "Réponses",
+  "restoreAllTheirPreviousData": "Restaurer toutes leurs données antérieures",
+  "restoreBackup": "Restauration de sauvegarde",
+  "restoreOriginalTimesAndKeepTimesheet": "Restaurer les temps originaux et garder la feuille de temps",
+  "restoreTheirAccountFromArchive": "Restaurer leur compte des archives",
+  "restoreUser": "Restaurer l'utilisateur",
+  "resume": "Résumé",
+  "resumeWorkingOnYourUnfinishedForms": "Reprendre le travail sur vos formulaires inachevés",
+  "retryNow": "Réessayez maintenant",
+  "returnHome": "Retour",
+  "revertToOriginal": "Retour à l'original",
+  "review": "Révision",
+  "reviewAndApproveEmployeeTimesheets": "Examiner et approuver les feuilles de temps des employés",
+  "reviewAs": "Révision",
+  "reviewComment": "Commentaire du réexamen",
+  "reviewSubmitted": "Examen soumis",
+  "reviewed": "Révision",
+  "revoke": "Révocation",
+  "revokeAdminPrivileges": "Révoquer les privilèges des administrateurs",
+  "roleBasedPermissionsAreConfiguredAutomatically": "Les autorisations basées sur le rôle sont configurées automatiquement",
+  "roleCheckResults": "Résultats de la vérification des rôles",
+  "rolePermissions": "Rôles autorisés",
+  "roleSystemTest": "Essai du système de rôle",
+  "roleType": "Type de rôle",
+  "roundingAdjustmentPenaltyBonusEtc": "Indemnité d'ajustement arrondie de la pénalité etc",
+  "rowsPerPage": "Lignes par page",
+  "runBasicTests": "Essais de base",
+  "runTheComputeScriptToGenerate": "Exécutez le script de calcul pour générer",
+  "sampleAssignments": "Attributions d'échantillons",
+  "saveDraft": "Enregistrer l'ébauche",
+  "saveField": "Enregistrer le champ",
+  "saveForm": "Enregistrer le formulaire",
+  "saveSettings": "Enregistrer les paramètres",
+  "savedDrafts": "Projets sauvegardés",
+  "schedule": "Tableau",
+  "schedule2": "Tableau 2",
+  "scheduleInformation": "Renseignements sur le calendrier",
+  "schedulePreferences": "Préférences du calendrier",
+  "scheduleType": "Type de calendrier",
+  "schoolAnnouncements": "Annonces scolaires",
+  "schoolUpdates": "Mises à jour scolaires",
+  "score": "Score",
+  "score2": "Note 2",
+  "score3": "Score3",
+  "scoreBreakdown": "Répartition des scores",
+  "screenNotFound": "Écran non trouvé",
+  "search": "Rechercher",
+  "searchActiveForms": "Recherche de formulaires actifs",
+  "searchAnything": "Chercher n'importe quoi",
+  "searchByCityTimezoneIdOr": "Recherche par ville Timezone Id ou",
+  "searchByFormOrCreator": "Recherche par forme ou par créateur",
+  "searchByNameEmailOrRole": "Recherche par nom Courriel ou rôle",
+  "searchByNameOrEmail": "Recherche par nom ou par courriel",
+  "searchByNameOrNumber": "Recherche par nom ou numéro",
+  "searchByNameOrRole": "Recherche par nom ou rôle",
+  "searchByOperationIdMetadata": "Recherche par opération Id Métadonnées",
+  "searchClassesTeacherStudentSubject": "Classes de recherche Enseignant Sujet étudiant",
+  "searchCountry": "Pays de recherche",
+  "searchForms": "Formulaires de recherche",
+  "searchInvoiceNumber": "Numéro de la facture de recherche",
+  "searchParentsByNameOrEmail": "Rechercher les parents Par nom ou par courriel",
+  "searchStudents": "Rechercher les étudiants",
+  "searchSubjects": "Sujets de recherche",
+  "searchTasks": "Tâches de recherche",
+  "searchTeacher": "Professeur de recherche",
+  "searchTeachers": "Rechercher les enseignants",
+  "searchTeachers2": "Rechercher les enseignants 2",
+  "searchUserOrName": "Nom de l'utilisateur ou de la recherche",
+  "searchUsersByNameOrEmail": "Utilisateurs de recherche par nom ou par courriel",
+  "searchUsersOrShifts": "Rechercher des utilisateurs ou des postes",
+  "secondaryButton": "Bouton secondaire",
+  "securitySettings": "Paramètres de sécurité",
+  "select": "Sélectionner",
+  "selectABackupToRestoreFrom": "Sélectionnez ABackup Pour restaurer de",
+  "selectAFormToGetStarted": "Sélectionnez un formulaire pour commencer",
+  "selectAProgramForEachStudent": "Sélectionner un programme Pour chaque étudiant",
+  "selectARoleAndSetThe": "Sélectionnez ARole et définissez Les",
+  "selectAShift": "Sélectionner AShift",
+  "selectAShiftToReportAn": "Sélectionnez AShift pour signaler un",
+  "selectAdjustment": "Sélectionner le réglage",
+  "selectAll": "Tout sélectionner",
+  "selectAll2": "Sélectionner tout2",
+  "selectAssignedBy": "Sélectionner Attribué Par",
+  "selectAssignedTo": "Sélectionner Attribué Aux",
+  "selectAtLeastOneChangeTo": "Sélectionner au moins un changement à",
+  "selectByUserGroupEG": "Sélectionner par groupe d'utilisateurs EG",
+  "selectClass": "Sélectionner une classe",
+  "selectDaysOfMonth": "Quelques jours de mois",
+  "selectDaysOfWeek": "Quelques jours de semaine",
+  "selectDueDate": "Sélectionner la date d'échéance",
+  "selectDurationAndTimeOfDay": "Sélectionner la durée et l'heure du jour",
+  "selectDutyType": "Sélectionner le type de droits",
+  "selectIndividualUsers": "Sélectionner un individu Utilisateur",
+  "selectItems": "Sélectionner des éléments",
+  "selectLabel": "Sélectionner l'étiquette",
+  "selectMonths": "Sélectionner des mois",
+  "selectNewOnly": "Sélectionner seulement Nouveau",
+  "selectParent": "Sélectionner le parent",
+  "selectPeriod": "Sélectionner une période",
+  "selectRole": "Sélectionner le rôle",
+  "selectStudent": "Sélectionner un étudiant",
+  "selectStudent2": "Sélectionnez Étudiant2",
+  "selectStudents": "Sélectionnez les étudiants",
+  "selectSubject": "Sélectionner un sujet",
+  "selectTeacher": "Sélectionner l'enseignant",
+  "selectTeachersToGenerateRegenerateAudit": "Choisir des enseignants pour générer une vérification régénérée",
+  "selectTeamMembers": "Sélectionnez les membres de l'équipe",
+  "selectTheAppropriateRoleForThis": "Choisir le rôle approprié pour Cette",
+  "selectTheProgramSYouAre": "Sélectionnez le programme SYou Sont",
+  "selectUserWhoCreatedTheTasks": "Sélectionnez l'utilisateur qui a créé Les tâches",
+  "selectUsers": "Sélectionner les utilisateurs",
+  "selectUsers2": "Sélectionner Utilisateurs2",
+  "selectUsersToFilterTasks": "Sélectionnez les utilisateurs pour filtrer les tâches",
+  "selectYourCorrectTimezone": "Sélectionnez votre fuseau horaire correct",
+  "selected": "Sélectionné",
+  "selectedSelectedteachername": "Nom de l'enseignant sélectionné",
+  "selectedShifts": "Majs sélectionnés",
+  "selectedShiftsUseMultipleTimezonesApplying": "Utilisation de plusieurs fuseaux horaires",
+  "selectedUsers": "Utilisateurs sélectionnés",
+  "selectionMethod": "Méthode de sélection",
+  "sendMessage": "Envoyer un message",
+  "sendNotification": "Envoyer une notification",
+  "sendTestEmail": "Envoyer un courriel d'essai",
+  "sendTo": "Envoyer à",
+  "sendTo2": "Envoyer à2",
+  "sendUsAnEmail": "Envoyez-nous un courriel",
+  "series": "Série",
+  "sessionAlreadyClosedBySystemTimer": "Session déjà fermée par minuteur système",
+  "setANewStartEndTime": "Définir une nouvelle heure de fin de départ",
+  "setAsActive": "Définir comme actif",
+  "setDefaultRates": "Définir les taux par défaut",
+  "setDefaults": "Définir les valeurs par défaut",
+  "setDifferentHourlyRatesForEach": "Fixer des taux horaires différents pour chaque",
+  "setHourlyRatesForEachSubject": "Fixer des tarifs horaires pour chaque sujet",
+  "setNotesForAllSelectedShifts": "Définir des notes pour tous les déplacements sélectionnés",
+  "settingsSavedSuccessfully": "Paramètres sauvegardés avec succès",
+  "settingsSavedSuccessfully2": "Paramètres sauvegardés avec succès2",
+  "sharing": "Partage",
+  "sheetsIncludedInExport": "Feuilles incluses dans l'exportation",
+  "shiftBannedSuccessfullyRecalculatingAudit": "Changement interdit Recalcul de la vérification",
+  "shiftClaimedSuccessfullyCheckMyShifts": "Affectation demandée avec succès Vérifiez mes quarts",
+  "shiftCompleted2": "Poste terminé2",
+  "shiftCreEEtPaiementSynchronise": "Synchronisation du temps de travail de l'équipe",
+  "shiftCreatedSyncedToTeacherTimezone": "Shift Created Synced to Teacher Timezone",
+  "shiftDeleted": "Maj supprimé",
+  "shiftDetailsConsolidated": "Détails du poste Consolidé",
+  "shiftEndTimeMustBeDifferent": "L'heure de fin de poste doit être différente",
+  "shiftEndedClockOutRecorded": "Heure de fin de quart enregistrée",
+  "shiftInformationAutofilled": "Information sur le poste rempli automatiquement",
+  "shiftName": "Nom du poste",
+  "shiftNotFound": "Maj non trouvé",
+  "shiftReminders": "Rappels de quarts",
+  "shiftUpdated": "Mise à jour du changement",
+  "shiftsWithoutForms": "Postes sans formulaires",
+  "shortAnswerText": "Texte de réponse courte",
+  "showInactive": "Afficher inactif",
+  "showingStartEndOfTotalResults": "Affichage de la fin du début des résultats totaux",
+  "showsPerformanceloggerStartCheckpointEndEvents": "Affiche l'enregistreur de performances Début des événements de fin de checkpoint",
+  "signUp": "Inscription",
+  "signUpForNewClass": "Inscription pour une nouvelle classe",
+  "signature": "Signature",
+  "signatureCaptured": "Signature saisie",
+  "simpleClock": "Horloge simple",
+  "slotStudenttzabbr": "Slot Studenttzabbr",
+  "slowestEnd": "Fin la plus lente",
+  "slowestInCurrentLogBuffer": "Lenteur du tampon de journal actuel",
+  "someStudentsOnThisShiftCould": "Certains étudiants sur ce changement pourrait",
+  "somethingWentWrong": "Quelque chose ne va pas",
+  "sometimes": "Parfois",
+  "sorryNotAtAllIAm": "Désolé de ne pas être du tout",
+  "source": "Source",
+  "sourceWeek": "Semaine source",
+  "specificRole": "Rôle spécifique",
+  "specificUsers": "Utilisateurs spécifiques",
+  "springForward1Hour": "Printemps à venir1heure",
+  "startCodingToday": "Commencez à coder aujourd'hui",
+  "startDate": "Date de début",
+  "startLearning": "Début de l'apprentissage",
+  "startTheConversation": "Début de la conversation",
+  "startYourChildSIslamicJourney": "Commencez votre enfant islamique Voyage",
+  "startYourLearningJourneyToday": "Commencez votre voyage d'apprentissage aujourd'hui",
+  "startdatetextStarttimetextEndtimetext": "Startdatetext Starttimetext Endtimetext",
+  "startingScreenShare": "Partage d'écran de démarrage",
+  "starttimeEndtime": "Heure de début Heure de fin",
+  "statistics": "Statistiques",
+  "statsEditor": "Éditeur de statistiques",
+  "status": "État",
+  "statusStatus": "État d ' avancement",
+  "statusUpdatedToNewstatus": "État mis à jour vers Newstatus",
+  "statusUpdatedToStatus": "État mis à jour",
+  "stayOnTrackWithReminders": "Restez sur la bonne voie avec les rappels",
+  "stepnumberOfTotalsteps": "Nombre d'étapes",
+  "stillNoInternetConnectionPleaseTry": "Toujours aucune connexion Internet Veuillez essayer",
+  "storageService": "Service de stockage",
+  "structuredLearningPaths": "Voies d'apprentissage structurées",
+  "student1": "Étudiant1",
+  "studentAccountCreatedIdStudentcode": "Création du compte étudiant Code étudiant",
+  "studentApplicants": "Candidats étudiants",
+  "studentIdStudentcode": "Code étudiant",
+  "studentJoined": "Étudiant rejoint",
+  "studentLoginCredentials": "Connexion étudiante Pouvoirs",
+  "studentProgressOverview": "Aperçu des progrès des élèves",
+  "studentSInformation": "Informations sur les étudiants",
+  "studentStudent": "Étudiant",
+  "studentType": "Type d'étudiant",
+  "studentWillUseStudentIdAnd": "L'étudiant utilisera son identité et",
+  "students": "Élèves",
+  "studentsWillAppearHereAfterYou": "Les étudiants apparaîtront ici après vous",
+  "subTasksOptional": "Sous-tâches Facultative",
+  "subject": "Sujet",
+  "subjectDisplaynameAddedSuccessfully": "Nom d'affichage du sujet Ajouté avec succès",
+  "subjectDisplaynameUpdatedSuccessfully": "Nom d'affichage du sujet Mis à jour avec succès",
+  "subjectHourlyRates": "Sujet Taux horaires",
+  "subjectManagement": "Gestion des sujets",
+  "subjectName": "Nom du sujet",
+  "subjectPerformanceWillAppearHereAs": "L'interprétation du sujet apparaîtra ici comme",
+  "submissionFailedE": "Échec de la soumission E",
+  "submissionInfo": "Informations sur la soumission",
+  "submissions": "Présentations",
+  "submitAgain": "Soumettre à nouveau",
+  "submitAllDrafts": "Soumettre tous les projets",
+  "submitApplication": "Soumettre une demande",
+  "submitEvaluation": "Soumettre l'évaluation",
+  "submitForm": "Soumettre le formulaire",
+  "submitNewDispute": "Soumettre un nouveau différend",
+  "submitReportsFeedback": "Soumettre des rapports Commentaires",
+  "submitTimesheet": "Soumettre une feuille de temps",
+  "submitWithoutImage": "Soumettre sans image",
+  "submitted": "Présenté",
+  "submittedDatestr": "Datestr soumise",
+  "submitting": "Présentation",
+  "subtitle": "Sous-titre",
+  "successcountSuccessfulN": "Nombre de réussites N",
+  "successfulLogin1HourAgo": "Connexion réussie1Hour Ago",
+  "successfulLogin2MinutesAgo": "Avec succès Login2Minutes Ago",
+  "successfuluploadsFileSUploadedSuccessfully": "Envois réussis Fichier SUploadé Réussir",
+  "suggestedCorrectValueOptional": "Valeur correcte suggérée Facultative",
+  "sujetDuCours": "Sujet Du Cours",
+  "summary": "Résumé",
+  "summary2": "Résumé2",
+  "supportAlluwaleducationhubOrg": "Soutien Alluwaleducationhub Organisme",
+  "surah": "Sourate",
+  "sync": "Synchronisation",
+  "syncWithSubjects": "Synchroniser avec les sujets",
+  "syncedSyncedSubjectsWithRates": "Sujets syndiqués avec taux",
+  "systemDiagnostics": "Diagnostic du système",
+  "systemHealth": "Santé du système",
+  "systemInformation": "Informations sur le système",
+  "systemLoad": "Charge du système",
+  "systemOverview": "Aperçu du système",
+  "systemPerformance": "Performance du système",
+  "systemSettings": "Paramètres du système",
+  "systemSettings2": "Paramètres du système2",
+  "takeAPhoto": "Prendre une photo",
+  "tapAndHoldForMoreDetails": "Appuyez sur et maintenez pour plus de détails",
+  "tapOnUsersBelowToSelect": "Appuyez sur Utilisateurs ci-dessous pour sélectionner",
+  "tapToSelectUsers": "Appuyez sur pour sélectionner les utilisateurs",
+  "targetAudienceAllowedRoles": "Public cible Rôles autorisés",
+  "targetWeek": "Semaine cible",
+  "taskArchived": "Tâche archivée",
+  "taskDeletedSuccessfully": "Tâche supprimée avec succès",
+  "taskName": "Nom de la tâche",
+  "taskName2": "Nom de la tâche2",
+  "taskReminders": "Rappel des tâches",
+  "taskTitle": "Titre de la tâche",
+  "taskUnarchived": "Tâche non archivée",
+  "teachForUs": "Apprenez-nous",
+  "teacherApplicants": "Candidats enseignants",
+  "teacherApplication": "Application pour les enseignants",
+  "teacherArrived": "Professeur arrivé",
+  "teacherAuditDashboard": "Tableau de bord de la vérification des enseignants",
+  "teacherClass": "Classe d ' enseignants",
+  "teacherDidNotSubmitReadinessForm": "L'enseignant n'a pas soumis le formulaire de préparation",
+  "teacherIdNotFound": "Idée de professeur non trouvée",
+  "teacherInformationNotAvailable": "Renseignements pour les enseignants Non disponible",
+  "teacherNotHere": "Professeur non ici",
+  "teacherProfile": "Profil de l'enseignant",
+  "teacherSelectedSelectedteachername": "Nom de l'enseignant sélectionné",
+  "teacherUstaz": "Enseignant Ustaz",
+  "teacherUstaza": "Professeur Ustaza",
+  "teachers": "Enseignants",
+  "teachers2": "Enseignants2",
+  "teachersOnly": "Enseignants seulement",
+  "teachershiftsShiftsWillBePermanentlyDeleted": "Les postes d'enseignant seront définitivement supprimés",
+  "teachingSelectedstudentname": "Enseignement Nom de l'étudiant sélectionné",
+  "tealTestLastLoginUpdateTracking": "Test Teal Dernière connexion Suivi des mises à jour",
+  "templateDeleted": "Modèle supprimé",
+  "templateDuplicatedSuccessfully": "Modèle dupliqué Réussir",
+  "templateMustHaveAtLeastOne": "Modèle doit avoir au moins un",
+  "templateName": "Nom du modèle",
+  "templateNameCannotBeEmpty": "Le nom du modèle ne peut pas être vide",
+  "templateUpdatedSuccessfully": "Modèle mis à jour avec succès",
+  "testConnection": "Connexion d'essai",
+  "testDraftCreation": "Création du projet d'essai",
+  "testGeNeRationAuditDe": "Vérification de la qualité",
+  "testLoginTracking": "Tester le suivi de connexion",
+  "testNotificationSentSuccessfully": "Notification d'essai Envoyé avec succès",
+  "testRoleChecks": "Vérification des rôles d'essai",
+  "testStatusUpdate": "Mise à jour de l'état des essais",
+  "testTaskAssignment": "Attribution des tâches d'essai",
+  "testWelcomeEmail": "Test Email de bienvenue",
+  "testimonials": "Témoignages",
+  "testimonialsEditor": "Éditeur de témoignages",
+  "testingConnection": "Essai de connexion",
+  "text": "Texte",
+  "text10": "Texte10",
+  "text2": "Texte2",
+  "text3": "Texte3",
+  "text4": "Texte4",
+  "text5": "Texte5",
+  "text6": "Texte6",
+  "text7": "Texte7",
+  "text8": "Texte8",
+  "text9": "Texte9",
+  "thankYouForYourInterestIn": "Merci de votre intérêt pour",
+  "thankYouForYourInterestIn2": "Merci de votre intérêt pour In2",
+  "thankYouForYourInterestIn3": "Merci de votre intérêt pour In3",
+  "thankYouForYourInterestPlease": "Merci de votre intérêt.",
+  "thankYouForYourInterestPlease2": "Merci pour votre intérêt s'il vous plaît2",
+  "thankYouForYourInterestWe": "Merci de votre intérêt",
+  "theBestOfPeopleAreThose": "Le meilleur des gens sont ceux",
+  "theDailySchedulerWillGenerateNew": "Le calendrier quotidien Générera une nouvelle",
+  "theFormCreatorHasNotAdded": "La forme Créateur n'a pas été ajoutée",
+  "theSmallBusinessPlan": "Le Plan pour les petites entreprises",
+  "theTimezoneForTheTimesBelow": "Le fuseau horaire des temps",
+  "theTimezoneForTheTimesYou": "Le fuseau horaire des temps",
+  "theTimezoneUsedForTheStart": "Le fuseau horaire utilisé pour le début",
+  "theViewContains": "La vue contient",
+  "thereAreCurrentlyNoPublishedShifts": "Il n'y a actuellement aucun changement publié",
+  "theseShiftsWereCompletedButNo": "Ces postes ont été terminés mais non",
+  "thisActionCannotBeUndone": "Cette action ne peut être annulée",
+  "thisAppRequiresAnActiveInternet": "Cette application nécessite un Internet actif",
+  "thisClassDoesNotHaveA": "Cette classe n'a pas de",
+  "thisClassLinkIsNoLonger": "Ce lien de classe n'est plus long",
+  "thisEmailWillReceiveNotificationsFor": "Ce courriel recevra des notifications Pour",
+  "thisFileWasNotUploadedTo": "Ce fichier n'a pas été téléchargé vers",
+  "thisFormIndicatesTheTeacherConducted": "Ce formulaire indique l'enseignant",
+  "thisIsTheTaskscreenScreen": "C'est l'écran des tâches",
+  "thisIsTheTimeoffscreenScreen": "C'est l'écran Timeoff",
+  "thisShiftSpansTwoDaysIn": "Ce quart de travail s'étend sur deux jours",
+  "thisShiftSpansTwoDaysIn2": "Ce poste s'étale sur deux jours",
+  "thisShiftWasMissedPleaseFill": "Ce poste a manqué Veuillez remplir",
+  "thisTimesheetHasBeenApprovedAnd": "Cette feuille de temps a été approuvée et",
+  "thisTimesheetWasEditedAndRequires": "Cette feuille de temps a été modifiée et nécessite",
+  "thisTimesheetWasEditedButThe": "Cette feuille de temps a été modifiée",
+  "thisTimesheetWasEditedChooseAn": "Cette feuille de temps a été modifiée Choisir un",
+  "thisWill": "Cette volonté",
+  "thisWillAdjustAllFutureScheduled": "Cela ajustera tous les futurs calendriers",
+  "thisWillDeleteAllDraftsOlder": "Cela supprimera toutes les ébauches plus anciennes",
+  "thisWillGiveThem": "Cela donnera Eux",
+  "thisWillMakeTheOpportunityVisible": "Cela rendra l'occasion visible",
+  "thisWillMuteAllParticipantsExcept": "Tous les participants sauf",
+  "thisWillPermanentlyDeleteThisShift": "Ce sera définitivement supprimer ce changement",
+  "thisWillSetDefaultRatesFor": "Cela définira les taux par défaut pour",
+  "thisWillUpdateAllExistingShifts": "Cette mise à jour mettra à jour tous les postes existants",
+  "thisWillUpdateTheDefaultwageField": "Ceci mettra à jour le champ par défaut",
+  "thisWillUpdateTheRecurringTemplate": "Cette mise à jour mettra à jour le modèle récurrent",
+  "timeConversionPreview": "Aperçu de la conversion du temps",
+  "timePicker": "Cueillette de temps",
+  "timeUntilShiftsDisplay": "Temps jusqu'à l'affichage des changements",
+  "timeUntilTimesheetsDisplay": "Temps avant l'affichage des feuilles de temps",
+  "timesWillBeAppliedInThis": "Les temps seront appliqués dans ce",
+  "timesheetDetails2": "Détails du calendrier2",
+  "timesheetReview": "Révision du calendrier",
+  "timesheetSubmittedForReview": "Calendrier soumis à l'examen",
+  "timesheetWasEdited": "La feuille de temps a été modifiée",
+  "timesheets": "Feuilles horaires",
+  "timezoneUpdatedToSelectedtimezone": "Timezone Mise à jour vers SelectedTimezone",
+  "tipIfYouJustCompletedPayment": "Conseil Si vous venez de compléter le paiement",
+  "title": "Titre",
+  "to": "Aux",
+  "toCreateAnInclusiveInspiringEnvironment": "Créer un environnement inspirant inclusif",
+  "toHassimiouNianeMaineEdu": "À Hassimiou Niane Maine Edu",
+  "toIntegrateIslamicAfricanAndWestern": "Intégrer l'islam africain et occidental",
+  "tooEarlyToClockInPlease": "Trop tôt pour entrer s'il vous plaît",
+  "topicsWeCover": "Sujets traités",
+  "total": "Total général",
+  "totalClasses": "Total des classes",
+  "totalPayment": "Total des paiements",
+  "totalPenalty": "Pénalité totale",
+  "totalTeachingHours": "Total des heures d'enseignement",
+  "totalTotalusersUsers": "Total utilisateurs Utilisateur",
+  "totalscoreMaxscore": "Totalscore Maxscore",
+  "training": "Formation",
+  "transformativeEducationNbeyondTraditionalBoundaries": "Éducation transformatrice Nbeyond limites traditionnelles",
+  "trustIndicator": "Indicateur de confiance",
+  "tryAdjustingYourFiltersOrSearch": "Essayez d'ajuster vos filtres ou de rechercher",
+  "tryAdjustingYourFiltersOrSearch2": "Essayez d'ajuster vos filtres ou de rechercher2",
+  "tryAdjustingYourSearchOrFilters": "Essayez d'ajuster votre recherche ou filtres",
+  "tryAgain": "Essaie encore",
+  "tryChangingTheFilterOrCheck": "Essayez de modifier le filtre ou de vérifier",
+  "tryChangingTheMonthOrGenerating": "Essayez de changer le mois ou de générer",
+  "turnOffToKeepParticipantsMuted": "Éteindre pour garder les participants Muets",
+  "unBroadcast": "Non diffusé",
+  "unableToFindAuditContext": "Impossible de trouver le contexte de la vérification",
+  "unableToGetYourLocationE": "Impossible d'obtenir votre emplacement E",
+  "unableToJoin": "Impossible de se joindre",
+  "unableToLoadClassesNMessage": "Impossible de charger les classes NMessage",
+  "unableToLoadParentAccountPlease": "Impossible de charger le compte parent",
+  "unableToLoadQuran": "Impossible de charger le Coran",
+  "unableToLoadSeriesShifts": "Impossible de charger des déplacements de série",
+  "unableToLoadSurah": "Impossible de charger la sourate",
+  "uncomfortable": "Inconfortable",
+  "understandingClassColors": "Comprendre les couleurs des classes",
+  "universityGraduate": "Diplômé",
+  "universityStudent": "Étudiant",
+  "unknownUserRole": "Rôle de l'utilisateur inconnu",
+  "unlink": "Déconnecter",
+  "unlockYourFullPotentialWithExpert": "Débloquer votre plein potentiel avec l'expert",
+  "unlockYourMathPotentialToday": "Débloquer votre potentiel de mathématiques aujourd'hui",
+  "unmute": "Sans changement",
+  "unmuteParticipant": "Participant",
+  "unsaved": "Non sauvé",
+  "unsavedChanges": "Changements non enregistrés",
+  "untitledForm": "Formulaire sans titre",
+  "untitledForm2": "Formulaire sans titre2",
+  "upcomingEvents": "Événements à venir",
+  "upcomingOccurrences": "Événements à venir",
+  "upcomingTasks": "Tâches futures",
+  "update": "Mise à jour",
+  "updateNow": "Mettre à jour",
+  "updateRecurringTemplate": "Mettre à jour le modèle récurrent",
+  "updateRequired": "Mise à jour requise",
+  "updateStatus": "État de mise à jour",
+  "updateSubject": "Sujet de mise à jour",
+  "updateTimezoneWithoutReportingAShift": "Mettre à jour le fuseau horaire sans rapport AShift",
+  "updateUserInformationAndSettings": "Mettre à jour les informations utilisateur et les paramètres",
+  "updatedDefaultRatesForUpdatedSubjects": "Taux par défaut mis à jour pour les sujets mis à jour",
+  "updatedSelectedcountTaskS": "Numéro sélectionné mis à jour Tâche S",
+  "uploadImageOrUseSignaturePad": "Télécharger une image ou utiliser le tampon de signature",
+  "uptime": "Temps de disponibilité",
+  "use": "Utilisation",
+  "useCustomShiftName": "Utiliser un nom de poste personnalisé",
+  "useLowercaseWithUnderscores": "Utiliser la minuscule avec les sous-scores",
+  "useStudentId": "Utiliser la carte d'étudiant",
+  "userAnalytics": "Analyse utilisateur",
+  "userData": "Données utilisateur",
+  "userDataNotLoaded": "Données utilisateur non chargées",
+  "userDetails": "Détails de l'utilisateur",
+  "userDistribution": "Distribution des utilisateurs",
+  "userDocumentNotFound": "Document utilisateur non trouvé",
+  "userListScreenComingSoon": "L'écran de la liste des utilisateurs arrive bientôt",
+  "userRole2": "Rôle de l'utilisateur2",
+  "userType2": "Type d'utilisateur2",
+  "userUpdatedSuccessfully": "Utilisateur mis à jour avec succès",
+  "userUpdatedSuccessfully2": "Utilisateur mis à jour avec succès2",
+  "usersDidnTLogInYet": "Les utilisateurs n'ont pas encore connecté",
+  "usersWillReceiveLoginCredentialsVia": "Les utilisateurs recevront les identifiants de connexion Voie",
+  "v": "V",
+  "version100": "Version100",
+  "versionAndAppInformation": "Informations sur la version et l'application",
+  "veryComfortable": "Très confortable",
+  "videoProvider": "Fournisseur de vidéo",
+  "viewAllActivity": "Afficher toutes les activités",
+  "viewAndPay": "Afficher et payer",
+  "viewAttachment": "Afficher la pièce jointe",
+  "viewAuditDetails": "Voir les détails de l'audit",
+  "viewFile": "Affichage du fichier",
+  "viewForm": "Afficher le formulaire",
+  "viewFormDetails": "Afficher les détails du formulaire",
+  "viewOptions": "Options d'affichage",
+  "viewResponse": "Afficher la réponse",
+  "viewShift": "Affichage Maj",
+  "wageChangesApplied": "Évolution des salaires appliquée",
+  "wageManagement": "Gestion des salaires",
+  "waitingForOthersToJoin": "Attendre que d'autres se joignent",
+  "wantToBecomeATeacher": "Voulez devenir ATeacher",
+  "weAreCommittedToProtectingChildren": "Nous nous engageons à protéger les enfants",
+  "weAreFosteringAWorldWhere": "Nous encourageons un monde où",
+  "weCollectInformationYouProvideDirectly": "Nous recueillons les renseignements que vous fournissez directement",
+  "weDLoveToHearFrom": "Nous aimons entendre de",
+  "weImplementIndustryStandardSecurityMeasures": "Nous mettons en oeuvre les mesures de sécurité normalisées de l'industrie",
+  "websiteContentSavedSuccessfullyChangesWill": "Contenu du site Web sauvegardé avec succès Changements",
+  "websiteManagement": "Gestion du site Web",
+  "weekCalendar": "Calendrier hebdomadaire",
+  "weekly": "Semaine",
+  "weeklyCalendar": "Calendrier hebdomadaire",
+  "weeklyRecurrenceSettings": "Paramètres hebdomadaires de récurrence",
+  "welcomeBackFirstname": "Accueil Retour Prénom",
+  "welcomeToAlluvialAcademy": "Bienvenue à l'Académie Alluviale",
+  "whatNeedsToBeDone": "Ce qu'il faut faire",
+  "whatSTheIssue": "Qu'est-ce que le problème",
+  "whatShouldTheCorrectTimesBe": "Que devrait être le temps correct",
+  "whatShouldTheCorrectValueBe": "Que devrait être la valeur correcte",
+  "whatsapp": "Quoi?",
+  "whatsappNumber": "Numéro Whatsapp",
+  "whatsappNumber2": "Numéro Whatsapp2",
+  "whenInvoicesAreCreatedTheyWill": "Quand les factures seront créées, elles seront",
+  "whereEducationTranscendsBoundaries": "Où l'éducation transcend les limites",
+  "whyChooseOurEnglishProgram": "Pourquoi choisir notre programme anglais",
+  "whyChooseOurMathProgram": "Pourquoi choisir notre programme de mathématiques",
+  "whyChooseOurTeachers": "Pourquoi choisir nos enseignants",
+  "whyLearnToCode": "Pourquoi apprendre à coder",
+  "worldClassEducation": "Éducation de classe mondiale",
+  "wouldYouLikeToClockOut": "Voudriez-vous vous arranger",
+  "wouldYouLikeToCompleteThe": "Aimeriez-vous compléter Les",
+  "yearlyRecurrenceSettings": "Paramètres annuels de récurrence",
+  "yesAndAlways": "Oui et toujours",
+  "yesUpdateTemplate": "Oui Modèle de mise à jour",
+  "youAreAboutToRejectCount": "Vous êtes sur le point de rejeter le compte",
+  "youAreNotAssignedToThis": "Vous n'êtes pas assigné à ceci",
+  "youCanAddMultipleStudentsIn": "Vous pouvez ajouter plusieurs étudiants dans",
+  "youCanOnlyDeleteTasksYou": "Vous ne pouvez supprimer que les tâches Toi",
+  "youDonTHavePermissionTo": "Vous avez la permission de",
+  "youHaveAlreadySubmittedThisForm": "Vous avez déjà soumis ce formulaire",
+  "youHaveAlreadySubmittedThisForm2": "Vous avez déjà soumis ce formulaire2",
+  "youHaveNoCompletedOrMissed": "Vous n'avez aucune classe terminée ou manquée. Si vous essayez de soumettre un rapport pour une classe plus ancienne, veuillez contacter votre administrateur.",
+  "youHaveTheRightToAccess": "Vous avez le droit d'accéder",
+  "youHaveUnsavedChangesAreYou": "Vous avez des changements non sauvés",
+  "youMustBeLoggedInTo": "Vous devez être accroché à",
+  "youReAllSet": "Vous êtes tous ensemble",
+  "youReManagingRoledisplay": "La gestion de l'affichage des rôles",
+  "youReSignedInAsRoledisplay": "Vous êtes Signé en tant qu'affichage de rôles",
+  "yourAccountHasNotBeenSet": "Votre compte n'a pas été défini",
+  "yourAuditReportWillBeAvailable": "Votre rapport de vérification sera disponible",
+  "yourChildHasNoScheduledClasses": "Votre enfant n'a pas de classes prévues",
+  "yourChildHasNoUpcomingClasses": "Votre enfant n'a pas de classe à venir",
+  "yourClasses": "Vos cours",
+  "yourInformation": "Vos informations",
+  "yourInformationIsUsedToProvide": "Vos informations sont utilisées pour fournir",
+  "yourIslamicEducationJourneyStartsHere": "Votre voyage d'éducation islamique commence ici",
+  "yourPerformanceDataWillAppearHere": "Vos données de performance apparaîtront ici",
+  "yourPrivacyIsImportantToUs": "Votre vie privée est importante pour nous",
+  "yourProfileSettings": "Paramètres de votre profil",
+  "yourProgressWillBeAutomaticallySaved": "Vos progrès seront automatiquement enregistrés",
+  "yourRights": "Vos droits",
+  "yourScheduledClassesWillAppearHere": "Vos classes programmées apparaîtront ici",
+  "yourTeacherHasnTJoinedThe": "Votre professeur s'est joint Les",
+  "yourTimezone": "Votre fuseau horaire",
+  "@profilePercentComplete": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "@dashboardDueDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@readinessFormRequired": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@clockInAvailableIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@clockInStartingIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@clockInProgrammedFor": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@shiftStudentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@chatLastSent": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@chatReplyTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@chatStartConversationWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@chatBlockUserConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@chatGroupMembersSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@chatGroupCreatedSuccess": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@timeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@timeDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@formSubmittedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@userUsersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@userNewPasswordFor": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@userResetPasswordFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@userPromoteConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@userDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobAge": {
+    "placeholders": {
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobSubject": {
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobGrade": {
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobTimezone": {
+    "placeholders": {
+      "timezone": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobDays": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobTimes": {
+    "placeholders": {
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "@jobAcceptedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "commonNotSignedIn": "Non signé",
+  "commonNotAvailable": "Sans objet",
+  "commonNotLoaded": "Non chargé",
+  "commonErrorWithDetails": "Erreur : {details}",
+  "@commonErrorWithDetails": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "commonActivated": "activé",
+  "commonDeactivated": "désactivé",
+  "testRoleAuthUser": "Utilisateur auth : {email}",
+  "@testRoleAuthUser": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "testRoleUserId": "ID utilisateur : {userId}",
+  "@testRoleUserId": {
+    "placeholders": {
+      "userId": {}
+    }
+  },
+  "testRoleRole": "Rôle : {role}",
+  "@testRoleRole": {
+    "placeholders": {
+      "role": {}
+    }
+  },
+  "testRoleKeyValue": "{key} : {value}",
+  "@testRoleKeyValue": {
+    "placeholders": {
+      "key": {},
+      "value": {}
+    }
+  },
+  "debugDocumentId": "Numéro d'identification : {id}",
+  "@debugDocumentId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "debugEmail": "Courriel: {email}",
+  "@debugEmail": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "debugName": "Nom: {name}",
+  "@debugName": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "debugType": "Type: {type}",
+  "@debugType": {
+    "placeholders": {
+      "type": {}
+    }
+  },
+  "debugMoreDocuments": "... et {count} plus de documents",
+  "@debugMoreDocuments": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "applicationSubmitFailed": "La demande a échoué : {details}",
+  "@applicationSubmitFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "notificationSentSuccess": "Notifications envoyées avec succès",
+  "notificationRecipients": "Bénéficiaires : {count}",
+  "@notificationRecipients": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notificationSuccessCount": "✓ Succès : {count}",
+  "@notificationSuccessCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notificationFailedCount": "Échec : {count}",
+  "@notificationFailedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notificationTotalRecipients": "Total des bénéficiaires : {count}",
+  "@notificationTotalRecipients": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notificationEmailsSentCount": "✓ Envoyé : {count}",
+  "@notificationEmailsSentCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notificationEmailsFailedCount": "Échec : {count}",
+  "@notificationEmailsFailedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "classJoinFailed": "Impossible de rejoindre la classe : {details}",
+  "@classJoinFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "formsListFormStatus": "Formulaire {statut}",
+  "@formsListFormStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "formsListTemplateStatus": "Modèle {statut}",
+  "@formsListTemplateStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "formsListDeleteFieldConfirm": "Voulez-vous vraiment supprimer \"{field}\" ?",
+  "@formsListDeleteFieldConfirm": {
+    "placeholders": {
+      "field": {}
+    }
+  },
+  "formsListOptionHint": "Option {index}",
+  "@formsListOptionHint": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "userDetailName": "Nom: {name}",
+  "@userDetailName": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "userDetailEmail": "Courriel: {email}",
+  "@userDetailEmail": {
+    "placeholders": {
+      "email": {}
+    }
+  },
+  "userDetailRole": "Rôle : {role}",
+  "@userDetailRole": {
+    "placeholders": {
+      "role": {}
+    }
+  },
+  "userPromoteError": "Erreur de promotion de l'utilisateur : {details}",
+  "@userPromoteError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "userRevokeFailed": "Impossible de révoquer les privilèges de l'administration.",
+  "userRevokeError": "Erreur lors de la révocation des privilèges : {details}",
+  "@userRevokeError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "userArchiveFailed": "Impossible d'archiver l'utilisateur.",
+  "userDeactivateError": "Erreur lors de la désactivation de l'utilisateur : {details}",
+  "@userDeactivateError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "userRestoreFailed": "Impossible de restaurer l'utilisateur.",
+  "userActivateError": "Erreur lors de l'activation de l'utilisateur : {details}",
+  "@userActivateError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "userCredentialsLoadError": "Erreur lors du chargement des identifiants : {details}",
+  "@userCredentialsLoadError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "userResetPasswordError": "Erreur de réinitialisation du mot de passe : {details}",
+  "@userResetPasswordError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "userDeleteSelfNotAllowed": "Vous ne pouvez pas supprimer votre propre compte.",
+  "userArchiveBeforeDeleteFailed": "Impossible d'archiver l'utilisateur avant la suppression.",
+  "userDeleteError": "Erreur de suppression de l'utilisateur : {details}",
+  "@userDeleteError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "@userDeletedSuccess": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "userArchiveAndDeleteTitle": "Archive & Permanentement Supprimer",
+  "userDeletePermanentTitle": "Supprimer définitivement l' utilisateur",
+  "userDeleteActiveInfo": "Cet utilisateur est actuellement actif. Ils seront archivés d'abord, puis définitivement supprimés.",
+  "userDeletedSuccessfully": "L'utilisateur supprimé avec succès",
+  "userEmailRole": "{email} • {role}",
+  "@userEmailRole": {
+    "placeholders": {
+      "email": {},
+      "role": {}
+    }
+  },
+  "auditMetricsComputed": "métriques calculées ! Note & #160;: {score}%",
+  "@auditMetricsComputed": {
+    "placeholders": {
+      "score": {}
+    }
+  },
+  "wageUpdatedUsers": "Salaires actualisés pour les utilisateurs {count}",
+  "@wageUpdatedUsers": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "wageUpdatedShifts": "C'est vrai. Mise à jour des équipes {count}",
+  "@wageUpdatedShifts": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "wageUpdatedTimesheets": "C'est vrai. Entrées à jour de la feuille de temps {count}",
+  "@wageUpdatedTimesheets": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "timesheetSubmitDrafts": "Soumettre les projets ({count})",
+  "@timesheetSubmitDrafts": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formsErrorLoading": "Erreur lors du chargement des formulaires : {details}",
+  "@formsErrorLoading": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "formsNoDataReceived": "Aucun formulaire n'a été reçu. Veuillez vérifier votre connexion.",
+  "formsErrorLoadingForm": "Erreur lors du chargement du formulaire : {details}",
+  "@formsErrorLoadingForm": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "livekitParticipantsCount": "Participants ({count})",
+  "@livekitParticipantsCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "auditGenerateCount": "Générer ({count})",
+  "@auditGenerateCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "auditScoreWithTier": "Score : {score}% • {tier}",
+  "@auditScoreWithTier": {
+    "placeholders": {
+      "score": {},
+      "tier": {}
+    }
+  },
+  "auditPaymentUpdated": "Paiement mis à jour en ${amount}. Total du paiement recalculé.",
+  "@auditPaymentUpdated": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
+  "auditPenaltyApplied": "Peine de {amount} appliquée",
+  "@auditPenaltyApplied": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
+  "auditMaxPayment": "Le paiement maximal pour {sujet} est ${amount} (maximum ${time}/heure)",
+  "@auditMaxPayment": {
+    "placeholders": {
+      "subject": {},
+      "amount": {},
+      "hourly": {}
+    }
+  },
+  "auditDayLabel": "Jour: {jour}",
+  "@auditDayLabel": {
+    "placeholders": {
+      "day": {}
+    }
+  },
+  "auditShiftTitle": "{student} - {subject}",
+  "@auditShiftTitle": {
+    "placeholders": {
+      "student": {},
+      "subject": {}
+    }
+  },
+  "auditDisputeField": "Champ : {field}",
+  "@auditDisputeField": {
+    "placeholders": {
+      "field": {}
+    }
+  },
+  "auditDisputeReason": "Raison: {reason}",
+  "@auditDisputeReason": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "payHourlyRateUpdated": "Taux horaire mis à jour à ${amount}",
+  "@payHourlyRateUpdated": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
+  "paySaveFailed": "Impossible d'enregistrer : {details}",
+  "@paySaveFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "timeClockClockOutExceed": "L'heure d'horloge ne peut dépasser l'heure de fin de quart prévue ({time})",
+  "@timeClockClockOutExceed": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "timeClockClockOutExceedShort": "Le temps d'horloge ne peut pas dépasser la fin du quart: {time}",
+  "@timeClockClockOutExceedShort": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "assignmentErrorOpeningFile": "Erreur lors de l'ouverture du fichier : {details}",
+  "@assignmentErrorOpeningFile": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "assignmentDeleteConfirm": "Voulez-vous vraiment supprimer \"{title}\"? Cette action ne peut être annulée.",
+  "@assignmentDeleteConfirm": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "assignmentLoadedCount": "Affectations chargées (limite 10): {count}",
+  "@assignmentLoadedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "assignmentUserId": "Votre identifiant utilisateur : {id}",
+  "@assignmentUserId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "assignmentDocId": "Numéro d'identification : {id}",
+  "@assignmentDocId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "assignmentTitle": "Titre: {title}",
+  "@assignmentTitle": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "assignmentTeacherId": "ID de l'enseignant : {id}",
+  "@assignmentTeacherId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "assignmentStudentsCount": "{count, plural, =1{# étudiant} other{# étudiants}}",
+  "@assignmentStudentsCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "assignmentUploadingFile": "Téléchargement de \"{fileName}\"...",
+  "@assignmentUploadingFile": {
+    "placeholders": {
+      "fileName": {}
+    }
+  },
+  "assignmentUploadSuccess": "Fichier \"{fileName}\" téléchargé avec succès!",
+  "@assignmentUploadSuccess": {
+    "placeholders": {
+      "fileName": {}
+    }
+  },
+  "assignmentUploadError": "Erreur de téléchargement du fichier : {details}",
+  "@assignmentUploadError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "taskDownloadFailed": "Impossible de télécharger le fichier : {details}",
+  "@taskDownloadFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "taskRemoveAttachmentFailed": "Impossible de supprimer la pièce jointe : {details}",
+  "@taskRemoveAttachmentFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "taskDeleteAttachmentConfirm": "Voulez-vous vraiment supprimer {fileName} ?",
+  "@taskDeleteAttachmentConfirm": {
+    "placeholders": {
+      "fileName": {}
+    }
+  },
+  "taskDeleteCommentError": "Erreur lors de la suppression du commentaire : {details}",
+  "@taskDeleteCommentError": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "taskSubtaskHint": "Sous-tâche {index}",
+  "@taskSubtaskHint": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "timesheetPendingReview": "{count, plural, =1{# nouvelle feuille de temps en attente de révision} other{# nouvelles feuilles de temps en attente d'examen}}",
+  "@timesheetPendingReview": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "timesheetTotalEntries": "Total des entrées {count}",
+  "@timesheetTotalEntries": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@timesheetTotalHours": {
+    "placeholders": {
+      "hours": {}
+    }
+  },
+  "timesheetTotalPayment": "Paiement total : {amount}",
+  "@timesheetTotalPayment": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
+  "timesheetTimeRange": "{start} - {end}",
+  "@timesheetTimeRange": {
+    "placeholders": {
+      "start": {},
+      "end": {}
+    }
+  },
+  "timesheetEntrySummary": "{hours} heures • ${amount}",
+  "@timesheetEntrySummary": {
+    "placeholders": {
+      "hours": {},
+      "amount": {}
+    }
+  },
+  "formSubmissionsTitle": "Présentations • {title}",
+  "@formSubmissionsTitle": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "formSubmissionsCount": "{count, plural, =1{# soumission} other{# soumissions}}",
+  "@formSubmissionsCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "timeClockAutoClockOut": "Fin du quart de travail - automatiquement sorti de {shift}",
+  "@timeClockAutoClockOut": {
+    "placeholders": {
+      "shift": {}
+    }
+  },
+  "timeClockClockOutFailed": "L'horloge a échoué : {details}",
+  "@timeClockClockOutFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "timeClockClockInFailed": "L'horloge a échoué : {details}",
+  "@timeClockClockInFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "shiftSelectedTimeRange": "Sélectionné ({abbr}): {startDate}, {startTime} - {endDatePart} {endTime}",
+  "@shiftSelectedTimeRange": {
+    "placeholders": {
+      "abbr": {},
+      "startDate": {},
+      "startTime": {},
+      "endDatePart": {},
+      "endTime": {}
+    }
+  },
+  "shiftSelectedCount": "Sélectionné ({count})",
+  "@shiftSelectedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "shiftConfirmCount": "Confirmer ({count})",
+  "@shiftConfirmCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "taskBulkChangeStatus": "Modifier l'état pour {count} Fonctions",
+  "@taskBulkChangeStatus": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "taskBulkChangePriority": "Modifier la priorité pour {count} Fonctions",
+  "@taskBulkChangePriority": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "taskBulkDeleteConfirm": "Voulez-vous vraiment supprimer {count} tâche(s) ? Cette action ne peut être annulée.",
+  "@taskBulkDeleteConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "taskDeleteConfirm": "Voulez-vous vraiment supprimer \"{title}\"?",
+  "@taskDeleteConfirm": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "shiftDeletingCount": "Suppression des équipes {count}...",
+  "@shiftDeletingCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dashboardErrorLoadingFormDetails": "Erreur lors du chargement des détails du formulaire : {details}",
+  "@dashboardErrorLoadingFormDetails": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "dashboardErrorOpeningLink": "Erreur lors de l'ouverture du lien : {details}",
+  "@dashboardErrorOpeningLink": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "dashboardClockInProgrammed": "Clock-in programmé pour {time}",
+  "@dashboardClockInProgrammed": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "dashboardAssignmentCreateFailed": "Impossible de créer l'assignation : {details}",
+  "@dashboardAssignmentCreateFailed": {
+    "placeholders": {
+      "details": {}
+    }
+  },
+  "dashboardFileAdded": "Fichier \"{fileName}\" ajouté avec succès!",
+  "@dashboardFileAdded": {
+    "placeholders": {
+      "fileName": {}
+    }
+  },
+  "performanceLogViewerOnlyendevents": "Only END events",
+  "performanceLogViewerPerfenabled": "Perf enabled",
+  "performanceLogViewerCaptureenabled": "Capture enabled",
+  "performanceLogViewerEndops": "END ops",
+  "performanceLogViewerSlow": "SLOW",
+  "performanceLogViewerModerate": "MODERATE",
+  "performanceLogViewerFast": "FAST",
+  "performanceLogViewerAvg": "Avg",
+  "adminSettingsNotificationemail": "Notification Email",
+  "notificationPreferencesMinutesmin": "$minutes min",
+  "quickTasksAssignedby": "Assigned By",
+  "quickTasksLabels": "Labels",
+  "quickTasksAssignedbyme": "Assigned by Me",
+  "quickTasksAssignedtome": "Assigned to Me",
+  "quranReaderTranslation": "Translation",
+  "quranReaderReload": "Reload",
+  "adminDashboardActivetoday": "Active today",
+  "adminDashboardOnlinenow": "Online now",
+  "adminDashboardLiveforms": "Live forms",
+  "timelineShiftClockinnotyet": "Clock In (Not Yet)",
+  "timelineShiftProgrammed": "PROGRAMMED",
+  "timelineShiftActive": "ACTIVE",
+  "timelineShiftCompleted": "COMPLETED",
+  "timelineShiftPartial": "PARTIAL",
+  "timelineShiftMissed": "MISSED",
+  "timelineShiftCancelled": "CANCELLED",
+  "timelineShiftReady": "READY",
+  "timelineShiftUpcoming": "UPCOMING",
+  "shiftManagementGrid": "Grid",
+  "shiftManagementList": "List",
+  "subjectManagementDisplayname": "Display Name *",
+  "subjectManagementArabicnameoptional": "Arabic Name (Optional)",
+  "subjectManagementDefaulthourlywageoptional": "Default Hourly Wage (Optional)",
+  "shiftDetailsTimeworked": "Time Worked",
+  "shiftDetailsRate": "Rate",
+  "parentInvoicesPaid": "Paid",
+  "studentQuickStatsAttendance": "Attendance",
+  "studentQuickStatsTasksdone": "Tasks Done",
+  "studentProgressTabTotalhours": "Total Hours",
+  "studentProgressTabSubjects": "Subjects",
+  "financialSummaryOutstanding": "Outstanding",
+  "zoomCheckingwhosintheroom": "Checking who’s in the room…",
+  "zoomUnabletoloadparticipants": "Unable to load participants",
+  "zoomInclassnowcount": "In class now: $count",
+  "studentFeatureTourLive": "LIVE",
+  "studentFeatureTourJoinnow": "JOIN NOW",
+  "studentFeatureTourStartingsoon": "Starting soon",
+  "studentFeatureTourStartingin15min": "Starting in 15 min",
+  "formsListNewquestion": "New Question",
+  "adminAuditAvgscore": "Avg Score",
+  "adminAuditTotalteachersaudited": "Total Teachers Audited",
+  "adminAuditAveragescore": "Average Score",
+  "adminAuditTotalpayoutdue": "Total Payout Due",
+  "adminAuditPendingreviews": "Pending Reviews",
+  "adminAuditPayout": "Payout",
+  "adminAuditAdjust": "Adjust",
+  "adminAuditPlanned": "Planned",
+  "adminAuditMissing": "Missing",
+  "formTemplate1unacceptable": "1 - Unacceptable",
+  "formTemplate1verypoor": "1 - Very Poor",
+  "formTemplate12days": "1-2 days",
+  "formTemplate10outstanding": "10 - Outstanding",
+  "formTemplate2poor": "2 - Poor",
+  "formTemplate2verypoor": "2 - Very Poor",
+  "formTemplate2448hours": "24-48 hours",
+  "formTemplate3average": "3 - Average",
+  "formTemplate3poor": "3 - Poor",
+  "formTemplate37days": "3-7 days",
+  "formTemplate4belowaverage": "4 - Below Average",
+  "formTemplate4good": "4 - Good",
+  "formTemplate5average": "5 - Average",
+  "formTemplate5excellent": "5 - Excellent",
+  "formTemplate6satisfactory": "6 - Satisfactory",
+  "formTemplate7good": "7 - Good",
+  "formTemplate8verygood": "8 - Very Good",
+  "formTemplate9excellent": "9 - Excellent",
+  "formTemplateActionplanfornextmonth": "Action Plan for Next Month",
+  "formTemplateAdditionalcomments": "Additional Comments",
+  "formTemplateAdditionalnotes": "Additional Notes",
+  "formTemplateAdditionalcommentsforadmin": "Additional comments for admin",
+  "formTemplateAdvanced": "Advanced",
+  "formTemplateAllontime": "All on time",
+  "formTemplateAllretained": "All retained",
+  "formTemplateAlwaysontime": "Always on time",
+  "formTemplateAnyadditionalobservationsaboutthestudent": "Any additional observations about the student...",
+  "formTemplateAnychallengesorsupportneeded": "Any challenges or support needed?",
+  "formTemplateAnyfeedbackrequestsorconcerns": "Any feedback, requests, or concerns",
+  "formTemplateAnyissuesorconcerns": "Any issues or concerns?",
+  "formTemplateAnyotherfeedbackorsuggestions": "Any other feedback or suggestions...",
+  "formTemplateAnysuggestionsforimprovement": "Any suggestions for improvement?",
+  "formTemplateArabicreadinglevel": "Arabic Reading Level",
+  "formTemplateArabicwritinglevel": "Arabic Writing Level",
+  "formTemplateAreasforimprovement": "Areas for Improvement",
+  "formTemplateAssessmenttype": "Assessment Type",
+  "formTemplateAudittimeliness": "Audit Timeliness",
+  "formTemplateAuditscompletedthismonth": "Audits Completed This Month",
+  "formTemplateAverageresponsetimetoissues": "Average Response Time to Issues",
+  "formTemplateBeginner": "Beginner",
+  "formTemplateBelowexpectations": "Below expectations",
+  "formTemplateBiggestachievementthismonth": "Biggest Achievement This Month",
+  "formTemplateBiggestchallengefaced": "Biggest Challenge Faced",
+  "formTemplateBrieftopicofyourfeedback": "Brief topic of your feedback",
+  "formTemplateChallenging": "Challenging",
+  "formTemplateChild": "Child\\",
+  "formTemplateClassesshouldbecancelled": "Classes should be cancelled",
+  "formTemplateCoachname": "Coach Name",
+  "formTemplateComplaint": "Complaint",
+  "formTemplateCritical": "Critical",
+  "formTemplateDateofincident": "Date of Incident",
+  "formTemplateDefinitelyno": "Definitely no",
+  "formTemplateDefinitelyyes": "Definitely yes",
+  "formTemplateDescribeanyimmediateactiontaken": "Describe any immediate action taken...",
+  "formTemplateDescribewhathappened": "Describe what happened",
+  "formTemplateDescribeyourmainaccomplishment": "Describe your main accomplishment...",
+  "formTemplateDetaileddescription": "Detailed Description",
+  "formTemplateDissatisfied": "Dissatisfied",
+  "formTemplateEnddate": "End Date",
+  "formTemplateEndofsemester": "End of Semester",
+  "formTemplateEnterstudentfullname": "Enter student full name",
+  "formTemplateExcellent": "Excellent",
+  "formTemplateFamilyemergency": "Family Emergency",
+  "formTemplateFewgoals": "Few goals",
+  "formTemplateFluent": "Fluent",
+  "formTemplateGoalsfornextmonth": "Goals for Next Month",
+  "formTemplateGood": "Good",
+  "formTemplateHaveyouarrangedforcoverage": "Have you arranged for coverage?",
+  "formTemplateHighturnover": "High turnover",
+  "formTemplateHowdidthesessiongo": "How did the session go?",
+  "formTemplateHoweffectiveistheircommunication": "How effective is their communication?",
+  "formTemplateHowhelpfulisthesupportyoureceive": "How helpful is the support you receive?",
+  "formTemplateHowmanyhadithsdoesthisstudentknow": "How many Hadiths does this student know?",
+  "formTemplateHowmanysurahsdoesthisstudentknow": "How many Surahs does this student know?",
+  "formTemplateHowmanyclasseswillbemissed": "How many classes will be missed?",
+  "formTemplateHowmanystudentsattended": "How many students attended?",
+  "formTemplateHowmuchadvancenoticeareyouproviding": "How much advance notice are you providing?",
+  "formTemplateHowurgentisthis": "How urgent is this?",
+  "formTemplateHowwouldyouratethismonth": "How would you rate this month?",
+  "formTemplateHowwouldyouratethisweekoverall": "How would you rate this week overall?",
+  "formTemplateHowwouldyourateyourcoachleaderoverall": "How would you rate your coach/leader overall?",
+  "formTemplateInitialnewstudent": "Initial (New Student)",
+  "formTemplateIntermediate": "Intermediate",
+  "formTemplateIsfollowupneeded": "Is follow-up needed?",
+  "formTemplateIsyourchildmakingprogress": "Is your child making progress?",
+  "formTemplateIssuesproblemsresolved": "Issues/Problems Resolved",
+  "formTemplateKeystrengths": "Key Strengths",
+  "formTemplateLeaveemptyifnone": "Leave empty if none",
+  "formTemplateLittleprogress": "Little progress",
+  "formTemplateLow": "Low",
+  "formTemplateMedium": "Medium",
+  "formTemplateMidsemester": "Mid-Semester",
+  "formTemplateMinorturnover12": "Minor turnover (1-2)",
+  "formTemplateModerateturnover3": "Moderate turnover (3+)",
+  "formTemplateMorethan1week": "More than 1 week",
+  "formTemplateMorethan48hours": "More than 48 hours",
+  "formTemplateMostgoals": "Most goals",
+  "formTemplateMostontime80": "Most on time (>80%)",
+  "formTemplateNameofcoachbeingreviewed": "Name of coach being reviewed",
+  "formTemplateNamesofpeopleinvolved": "Names of people involved",
+  "formTemplateNeedsimprovement": "Needs Improvement",
+  "formTemplateNeutral": "Neutral",
+  "formTemplateNoneedadminhelp": "No - need admin help",
+  "formTemplateNoprogress": "No progress",
+  "formTemplateNoincludemyname": "No, include my name",
+  "formTemplateNothelpful": "Not Helpful",
+  "formTemplateNotstarted": "Not Started",
+  "formTemplateNotsure": "Not sure",
+  "formTemplateNumberofhadiths": "Number of Hadiths",
+  "formTemplateNumberofsurahs": "Number of Surahs",
+  "formTemplateNumberofteachersmanaged": "Number of Teachers Managed",
+  "formTemplateNumberofteachersyousupported": "Number of Teachers You Supported",
+  "formTemplateNumberofshiftsaffected": "Number of shifts affected",
+  "formTemplateNumberofstudentspresent": "Number of students present",
+  "formTemplateOftenlate": "Often late",
+  "formTemplateOverallcoachrating110": "Overall Coach Rating (1-10)",
+  "formTemplateOverallsatisfactionwithteacher": "Overall Satisfaction with Teacher",
+  "formTemplateOverallstudentlevel": "Overall Student Level",
+  "formTemplateParentconcern": "Parent Concern",
+  "formTemplatePersonalemergency": "Personal Emergency",
+  "formTemplatePlanfornextsession": "Plan for next session",
+  "formTemplatePleaseexplainthereasonforyourrequest": "Please explain the reason for your request...",
+  "formTemplatePleaseprovideadetaileddescription": "Please provide a detailed description...",
+  "formTemplatePleaseprovidedetailsaboutyourfeedback": "Please provide details about your feedback...",
+  "formTemplatePoor": "Poor",
+  "formTemplatePraise": "Praise",
+  "formTemplatePreplannedabsence": "Pre-planned Absence",
+  "formTemplateProbablyno": "Probably no",
+  "formTemplateProbablyyes": "Probably yes",
+  "formTemplateQualityofcommunication": "Quality of Communication",
+  "formTemplateQualityofteachersupport": "Quality of Teacher Support",
+  "formTemplateRateyourperformancethismonth": "Rate Your Performance This Month",
+  "formTemplateRatereadingskills15": "Rate reading skills (1-5)",
+  "formTemplateRatewritingskills15": "Rate writing skills (1-5)",
+  "formTemplateReasonforleave": "Reason for Leave",
+  "formTemplateReligiousholiday": "Religious Holiday",
+  "formTemplateSameday": "Same day",
+  "formTemplateSatisfied": "Satisfied",
+  "formTemplateSchedulingconflict": "Scheduling Conflict",
+  "formTemplateSickleave": "Sick Leave",
+  "formTemplateSignificantdelays": "Significant delays",
+  "formTemplateSignificantprogress": "Significant progress",
+  "formTemplateSomedelays80": "Some delays (<80%)",
+  "formTemplateSomegoals": "Some goals",
+  "formTemplateSomeprogress": "Some progress",
+  "formTemplateSometimeslate": "Sometimes late",
+  "formTemplateSomewhathelpful": "Somewhat Helpful",
+  "formTemplateSpecificgoalsoractions": "Specific goals or actions...",
+  "formTemplateStudentbehavior": "Student Behavior",
+  "formTemplateStudentname": "Student Name",
+  "formTemplateSubjecttopic": "Subject/Topic",
+  "formTemplateSubmitanonymously": "Submit anonymously?",
+  "formTemplateSuggestion": "Suggestion",
+  "formTemplateSummarizestudentprogressmilestonesreachedetc": "Summarize student progress, milestones reached, etc.",
+  "formTemplateSupportneededfromleadership": "Support Needed from Leadership",
+  "formTemplateTaskscompletedthismonth": "Tasks Completed This Month",
+  "formTemplateTaskscurrentlyoverdue": "Tasks Currently Overdue",
+  "formTemplateTeachername": "Teacher Name",
+  "formTemplateTeacherpunctuality": "Teacher Punctuality",
+  "formTemplateTeacherretentioninteam": "Teacher Retention in Team",
+  "formTemplateTechnicalissue": "Technical Issue",
+  "formTemplateTypeoffeedback": "Type of Feedback",
+  "formTemplateTypeofincident": "Type of Incident",
+  "formTemplateTypeofleave": "Type of Leave",
+  "formTemplateUsuallyontime": "Usually on time",
+  "formTemplateVerydissatisfied": "Very Dissatisfied",
+  "formTemplateVeryhelpful": "Very Helpful",
+  "formTemplateVerysatisfied": "Very Satisfied",
+  "formTemplateWereyourteachinggoalsmet": "Were your teaching goals met?",
+  "formTemplateWhatactiondidyoutake": "What action did you take?",
+  "formTemplateWhatadditionalsupportwouldhelpyou": "What additional support would help you?",
+  "formTemplateWhatcouldbedonebetter": "What could be done better?",
+  "formTemplateWhatdoyouplantoaccomplish": "What do you plan to accomplish?",
+  "formTemplateWhatdoesthiscoachdowell": "What does this coach do well?",
+  "formTemplateWhatlessontopicdidyoucovertoday": "What lesson/topic did you cover today?",
+  "formTemplateWhatshouldthiscoachworkon": "What should this coach work on?",
+  "formTemplateWhatwasyourmainchallenge": "What was your main challenge?",
+  "formTemplateWhatwerethekeyachievementsthisweek": "What were the key achievements this week?",
+  "formTemplateWhatwillyoucovernext": "What will you cover next?",
+  "formTemplateWhowasinvolved": "Who was involved?",
+  "formTemplateWithin24hours": "Within 24 hours",
+  "formTemplateWouldyourecommendthisteacher": "Would you recommend this teacher?",
+  "formTemplateYesnonurgent": "Yes - Non-urgent",
+  "formTemplateYesurgent": "Yes - Urgent",
+  "formTemplateYesanotherteacherwillcover": "Yes - another teacher will cover",
+  "formTemplateYesallgoals": "Yes, all goals",
+  "formTemplateYeskeepanonymous": "Yes, keep anonymous",
+  "formTemplateEgsurahalfatihaverses13": "e.g., Surah Al-Fatiha verses 1-3",
+  "formTemplateAdminselfassessment": "Admin Self-Assessment",
+  "formTemplateCoachperformancereview": "Coach Performance Review",
+  "formTemplateCollectfeedbackfromparentsabouttheirchild": "Collect feedback from parents about their child\\",
+  "formTemplateDailyclassreport": "Daily Class Report",
+  "formTemplateEndofmonthteachingreview": "End of month teaching review",
+  "formTemplateEndofweekteachingsummary": "End of week teaching summary",
+  "formTemplateEvaluatestudentprogressandskillsatenrollmentorsemesterend": "Evaluate student progress and skills at enrollment or semester end",
+  "formTemplateFeedbackforleaders": "Feedback for Leaders",
+  "formTemplateIncidentreport": "Incident Report",
+  "formTemplateLeaverequest": "Leave Request",
+  "formTemplateMonthlyreview": "Monthly Review",
+  "formTemplateMonthlyevaluationofcoachsupervisorperformanceadminonly": "Monthly evaluation of coach/supervisor performance (Admin only)",
+  "formTemplateMonthlyselfevaluationforadministratorsandcoaches": "Monthly self-evaluation for administrators and coaches",
+  "formTemplateParentguardianfeedback": "Parent/Guardian Feedback",
+  "formTemplateQuickreportaftereachteachingsession": "Quick report after each teaching session",
+  "formTemplateRateandprovidefeedbackaboutyourcoachsupervisor": "Rate and provide feedback about your coach/supervisor",
+  "formTemplateReportanincidentorissuethatoccurred": "Report an incident or issue that occurred",
+  "formTemplateRequesttimeofforabsencefromscheduledshifts": "Request time off or absence from scheduled shifts",
+  "formTemplateStudentassessment": "Student Assessment",
+  "formTemplateSubmitfeedbacksuggestionsorcomplaintstoleadership": "Submit feedback, suggestions, or complaints to leadership",
+  "formTemplateTeacherfeedbackcomplaints": "Teacher Feedback & Complaints",
+  "formTemplateWeeklysummary": "Weekly Summary",
+  "sidebarAudits": "Audits",
+  "sidebarCms": "CMS",
+  "sidebarCommunication": "Communication",
+  "sidebarFormbuilder": "Form Builder",
+  "sidebarLearning": "Learning",
+  "sidebarMyreport": "My Report",
+  "sidebarMyshifts": "My Shifts",
+  "sidebarOperations": "Operations",
+  "sidebarPeople": "People",
+  "sidebarReports": "Reports",
+  "sidebarRolestest": "Roles (Test)",
+  "sidebarSubjectrates": "Subject Rates",
+  "sidebarTestauditgeneration": "Test Audit Génération",
+  "sidebarWebsite": "Website",
+  "sidebarWork": "Work",
+  "recurrenceNone": "Aucune récurrence",
+  "recurrenceDaily": "Quotidien",
+  "recurrenceDailyExcludingDays": "Quotidien (sauf {days})",
+  "@recurrenceDailyExcludingDays": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "recurrenceExcludedDates": "({count} dates spécifiques exclues)",
+  "@recurrenceExcludedDates": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "recurrenceWeeklyOn": "Hebdomadaire le {days}",
+  "@recurrenceWeeklyOn": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "recurrenceMonthlyOn": "Mensuel le {days}",
+  "@recurrenceMonthlyOn": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "recurrenceMonthlyOnCount": "Mensuel sur {count} jours sélectionnés",
+  "@recurrenceMonthlyOnCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "recurrenceYearlyIn": "Annuel en {months}",
+  "@recurrenceYearlyIn": {
+    "placeholders": {
+      "months": {}
+    }
+  },
+  "settingsTourJoinClassDescription": "Touchez une carte de cours à venir et cliquez sur \"Rejoindre le cours\" au moment venu.",
+  "settingsTourEnableNotificationsDescription": "Activez les notifications dans les paramètres pour recevoir des rappels avant vos cours.",
+  "settingsTourMediaControlsDescription": "Utilisez les boutons micro et caméra pour contrôler votre audio et votre vidéo.",
+  "settingsTourChatDescription": "Envoyez des messages à votre enseignant via l'onglet Chat.",
+  "taskSubtaskOf": "Sous-tâche de : {title}",
+  "@taskSubtaskOf": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "taskUnassigned": "Non attribué",
+  "taskSelectMultiple": "Sélection multiple",
+  "taskExitSelection": "Quitter la sélection",
+  "editAllInSeriesCount": "Modifier toute la série ({count})",
+  "@editAllInSeriesCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "shiftUpdatesTemplate": "Met à jour le modèle",
+  "selectStartTime": "Sélectionner l'heure de début",
+  "selectEndTime": "Sélectionner l'heure de fin",
+  "shiftTimesheetRecords": "Enregistrements de feuille de temps ({count})",
+  "@shiftTimesheetRecords": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "shiftDurationHours": "{hours} heures",
+  "@shiftDurationHours": {
+    "placeholders": {
+      "hours": {}
+    }
+  },
+  "shiftHourlyRateValue": "${rate}/h",
+  "@shiftHourlyRateValue": {
+    "placeholders": {
+      "rate": {}
+    }
+  },
+  "shiftActiveNow": "Actif maintenant",
+  "shiftDetailDate": "Date",
+  "shiftDetailTime": "Heure",
+  "shiftDetailDuration": "Durée",
+  "shiftDetailSubject": "Matière",
+  "shiftDetailHourlyRate": "Taux horaire",
+  "shiftDetailNotes": "Notes",
+  "shiftDetailTeacher": "Enseignant",
+  "shiftDetailTotalWorked": "Total travaillé",
+  "shiftDetailClockIn": "Pointage d'entrée",
+  "shiftDetailClockOut": "Pointage de sortie",
+  "shiftStatusInProgress": "En cours",
+  "shiftElapsedTime": "Temps écoulé : {time}",
+  "@shiftElapsedTime": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "shiftStatusFullyCompleted": "Entièrement terminé",
+  "shiftStatusAllScheduledTimeWorked": "Tout le temps programmé a été travaillé",
+  "shiftStatusPartiallyCompleted": "Partiellement terminé",
+  "shiftStatusSomeTimeWorked": "Une partie du temps a été travaillée",
+  "shiftStatusMissed": "Manqué",
+  "shiftStatusNotAttended": "Ce cours n'a pas été effectué",
+  "shiftStatusReadyToStart": "Prêt à commencer",
+  "shiftStatusCanClockInNow": "Vous pouvez pointer maintenant !",
+  "shiftStatusUpcoming": "À venir",
+  "shiftStartsInDays": "Commence dans {count} jours",
+  "@shiftStartsInDays": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "shiftStartsInHours": "Commence dans {count} heures",
+  "@shiftStartsInHours": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "shiftStartsInMinutes": "Commence dans {count} minutes",
+  "@shiftStartsInMinutes": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "shiftStatusScheduled": "Planifié",
+  "shiftStatusActive": "Actif",
+  "shiftStatusCompleted": "Terminé",
+  "shiftStatusCancelled": "Annulé",
+  "shiftStatusApproved": "Approuvé",
+  "shiftStatusApprovedOn": "Approuvé le {date}",
+  "@shiftStatusApprovedOn": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "shiftStatusPaid": "Payé",
+  "shiftStatusPaymentProcessed": "Paiement traité",
+  "shiftStatusRejected": "Rejeté",
+  "shiftStatusReviewResubmit": "Veuillez vérifier et renvoyer",
+  "shiftStatusPendingApproval": "En attente d'approbation",
+  "shiftStatusAwaitingAdminReview": "En attente de validation de l'administrateur",
+  "shiftStatusEditPending": "Modification en attente",
+  "shiftStatusEditAwaitingApproval": "Votre modification est en attente d'approbation",
+  "localTime": "Heure locale",
+  "shiftStatusConfirmed": "✓ Confirmé",
+  "shiftStatusPending": "En attente",
+  "weeklyScheduleTeachersCount": "ENSEIGNANTS ({count})",
+  "@weeklyScheduleTeachersCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "weeklyScheduleLeadersCount": "RESPONSABLES ({count})",
+  "@weeklyScheduleLeadersCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "weeklyScheduleDateRange": "{start} → {end}",
+  "@weeklyScheduleDateRange": {
+    "placeholders": {
+      "start": {},
+      "end": {}
+    }
+  },
+  "weeklyScheduleShiftsScheduled": "{count} cours planifiés",
+  "@weeklyScheduleShiftsScheduled": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "weeklyScheduleShiftNumber": "Cours n°{number}",
+  "@weeklyScheduleShiftNumber": {
+    "placeholders": {
+      "number": {}
+    }
+  },
+  "auditScheduled": "Planifié",
+  "auditCompleted": "Terminé",
+  "auditMissed": "Manqué",
+  "auditCompletionRate": "Taux de complétion",
+  "auditTotalClockIns": "Total des pointages",
+  "auditOnTime": "À l'heure",
+  "auditLate": "En retard",
+  "auditPunctualityRate": "Taux de ponctualité",
+  "auditRequired": "Requis",
+  "auditSubmitted": "Soumis",
+  "auditComplianceRate": "Taux de conformité",
+  "auditCompletionPercent": "{percent} % de complétion",
+  "@auditCompletionPercent": {
+    "placeholders": {
+      "percent": {}
+    }
+  },
+  "auditSubjectsCount": "{count} matières",
+  "@auditSubjectsCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "auditOnTimeClockIns": "{onTime}/{total} à l'heure",
+  "@auditOnTimeClockIns": {
+    "placeholders": {
+      "onTime": {},
+      "total": {}
+    }
+  },
+  "auditCompliancePercent": "{percent} % de conformité",
+  "@auditCompliancePercent": {
+    "placeholders": {
+      "percent": {}
+    }
+  },
+  "notificationSelectAtLeastOneUser": "Sélectionnez au moins un utilisateur",
+  "notificationConfirmSelected": "Confirmer ({count} sélectionné(s))",
+  "@notificationConfirmSelected": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notificationEnterTitle": "Veuillez saisir un titre",
+  "notificationEnterMessage": "Veuillez saisir un message",
+  "notificationUsersSelected": "{count} utilisateurs sélectionnés",
+  "@notificationUsersSelected": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "noUsersFound": "Aucun utilisateur trouvé",
+  "noUsersMatchSearch": "Aucun utilisateur ne correspond à votre recherche",
+  "commonUser": "Utilisateur",
+  "commonUnknownUser": "Utilisateur inconnu",
+  "commonUnknownParent": "Parent inconnu",
+  "commonUnknownSubject": "Matière inconnue",
+  "commonUnknownTeacher": "Enseignant inconnu",
+  "commonUnknownStudent": "Élève inconnu",
+  "commonUnknownShift": "Cours inconnu",
+  "commonUnknownClass": "Classe inconnue",
+  "commonUnknownForm": "Formulaire inconnu",
+  "commonUnknownDate": "Date inconnue",
+  "commonUnknownFile": "Fichier inconnu",
+  "commonUnknownError": "Erreur inconnue",
+  "commonUnknownInitial": "I",
+  "timeClockTeachingSessionWith": "Séance d'enseignement avec {name}",
+  "@timeClockTeachingSessionWith": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "formQuestionNumber": "Question {number}",
+  "@formQuestionNumber": {
+    "placeholders": {
+      "number": {}
+    }
+  },
+  "formSelectMultipleOptions": "Sélectionnez plusieurs options...",
+  "selectUser": "Sélectionner un utilisateur",
+  "selectDateRange": "Sélectionner une plage de dates",
+  "selectDateRangeForFormResponses": "Sélectionner une plage de dates pour les réponses",
+  "selectDateRangeForFormSubmissions": "Sélectionner une plage de dates pour les soumissions",
+  "selectDateRangeForTimesheetReview": "Sélectionner une plage de dates pour la revue des feuilles de temps",
+  "selectDateRangeForTasks": "Sélectionner une plage de dates pour les tâches",
+  "selectDueDateRange": "Sélectionner une plage de dates d'échéance",
+  "selectDates": "Sélectionner des dates",
+  "selectStudentsWithCount": "Sélectionner des élèves ({count} sélectionné(s))",
+  "@selectStudentsWithCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "selectTimezone": "Sélectionner un fuseau horaire",
+  "selectTimezonePlaceholder": "Sélectionner un fuseau horaire…",
+  "selectEndDate": "Sélectionner la date de fin",
+  "formsNoActiveMatching": "Aucun formulaire actif ne correspond à votre recherche.",
+  "formsNoActiveForRole": "Aucun formulaire actif pour {role}.",
+  "@formsNoActiveForRole": {
+    "placeholders": {
+      "role": {}
+    }
+  },
+  "formsFieldCount": "{count} champs",
+  "@formsFieldCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "livekitMuteAll": "Tout couper",
+  "livekitPip": "Image dans l'image",
+  "livekitQuran": "Coran",
+  "livekitLeave": "Quitter",
+  "parentInvoiceDueDate": "Échéance {date}",
+  "@parentInvoiceDueDate": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "studentFeatureTourLiveDesc": "Ce cours est en direct maintenant.",
+  "studentFeatureTourJoinNowDesc": "Rejoignez votre cours lorsque le bouton apparaît.",
+  "studentFeatureTourStartingSoonDesc": "Ce cours commence bientôt.",
+  "studentFeatureTourStartingSoon15Desc": "Ce cours commence dans environ 15 minutes.",
+  "studentFeatureTourScheduledDesc": "Ce cours est programmé pour plus tard.",
+  "formsUntitledForm": "Formulaire sans titre",
+  "formsUntitledField": "Champ sans titre",
+  "formsEnterValue": "Saisissez une valeur",
+  "roleUnknownMessage": "Rôle : {role}\nVeuillez contacter un administrateur.",
+  "@roleUnknownMessage": {
+    "placeholders": {
+      "role": {}
+    }
+  }
 }

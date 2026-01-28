@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/teaching_shift.dart';
 import '../../../core/enums/shift_enums.dart';
 import '../../../core/constants/shift_colors.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Color-coded shift block component for grid view
 /// Shows hover actions: edit (pencil), details (3 dots), and add (plus)

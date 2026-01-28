@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FinancialSummaryCard extends StatelessWidget {
   final double outstanding;
@@ -82,7 +82,7 @@ class FinancialSummaryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _metric(
-                  label: 'Outstanding',
+                  label: AppLocalizations.of(context)!.financialSummaryOutstanding,
                   value: formatter.format(outstanding),
                   accent: outstanding > 0 ? const Color(0xFF38BDF8) : Colors.white,
                 ),
@@ -90,7 +90,7 @@ class FinancialSummaryCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _metric(
-                  label: 'Overdue',
+                  label: AppLocalizations.of(context)!.overdue,
                   value: formatter.format(overdue),
                   accent: overdue > 0 ? const Color(0xFFFCA5A5) : Colors.white,
                 ),
@@ -98,7 +98,7 @@ class FinancialSummaryCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _metric(
-                  label: 'Paid',
+                  label: AppLocalizations.of(context)!.parentInvoicesPaid,
                   value: formatter.format(paid),
                   accent: const Color(0xFF86EFAC),
                 ),

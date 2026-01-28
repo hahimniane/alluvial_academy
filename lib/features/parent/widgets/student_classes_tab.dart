@@ -6,7 +6,7 @@ import 'package:alluwalacademyadmin/core/services/parent_service.dart';
 import 'package:alluwalacademyadmin/core/services/shift_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/class_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/attendance_calendar.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentClassesTab extends StatefulWidget {
   final String studentId;

@@ -10,7 +10,7 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 import '../../../core/utils/connecteam_style.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Dialog for creating multiple tasks at once (ConnectTeam style)
 class MultipleTaskCreationDialog extends StatefulWidget {
@@ -123,7 +123,8 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
               final subTask = Task(
                 id: FirebaseFirestore.instance.collection('tasks').doc().id,
                 title: controller.text.trim(),
-                description: 'Sub-task of: ${row.titleController.text.trim()}',
+                description: AppLocalizations.of(context)!
+                    .taskSubtaskOf(row.titleController.text.trim()),
                 createdBy: currentUser.uid,
                 assignedTo: row.assignedToIds,
                 dueDate: row.dueDate ?? DateTime.now().add(const Duration(days: 1)),
@@ -431,7 +432,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        children: const [
+        children: [
           Expanded(flex: 4, child: Text(AppLocalizations.of(context)!.taskName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
           SizedBox(width: 12),
           Expanded(flex: 2, child: Text(AppLocalizations.of(context)!.assignee, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
@@ -727,7 +728,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                                 child: TextField(
                                   controller: row.labelController,
                                   style: GoogleFonts.inter(fontSize: 11),
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     hintText: AppLocalizations.of(context)!.addLabel,
                                     border: InputBorder.none,
                                     isDense: true,
@@ -829,7 +830,8 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                                   controller: row.subTaskControllers[index],
                                   style: GoogleFonts.inter(fontSize: 13),
                                   decoration: InputDecoration(
-                                    hintText: 'Sub-task ${index + 1}',
+                                    hintText: AppLocalizations.of(context)!
+                                        .taskSubtaskHint(index + 1),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
                                       borderSide: const BorderSide(color: Color(0xffD1D5DB)),
@@ -950,7 +952,9 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                     )
                   else if (selectedUsers.length == 1)
                     Text(
-                      selectedUsers.first.name ?? selectedUsers.first.email ?? 'Unknown',
+                      selectedUsers.first.name ??
+                          selectedUsers.first.email ??
+                          AppLocalizations.of(context)!.commonUnknown,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1616,7 +1620,7 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        user.name ?? 'Unknown User',
+                                        user.name ?? AppLocalizations.of(context)!.commonUnknownUser,
                                         style: GoogleFonts.inter(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
@@ -1742,4 +1746,3 @@ class _MultiSelectUserDialogState extends State<_MultiSelectUserDialog> {
     );
   }
 }
-

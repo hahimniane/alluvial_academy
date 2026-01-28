@@ -8,7 +8,7 @@ import '../../../core/models/teaching_shift.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Dialog for teachers to directly reschedule shifts
 class RescheduleShiftDialog extends StatefulWidget {
@@ -75,7 +75,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
   Future<void> _submitRescheduleRequest() async {
     if (_newStartTime == null || _newEndTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.pleaseSelectBothStartAndEnd),
           backgroundColor: Colors.orange,
         ),
@@ -85,7 +85,7 @@ class _RescheduleShiftDialogState extends State<RescheduleShiftDialog> {
 
     if (_newEndTime!.isBefore(_newStartTime!)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.endTimeMustBeAfterStart),
           backgroundColor: Colors.red,
         ),

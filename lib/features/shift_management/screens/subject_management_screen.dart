@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/subject.dart';
 import '../../../core/services/subject_service.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class SubjectManagementScreen extends StatefulWidget {
   const SubjectManagementScreen({super.key});
@@ -491,7 +491,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
 
               if (displayName.isEmpty || name.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),
@@ -633,7 +633,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
 
               if (displayName.isEmpty || name.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(AppLocalizations.of(context)!.pleaseFillInAllRequiredFields),
                     backgroundColor: Colors.red,
                   ),

@@ -2,7 +2,7 @@
 // This file is only imported on web via conditional imports in livekit_service.dart
 
 import 'dart:html' as html;
-import 'dart:js_util' as js_util;
+import 'dart:js_util' as js_util; // ignore: uri_does_not_exist
 
 Future<bool> isPictureInPictureSupported() async {
   try {

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../utility_functions/export_helpers.dart';
 import '../../../core/utils/performance_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class FormSubmissionsDialog extends StatefulWidget {
   final String formId;
@@ -131,7 +131,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       lastDate: now,
       initialDateRange: _dateRange,
       currentDate: now,
-      helpText: 'Select Date Range for Form Submissions',
+      helpText: AppLocalizations.of(context)!.selectDateRangeForFormSubmissions,
       cancelText: 'Cancel',
       confirmText: 'Apply Filter',
       saveText: 'Apply',
@@ -221,7 +221,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.noteSavedSuccessfully),
             backgroundColor: Color(0xFF059669),
             duration: Duration(seconds: 2),
@@ -309,7 +309,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   }
 
   String get _dateRangeText {
-    if (_dateRange == null) return 'Select dates';
+    if (_dateRange == null) return AppLocalizations.of(context)!.selectDates;
     final start = _dateRange!.start;
     final end = _dateRange!.end;
     return '${start.month.toString().padLeft(2, '0')}/${start.day.toString().padLeft(2, '0')} - ${end.month.toString().padLeft(2, '0')}/${end.day.toString().padLeft(2, '0')}';
@@ -318,7 +318,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
   void _exportSubmissions() {
     if (_filteredSubmissions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(AppLocalizations.of(context)!.noSubmissionsToExport),
           backgroundColor: Colors.orange,
         ),
@@ -743,7 +743,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
-                  tabs: const [
+                  tabs: [
                     Tab(text: AppLocalizations.of(context)!.submissions),
                   ],
                 ),

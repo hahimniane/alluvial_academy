@@ -14,7 +14,7 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/file_attachment_service.dart';
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class AddEditTaskDialog extends StatefulWidget {
   final Task? task;
@@ -229,7 +229,8 @@ class _AddEditTaskDialogState extends State<AddEditTaskDialog> with SingleTicker
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.of(context)!.deleteAttachment),
-        content: Text('Are you sure you want to delete ${attachment.originalName}?'),
+        content: Text(AppLocalizations.of(context)!
+            .taskDeleteAttachmentConfirm(attachment.originalName)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.commonCancel)),
           TextButton(onPressed: () => Navigator.pop(context, true), child: Text(AppLocalizations.of(context)!.commonDelete, style: TextStyle(color: Colors.red))),
@@ -1224,7 +1225,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Text(
             AppLocalizations.of(context)!.selectTeamMembers,
             style: TextStyle(
@@ -1339,7 +1340,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user.name ?? 'Unknown User',
+                            user.name ?? AppLocalizations.of(context)!.commonUnknownUser,
                             style: TextStyle(
                               fontWeight: FontWeight.w500,
                               color: isSelected

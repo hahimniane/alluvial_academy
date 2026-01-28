@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/landing_page_content.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StatsSectionEditor extends StatelessWidget {
   final StatsContent stats;
@@ -14,6 +14,6 @@ class StatsSectionEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text(AppLocalizations.of(context)!.statsEditor));
+    return Center(child: Text(AppLocalizations.of(context)!.statsEditor));
   }
 } 

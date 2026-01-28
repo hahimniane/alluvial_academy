@@ -11,7 +11,7 @@ import 'package:alluwalacademyadmin/features/parent/screens/payment_screen.dart'
 import 'package:alluwalacademyadmin/features/parent/widgets/beautiful_invoice_widget.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class InvoiceDetailScreen extends StatelessWidget {
   final String invoiceId;

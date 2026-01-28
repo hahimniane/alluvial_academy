@@ -9,7 +9,7 @@ import 'package:alluwalacademyadmin/features/tasks/services/task_service.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/student_quick_stats_card.dart';
 import 'package:alluwalacademyadmin/features/parent/widgets/class_card.dart';
 import 'package:alluwalacademyadmin/core/enums/task_enums.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class StudentOverviewTab extends StatefulWidget {
   final String studentId;

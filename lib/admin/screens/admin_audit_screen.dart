@@ -16,7 +16,7 @@ import '../../core/services/advanced_excel_export_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../features/shift_management/widgets/shift_details_dialog.dart';
 import 'coach_evaluation_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Windows 11 Fluent Design Colors
 class Win11Colors {
@@ -329,7 +329,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       if (teachers.isEmpty) {
         Navigator.pop(context); // Close loading
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.noTeachersFoundMakeSureTeachers),
             backgroundColor: Colors.orange,
           ),
@@ -1584,7 +1584,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     : null,
                 child: Text(AppLocalizations.of(context)!.previous, style: GoogleFonts.inter(fontSize: 13)),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               TextButton(
                 onPressed: _currentPage < _totalPages - 1
                     ? () => setState(() => _currentPage++)
@@ -1603,7 +1603,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.generatingCsv),
             duration: Duration(seconds: 1),
           ),
@@ -1625,7 +1625,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.csvExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
@@ -1660,7 +1660,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.generatingExcelReport),
             duration: Duration(seconds: 2),
           ),
@@ -1675,7 +1675,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.excelReportExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
@@ -2056,7 +2056,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
             child: Icon(Icons.analytics_outlined, size: 48, color: Colors.blue[300]),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Text(AppLocalizations.of(context)!.noAuditsFound, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
           Text(AppLocalizations.of(context)!.tryChangingTheMonthOrGenerating, style: GoogleFonts.inter(color: Colors.grey[500])),
           const SizedBox(height: 24),
@@ -2135,7 +2135,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           title: Row(
             children: [
               const Icon(Icons.payments, color: Color(0xff0386FF)),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   AppLocalizations.of(context)!.adjustPayment,
@@ -2181,7 +2181,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 TextField(
                   controller: adjustmentController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.adjustmentAmount,
                     hintText: AppLocalizations.of(context)!.eG021Or5,
                     prefixText: '\$ ',
@@ -2192,7 +2192,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 TextField(
                   controller: reasonController,
                   maxLines: 2,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.reasonRequired,
                     hintText: AppLocalizations.of(context)!.roundingAdjustmentPenaltyBonusEtc,
                     border: OutlineInputBorder(),
@@ -2214,13 +2214,13 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                       final adjustment = double.tryParse(adjustmentController.text);
                       if (adjustment == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAValidNumber)),
+                          SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAValidNumber)),
                         );
                         return;
                       }
                       if (reasonController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text(AppLocalizations.of(context)!.pleaseProvideAReason)),
+                          SnackBar(content: Text(AppLocalizations.of(context)!.pleaseProvideAReason)),
                         );
                         return;
                       }
@@ -2238,7 +2238,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           Navigator.pop(dialogContext);
                           _loadAudits();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(AppLocalizations.of(context)!.paymentAdjustedSuccessfully),
                               backgroundColor: Colors.green,
                             ),
@@ -2287,7 +2287,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           title: Row(
             children: [
               const Icon(Icons.verified_user, color: Color(0xff0386FF)),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 AppLocalizations.of(context)!.adminReview,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
@@ -2369,11 +2369,11 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: selectedStatus,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  items: const [
+                  items: [
                     DropdownMenuItem(value: 'approved', child: Text(AppLocalizations.of(context)!.approve2)),
                     DropdownMenuItem(value: 'needs_revision', child: Text(AppLocalizations.of(context)!.needsRevision)),
                     DropdownMenuItem(value: 'rejected', child: Text(AppLocalizations.of(context)!.reject2)),
@@ -2435,7 +2435,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                           Navigator.pop(dialogContext);
                           _loadAudits();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(AppLocalizations.of(context)!.reviewSubmitted),
                               backgroundColor: Colors.green,
                             ),
@@ -2525,7 +2525,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      AppLocalizations.of(context)!.successcountSuccessfulN
+                      '${AppLocalizations.of(context)!.successcountSuccessfulN}\n'
                       '❌ ${errorDetails.length} errors\n'
                       '⏭️ $skippedCount skipped (no data)',
                       style: GoogleFonts.inter(
@@ -4022,7 +4022,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                 _buildSectionHeader('Shifts & Forms by Day'),
                 const SizedBox(height: 12),
               if (_isLoadingDayData) ...[
-                const Center(
+                Center(
                   child: Padding(
                     padding: EdgeInsets.all(24.0),
                     child: CircularProgressIndicator(),
@@ -4469,7 +4469,7 @@ class _FormsComplianceSummaryState extends State<_FormsComplianceSummary> {
                         controller: _penaltyController,
                         keyboardType: TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.000,
+                          hintText: '0.00',
                           prefixText: '\$',
                           prefixStyle: GoogleFonts.inter(color: Colors.grey.shade700),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -4666,7 +4666,7 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
                       controller: _penaltyController,
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.000,
+                        hintText: '0.00',
                         prefixText: '\$',
                         prefixStyle: GoogleFonts.inter(color: Colors.grey.shade700),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -5543,7 +5543,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
       if (!shiftDoc.exists) {
         if (widget.parentContext.mounted) {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-            const SnackBar(content: Text(AppLocalizations.of(context)!.shiftNotFound)),
+            SnackBar(content: Text(AppLocalizations.of(context)!.shiftNotFound)),
           );
         }
         return;
@@ -5740,7 +5740,7 @@ class _FormDetailsContentState extends State<_FormDetailsContent> {
           const SizedBox(height: 8),
           // Responses - Modern minimal design
           if (_isLoadingLabels)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(12.0),
               child: Center(
                 child: SizedBox(
@@ -6743,7 +6743,7 @@ class _FormRow extends StatelessWidget {
     final auditSheetState = parentContext.findAncestorStateOfType<_AuditDetailSheetState>();
     if (auditSheetState == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppLocalizations.of(context)!.unableToFindAuditContext), backgroundColor: Colors.red),
+        SnackBar(content: Text(AppLocalizations.of(context)!.unableToFindAuditContext), backgroundColor: Colors.red),
       );
       return;
     }
@@ -6775,7 +6775,7 @@ class _FormRow extends StatelessWidget {
           title: Row(
             children: [
               const Icon(Icons.add_task, color: Colors.green),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 AppLocalizations.of(context)!.reGularisationAdministrative,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
@@ -6803,7 +6803,7 @@ class _FormRow extends StatelessWidget {
                 const SizedBox(height: 20),
                 TextField(
                   controller: subjectController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.sujetDuCours,
                     border: OutlineInputBorder(),
                     isDense: true,
@@ -6813,7 +6813,7 @@ class _FormRow extends StatelessWidget {
                 TextField(
                   controller: durationController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.dureEAPayerHeures,
                     suffixText: 'heures',
                     border: OutlineInputBorder(),
@@ -6845,7 +6845,7 @@ class _FormRow extends StatelessWidget {
                 if (finalDuration <= 0) {
                   setDialogState(() => isProcessing = false);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(AppLocalizations.of(context)!.laDureEDoitETre),
                       backgroundColor: Colors.red,
                     ),
@@ -6857,7 +6857,7 @@ class _FormRow extends StatelessWidget {
                 if (finalSubject.isEmpty) {
                   setDialogState(() => isProcessing = false);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(AppLocalizations.of(context)!.leSujetEstRequis),
                       backgroundColor: Colors.red,
                     ),
@@ -6879,7 +6879,7 @@ class _FormRow extends StatelessWidget {
                   
                   if (success) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text(AppLocalizations.of(context)!.shiftCreEEtPaiementSynchronise),
                         backgroundColor: Colors.green,
                       ),
@@ -6897,7 +6897,7 @@ class _FormRow extends StatelessWidget {
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text(AppLocalizations.of(context)!.erreurLorsDeLaCreAtion),
                         backgroundColor: Colors.red,
                       ),
@@ -7075,7 +7075,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         final auditsToExport = _filteredAudits;
         if (auditsToExport.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(AppLocalizations.of(context)!.noDataToExportWithCurrent),
               backgroundColor: Colors.orange,
             ),
@@ -7093,7 +7093,7 @@ class _ExportDialogState extends State<_ExportDialog> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(AppLocalizations.of(context)!.excelReportExportedSuccessfully),
             backgroundColor: Colors.green,
           ),
@@ -7172,7 +7172,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                   ),
                   child: const Icon(Icons.table_chart, color: Color(0xff217346), size: 24),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -7222,13 +7222,13 @@ class _ExportDialogState extends State<_ExportDialog> {
               child: DropdownButtonFormField<String?>(
                 value: _selectedTeacherId,
                 isExpanded: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   border: InputBorder.none,
                   hintText: AppLocalizations.of(context)!.allTeachers,
                 ),
                 items: [
-                  const DropdownMenuItem<String?>(
+                   DropdownMenuItem(
                     value: null,
                     child: Text(AppLocalizations.of(context)!.allTeachers, overflow: TextOverflow.ellipsis),
                   ),

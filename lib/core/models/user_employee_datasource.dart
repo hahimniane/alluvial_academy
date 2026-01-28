@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'employee_model.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class UserEmployeeDataSource extends DataGridSource {
   UserEmployeeDataSource({
@@ -13,6 +13,7 @@ class UserEmployeeDataSource extends DataGridSource {
     required this.onEditUser,
     required this.onDeleteUser,
     this.onViewCredentials,
+    required this.context,
   }) {
     _employees = employees.map<DataGridRow>((e) {
       return DataGridRow(cells: [
@@ -39,6 +40,7 @@ class UserEmployeeDataSource extends DataGridSource {
   final Function(Employee) onEditUser;
   final Function(Employee) onDeleteUser;
   final Function(Employee)? onViewCredentials;
+  final BuildContext context;
 
   List<DataGridRow> _employees = [];
 

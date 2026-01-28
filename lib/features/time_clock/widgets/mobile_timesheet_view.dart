@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import '../models/timesheet_entry.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 /// Mobile-friendly timesheet view using cards instead of table
 class MobileTimesheetView extends StatefulWidget {
@@ -719,7 +719,7 @@ class _MobileTimesheetViewState extends State<MobileTimesheetView> {
         title: Row(
           children: [
             const Icon(Icons.send, color: Color(0xff10B981)),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               AppLocalizations.of(context)!.submitTimesheet,
               style: GoogleFonts.inter(

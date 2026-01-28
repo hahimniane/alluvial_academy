@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ResponseList extends StatelessWidget {
   final bool isLoading;
@@ -19,6 +19,7 @@ class ResponseList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -82,7 +83,7 @@ class ResponseList extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          formTemplate?['title'] ?? 'Unknown Form',
+                          formTemplate?['title'] ?? l10n.commonUnknownForm,
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -124,7 +125,7 @@ class ResponseList extends StatelessWidget {
                         ),
                         child: Center(
                           child: Text(
-                            _getInitials(data),
+                            _getInitials(data, l10n),
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -148,7 +149,7 @@ class ResponseList extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              data['userEmail'] ?? 'Unknown User',
+                              data['userEmail'] ?? l10n.commonUnknownUser,
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 color: const Color(0xff6B7280),
@@ -202,7 +203,7 @@ class ResponseList extends StatelessWidget {
     );
   }
 
-  String _getInitials(Map<String, dynamic> data) {
+  String _getInitials(Map<String, dynamic> data, AppLocalizations l10n) {
     final firstName = data['userFirstName']?.toString() ?? '';
     final lastName = data['userLastName']?.toString() ?? '';
     if (firstName.isNotEmpty && lastName.isNotEmpty) {
@@ -214,7 +215,7 @@ class ResponseList extends StatelessWidget {
     if (lastName.isNotEmpty) {
       return lastName[0].toUpperCase();
     }
-    return 'U';
+    return l10n.commonUnknownInitial;
   }
 
   String _formatDate(DateTime date) {

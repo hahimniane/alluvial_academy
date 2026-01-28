@@ -1,0 +1,97 @@
+{
+  "category": "quran_basics",
+  "name": "Quran Basics",
+  "description": "Learn about the Holy Quran",
+  "questions": [
+    {
+      "id": "qb_001",
+      "category": "quran_basics",
+      "difficulty": "easy",
+      "question": "How many chapters (Surahs) are in the Quran?",
+      "options": ["100", "114", "120", "150"],
+      "correctAnswer": 1,
+      "explanation": "The Quran has 114 Surahs (chapters)."
+    },
+    {
+      "id": "qb_002",
+      "category": "quran_basics",
+      "difficulty": "easy",
+      "question": "What is the first Surah of the Quran?",
+      "options": ["Al-Baqarah", "Al-Fatiha", "Al-Ikhlas", "An-Nas"],
+      "correctAnswer": 1,
+      "explanation": "Al-Fatiha is the opening chapter of the Quran."
+    },
+    {
+      "id": "qb_003",
+      "category": "quran_basics",
+      "difficulty": "easy",
+      "question": "In which month was the Quran revealed?",
+      "options": ["Shawwal", "Ramadan", "Muharram", "Rajab"],
+      "correctAnswer": 1,
+      "explanation": "The Quran was first revealed to Prophet Muhammad in the month of Ramadan."
+    },
+    {
+      "id": "qb_004",
+      "category": "quran_basics",
+      "difficulty": "medium",
+      "question": "Who brought the Quran to Prophet Muhammad?",
+      "options": ["Angel Mikail", "Angel Jibril", "Angel Israfil", "Angel Azrael"],
+      "correctAnswer": 1,
+      "explanation": "Angel Jibril (Gabriel) brought the revelation of the Quran to Prophet Muhammad."
+    },
+    {
+      "id": "qb_005",
+      "category": "quran_basics",
+      "difficulty": "easy",
+      "question": "What is the longest Surah in the Quran?",
+      "options": ["Al-Fatiha", "Al-Baqarah", "Al-Imran", "An-Nisa"],
+      "correctAnswer": 1,
+      "explanation": "Al-Baqarah (The Cow) is the longest Surah with 286 verses."
+    },
+    {
+      "id": "qb_006",
+      "category": "quran_basics",
+      "difficulty": "easy",
+      "question": "What is the shortest Surah in the Quran?",
+      "options": ["Al-Fatiha", "Al-Ikhlas", "Al-Kawthar", "An-Nas"],
+      "correctAnswer": 2,
+      "explanation": "Al-Kawthar is the shortest Surah with only 3 verses."
+    },
+    {
+      "id": "qb_007",
+      "category": "quran_basics",
+      "difficulty": "medium",
+      "question": "How many verses are in Al-Fatiha?",
+      "options": ["5", "6", "7", "8"],
+      "correctAnswer": 2,
+      "explanation": "Al-Fatiha has 7 verses and is recited in every prayer."
+    },
+    {
+      "id": "qb_008",
+      "category": "quran_basics",
+      "difficulty": "medium",
+      "question": "What does 'Quran' mean?",
+      "options": ["The Book", "The Reading/Recitation", "The Truth", "The Light"],
+      "correctAnswer": 1,
+      "explanation": "Quran means 'The Reading' or 'The Recitation'."
+    },
+    {
+      "id": "qb_009",
+      "category": "quran_basics",
+      "difficulty": "easy",
+      "question": "In which language was the Quran revealed?",
+      "options": ["Hebrew", "English", "Arabic", "Urdu"],
+      "correctAnswer": 2,
+      "explanation": "The Quran was revealed in Arabic."
+    },
+    {
+      "id": "qb_010",
+      "category": "quran_basics",
+      "difficulty": "medium",
+      "question": "How many parts (Juz) is the Quran divided into?",
+      "options": ["20", "25", "30", "40"],
+      "correctAnswer": 2,
+      "explanation": "The Quran is divided into 30 Juz (parts) for easier reading."
+    }
+  ]
+}
