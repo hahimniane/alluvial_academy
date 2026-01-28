@@ -2432,6 +2432,27 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           setState(() {
             _programmedShiftId = null;
             _timeUntilAutoStart = "";
+            
+            // Immediately update local state to reflect clock-in
+            // This ensures UI updates instantly without waiting for Firestore stream
+            final now = DateTime.now();
+            final updatedShift = shift.copyWith(
+              clockInTime: now,
+              status: ShiftStatus.active,
+              clockOutTime: null,
+            );
+            
+            // Update active shift
+            _activeShift = updatedShift;
+            
+            // Remove from upcoming shifts (since it's now active)
+            _upcomingShifts.removeWhere((s) => s.id == shift.id);
+            
+            // Update in all shifts list
+            final shiftIndex = _allShifts.indexWhere((s) => s.id == shift.id);
+            if (shiftIndex != -1) {
+              _allShifts[shiftIndex] = updatedShift;
+            }
           });
         }
         
@@ -2442,7 +2463,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Refresh data
+        // Refresh data to sync with Firestore (stream will update eventually)
         _loadData();
       } else {
         if (!mounted) return;
