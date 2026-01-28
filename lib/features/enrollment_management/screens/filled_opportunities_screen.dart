@@ -512,15 +512,40 @@ class _FilledJobCardState extends State<_FilledJobCard> {
       final enrollmentData = enrollmentDoc.data()!;
       final contact = enrollmentData['contact'] as Map<String, dynamic>? ?? {};
       
+      // Improved name extraction: prioritize contact fields, then parse studentName
       String firstName = '';
       String lastName = '';
-      final fullName = widget.job.studentName.trim();
-      if (fullName.isNotEmpty) {
-        final parts = fullName.split(' ');
-        firstName = parts.first;
-        if (parts.length > 1) {
-          lastName = parts.sublist(1).join(' ');
+      
+      // First, try to get from contact fields
+      if (contact['firstName'] != null && contact['firstName'].toString().trim().isNotEmpty) {
+        firstName = contact['firstName'].toString().trim();
+      }
+      if (contact['lastName'] != null && contact['lastName'].toString().trim().isNotEmpty) {
+        lastName = contact['lastName'].toString().trim();
+      }
+      
+      // If firstName or lastName is missing, try parsing studentName
+      if (firstName.isEmpty || lastName.isEmpty) {
+        final fullName = widget.job.studentName.trim();
+        if (fullName.isNotEmpty) {
+          final parts = fullName.split(' ').where((p) => p.isNotEmpty).toList();
+          if (parts.isNotEmpty) {
+            if (firstName.isEmpty) {
+              firstName = parts.first;
+            }
+            if (lastName.isEmpty && parts.length > 1) {
+              lastName = parts.sublist(1).join(' ');
+            }
+          }
         }
+      }
+      
+      // Final fallbacks to ensure we always have values
+      if (firstName.isEmpty) {
+        firstName = 'Student';
+      }
+      if (lastName.isEmpty) {
+        lastName = 'Unknown';
       }
 
       final studentData = {
@@ -548,10 +573,26 @@ class _FilledJobCardState extends State<_FilledJobCard> {
           ),
         );
       }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        // Show detailed error message from Cloud Function
+        final errorMessage = e.message ?? e.code ?? 'Unknown error';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating student: $errorMessage'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorCreatingStudentE), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error creating student: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {
@@ -1193,6 +1234,21 @@ class _FilledJobCardState extends State<_FilledJobCard> {
     );
   }
   
+  /// Helper to safely parse timestamp from action history (handles both String and Timestamp)
+  Timestamp? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value;
+    if (value is String) {
+      try {
+        final dateTime = DateTime.parse(value);
+        return Timestamp.fromDate(dateTime);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   Widget _buildActionHistory() {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
@@ -1212,7 +1268,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
         
         // Check for contacted info
         if (metadata['contactedAt'] != null) {
-          final contactedAt = metadata['contactedAt'] as Timestamp?;
+          final contactedAt = _parseTimestamp(metadata['contactedAt']);
           actions.add({
             'action': 'Marked as Contacted',
             'by': metadata['contactedByName'] ?? metadata['contactedBy'] ?? 'Admin',
@@ -1224,7 +1280,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
         
         // Check for broadcasted info
         if (metadata['broadcastedAt'] != null) {
-          final broadcastedAt = metadata['broadcastedAt'] as Timestamp?;
+          final broadcastedAt = _parseTimestamp(metadata['broadcastedAt']);
           actions.add({
             'action': 'Broadcasted to Teachers',
             'by': metadata['broadcastedByName'] ?? metadata['broadcastedBy'] ?? 'Admin',
@@ -1236,7 +1292,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
         
         // Check for matched info (teacher accepted)
         if (metadata['matchedAt'] != null) {
-          final matchedAt = metadata['matchedAt'] as Timestamp?;
+          final matchedAt = _parseTimestamp(metadata['matchedAt']);
           actions.add({
             'action': 'Matched with Teacher',
             'by': metadata['matchedTeacherName'] ?? metadata['matchedTeacherId'] ?? 'Teacher',
@@ -1253,12 +1309,13 @@ class _FilledJobCardState extends State<_FilledJobCard> {
           for (final entry in actionHistory) {
             if (entry is Map<String, dynamic>) {
               final actionType = entry['action'] as String? ?? '';
+              final timestamp = _parseTimestamp(entry['timestamp']);
               if (actionType == 'teacher_accepted' && 
                   !actions.any((a) => a['action'] == 'Matched with Teacher')) {
                 actions.add({
                   'action': 'Matched with Teacher',
                   'by': entry['teacherName'] ?? entry['teacherId'] ?? 'Teacher',
-                  'at': entry['timestamp'],
+                  'at': timestamp,
                   'icon': Icons.handshake,
                   'color': const Color(0xff8B5CF6),
                 });
@@ -1266,7 +1323,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                 actions.add({
                   'action': 'Admin Revoked (Re-broadcast)',
                   'by': entry['adminName'] ?? entry['adminEmail'] ?? 'Admin',
-                  'at': entry['timestamp'],
+                  'at': timestamp,
                   'icon': Icons.undo,
                   'color': Colors.red,
                 });
@@ -1274,7 +1331,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                 actions.add({
                   'action': 'Teacher Withdrew',
                   'by': entry['teacherName'] ?? entry['teacherId'] ?? 'Teacher',
-                  'at': entry['timestamp'],
+                  'at': timestamp,
                   'icon': Icons.exit_to_app,
                   'color': Colors.orange,
                 });
@@ -1282,7 +1339,7 @@ class _FilledJobCardState extends State<_FilledJobCard> {
                 actions.add({
                   'action': 'Closed by admin (no re-broadcast)',
                   'by': entry['adminName'] ?? entry['adminEmail'] ?? 'Admin',
-                  'at': entry['timestamp'],
+                  'at': timestamp,
                   'icon': Icons.archive_outlined,
                   'color': const Color(0xff4B5563),
                 });

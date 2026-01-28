@@ -147,35 +147,164 @@ class JobBoardService {
     }
   }
 
-  /// Allows a teacher to accept a job (via Cloud Function)
+  /// Normalize selectedTimes to ensure it's a valid map of day -> time string
+  Map<String, String>? _normalizeSelectedTimes(Map<String, String>? rawTimes) {
+    if (rawTimes == null || rawTimes.isEmpty) return null;
+    final normalized = <String, String>{};
+    for (final entry in rawTimes.entries) {
+      if (entry.key.isNotEmpty && entry.value.isNotEmpty) {
+        normalized[entry.key] = entry.value;
+      }
+    }
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  /// Allows a teacher to accept a job directly (No Cloud Function)
+  /// Uses a Firestore WriteBatch to ensure all updates happen atomically.
   /// [selectedTimes] is an optional map of day -> time slot selected by teacher
   Future<void> acceptJob(String jobId, String teacherId, {Map<String, String>? selectedTimes}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('You must be signed in to accept a job.');
+    }
+
     try {
-      // Ensure user is authenticated
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('You must be signed in to accept a job.');
+      final db = FirebaseFirestore.instance;
+      
+      // Normalize selected times
+      final normalizedTimes = _normalizeSelectedTimes(selectedTimes);
+      
+      // 1. Get the Job Data to verify it's open
+      final jobRef = db.collection('job_board').doc(jobId);
+      final jobSnapshot = await jobRef.get();
+      
+      if (!jobSnapshot.exists) {
+        throw Exception('Job not found');
       }
       
-      // Refresh the ID token to ensure it's valid
-      await user.getIdToken(true); // Force refresh
+      final jobData = jobSnapshot.data() as Map<String, dynamic>;
       
-      // Use the correct region (us-central1) for the function call
-      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
-          .httpsCallable('acceptJob');
+      // SECURITY CHECK: Ensure job is open
+      if (jobData['status'] != 'open') {
+        throw Exception('Job is no longer open');
+      }
+
+      // 2. Prepare Data
+      final enrollmentId = jobData['enrollmentId'] as String;
+      final enrollmentRef = db.collection('enrollments').doc(enrollmentId);
       
-      final result = await callable.call(<String, dynamic>{
+      // Get teacher name safely
+      String teacherName = 'Teacher';
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        teacherName = user.displayName!;
+      } else {
+        // Try to fetch from user profile
+        try {
+          final userDoc = await db.collection('users').doc(user.uid).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+            final firstName = userData['first_name'] as String? ?? '';
+            final lastName = userData['last_name'] as String? ?? '';
+            final fullName = '$firstName $lastName'.trim();
+            if (fullName.isNotEmpty) {
+              teacherName = fullName;
+            } else {
+              teacherName = user.email ?? 'Unknown Teacher';
+            }
+          } else {
+            teacherName = user.email ?? 'Unknown Teacher';
+          }
+        } catch (_) {
+          teacherName = user.email ?? 'Unknown Teacher';
+        }
+      }
+
+      // 3. START BATCH (Atomic Operation)
+      final batch = db.batch();
+
+      // --- A. Update Job Board (Accept) ---
+      final jobUpdate = <String, dynamic>{
+        'status': 'accepted',
+        'acceptedByTeacherId': user.uid,
+        'acceptedAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (normalizedTimes != null) {
+        jobUpdate['teacherSelectedTimes'] = normalizedTimes;
+      }
+      
+      batch.update(jobRef, jobUpdate);
+
+      // --- B. Update Enrollment (Set Matched Status) ---
+      final enrollmentUpdate = <String, dynamic>{
+        'metadata.status': 'matched',
+        'metadata.matchedTeacherId': user.uid,
+        'metadata.matchedTeacherName': teacherName,
+        'metadata.matchedAt': FieldValue.serverTimestamp(),
+        'metadata.lastUpdated': FieldValue.serverTimestamp(),
+      };
+      
+      if (normalizedTimes != null) {
+        enrollmentUpdate['metadata.teacherSelectedTimes'] = normalizedTimes;
+      }
+      
+      // Build action history entry
+      final teacherActionEntry = {
+        'action': 'teacher_accepted',
+        'status': 'matched',
+        'teacherId': user.uid,
+        'teacherName': teacherName,
+        if (normalizedTimes != null) 'selectedTimes': normalizedTimes,
+        'timestamp': Timestamp.fromDate(DateTime.now()),
+      };
+      
+      enrollmentUpdate['metadata.actionHistory'] = FieldValue.arrayUnion([teacherActionEntry]);
+      
+      batch.update(enrollmentRef, enrollmentUpdate);
+
+      // --- C. Create Admin Notification ---
+      final notifRef = db.collection('admin_notifications').doc();
+      final timeDetails = normalizedTimes != null
+          ? normalizedTimes.entries.map((e) => '${e.key}: ${e.value}').join(', ')
+          : 'No specific times selected';
+      
+      batch.set(notifRef, {
+        'type': 'job_accepted',
         'jobId': jobId,
-        if (selectedTimes != null) 'selectedTimes': selectedTimes,
+        'teacherId': user.uid,
+        'teacherName': teacherName,
+        'enrollmentId': enrollmentId,
+        'studentName': jobData['studentName'] ?? 'Student',
+        'subject': jobData['subject'] ?? 'Subject',
+        if (normalizedTimes != null) 'teacherSelectedTimes': normalizedTimes,
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'message': 'A teacher has accepted ${jobData['studentName'] ?? 'Student'} (${jobData['subject'] ?? 'Subject'}). Selected times: $timeDetails',
+        'action_required': true,
       });
 
-      if (result.data['success'] != true) {
-        throw Exception(result.data['message'] ?? 'Unknown error accepting job');
-      }
+      // 4. Commit all changes at once
+      await batch.commit();
+
+      AppLogger.info('Successfully accepted job $jobId via direct Firestore batch. Selected times: ${normalizedTimes?.toString() ?? 'none'}');
       
-      AppLogger.info('Successfully accepted job $jobId. Awaiting admin scheduling.');
+    } on FirebaseException catch (e) {
+      AppLogger.error('Error accepting job: $e');
+      
+      // Handle Permission Denied specifically
+      if (e.code == 'permission-denied') {
+         throw Exception('Permission denied. Please ask Admin to check Firestore Rules for "enrollments" and "job_board".');
+      }
+      if (e.code == 'not-found') {
+        throw Exception('Job or enrollment not found.');
+      }
+      throw Exception('Failed to accept job: ${e.message ?? e.code}');
     } catch (e) {
       AppLogger.error('Error accepting job: $e');
+      
+      if (e.toString().toLowerCase().contains('permission-denied')) {
+        throw Exception('Permission denied. Please ask Admin to check Firestore Rules.');
+      }
       throw Exception('Failed to accept job: $e');
     }
   }
@@ -336,31 +465,141 @@ class JobBoardService {
     }
   }
 
-  /// Allows a teacher to withdraw from an accepted job (re-broadcasts it)
+  /// Allows a teacher to withdraw from an accepted job directly (No Cloud Function)
+  /// Uses a Firestore WriteBatch to ensure all updates happen atomically.
   Future<void> withdrawFromJob(String jobId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('You must be signed in to withdraw from a job.');
+    }
+
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('You must be signed in to withdraw from a job.');
+      final db = FirebaseFirestore.instance;
+      
+      // 1. Get the Job Data to verify ownership
+      final jobRef = db.collection('job_board').doc(jobId);
+      final jobSnapshot = await jobRef.get();
+      
+      if (!jobSnapshot.exists) {
+        throw Exception('Job not found');
       }
       
-      // Refresh the ID token to ensure it's valid
-      await user.getIdToken(true);
+      final jobData = jobSnapshot.data() as Map<String, dynamic>;
       
-      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
-          .httpsCallable('withdrawFromJob');
+      // SECURITY CHECK: Ensure the current user is actually the one who accepted it
+      if (jobData['acceptedByTeacherId'] != user.uid) {
+        throw Exception('You can only withdraw from jobs you accepted.');
+      }
+
+      // Check job status
+      if (jobData['status'] != 'accepted') {
+        throw Exception('Can only withdraw from accepted jobs');
+      }
+
+      // 2. Prepare Data
+      final enrollmentId = jobData['enrollmentId'] as String;
+      final enrollmentRef = db.collection('enrollments').doc(enrollmentId);
       
-      final result = await callable.call(<String, dynamic>{
-        'jobId': jobId,
+      // Get teacher name safely
+      String teacherName = 'Teacher';
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        teacherName = user.displayName!;
+      } else {
+        // Try to fetch from user profile
+        try {
+          final userDoc = await db.collection('users').doc(user.uid).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+            final firstName = userData['first_name'] as String? ?? '';
+            final lastName = userData['last_name'] as String? ?? '';
+            final fullName = '$firstName $lastName'.trim();
+            if (fullName.isNotEmpty) {
+              teacherName = fullName;
+            } else {
+              teacherName = user.email ?? 'Teacher (${user.uid.substring(0, 8)})';
+            }
+          } else {
+            teacherName = user.email ?? 'Teacher (${user.uid.substring(0, 8)})';
+          }
+        } catch (_) {
+          teacherName = user.email ?? 'Teacher (${user.uid.substring(0, 8)})';
+        }
+      }
+
+      // 3. START BATCH (Atomic Operation)
+      final batch = db.batch();
+
+      // --- A. Update Job Board (Re-open) ---
+      batch.update(jobRef, {
+        'status': 'open',
+        'acceptedByTeacherId': FieldValue.delete(),
+        'acceptedAt': FieldValue.delete(),
+        'teacherSelectedTimes': FieldValue.delete(), // Clear teacher times
+        'withdrawnAt': FieldValue.serverTimestamp(),
+        'withdrawnByTeacherId': user.uid,
+        'withdrawalHistory': FieldValue.arrayUnion([{
+          'teacherId': user.uid,
+          'teacherName': teacherName,
+          'withdrawnAt': Timestamp.fromDate(DateTime.now()),
+        }]),
       });
 
-      if (result.data['success'] != true) {
-        throw Exception(result.data['message'] ?? 'Unknown error withdrawing from job');
-      }
+      // --- B. Update Enrollment (Reset Status) ---
+      batch.update(enrollmentRef, {
+        'metadata.status': 'broadcasted',
+        'metadata.matchedTeacherId': FieldValue.delete(),
+        'metadata.matchedTeacherName': FieldValue.delete(),
+        'metadata.matchedAt': FieldValue.delete(),
+        'metadata.teacherSelectedTimes': FieldValue.delete(),
+        'metadata.lastWithdrawnBy': user.uid,
+        'metadata.lastWithdrawnAt': FieldValue.serverTimestamp(),
+        'metadata.actionHistory': FieldValue.arrayUnion([{
+          'action': 'teacher_withdrawn',
+          'status': 'broadcasted',
+          'teacherId': user.uid,
+          'teacherName': teacherName,
+          'timestamp': Timestamp.fromDate(DateTime.now()),
+        }]),
+      });
+
+      // --- C. Create Admin Notification ---
+      final notifRef = db.collection('admin_notifications').doc();
+      batch.set(notifRef, {
+        'type': 'job_withdrawn',
+        'jobId': jobId,
+        'teacherId': user.uid,
+        'teacherName': teacherName,
+        'enrollmentId': enrollmentId,
+        'studentName': jobData['studentName'] ?? 'Student',
+        'subject': jobData['subject'] ?? 'Subject',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'message': '$teacherName has withdrawn from teaching ${jobData['studentName'] ?? 'Student'}. Job is now open again.',
+        'action_required': false,
+      });
+
+      // 4. Commit all changes at once
+      await batch.commit();
+
+      AppLogger.info('Successfully withdrew from job $jobId via direct Firestore batch.');
       
-      AppLogger.info('Successfully withdrew from job $jobId. Job re-broadcasted.');
+    } on FirebaseException catch (e) {
+      AppLogger.error('Error withdrawing from job: $e');
+      
+      // Handle Permission Denied specifically
+      if (e.code == 'permission-denied') {
+         throw Exception('Permission denied. Please ask Admin to check Firestore Rules for "enrollments" and "job_board".');
+      }
+      if (e.code == 'not-found') {
+        throw Exception('Job or enrollment not found.');
+      }
+      throw Exception('Failed to withdraw: ${e.message ?? e.code}');
     } catch (e) {
       AppLogger.error('Error withdrawing from job: $e');
+      
+      if (e.toString().toLowerCase().contains('permission-denied')) {
+        throw Exception('Permission denied. Please ask Admin to check Firestore Rules.');
+      }
       throw Exception('Failed to withdraw from job: $e');
     }
   }
