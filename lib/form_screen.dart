@@ -70,6 +70,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
   }
 
+  /// Submit is disabled while submitting or when this form was already submitted (one per shift).
+  bool get _isSubmitDisabled =>
+      _isSubmitting || (_userFormSubmissions[selectedFormId] ?? false);
+
   @override
   void initState() {
     super.initState();
@@ -1453,7 +1457,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                                 ),
                               ),
                               Text(
-                                AppLocalizations.of(context)!.youHaveAlreadySubmittedThisForm,
+                                AppLocalizations.of(context)?.youHaveAlreadySubmittedThisForm ?? 'You have already submitted this form for this shift. One submission per shift.',
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   color: const Color(0xff059669),
@@ -1645,7 +1649,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: _isSubmitting ? null : _submitForm,
+                                onPressed: _isSubmitDisabled ? null : _submitForm,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _primaryColor,
                                   foregroundColor: Colors.white,
@@ -1743,7 +1747,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                         children: [
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: _isSubmitting ? null : _submitForm,
+                              onPressed: _isSubmitDisabled ? null : _submitForm,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _primaryColor,
                                 foregroundColor: Colors.white,
@@ -2314,9 +2318,12 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     String label,
     String fieldKey,
   ) {
+    // Use a bounded maxLines so the card's IntrinsicHeight doesn't overflow when
+    // the keyboard is open ("bottom overflowed by N pixels"). Field scrolls internally.
+    const int kTextAreaMaxLines = 5;
     return TextFormField(
       controller: controller,
-      maxLines: null,
+      maxLines: kTextAreaMaxLines,
       minLines: 3,
       onTap: () => setState(() => _focusedFieldKey = fieldKey),
       decoration: InputDecoration(
@@ -4093,57 +4100,14 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return;
     }
 
-    // Check if user has already submitted this form
+    // One submission per form per shift — no duplicate documents
     final hasAlreadySubmitted = _userFormSubmissions[selectedFormId] ?? false;
     if (hasAlreadySubmitted) {
-      final shouldResubmit = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(
-            AppLocalizations.of(context)!.formAlreadySubmitted,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff111827),
-            ),
-          ),
-          content: Text(
-            AppLocalizations.of(context)!.youHaveAlreadySubmittedThisForm2,
-            style: GoogleFonts.inter(
-              color: const Color(0xff6B7280),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                AppLocalizations.of(context)!.commonCancel,
-                style: GoogleFonts.inter(
-                  color: const Color(0xff6B7280),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff0386FF),
-                foregroundColor: Colors.white,
-              ),
-              child: Text(
-                AppLocalizations.of(context)!.submitAgain,
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
+      _showSnackBar(
+        AppLocalizations.of(context)?.youHaveAlreadySubmittedThisForm ?? 'This form has already been submitted for this shift.',
+        isError: true,
       );
-
-      if (shouldResubmit != true) {
-        AppLogger.debug('User cancelled resubmission');
-        return;
-      }
+      return;
     }
 
     AppLogger.debug('Starting form submission...');
@@ -4476,10 +4440,10 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         });
       }
 
-      AppLogger.debug('Clearing form...');
-      // Clear form
-      _resetForm();
-      AppLogger.info('Form cleared successfully!');
+      // Close the form (one submission per shift — no staying to resubmit)
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       AppLogger.error('Error in form submission: $e');
       AppLogger.debug('Stack trace: ${StackTrace.current}');

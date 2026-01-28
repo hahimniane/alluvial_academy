@@ -1,3 +1,7 @@
+// ⚠️ DEPRECATED - This file can be DELETED after verification
+// All functionality has been merged into teacher_home_screen.dart
+// This file is kept temporarily for reference only
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

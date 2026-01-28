@@ -5,8 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
+import '../../../core/models/teaching_shift.dart';
 import '../../../core/services/form_labels_cache_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import '../widgets/form_details_modal.dart';
 
 /// Screen for teachers to view their own form submissions (read-only)
 /// Now supports month filtering for better organization
@@ -307,23 +309,39 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
 
   Future<String> _getFormTitle(Map<String, dynamic> data, String? formId) async {
     // Try to get title from the stored data first
-    final storedTitle = data['formTitle'] ?? 
-                       data['form_title'] ?? 
-                       data['title'];
-    
-    if (storedTitle != null && storedTitle.toString().isNotEmpty && 
+    final storedTitle = data['formTitle'] ??
+        data['form_title'] ??
+        data['title'];
+
+    if (storedTitle != null &&
+        storedTitle.toString().isNotEmpty &&
         storedTitle.toString() != 'Untitled Form') {
       return storedTitle.toString();
     }
 
-    // If no title or it's "Untitled Form", fetch from form template
-    if (formId != null && formId.isNotEmpty) {
+    final templateId = (data['templateId'] as String?)?.trim();
+    final idToTry = templateId ?? formId;
+
+    if (idToTry != null && idToTry.isNotEmpty) {
       try {
+        // Prefer form_templates (new system) for known template ids
+        final templateDoc = await FirebaseFirestore.instance
+            .collection('form_templates')
+            .doc(idToTry)
+            .get();
+        if (templateDoc.exists) {
+          final d = templateDoc.data();
+          final name = d?['name'] ?? d?['title'];
+          if (name != null && name.toString().isNotEmpty) {
+            return name.toString();
+          }
+        }
+
+        // Fallback to form collection
         final formDoc = await FirebaseFirestore.instance
             .collection('form')
-            .doc(formId)
+            .doc(idToTry)
             .get();
-
         if (formDoc.exists) {
           final formData = formDoc.data();
           final title = formData?['title'] ?? formData?['formTitle'];
@@ -867,16 +885,29 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
 
   void _viewSubmissionDetails(
       String submissionId, String formTitle, Map<String, dynamic> data) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _SubmissionDetailView(
-        submissionId: submissionId,
-        formTitle: formTitle,
-        data: data,
-      ),
-    );
+    final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString() ?? '';
+    final hasShift = shiftId.isNotEmpty && shiftId != 'N/A';
+    final responses = data['responses'] as Map<String, dynamic>? ?? {};
+
+    if (hasShift) {
+      FormDetailsModal.show(
+        context,
+        formId: submissionId,
+        shiftId: shiftId,
+        responses: responses,
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _SubmissionDetailView(
+          submissionId: submissionId,
+          formTitle: formTitle,
+          data: data,
+        ),
+      );
+    }
   }
 }
 
@@ -1171,8 +1202,15 @@ class _SubmissionDetailViewState extends State<_SubmissionDetailView> {
   }
 }
 
-/// Bottom sheet to show all submissions for a specific form
-class _FormSubmissionsSheet extends StatelessWidget {
+/// Summary for list display (student names, day/date)
+class _ShiftSummary {
+  final String dayDate; // e.g. "Wed, Jan 28, 2026"
+  final List<String> studentNames;
+  _ShiftSummary({required this.dayDate, required this.studentNames});
+}
+
+/// Modernized Bottom Sheet for viewing submissions
+class _FormSubmissionsSheet extends StatefulWidget {
   final String formTitle;
   final List<QueryDocumentSnapshot> submissions;
   final Function(String, String, Map<String, dynamic>) onViewDetails;
@@ -1184,6 +1222,115 @@ class _FormSubmissionsSheet extends StatelessWidget {
   });
 
   @override
+  State<_FormSubmissionsSheet> createState() => _FormSubmissionsSheetState();
+}
+
+class _FormSubmissionsSheetState extends State<_FormSubmissionsSheet> {
+  String _dateRange = 'all';
+  Map<String, _ShiftSummary> _shiftSummaries = {};
+  bool _loadingShifts = true;
+
+  bool get _isDailyClassReport {
+    final title = widget.formTitle.toLowerCase();
+    if (title.contains('daily') || title.contains('class report')) return true;
+    if (widget.submissions.isEmpty) return false;
+    final first = widget.submissions.first.data() as Map<String, dynamic>?;
+    final tid = (first?['templateId'] ?? first?['template_id'])?.toString().toLowerCase();
+    return tid == 'daily_class_report';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShiftSummaries();
+  }
+
+  Future<void> _loadShiftSummaries() async {
+    final ids = <String>{};
+    for (final doc in widget.submissions) {
+      final d = doc.data() as Map<String, dynamic>;
+      final id = (d['shiftId'] ?? d['shift_id'])?.toString();
+      if (id != null && id.isNotEmpty && id != 'N/A') ids.add(id);
+    }
+    if (ids.isEmpty) {
+      if (mounted) setState(() => _loadingShifts = false);
+      return;
+    }
+    final map = <String, _ShiftSummary>{};
+    try {
+      for (final shiftId in ids) {
+        final snap = await FirebaseFirestore.instance
+            .collection('teaching_shifts')
+            .doc(shiftId)
+            .get();
+        if (snap.exists) {
+          final shift = TeachingShift.fromFirestore(snap);
+          final dayDate = DateFormat('EEE, MMM d').format(shift.shiftStart);
+          map[shiftId] = _ShiftSummary(
+            dayDate: dayDate,
+            studentNames: List.from(shift.studentNames),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.debug('MySubmissions: could not load some shifts: $e');
+    }
+    if (mounted) {
+      setState(() {
+        _shiftSummaries = map;
+        _loadingShifts = false;
+      });
+    }
+  }
+
+  List<QueryDocumentSnapshot> get _filteredSubmissions {
+    if (_dateRange == 'all') return widget.submissions;
+    final now = DateTime.now();
+    DateTime start;
+    switch (_dateRange) {
+      case '7':
+        start = now.subtract(const Duration(days: 7));
+        break;
+      case '30':
+        start = now.subtract(const Duration(days: 30));
+        break;
+      case 'month':
+        start = DateTime(now.year, now.month, 1);
+        break;
+      default:
+        return widget.submissions;
+    }
+    return widget.submissions.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final t = data['submittedAt'] as Timestamp?;
+      if (t == null) return false;
+      return t.toDate().isAfter(start.subtract(const Duration(seconds: 1)));
+    }).toList();
+  }
+
+  Map<String, List<QueryDocumentSnapshot>> get _groupedByStudent {
+    final grouped = <String, List<QueryDocumentSnapshot>>{};
+    for (final doc in _filteredSubmissions) {
+      final data = doc.data() as Map<String, dynamic>;
+      final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString();
+      String studentName = 'General / Other';
+      if (shiftId != null && _shiftSummaries.containsKey(shiftId)) {
+        final names = _shiftSummaries[shiftId]!.studentNames;
+        if (names.isNotEmpty) studentName = names.first;
+      }
+      grouped.putIfAbsent(studentName, () => []).add(doc);
+    }
+    return Map.fromEntries(
+      grouped.entries.toList()
+        ..sort((a, b) {
+          if (a.key.contains('Other')) return 1;
+          if (b.key.contains('Other')) return -1;
+          return a.key.compareTo(b.key);
+        }),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
@@ -1192,30 +1339,24 @@ class _FormSubmissionsSheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            color: Color(0xffF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xffE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Color(0xffE2E8F0)),
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -1223,46 +1364,46 @@ class _FormSubmissionsSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            formTitle,
+                            widget.formTitle,
                             style: GoogleFonts.inter(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xff1E293B),
                             ),
                           ),
-                          const SizedBox(height: 4),
                           Text(
-                            '${submissions.length} ${submissions.length == 1 ? 'submission' : 'submissions'}',
+                            _isDailyClassReport
+                                ? 'Organized by student'
+                                : '${widget.submissions.length} total submissions',
                             style: GoogleFonts.inter(
-                              fontSize: 14,
+                              fontSize: 13,
                               color: const Color(0xff64748B),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                      color: const Color(0xff64748B),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xffF1F5F9),
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, size: 20),
+                        color: const Color(0xff64748B),
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                        padding: EdgeInsets.zero,
+                      ),
                     ),
                   ],
                 ),
               ),
-
-              // Submissions list
+              const Divider(height: 1, color: Color(0xffE2E8F0)),
               Expanded(
-                child: ListView.separated(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(20),
-                  itemCount: submissions.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final doc = submissions[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _buildSubmissionItem(context, doc.id, data);
-                  },
-                ),
+                child: _isDailyClassReport
+                    ? _buildDailyReportView(scrollController)
+                    : _buildLegacyListView(scrollController),
               ),
             ],
           ),
@@ -1271,131 +1412,349 @@ class _FormSubmissionsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildSubmissionItem(BuildContext context, String submissionId, Map<String, dynamic> data) {
-    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
-    final status = (data['status'] ?? 'completed').toString();
-    final responses = data['responses'] as Map<String, dynamic>?;
+  Widget _buildDailyReportView(ScrollController scrollController) {
+    if (_loadingShifts) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xff0386FF)));
+    }
+    final grouped = _groupedByStudent;
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _buildFilterChip('Last 7 Days', '7'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Last 30 Days', '30'),
+                const SizedBox(width: 8),
+                _buildFilterChip('This Month', 'month'),
+                const SizedBox(width: 8),
+                _buildFilterChip('All Time', 'all'),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: grouped.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: grouped.length,
+                  itemBuilder: (context, index) {
+                    final studentName = grouped.keys.elementAt(index);
+                    final studentSubmissions = grouped[studentName]!;
+                    return _buildStudentGroupCard(studentName, studentSubmissions);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: const Color(0xffE2E8F0)),
+  Widget _buildStudentGroupCard(String studentName, List<QueryDocumentSnapshot> docs) {
+    final completed = docs.where((d) => (d.data() as Map)['status'] == 'completed').length;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff64748B).withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          onViewDetails(submissionId, formTitle, data);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Icon
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xff0386FF).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.description,
-                  size: 20,
-                  color: Color(0xff0386FF),
-                ),
-              ),
-              const SizedBox(width: 12),
-              
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            submittedAt != null
-                                ? DateFormat('MMM d, yyyy • h:mm a').format(submittedAt)
-                                : AppLocalizations.of(context)!.commonUnknownDate,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff1E293B),
-                            ),
-                          ),
-                        ),
-                        _statusBadge(status),
-                      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xffEFF6FF),
+                  child: Text(
+                    studentName.isNotEmpty ? studentName[0].toUpperCase() : '?',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xff0386FF),
+                      fontWeight: FontWeight.w700,
                     ),
-                    if (responses != null && responses.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        studentName,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xff1E293B),
+                        ),
+                      ),
                       Row(
                         children: [
-                          const Icon(
-                            Icons.question_answer,
-                            size: 14,
-                            color: Color(0xff64748B),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${responses.length} ${responses.length == 1 ? 'response' : 'responses'}',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: const Color(0xff64748B),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xffF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${docs.length} Entries',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff64748B),
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          if (completed == docs.length)
+                            Text(
+                              '100% Completed',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: const Color(0xff16A34A),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                         ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xffF1F5F9)),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: docs.length,
+            separatorBuilder: (context, i) => const Divider(
+              height: 1,
+              indent: 56,
+              color: Color(0xffF8FAFC),
+            ),
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              return _buildTimelineItem(doc);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+    final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString();
+    final summary = shiftId != null ? _shiftSummaries[shiftId] : null;
+    final dateStr = summary?.dayDate ??
+        (submittedAt != null ? DateFormat('MMM d').format(submittedAt) : 'Unknown');
+    final timeStr = submittedAt != null ? DateFormat('h:mm a').format(submittedAt) : '';
+    final dayPart = dateStr.contains(',') ? dateStr.split(',')[0].trim() : dateStr;
+    return InkWell(
+      onTap: () => widget.onViewDetails(doc.id, widget.formTitle, data),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 40,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dayPart,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff94A3B8),
+                    ),
+                  ),
+                  Text(
+                    submittedAt != null ? submittedAt.day.toString() : '',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff475569),
+                    ),
+                  ),
+                ],
               ),
-              
-              // Arrow
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: Color(0xff94A3B8),
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              width: 2,
+              height: 30,
+              color: const Color(0xffE2E8F0),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    summary?.dayDate ?? 'Submission',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff334155),
+                    ),
+                  ),
+                  Text(
+                    'Submitted at $timeStr',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff94A3B8),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xffF0F9FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xffBAE6FD).withOpacity(0.5)),
+              ),
+              child: const Icon(
+                Icons.visibility_outlined,
+                size: 18,
+                color: Color(0xff0284C7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value) {
+    final isSelected = _dateRange == value;
+    return GestureDetector(
+      onTap: () => setState(() => _dateRange = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xff0386FF) : const Color(0xffF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xff0386FF) : const Color(0xffE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xff64748B),
           ),
         ),
       ),
     );
   }
 
-  Widget _statusBadge(String status) {
-    final isCompleted = status.toLowerCase() == 'completed';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: isCompleted
-            ? const Color(0xffDCFCE7)
-            : const Color(0xffFEF3C7),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isCompleted ? Icons.check_circle : Icons.pending,
-            size: 12,
-            color: isCompleted
-                ? const Color(0xff16A34A)
-                : const Color(0xffF59E0B),
+  Widget _buildLegacyListView(ScrollController scrollController) {
+    final list = _filteredSubmissions;
+    if (list.isEmpty) return _buildEmptyState();
+    return ListView.separated(
+      controller: scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: list.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final doc = list[index];
+        final data = doc.data() as Map<String, dynamic>;
+        final submittedAt = (data['submittedAt'] as Timestamp?)?.toDate();
+        final status = (data['status'] ?? 'completed').toString();
+        final shiftId = (data['shiftId'] ?? data['shift_id'])?.toString();
+        final summary = shiftId != null && shiftId.isNotEmpty ? _shiftSummaries[shiftId] : null;
+        // Prefer class date (shift date) when available; always show submission time
+        final String dateTitle = summary != null
+            ? 'Class: ${summary.dayDate}'
+            : (submittedAt != null ? DateFormat('EEE, MMM d, yyyy').format(submittedAt) : 'Date unknown');
+        final String subtitleText = submittedAt != null
+            ? 'Submitted ${DateFormat('MMM d').format(submittedAt)} at ${DateFormat('h:mm a').format(submittedAt)}'
+            : '';
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xffE2E8F0)),
           ),
-          const SizedBox(width: 4),
+          child: ListTile(
+            onTap: () => widget.onViewDetails(doc.id, widget.formTitle, data),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xffF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.calendar_today, size: 20, color: Color(0xff64748B)),
+            ),
+            title: Text(
+              dateTitle,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1E293B),
+                fontSize: 15,
+              ),
+            ),
+            subtitle: Text(
+              subtitleText,
+              style: GoogleFonts.inter(
+                color: const Color(0xff94A3B8),
+                fontSize: 13,
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (status.toLowerCase() == 'completed')
+                  const Icon(Icons.check_circle, size: 16, color: Color(0xff16A34A)),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xffCBD5E1)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.filter_list_off, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 16),
           Text(
-            status,
+            'No submissions found',
             style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: isCompleted
-                  ? const Color(0xff16A34A)
-                  : const Color(0xffF59E0B),
+              color: const Color(0xff94A3B8),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

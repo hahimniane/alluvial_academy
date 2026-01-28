@@ -23,6 +23,9 @@ import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/features/parent/screens/parent_dashboard_screen.dart';
 import '../../profile/widgets/teacher_profile_edit_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'teacher_home_screen.dart'; // Unified teacher dashboard
+import '../widgets/date_strip_calendar.dart';
+import '../widgets/timeline_shift_card.dart';
 
 class AdminDashboard extends StatefulWidget {
   final int? refreshTrigger;
@@ -40,11 +43,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> teacherStats = {};
   int _profileCompletionTrigger = 0; // Trigger to refresh profile completion
 
-  // Platform detection for responsive layouts
+  // Platform detection for responsive layouts - check screen width instead
   bool get _isMobile {
-    if (kIsWeb) return false;
-    final platform = defaultTargetPlatform;
-    return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    return MediaQuery.of(context).size.width < 600;
   }
 
   @override
@@ -418,6 +419,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    // For teachers, ALWAYS use TeacherHomeScreen (unified dashboard)
+    if (userRole?.toLowerCase() == 'teacher') {
+      return const TeacherHomeScreen(showScaffold: false);
+    }
+    
     // On mobile, don't show the welcome header (only show it on desktop)
     if (_isMobile) {
       return _buildDashboardContent();
@@ -514,7 +520,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 'admin':
         return _buildAdminDashboard();
       case 'teacher':
-        return _buildTeacherDashboard();
+        // ✅ UNIFIED TEACHER DASHBOARD - Use TeacherHomeScreen (single source of truth)
+        // This ensures payment comes first, schedule shows all classes, and navigation works
+        return const TeacherHomeScreen(showScaffold: false);
       case 'student':
         return _buildStudentDashboard();
       case 'parent':
@@ -904,18 +912,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         fontWeight: FontWeight.w600,
                         color: accent,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
               ],
             ),
             const Spacer(),
-            Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: theme.textTheme.headlineSmall?.color ??
-                    theme.colorScheme.onBackground,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: GoogleFonts.inter(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: theme.textTheme.headlineSmall?.color ??
+                      theme.colorScheme.onBackground,
+                ),
               ),
             ),
             const SizedBox(height: 6),
@@ -927,6 +941,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7) ??
                     Colors.black54,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             if (progress != null) ...[
               const SizedBox(height: 10),
@@ -946,10 +962,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  // ⚠️ DEPRECATED - This method can be DELETED after verification
+  // Replaced by unified TeacherHomeScreen (see line 515)
+  // Keeping temporarily for reference - all teacher dashboard code is now in teacher_home_screen.dart
   Widget _buildTeacherDashboard() {
-    if (_isMobile) {
+    // 1. Force mobile layout logic if screen is narrow (< 800px)
+    final isDesktop = MediaQuery.of(context).size.width > 800;
+
+    if (!isDesktop || _isMobile) {
       return _buildMobileTeacherDashboard();
     }
+
+    // Desktop layout
     return SingleChildScrollView(
       primary: true,
       child: Column(
@@ -1013,40 +1037,49 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildMobileTeacherDashboard() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // Extra bottom padding for scroll
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Mobile Welcome Header - Assalamu Alaikum
+          // Compact Welcome Header
           _buildMobileTeacherWelcomeHeader(),
           const SizedBox(height: 20),
+          
+          // Profile Alert (Condense this!)
+          FutureBuilder<int>(
+            key: ValueKey(_profileCompletionTrigger),
+            future: _getProfileCompletionPercentage(),
+            builder: (context, snapshot) {
+              final percentage = snapshot.data ?? 0;
+              if (percentage < 100) {
+                return Column(
+                  children: [
+                    _buildCompactProfileAlert(percentage),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
 
-          // Mobile Quick Stats (2 columns instead of 5)
+          // Stats Grid
           _buildMobileTeacherQuickStats(),
-          const SizedBox(height: 16),
-
-          // Islamic Calendar Card
-          _buildIslamicCalendarCard(),
-          const SizedBox(height: 16),
-
-          // Profile Card
-          _buildTeacherProfileCard(),
-          const SizedBox(height: 16),
-
-          // My Classes
+          
+          const SizedBox(height: 24),
+          
+          // Classes Section
           _buildMyClassesModern(),
-          const SizedBox(height: 16),
-
+          
+          const SizedBox(height: 24),
+          
+          // Student Progress
+          _buildStudentProgressModern(),
+          
+          const SizedBox(height: 24),
+          
           // Quick Actions
           _buildQuickActionsTeacher(),
-          const SizedBox(height: 16),
-
-          // Recent Lessons
-          _buildRecentLessonsCard(),
-          const SizedBox(height: 16),
-
-          // Islamic Resources
-          _buildIslamicResourcesCard(),
         ],
       ),
     );
@@ -1057,23 +1090,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
         userData?['first_name'] ?? userData?['firstName'] ?? 'Teacher';
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
+          colors: [Color(0xff1E40AF), Color(0xff3B82F6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xff1E40AF),
-            Color(0xff3B82F6),
-            Color(0xff60A5FA),
-          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: const Color(0xff3B82F6).withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1081,20 +1111,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.menu_book_rounded,
-                  size: 28,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,43 +1120,82 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     Text(
                       AppLocalizations.of(context)!.assalamuAlaikum,
                       style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: Colors.white70,
+                        fontSize: 14,
                       ),
                     ),
                     Text(
-                      firstName,
+                      '$firstName 👋',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
               ),
+              // Notification icon inside the header
+              CircleAvatar(
+                backgroundColor: Colors.white.withOpacity(0.12),
+                child: const Icon(Icons.notifications, color: Colors.white, size: 20),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMobileHeaderStat(
-                  'Students',
-                  '${teacherStats['my_students'] ?? 0}',
-                  Icons.groups_rounded,
+          // Compact Prayer Time Button
+          FutureBuilder<String>(
+            future: PrayerTimeService.getNextPrayerInfo(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.access_time, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              
+              final prayerInfo = snapshot.data ?? 'Prayer times unavailable';
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMobileHeaderStat(
-                  'Sessions',
-                  '${teacherStats['total_sessions'] ?? 0}',
-                  Icons.school_rounded,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.access_time, color: Colors.white, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      prayerInfo,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
@@ -1184,99 +1241,88 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildMobileTeacherQuickStats() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.5,
-      children: [
-        _buildMobileStatCard(
-          'Quran Sessions',
-          '${((teacherStats['total_sessions'] ?? 0) * 0.6).round()}',
-          Icons.menu_book_rounded,
-          const Color(0xff3B82F6),
-        ),
-        _buildMobileStatCard(
-          'Arabic Lessons',
-          '${((teacherStats['total_sessions'] ?? 0) * 0.3).round()}',
-          Icons.language_rounded,
-          const Color(0xffF59E0B),
-        ),
-        _buildMobileStatCard(
-          'Tasks Done',
-          '${teacherStats['completed_tasks'] ?? 0}',
-          Icons.task_alt_rounded,
-          const Color(0xff10B981),
-        ),
-        _buildMobileStatCard(
-          'Forms',
-          '${teacherStats['accessible_forms'] ?? 0}',
-          Icons.description_rounded,
-          const Color(0xff8B5CF6),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate item width based on screen size (2 columns)
+        double itemWidth = (constraints.maxWidth - 12) / 2;
+        
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _buildMobileStatCard(
+              'Quran Sessions',
+              '${((teacherStats['total_sessions'] ?? 0) * 0.6).round()}',
+              Icons.menu_book_rounded,
+              const Color(0xff3B82F6),
+              itemWidth,
+            ),
+            _buildMobileStatCard(
+              'Arabic Lessons',
+              '${((teacherStats['total_sessions'] ?? 0) * 0.3).round()}',
+              Icons.language_rounded,
+              const Color(0xffF59E0B),
+              itemWidth,
+            ),
+            _buildMobileStatCard(
+              'Tasks Done',
+              '${teacherStats['completed_tasks'] ?? 0}',
+              Icons.task_alt_rounded,
+              const Color(0xff10B981),
+              itemWidth,
+            ),
+            _buildMobileStatCard(
+              'Forms',
+              '${teacherStats['accessible_forms'] ?? 0}',
+              Icons.description_rounded,
+              const Color(0xff8B5CF6),
+              itemWidth,
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildMobileStatCard(
-      String title, String value, IconData icon, Color color) {
+      String title, String value, IconData icon, Color color, double width) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      width: width,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            flex: 2,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 20, color: color),
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xff1F2937),
             ),
           ),
           const SizedBox(height: 4),
-          Flexible(
-            flex: 1,
-            child: Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xff1F2937),
-              ),
-            ),
-          ),
-          Flexible(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff6B7280),
-                ),
-              ),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis, // Prevents "Right Overflowed"
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -1695,19 +1741,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ],
               ),
               SizedBox(height: isMobile ? 12 : 16),
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: isMobile ? 20 : 28,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff111827),
+              // Use FittedBox to automatically scale text down to fit width
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: isMobile ? 20 : 28,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff111827),
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
-                  fontSize: isMobile ? 12 : 14,
+                  fontSize: isMobile ? 10 : 14,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xff6B7280),
                 ),
@@ -2273,6 +2326,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               color: const Color(0xff6b7280),
             ),
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -4874,24 +4929,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     fontWeight: FontWeight.w600,
                     color: const Color(0xff111827),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      students,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xff6B7280),
+                    Flexible(
+                      child: Text(
+                        students,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff6B7280),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(AppLocalizations.of(context)!.text6),
-                    Text(
-                      nextClass,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: color,
-                        fontWeight: FontWeight.w500,
+                    const Text(' • '),
+                    Flexible(
+                      child: Text(
+                        nextClass,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: color,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -4951,17 +5014,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final now = DateTime.now();
         final allShifts = snapshot.data!;
 
-        // Get upcoming shifts (starting from today onwards)
+        // FIX: Filter out past shifts - only show future/active shifts
         final upcomingShifts = allShifts.where((shift) {
-          final shiftDate = DateTime(
-            shift.shiftStart.year,
-            shift.shiftStart.month,
-            shift.shiftStart.day,
-          );
-          final today = DateTime(now.year, now.month, now.day);
-          return shiftDate.isAfter(today.subtract(const Duration(days: 1))) &&
-              (shift.status == ShiftStatus.scheduled ||
-                  shift.status == ShiftStatus.active);
+          final shiftEnd = shift.shiftEnd.toLocal();
+          // Only show if shift hasn't ended OR if it's currently active
+          return shiftEnd.isAfter(now) || shift.isClockedIn;
         }).toList();
 
         // Sort by shift start time
@@ -5016,79 +5073,130 @@ class _AdminDashboardState extends State<AdminDashboard> {
         '$studentCount ${studentCount == 1 ? 'Student' : 'Students'}';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(_isMobile ? 12 : 16), // Reduced padding on mobile
       decoration: BoxDecoration(
-        color: const Color(0xffF8FAFC),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16), // Softer radius
         border: Border.all(color: const Color(0xffE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  shift.displayName,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff111827),
-                  ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Icon + Title
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(_isMobile ? 8 : 10), // Smaller icon container on mobile
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 4),
-                Row(
+                child: Icon(icon, color: color, size: _isMobile ? 20 : 24), // Smaller icon on mobile
+              ),
+              SizedBox(width: _isMobile ? 8 : 12), // Reduced spacing on mobile
+              // FIX: Show only student names (pre-calculated for performance)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Use pre-calculated student names from model
                     Text(
-                      studentsText,
+                      shift.uiStudentNames,
                       style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xff6B7280),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff111827),
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    Text(AppLocalizations.of(context)!.text6),
-                    Text(
-                      timeText,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: color,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.people_outline, size: 14, color: Colors.grey.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          studentsText,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: const Color(0xff6B7280),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        shift.status.name.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: color,
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xffF1F5F9)),
+          const SizedBox(height: 12),
+
+          // Row 2: Time + Status (Wrapped to prevent overflow)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // FIX: Wrap the Time container in Expanded to prevent collision with Status
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF3F4F6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.access_time_filled, size: 14, color: color),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          timeText,
+                          style: GoogleFonts.inter(
+                            fontSize: 11, // Smaller font to show full text
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff374151),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              
+              const SizedBox(width: 8), // Add spacing between Time and Status
+
+              // Status Chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: shift.status == ShiftStatus.scheduled 
+                      ? const Color(0xffDCFCE7) 
+                      : color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  shift.status.name.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: shift.status == ShiftStatus.scheduled 
+                        ? const Color(0xff166534) 
+                        : color,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -5351,6 +5459,77 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildCompactProfileAlert(int percentage) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffFEF3C7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffFCD34D)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xffF59E0B),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          // FIX: Make text column Flexible to allow button space
+          Flexible(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Profile $percentage% Complete',
+                  style: GoogleFonts.inter(
+                    fontSize: 13, // Smaller to show full text
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xffF59E0B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Complete your profile to attract more students.',
+                  style: GoogleFonts.inter(
+                    fontSize: 11, // Smaller font to show full text
+                    color: const Color(0xff92400E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // FIX: Make button Flexible so it can shrink if needed
+          Flexible(
+            flex: 0,
+            child: ElevatedButton(
+              onPressed: _showProfileCompletionDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xffF59E0B),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Complete',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIslamicCalendarCard() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -5603,7 +5782,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildStudentProgressModern() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(_isMobile ? 16 : 24), // Reduced padding on mobile
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -5622,39 +5801,52 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(_isMobile ? 6 : 8), // Smaller on mobile
                 decoration: BoxDecoration(
                   color: const Color(0xff06B6D4).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.trending_up_rounded,
-                  color: Color(0xff06B6D4),
-                  size: 20,
+                  color: const Color(0xff06B6D4),
+                  size: _isMobile ? 16 : 20, // Smaller on mobile
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                AppLocalizations.of(context)!.myStudentsOverview,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff111827),
-                ),
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: _showAssignmentDialog,
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(
-                  AppLocalizations.of(context)!.addAssignment,
+              SizedBox(width: _isMobile ? 8 : 12), // Reduced spacing on mobile
+              // FIX: Smaller font to show full text
+              Expanded(
+                child: Text(
+                  AppLocalizations.of(context)?.myStudentsOverview ?? 'My Students Overview',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff06B6D4),
+                    fontSize: _isMobile ? 14 : 15, // Even smaller on mobile
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff111827),
                   ),
                 ),
               ),
+              SizedBox(width: _isMobile ? 4 : 8), // Minimal spacing on mobile
+              // FIX: On mobile, show just icon button, on desktop show full button
+              _isMobile
+                  ? IconButton(
+                      onPressed: _showAssignmentDialog,
+                      icon: const Icon(Icons.add, size: 18), // Smaller icon
+                      color: const Color(0xff06B6D4),
+                      tooltip: AppLocalizations.of(context)?.addAssignment ?? 'Add Assignment',
+                      padding: EdgeInsets.zero, // Remove padding
+                      constraints: const BoxConstraints(), // Remove constraints
+                    )
+                  : TextButton.icon(
+                      onPressed: _showAssignmentDialog,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: Text(
+                        AppLocalizations.of(context)?.addAssignment ?? 'Add Assignment',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff06B6D4),
+                        ),
+                      ),
+                    ),
             ],
           ),
           const SizedBox(height: 20),
@@ -6139,10 +6331,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Text(
                   lesson,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xff111827),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -6151,19 +6345,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       child: Text(
                         AppLocalizations.of(context)!.studentStudent,
                         style: GoogleFonts.inter(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: const Color(0xff6B7280),
                         ),
                         overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                       ),
                     ),
-                    Text(AppLocalizations.of(context)!.text6),
-                    Text(
-                      time,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xff6B7280),
+                    const Text(' • '),
+                    Flexible(
+                      child: Text(
+                        time,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xff6B7280),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -7334,6 +7530,8 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
                           fontWeight: FontWeight.w600,
                           color: const Color(0xff111827),
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (isOverdue) ...[
@@ -7409,48 +7607,69 @@ class _MyAssignmentsDialogState extends State<_MyAssignmentsDialog> {
             ),
           ],
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
             children: [
-              Icon(Icons.people, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(
-                '${assignedTo.length} students',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: const Color(0xff6B7280),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.people, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${assignedTo.length} students',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              if (dueDate != null) ...[
-                Icon(
-                  Icons.schedule,
-                  size: 16,
-                  color: _getDueDateColor(dueDate),
+              if (dueDate != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 16,
+                      color: _getDueDateColor(dueDate),
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Due: ${_formatDueDate(dueDate)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: _getDueDateColor(dueDate),
+                          fontWeight: _isOverdue(dueDate)
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'Due: ${_formatDueDate(dueDate)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: _getDueDateColor(dueDate),
-                    fontWeight: _isOverdue(dueDate)
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
+              if (createdAt != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Created: ${_formatDate(createdAt)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xff6B7280),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-              ],
-              if (createdAt != null) ...[
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  'Created: ${_formatDate(createdAt)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xff6B7280),
-                  ),
-                ),
-              ],
             ],
           ),
           // Show attachments/files if they exist

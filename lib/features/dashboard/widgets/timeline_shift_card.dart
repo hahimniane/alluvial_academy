@@ -72,9 +72,13 @@ class TimelineShiftCard extends StatelessWidget {
           ),
 
           // --- TIMELINE LINE ---
+          // Use fixed-height connector to avoid Expanded inside unbounded Column
+          // (Column has no height constraint inside IntrinsicHeight→Row, which caused
+          // "BoxConstraints forces an infinite height".)
           SizedBox(
             width: 30,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 12,
@@ -86,11 +90,11 @@ class TimelineShiftCard extends StatelessWidget {
                   ),
                 ),
                 if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color: Colors.grey.shade200,
-                    ),
+                  Container(
+                    width: 2,
+                    height: 32,
+                    margin: const EdgeInsets.only(top: 4),
+                    color: Colors.grey.shade200,
                   ),
               ],
             ),
@@ -119,21 +123,39 @@ class TimelineShiftCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header: Title and Status Badge
+                    // Header: Student Names (Most Important) and Status Badge
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            shift.displayName,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Student Names - Prominently displayed (pre-calculated for performance)
+                              Text(
+                                shift.uiStudentNames, // Use pre-calculated value
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1E293B),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              // Subject below student names (smaller, secondary)
+                              if (shift.effectiveSubjectDisplayName.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  shift.effectiveSubjectDisplayName,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -143,11 +165,11 @@ class TimelineShiftCard extends StatelessWidget {
                     
                     const SizedBox(height: 8),
                     
-                    // Info Row: Students and Duration
-                    Row(
+                    // Info Row: Duration - Use Wrap to prevent overflow
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
                       children: [
-                        _buildInfoIcon(Icons.people_outline, "${shift.studentNames.length} Students"),
-                        const SizedBox(width: 16),
                         _buildInfoIcon(Icons.timer_outlined, "$durationHrs hrs"),
                       ],
                     ),
@@ -209,7 +231,7 @@ class TimelineShiftCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // 2. Active State (Clock Out)
+    // 2. Active State (Clock Out) - MUST check this FIRST before canClockIn
     if (isActive) {
       return _buildButton(
         label: AppLocalizations.of(context)!.clockOut,
@@ -283,8 +305,9 @@ class TimelineShiftCard extends StatelessWidget {
       );
     }
 
-    // 4. Ready State (Clock In) - Shift has started
-    if (canClockIn) {
+    // 4. Ready State (Clock In) - Shift has started AND user is NOT already clocked in
+    // IMPORTANT: Only show Clock In button if shift is NOT already clocked in
+    if (canClockIn && !isActive) {
       return _buildButton(
         label: AppLocalizations.of(context)!.clockInNow,
         icon: Icons.login,
@@ -378,6 +401,7 @@ class TimelineShiftCard extends StatelessWidget {
   }
 
   // --- LOGIC HELPERS ---
+  // NOTE: _formatStudentNames() removed - now using shift.uiStudentNames (pre-calculated)
 
   bool _checkCanClockIn(DateTime now) {
     // No actual early clock-in - only at exact start time or after

@@ -6,7 +6,7 @@ const { onCall } = require('firebase-functions/v2/https');
 // Shifts will be created manually/assisted by Admin later.
 
 const acceptJob = async (request) => {
-  const { jobId } = request.data;
+  const { jobId, selectedTimes } = request.data;
   const teacherId = request.auth?.uid;
 
   if (!request.auth) {
@@ -41,35 +41,85 @@ const acceptJob = async (request) => {
         throw new functions.https.HttpsError('not-found', 'Associated enrollment not found');
       }
 
-      // Update Job Status
-      transaction.update(jobRef, {
+      // Update Job Status with teacher's selected times
+      const jobUpdate = {
         status: 'accepted',
         acceptedByTeacherId: teacherId,
         acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      };
+      
+      // Store teacher's time preferences if provided
+      if (selectedTimes && typeof selectedTimes === 'object') {
+        jobUpdate.teacherSelectedTimes = selectedTimes;
+      }
+      
+      transaction.update(jobRef, jobUpdate);
 
-      // Update Enrollment Status
-      transaction.update(enrollmentRef, {
+      // Get teacher name for tracking
+      let teacherName = 'Unknown Teacher';
+      try {
+        const teacherDoc = await transaction.get(db.collection('users').doc(teacherId));
+        if (teacherDoc.exists) {
+          const teacherData = teacherDoc.data();
+          teacherName = `${teacherData.first_name || ''} ${teacherData.last_name || ''}`.trim();
+          if (!teacherName || teacherName === ' ') {
+            teacherName = teacherData['e-mail'] || 'Unknown Teacher';
+          }
+        }
+      } catch (e) {
+        console.warn('Could not get teacher name:', e);
+      }
+      
+      // Build action history entry (use ISO string since serverTimestamp doesn't work in arrayUnion)
+      const teacherActionEntry = {
+        action: 'teacher_accepted',
+        status: 'matched',
+        teacherId: teacherId,
+        teacherName: teacherName,
+        selectedTimes: selectedTimes || null,
+        timestamp: new Date().toISOString(),
+      };
+      
+      // Update Enrollment Status with teacher's preferences
+      const enrollmentUpdate = {
         'metadata.status': 'matched',
         'metadata.matchedTeacherId': teacherId,
+        'metadata.matchedTeacherName': teacherName,
         'metadata.matchedAt': admin.firestore.FieldValue.serverTimestamp(),
-      });
+        'metadata.lastUpdated': admin.firestore.FieldValue.serverTimestamp(),
+      };
+      
+      if (selectedTimes && typeof selectedTimes === 'object') {
+        enrollmentUpdate['metadata.teacherSelectedTimes'] = selectedTimes;
+      }
+      
+      // Add to action history
+      enrollmentUpdate['metadata.actionHistory'] = admin.firestore.FieldValue.arrayUnion(teacherActionEntry);
+      
+      transaction.update(enrollmentRef, enrollmentUpdate);
 
-      // Create Admin Notification
+      // Create Admin Notification with time details
       const notifRef = db.collection('admin_notifications').doc();
+      const timeDetails = selectedTimes 
+        ? Object.entries(selectedTimes).map(([day, time]) => `${day}: ${time}`).join(', ')
+        : 'No specific times selected';
+      
       transaction.set(notifRef, {
         type: 'job_accepted',
         jobId: jobId,
         teacherId: teacherId,
         enrollmentId: enrollmentId,
+        studentName: jobData.studentName,
+        subject: jobData.subject,
+        teacherSelectedTimes: selectedTimes || null,
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        message: 'A teacher has accepted a new student. Please review and create the schedule.',
+        message: `A teacher has accepted ${jobData.studentName} (${jobData.subject}). Selected times: ${timeDetails}`,
         action_required: true,
       });
     });
 
-    console.log(`✅ Job ${jobId} accepted by ${teacherId}. Awaiting Admin scheduling.`);
+    console.log(`✅ Job ${jobId} accepted by ${teacherId}. Selected times: ${JSON.stringify(selectedTimes)}`);
 
     return { 
       success: true, 
@@ -82,6 +132,116 @@ const acceptJob = async (request) => {
   }
 };
 
+/**
+ * Allows a teacher to withdraw from an accepted job.
+ * This re-broadcasts the job to other teachers.
+ */
+const withdrawFromJob = async (request) => {
+  const { jobId } = request.data;
+  const teacherId = request.auth?.uid;
+
+  if (!request.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in to withdraw from a job.');
+  }
+
+  const db = admin.firestore();
+
+  try {
+    const jobRef = db.collection('job_board').doc(jobId);
+    
+    await db.runTransaction(async (transaction) => {
+      const jobDoc = await transaction.get(jobRef);
+      
+      if (!jobDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Job not found');
+      }
+      
+      const jobData = jobDoc.data();
+      
+      // Only the teacher who accepted can withdraw
+      if (jobData.acceptedByTeacherId !== teacherId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only withdraw from jobs you accepted');
+      }
+      
+      if (jobData.status !== 'accepted') {
+        throw new functions.https.HttpsError('failed-precondition', 'Can only withdraw from accepted jobs');
+      }
+
+      const enrollmentId = jobData.enrollmentId;
+      const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
+      
+      // Get teacher info for notification
+      const teacherDoc = await transaction.get(db.collection('users').doc(teacherId));
+      const teacherName = teacherDoc.exists 
+        ? `${teacherDoc.data().first_name || ''} ${teacherDoc.data().last_name || ''}`.trim() 
+        : 'A teacher';
+
+      // Re-open the job (remove teacher association, keep withdrawal history)
+      transaction.update(jobRef, {
+        status: 'open',
+        acceptedByTeacherId: null,
+        acceptedAt: null,
+        teacherSelectedTimes: null, // Clear teacher's time selection
+        withdrawnAt: admin.firestore.FieldValue.serverTimestamp(),
+        withdrawnByTeacherId: teacherId,
+        withdrawalHistory: admin.firestore.FieldValue.arrayUnion({
+          teacherId: teacherId,
+          teacherName: teacherName,
+          withdrawnAt: new Date().toISOString(),
+        }),
+      });
+
+      // Update Enrollment Status back to broadcasted
+      const withdrawEntry = {
+        action: 'teacher_withdrawn',
+        status: 'broadcasted',
+        teacherId: teacherId,
+        teacherName: teacherName,
+        timestamp: new Date().toISOString(),
+      };
+      
+      transaction.update(enrollmentRef, {
+        'metadata.status': 'broadcasted',
+        'metadata.matchedTeacherId': null,
+        'metadata.matchedTeacherName': null,
+        'metadata.matchedAt': null,
+        'metadata.teacherSelectedTimes': null,
+        'metadata.lastWithdrawnBy': teacherId,
+        'metadata.lastWithdrawnAt': admin.firestore.FieldValue.serverTimestamp(),
+        'metadata.actionHistory': admin.firestore.FieldValue.arrayUnion(withdrawEntry),
+      });
+
+      // Create Admin Notification
+      const notifRef = db.collection('admin_notifications').doc();
+      transaction.set(notifRef, {
+        type: 'job_withdrawn',
+        jobId: jobId,
+        teacherId: teacherId,
+        teacherName: teacherName,
+        enrollmentId: enrollmentId,
+        studentName: jobData.studentName,
+        subject: jobData.subject,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        message: `${teacherName} has withdrawn from teaching ${jobData.studentName} (${jobData.subject}). Job is now re-open.`,
+        action_required: false,
+      });
+    });
+
+    console.log(`✅ Teacher ${teacherId} withdrew from job ${jobId}. Job re-broadcasted.`);
+
+    return { 
+      success: true, 
+      message: 'You have successfully withdrawn. The job is now available for other teachers.',
+    };
+
+  } catch (error) {
+    console.error(`❌ Error withdrawing from job ${jobId}:`, error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+};
+
 module.exports = {
   acceptJob,
+  withdrawFromJob,
 };

@@ -89,12 +89,15 @@ class TaskCard extends StatelessWidget {
                     color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFF6B7280),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    dueDateStr,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFF6B7280),
+                  Flexible(
+                    child: Text(
+                      dueDateStr,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFF6B7280),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (isOverdue) ...[

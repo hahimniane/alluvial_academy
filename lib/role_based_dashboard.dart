@@ -177,8 +177,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
         AppLogger.debug('=== Returning AdminDashboard ===');
         return const DashboardPage(); // Full admin dashboard
       case 'teacher':
-        AppLogger.debug('=== Returning TeacherDashboard ===');
-        return const TeacherDashboard();
+        AppLogger.debug('=== Returning DashboardPage for teacher (with navigation) ===');
+        // Use DashboardPage so teachers get navigation/tabs, not just TeacherHomeScreen
+        return const DashboardPage();
       case 'student':
         // Get the user ID from cached data or Firebase Auth
         final userId = UserRoleService.getCurrentUserId();
@@ -395,12 +396,15 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   }
 }
 
-// Placeholder dashboards for different roles
+// ⚠️ DEPRECATED - Teachers now use DashboardPage directly (with navigation)
+// This class can be DELETED after verification
+// Teachers get navigation/tabs through DashboardPage, which uses TeacherHomeScreen internally
 class TeacherDashboard extends StatelessWidget {
   const TeacherDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Use DashboardPage so teachers get full navigation
     return const DashboardPage();
   }
 }

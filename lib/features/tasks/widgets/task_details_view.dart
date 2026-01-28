@@ -854,8 +854,23 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
     );
   }
 
+  /// True when this task is an application-form update that describes "unable to"
+  /// match (no specific time, no duration, no per-day times). In that case we must
+  /// not allow Update Status / accept until the underlying application has a match.
+  bool get _isNoMatchApplicationTask {
+    final title = (widget.task.title).toLowerCase();
+    final desc = (widget.task.description ?? '').toLowerCase();
+    final isApplicationFormTask = title.contains('application form') ||
+        title.contains('update application');
+    final indicatesNoMatch = desc.contains('unable to');
+    return isApplicationFormTask && indicatesNoMatch;
+  }
+
   Widget _buildActions() {
     final hasChanges = _currentStatus != widget.task.status;
+    final allowUpdate = hasChanges &&
+        !_isUpdating &&
+        !_isNoMatchApplicationTask;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -891,10 +906,14 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
           const SizedBox(width: 12),
           Expanded(
             flex: 2,
-            child: ElevatedButton(
-              onPressed: hasChanges && !_isUpdating ? _updateTask : null,
+            child: Tooltip(
+              message: _isNoMatchApplicationTask
+                  ? 'Resolve the "unable to" items above before updating status.'
+                  : '',
+              child: ElevatedButton(
+                onPressed: allowUpdate ? _updateTask : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: hasChanges
+                backgroundColor: allowUpdate
                     ? _getStatusColor(_currentStatus)
                     : const Color(0xffE2E8F0),
                 foregroundColor: Colors.white,
@@ -902,7 +921,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: hasChanges ? 4 : 0,
+                elevation: allowUpdate ? 4 : 0,
               ),
               child: _isUpdating
                   ? const SizedBox(
@@ -934,6 +953,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView>
                         ),
                       ],
                     ),
+              ),
             ),
           ),
         ],

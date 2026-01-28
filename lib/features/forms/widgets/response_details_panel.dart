@@ -192,9 +192,21 @@ class ResponseDetailsPanel extends StatelessWidget {
     Map<String, dynamic> responses,
     DocumentSnapshot formTemplate,
   ) {
-    final fields = Map<String, dynamic>.from(
-      (formTemplate.data() as Map<String, dynamic>)['fields'] as Map,
-    );
+    final raw = (formTemplate.data() as Map<String, dynamic>?)?['fields'];
+    final Map<String, dynamic> fields = {};
+    if (raw is Map) {
+      raw.forEach((k, v) {
+        if (v is Map) fields[k.toString()] = Map<String, dynamic>.from(v);
+      });
+    } else if (raw is List) {
+      for (var i = 0; i < raw.length; i++) {
+        final f = raw[i];
+        if (f is Map) {
+          final id = f['id']?.toString() ?? 'field_$i';
+          fields[id] = Map<String, dynamic>.from(f);
+        }
+      }
+    }
     final widgets = <Widget>[];
 
     for (final entry in fields.entries) {

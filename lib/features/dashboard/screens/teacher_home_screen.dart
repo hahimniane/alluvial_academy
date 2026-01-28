@@ -1,3 +1,14 @@
+// ✅ UNIFIED TEACHER DASHBOARD - SINGLE SOURCE OF TRUTH
+// This is the ONLY file for teacher dashboard/home screen
+// All other teacher dashboard files should use this:
+//   - admin_dashboard_screen.dart → uses TeacherHomeScreen (line 515)
+//   - role_based_dashboard.dart → uses TeacherHomeScreen (line 301)
+//   - mobile_dashboard_screen.dart → uses TeacherHomeScreen (line 346)
+//
+// Files that can be DELETED after verification:
+//   - teacher_mobile_home.dart (deprecated, functionality merged here)
+//   - admin_dashboard_screen.dart methods: _buildTeacherDashboard, _buildMobileTeacherDashboard (deprecated)
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +20,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../shift_management/widgets/shift_details_dialog.dart';
 import '../../shift_management/screens/teacher_shift_screen.dart';
 import '../../profile/screens/teacher_profile_screen.dart';
+import '../../settings/screens/mobile_settings_screen.dart';
 import '../../tasks/screens/quick_tasks_screen.dart';
 import '../../tasks/models/task.dart';
 import '../../tasks/services/task_service.dart';
@@ -23,6 +35,8 @@ import '../../../core/enums/task_enums.dart';
 import '../../../core/services/shift_service.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/shift_repository.dart';
+import '../../../core/services/task_repository.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/services/profile_picture_service.dart';
 import '../../../core/services/location_service.dart';
@@ -30,10 +44,14 @@ import '../../../core/services/form_template_service.dart';
 import '../../../core/models/form_template.dart';
 import '../../forms/widgets/form_details_modal.dart';
 import '../widgets/pending_form_button.dart';
+import '../widgets/date_strip_calendar.dart';
+import '../widgets/timeline_shift_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
-  const TeacherHomeScreen({super.key});
+  final bool showScaffold; // If false, returns content only (for use in AdminDashboard)
+  
+  const TeacherHomeScreen({super.key, this.showScaffold = true});
 
   @override
   State<TeacherHomeScreen> createState() => _TeacherHomeScreenState();
@@ -44,6 +62,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   String? _profilePicUrl;
   bool _isLoading = true;
   List<TeachingShift> _upcomingShifts = [];
+  List<TeachingShift> _allShifts = []; // All shifts from stream
+  List<TeachingShift> _dailyShifts = []; // Filtered for selected day
+  DateTime _selectedDate = DateTime.now(); // Selected date for schedule
   TeachingShift? _activeShift;
   List<Task> _recentTasks = [];
   
@@ -104,20 +125,36 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Listen for shift status changes (active, completed, etc.)
-    _shiftsSubscription = FirebaseFirestore.instance
-        .collection('teaching_shifts')
-        .where('teacher_id', isEqualTo: user.uid)
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      
-      // Reload data when shifts change
-      debugPrint('🔄 Home: Shifts updated - reloading data');
-      _loadData();
-    }, onError: (e) {
-      debugPrint('❌ Home: Shift stream error: $e');
-    });
+    // Use ShiftService stream for real-time updates
+    _shiftsSubscription = ShiftService.getTeacherShifts(user.uid).listen(
+      (shifts) {
+        if (!mounted) return;
+        setState(() {
+          _allShifts = shifts;
+          _filterShiftsForDate(_selectedDate);
+          // Update active shift
+          try {
+            _activeShift = shifts.firstWhere((s) => s.isClockedIn);
+          } catch (e) {
+            _activeShift = null;
+          }
+          // Update upcoming shifts - get ALL future shifts, sorted, then take first for "next session"
+          final now = DateTime.now();
+          final futureShifts = shifts
+              .where((s) {
+                final shiftEnd = s.shiftEnd.toLocal();
+                return shiftEnd.isAfter(now) && !s.isClockedIn;
+              })
+              .toList();
+          futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+          _upcomingShifts = futureShifts; // Keep all for potential future use, but display only first
+        });
+        debugPrint('🔄 Home: Shifts updated via stream');
+      },
+      onError: (e) {
+        debugPrint('❌ Home: Shift stream error: $e');
+      },
+    );
 
     // Listen for timesheet changes (clock-in/out, status changes)
     _timesheetSubscription = FirebaseFirestore.instance
@@ -137,6 +174,36 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     });
   }
 
+  /// Filter shifts for the selected date - EXCLUDE PAST SHIFTS
+  void _filterShiftsForDate(DateTime date) {
+    final now = DateTime.now();
+    setState(() {
+      _dailyShifts = _allShifts.where((shift) {
+        // Match selected date
+        final matchesDate = shift.shiftStart.year == date.year &&
+            shift.shiftStart.month == date.month &&
+            shift.shiftStart.day == date.day;
+        
+        // EXCLUDE past shifts (shift has ended)
+        final shiftEnd = shift.shiftEnd.toLocal();
+        final isPast = shiftEnd.isBefore(now);
+        
+        return matchesDate && !isPast;
+      }).toList();
+
+      // Sort by start time
+      _dailyShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+    });
+  }
+
+  /// Handle date selection from calendar
+  void _onDateSelected(DateTime date) {
+    setState(() {
+      _selectedDate = date;
+    });
+    _filterShiftsForDate(date);
+  }
+
   String _getGreeting(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final hour = DateTime.now().hour;
@@ -151,36 +218,58 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    // OPTIMIZATION: Show cached data immediately for instant UI
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Try to get cached shifts immediately (synchronous)
+      final cachedShifts = ShiftRepository.getCachedTeacherShifts(user.uid);
+      if (cachedShifts != null && cachedShifts.isNotEmpty) {
+        final now = DateTime.now();
+        final cachedUpcoming = cachedShifts
+            .where((shift) => shift.shiftEnd.toLocal().isAfter(now))
+            .toList()
+          ..sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+        
+        if (mounted) {
+          setState(() {
+            _upcomingShifts = cachedUpcoming;
+            _allShifts = cachedShifts;
+            _isLoading = false; // Show UI immediately with cached data
+          });
+        }
+      } else {
+        setState(() => _isLoading = true);
+      }
+    } else {
+      setState(() => _isLoading = true);
+    }
+    
     try {
-      final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         // Load user name and profile picture
         final userData = await UserRoleService.getCurrentUserData();
-        final profilePic = await ProfilePictureService.getProfilePictureUrl();
+        final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
         
         if (userData != null && mounted) {
           setState(() {
             _userName = userData['first_name'] ?? 'Teacher';
-            _profilePicUrl = profilePic;
+            _profilePicUrl = profilePicUrl;
           });
         }
 
         // Load active shift (currently clocked in)
         final active = await ShiftService.getCurrentActiveShift(user.uid);
 
-        // Load ALL teacher shifts and filter STRICTLY for future only
-        final now = DateTime.now();
-        final allShifts = await ShiftService.getShiftsForTeacher(user.uid);
+        // Load ALL teacher shifts (including past for calendar navigation)
+        // Use cached repository for better performance
+        final allShifts = await ShiftRepository.getTeacherShiftsCached(user.uid);
         
+        // Filter for upcoming shifts (for the "upcoming" section)
+        final now = DateTime.now();
         final futureShifts = allShifts.where((shift) {
-          final localStart = shift.shiftStart.toLocal();
           final localEnd = shift.shiftEnd.toLocal();
-          
-          if (active != null && shift.id == active.id) return false;
-          if (localEnd.isBefore(now)) return false;
-          if (localStart.isBefore(now)) return false;
-          return localStart.isAfter(now);
+          // Keep if shift hasn't ended OR if it's the active shift
+          return localEnd.isAfter(now) || (active != null && shift.id == active.id);
         }).toList();
         
         futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
@@ -197,9 +286,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         if (mounted) {
           setState(() {
             _activeShift = active;
-            _upcomingShifts = futureShifts.take(1).toList();
+            // Store ALL shifts (including past) for calendar, but filter in display
+            _allShifts = allShifts;
+            // Sort and store upcoming shifts (for "next session" display)
+            futureShifts.sort((a, b) => a.shiftStart.compareTo(b.shiftStart));
+            _upcomingShifts = futureShifts; // All upcoming, sorted by time
+            _filterShiftsForDate(_selectedDate); // This filters out past shifts
             _isLoading = false;
           });
+          debugPrint('📅 Loaded ${_allShifts.length} total shifts, ${_dailyShifts.length} for selected date');
         }
       }
     } catch (e) {
@@ -235,32 +330,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Fetch all tasks for this teacher and filter in memory
-      // This avoids complex index requirements
-      final allTasksSnapshot = await FirebaseFirestore.instance
-          .collection('tasks')
-          .where('assignedTo', arrayContains: user.uid)
-          .get();
-
-      final allTasks = allTasksSnapshot.docs
-          .map((doc) {
-            try {
-              return Task.fromFirestore(doc);
-            } catch (e) {
-              debugPrint('Error parsing task ${doc.id}: $e');
-              return null;
-            }
-          })
-          .where((task) => task != null && task.status != TaskStatus.done)
-          .cast<Task>()
-          .toList();
-
-      // Sort by creation date (most recent first)
-      allTasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      // Use cached repository for better performance
+      final recentTasks = await TaskRepository.getRecentTasksCached(user.uid, limit: 3);
 
       if (mounted) {
         setState(() {
-          _recentTasks = allTasks.take(3).toList();
+          _recentTasks = recentTasks;
         });
       }
     } catch (e) {
@@ -506,18 +581,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xffF8FAFC),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadData,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 8),
+    final content = RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+                // Only show header if standalone (not embedded in AdminDashboard)
+                if (widget.showScaffold) ...[
+                  _buildHeader(),
+                  const SizedBox(height: 8),
+                ],
+                // PAYMENT SECTION - Comes FIRST
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _buildStatsRow(context),
@@ -569,7 +645,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ],
             ),
           ),
-        ),
+        );
+    
+    // If showScaffold is false, return content only (for use in AdminDashboard with navigation)
+    if (!widget.showScaffold) {
+      return content;
+    }
+    
+    // Otherwise, return full Scaffold (for mobile_dashboard_screen)
+    return Scaffold(
+      backgroundColor: const Color(0xffF8FAFC),
+      body: SafeArea(
+        child: content,
       ),
     );
   }
@@ -626,36 +713,103 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TeacherProfileScreen()),
-              );
-            },
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                image: _profilePicUrl != null
-                    ? DecorationImage(
-                        image: NetworkImage(_profilePicUrl!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+          // Profile Picture and Settings
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Settings Icon
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.white, size: 24),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MobileSettingsScreen(),
+                    ),
+                  ).then((_) {
+                    // Refresh profile picture after returning from settings
+                    _refreshProfilePicture();
+                  });
+                },
+                tooltip: 'Settings',
               ),
-              child: _profilePicUrl == null
-                  ? const Icon(Icons.person, color: Color(0xFF0386FF), size: 28)
-                  : null,
-            ),
+              const SizedBox(width: 8),
+              // Profile Picture Button
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TeacherProfileScreen(),
+                    ),
+                  ).then((_) {
+                    // Refresh profile picture after returning from profile
+                    _refreshProfilePicture();
+                  });
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _profilePicUrl == null 
+                        ? Colors.white.withOpacity(0.2)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: _profilePicUrl != null
+                        ? Image.network(
+                            _profilePicUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                Icons.person,
+                                color: const Color(0xFF0386FF),
+                                size: 24,
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : Icon(
+                            Icons.person,
+                            color: const Color(0xFF0386FF),
+                            size: 24,
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+  
+  /// Refresh profile picture after returning from profile/settings
+  Future<void> _refreshProfilePicture() async {
+    final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
+    if (mounted) {
+      setState(() {
+        _profilePicUrl = profilePicUrl;
+      });
+    }
   }
 
   Widget _buildStatsRow(BuildContext context) {
@@ -1396,22 +1550,42 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _showShiftDetails(_activeShift!),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF10B981),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _showShiftDetails(_activeShift!),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(context)!.dashboardViewSession,
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
-              child: Text(
-                AppLocalizations.of(context)!.dashboardViewSession,
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _handleClockOut(_activeShift!),
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: Text(
+                    'Clock Out',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFFEF4444),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -1604,6 +1778,71 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 ? _buildEmptyUpcoming(context)
                 : _buildUpcomingCard(_upcomingShifts.first),
       ],
+    );
+  }
+
+  Widget _buildEmptyNextSession() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.event_available, size: 32, color: Color(0xFF94A3B8)),
+          const SizedBox(height: 12),
+          Text(
+            'No upcoming sessions',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptySchedule() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.event_available, size: 32, color: Color(0xFF94A3B8)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No classes scheduled',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Enjoy your free time!',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1924,6 +2163,82 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           content: Text(AppLocalizations.of(context)!.clockInTooEarly),
           backgroundColor: Colors.orange,
         ),
+      );
+    }
+  }
+
+  /// Handle clock-out button press
+  Future<void> _handleClockOut(TeachingShift shift) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not authenticated'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // Get location for clock-out
+      LocationData? location;
+      try {
+        location = await LocationService.getCurrentLocation().timeout(
+          const Duration(seconds: 15),
+        );
+      } catch (e) {
+        debugPrint('❌ Home: Location error during clock-out: $e');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to get location. Please enable location services.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (location == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to get location. Please enable location services.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Perform clock-out via service
+      final result = await ShiftTimesheetService.clockOutFromShift(
+        user.uid,
+        shift.id,
+        location: location,
+        platform: 'mobile',
+      );
+
+      if (result['success'] == true) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Clocked out successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh data to update UI
+        _loadData();
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Failed to clock out'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Home: Error clocking out: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     }
   }

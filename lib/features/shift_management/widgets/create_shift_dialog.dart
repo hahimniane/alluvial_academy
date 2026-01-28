@@ -35,6 +35,11 @@ class CreateShiftDialog extends StatefulWidget {
   final TimeOfDay? initialTime; // Pre-fill time when creating from grid cell
   final ShiftCategory?
       initialCategory; // Pre-select category (teaching/leadership)
+  
+  // Pre-loaded data for optimization (avoids loading all users when we already know them)
+  final Employee? preloadedTeacher; // Pre-loaded teacher to avoid fetching all
+  final Employee? preloadedStudent; // Pre-loaded student to avoid fetching all
+  final String? sessionDuration;    // Session duration from enrollment (e.g., "60 minutes")
 
   const CreateShiftDialog({
     super.key,
@@ -49,6 +54,9 @@ class CreateShiftDialog extends StatefulWidget {
     this.initialDate,
     this.initialTime,
     this.initialCategory,
+    this.preloadedTeacher,
+    this.preloadedStudent,
+    this.sessionDuration,
   });
 
   @override
@@ -219,12 +227,49 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   Future<void> _loadAvailableUsers() async {
     try {
       AppLogger.debug('CreateShiftDialog: Loading available users...');
-
-      // Try the ShiftService first
-      var teachers = await ShiftService.getAvailableTeachers();
-      var leaders =
-          await ShiftService.getAvailableLeaders(); // NEW: Load leaders
-      var students = await ShiftService.getAvailableStudents();
+      
+      // Check if we have preloaded data (optimization for job-based shift creation)
+      final hasPreloadedTeacher = widget.preloadedTeacher != null;
+      final hasPreloadedStudent = widget.preloadedStudent != null;
+      
+      List<Employee> teachers = [];
+      List<Employee> students = [];
+      List<Employee> leaders = [];
+      
+      // If preloaded data is available, use it first (faster initial load)
+      if (hasPreloadedTeacher) {
+        teachers = [widget.preloadedTeacher!];
+        _selectedTeacherId = widget.preloadedTeacher!.email;
+        AppLogger.debug('CreateShiftDialog: Using preloaded teacher: ${widget.preloadedTeacher!.email}');
+      }
+      
+      if (hasPreloadedStudent) {
+        students = [widget.preloadedStudent!];
+        _selectedStudentIds = {widget.preloadedStudent!.documentId!};
+        AppLogger.debug('CreateShiftDialog: Using preloaded student: ${widget.preloadedStudent!.documentId}');
+      }
+      
+      // Set preloaded data immediately for faster UI
+      if (hasPreloadedTeacher || hasPreloadedStudent) {
+        if (mounted) {
+          setState(() {
+            if (hasPreloadedTeacher) _availableTeachers = teachers;
+            if (hasPreloadedStudent) _availableStudents = students;
+          });
+        }
+      }
+      
+      // Load full lists in background (for dropdown selections)
+      // Use parallel loading for better performance
+      final futures = await Future.wait([
+        ShiftService.getAvailableTeachers(),
+        ShiftService.getAvailableLeaders(),
+        ShiftService.getAvailableStudents(),
+      ]);
+      
+      teachers = futures[0];
+      leaders = futures[1];
+      students = futures[2];
 
       AppLogger.debug(
           'CreateShiftDialog: ShiftService returned ${teachers.length} teachers and ${students.length} students');

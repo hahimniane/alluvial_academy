@@ -14,6 +14,8 @@ import '../../../core/services/location_service.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/report_schedule_issue_dialog.dart';
+import '../widgets/teacher_shift_calendar.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -30,6 +32,9 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
   List<TeachingShift> _dailyShifts = []; // Filtered for selected day
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
+  
+  // View mode: 'day', 'week', 'month' - Default to WEEK as requested
+  String _viewMode = 'week';
 
   // Programmed clock-in state
   String? _programmedShiftId;
@@ -633,6 +638,18 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xff6B7280)),
         actions: [
+          // View mode toggle
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildViewToggleButton('Day', 'day', Icons.view_day),
+              const SizedBox(width: 4),
+              _buildViewToggleButton('Week', 'week', Icons.view_week),
+              const SizedBox(width: 4),
+              _buildViewToggleButton('Month', 'month', Icons.calendar_month),
+            ],
+          ),
+          const SizedBox(width: 8),
           // Compact button to report schedule issues or fix timezone
           IconButton(
             icon:
@@ -645,87 +662,134 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Date Strip
-          DateStripCalendar(
-            selectedDate: _selectedDate,
-            onDateSelected: _onDateSelected,
-          ),
+      body: _viewMode == 'day'
+          ? _buildDayView()
+          : _buildCalendarView(),
+    );
+  }
 
-          // Selected Date Header - Shows which date is being viewed
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+  Widget _buildViewToggleButton(String label, String mode, IconData icon) {
+    final isSelected = _viewMode == mode;
+    return InkWell(
+      onTap: () => setState(() => _viewMode = mode),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0386FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF6B7280)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF6B7280),
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.event, size: 18, color: Color(0xFF64748B)),
-                const SizedBox(width: 8),
-                Text(
-                  DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate),
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF334155),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayView() {
+    return Column(
+      children: [
+        // Date Strip
+        DateStripCalendar(
+          selectedDate: _selectedDate,
+          onDateSelected: _onDateSelected,
+        ),
+
+        // Selected Date Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF1F5F9),
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.event, size: 18, color: Color(0xFF64748B)),
+              const SizedBox(width: 8),
+              Text(
+                DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate),
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF334155),
+                ),
+              ),
+              const Spacer(),
+              if (_dailyShifts.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0386FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_dailyShifts.length} shift${_dailyShifts.length > 1 ? 's' : ''}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0386FF),
+                    ),
                   ),
                 ),
-                const Spacer(),
-                if (_dailyShifts.isNotEmpty)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0386FF).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${_dailyShifts.length} shift${_dailyShifts.length > 1 ? 's' : ''}',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0386FF),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
+        ),
 
-          // Content
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _dailyShifts.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: _dailyShifts.length,
-                        itemBuilder: (context, index) {
-                          final shift = _dailyShifts[index];
-                          final isThisShiftProgrammed =
-                              _programmedShiftId == shift.id;
-                          return TimelineShiftCard(
-                            shift: shift,
-                            isLast: index == _dailyShifts.length - 1,
-                            onTap: () => _showShiftDetails(shift),
-                            onClockIn: () => _handleClockIn(shift),
-                            onCancelProgram: isThisShiftProgrammed
-                                ? _cancelProgrammedClockIn
-                                : null,
-                            isProgrammed: isThisShiftProgrammed,
-                            countdownText: isThisShiftProgrammed
-                                ? _timeUntilAutoStart
-                                : null,
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
+        // Content
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _dailyShifts.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: _dailyShifts.length,
+                      itemBuilder: (context, index) {
+                        final shift = _dailyShifts[index];
+                        final isThisShiftProgrammed = _programmedShiftId == shift.id;
+                        return TimelineShiftCard(
+                          shift: shift,
+                          isLast: index == _dailyShifts.length - 1,
+                          onTap: () => _showShiftDetails(shift),
+                          onClockIn: () => _handleClockIn(shift),
+                          onCancelProgram: isThisShiftProgrammed
+                              ? _cancelProgrammedClockIn
+                              : null,
+                          isProgrammed: isThisShiftProgrammed,
+                          countdownText: isThisShiftProgrammed
+                              ? _timeUntilAutoStart
+                              : null,
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarView() {
+    final calendarView = _viewMode == 'week' 
+        ? CalendarView.week 
+        : CalendarView.month;
+    
+    return TeacherShiftCalendar(
+      shifts: _allShifts,
+      onSelectShift: (shift) => _showShiftDetails(shift),
+      initialDisplayDate: _selectedDate,
+      initialView: calendarView,
     );
   }
 

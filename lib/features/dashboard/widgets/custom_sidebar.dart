@@ -94,30 +94,42 @@ class _CustomSidebarState extends State<CustomSidebar> {
     }
 
     return Container(
-      width: 220,
+      width: 260,
       constraints: const BoxConstraints(
-        maxWidth: 220,
-        minWidth: 220,
+        maxWidth: 260,
+        minWidth: 260,
       ),
-      color: const Color(0xFFF9FAFB),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(
+          right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header / Toggle - Compact
+          // Header / Toggle
           _buildHeader(),
 
           // Reorderable List - Constrained to prevent overflow
           Expanded(
             child: ReorderableListView(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               shrinkWrap: false,
               onReorder: _onReorder,
               proxyDecorator: (child, index, animation) {
                 return Material(
-                  elevation: 4,
+                  elevation: 8,
                   color: Colors.white,
-                  shadowColor: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
+                  shadowColor: Colors.black.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
                   child: child,
                 );
               },
@@ -127,7 +139,7 @@ class _CustomSidebarState extends State<CustomSidebar> {
             ),
           ),
 
-          // Reset Button - Compact
+          // Reset Button
           _buildFooter(),
         ],
       ),
@@ -136,10 +148,18 @@ class _CustomSidebarState extends State<CustomSidebar> {
 
   Widget _buildHeader() {
     return Container(
-      height: 48, // Reduced from 60 for compactness
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Reduced padding
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -147,19 +167,25 @@ class _CustomSidebarState extends State<CustomSidebar> {
           Text(
             AppLocalizations.of(context)!.menu,
             style: GoogleFonts.inter(
-              fontSize: 14, // Reduced from 16
-              fontWeight: FontWeight.w600,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
               color: const Color(0xFF111827),
+              letterSpacing: -0.5,
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: Color(0xFF6B7280), size: 20),
-            onPressed: widget.onToggleCollapse,
-            tooltip: AppLocalizations.of(context)!.collapseSidebar,
-            padding: EdgeInsets.zero, // Remove default padding
-            constraints: const BoxConstraints(
-              minWidth: 32,
-              minHeight: 32,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onToggleCollapse,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                child: const Icon(
+                  Icons.chevron_left,
+                  color: Color(0xFF6B7280),
+                  size: 24,
+                ),
+              ),
             ),
           ),
         ],
@@ -169,28 +195,42 @@ class _CustomSidebarState extends State<CustomSidebar> {
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8), // Reduced padding
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        border: const Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
       ),
-      child: TextButton.icon(
-        onPressed: () async {
-          final defaultSections =
-              await _sidebarService.resetToDefault(widget.userRole);
-          setState(() => _sections = defaultSections);
-        },
-        icon: const Icon(Icons.restore, size: 14, color: Color(0xFF9CA3AF)),
-        label: Text(
-          AppLocalizations.of(context)!.resetLayout,
-          style: GoogleFonts.inter(
-            fontSize: 11, // Reduced from 12
-            color: const Color(0xFF9CA3AF),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            final defaultSections =
+                await _sidebarService.resetToDefault(widget.userRole);
+            setState(() => _sections = defaultSections);
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.restore,
+                  size: 16,
+                  color: const Color(0xFF9CA3AF),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  AppLocalizations.of(context)?.resetLayout ?? 'Reset Layout',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
     );
@@ -199,47 +239,60 @@ class _CustomSidebarState extends State<CustomSidebar> {
   Widget _buildSection(SidebarSection section) {
     return Container(
       key: ValueKey(section.id),
-      margin: const EdgeInsets.only(bottom: 2), // Further reduced
+      margin: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Section Header (Draggable handle + Toggle) - Compact
-          InkWell(
-            onTap: () => _toggleSection(section),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Further reduced
-              child: Row(
-                children: [
-                  // Drag Handle - Smaller
-                  const Icon(Icons.drag_indicator,
-                      size: 12, color: Color(0xFFD1D5DB)),
-                  const SizedBox(width: 4),
-
-                  // Title
-                  Expanded(
-                    child: Text(
-                      SidebarLocalization.translate(context, section.title)
-                          .toUpperCase(),
-                      style: GoogleFonts.inter(
-                        fontSize: 9, // Further reduced
-                        fontWeight: FontWeight.w700,
+          // Section Header with improved design
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _toggleSection(section),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    // Section icon (3x3 grid)
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.grid_view,
+                        size: 16,
                         color: const Color(0xFF9CA3AF),
-                        letterSpacing: 0.3,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
                     ),
-                  ),
+                    const SizedBox(width: 8),
 
-                  // Expand/Collapse Icon - Smaller
-                  Icon(
-                    section.isExpanded ? Icons.expand_less : Icons.expand_more,
-                    size: 12,
-                    color: const Color(0xFF9CA3AF),
-                  ),
-                ],
+                    // Title
+                    Expanded(
+                      child: Text(
+                        SidebarLocalization.translate(context, section.title).toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF9CA3AF),
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+
+                    // Expand/Collapse Icon
+                    AnimatedRotation(
+                      turns: section.isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: Icon(
+                        Icons.keyboard_arrow_up,
+                        size: 18,
+                        color: const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -247,14 +300,14 @@ class _CustomSidebarState extends State<CustomSidebar> {
           // Items - Animated expansion with constraints
           ClipRect(
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
               alignment: Alignment.topCenter,
               child: section.isExpanded
                   ? ConstrainedBox(
                       constraints: const BoxConstraints(
                         minWidth: 0,
-                        maxWidth: 220, // Match sidebar width
+                        maxWidth: 220,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -274,67 +327,82 @@ class _CustomSidebarState extends State<CustomSidebar> {
     final isSelected = widget.selectedIndex == item.screenIndex;
     final itemColor = item.colorValue != null
         ? Color(item.colorValue!)
-        : const Color(0xFF4B5563);
+        : const Color(0xFF6B7280);
 
-    return InkWell(
-      onTap: () {
-        widget.onItemSelected(item.screenIndex);
-        // Auto-collapse after selection (only if expanded)
-        if (!widget.isCollapsed) {
-          Future.delayed(const Duration(milliseconds: 200), () {
-            if (mounted) {
-              widget.onToggleCollapse();
-            }
-          });
-        }
-      },
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1), // Reduced margins
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Reduced padding
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6), // Smaller radius
-        ),
-        child: Row(
-          children: [
-            Icon(
-              item.icon,
-              size: 18, // Reduced from 20
-              color: isSelected ? const Color(0xFF0386FF) : itemColor,
-            ),
-            const SizedBox(width: 10), // Reduced from 12
-            Expanded(
-              child: Text(
-                SidebarLocalization.translate(context, item.label),
-                style: GoogleFonts.inter(
-                  fontSize: 13, // Reduced from 14
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          widget.onItemSelected(item.screenIndex);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: isSelected
+                ? Border.all(color: const Color(0xFF0386FF).withOpacity(0.2), width: 1)
+                : null,
+          ),
+          child: Row(
+            children: [
+              // Icon with background
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF0386FF)
-                      : const Color(0xFF374151),
+                      ? const Color(0xFF0386FF).withOpacity(0.1)
+                      : itemColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+                child: Icon(
+                  item.icon,
+                  size: 18,
+                  color: isSelected ? const Color(0xFF0386FF) : itemColor,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  SidebarLocalization.translate(context, item.label),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF0386FF)
+                        : const Color(0xFF374151),
+                    letterSpacing: -0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              // Visual indicator (double-line icon)
+              if (isSelected)
+                Icon(
+                  Icons.more_horiz,
+                  size: 16,
+                  color: const Color(0xFF0386FF).withOpacity(0.5),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Icon-only collapsed rail - compact and fluid
+  // Icon-only collapsed rail - shows sections organized, not flattened
   Widget _buildCollapsedRail() {
     if (_isLoading) {
       return const SizedBox(
-        width: 64, // Reduced from 72
+        width: 72,
         child: Center(child: CircularProgressIndicator()),
       );
     }
-
-    // Flatten all items from all sections
-    final allItems = _sections.expand((section) => section.items).toList();
 
     return MouseRegion(
       onEnter: (_) {
@@ -360,34 +428,43 @@ class _CustomSidebarState extends State<CustomSidebar> {
         }
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOutCubic,
         constraints: BoxConstraints(
-          minWidth: 64,
-          maxWidth: _isHovered ? 180 : 64,
+          minWidth: 72,
+          maxWidth: _isHovered ? 200 : 72,
         ),
-        color: const Color(0xFFF9FAFB),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: const Border(
+            right: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(2, 0),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Expand button at top - compact
+            // Expand button at top
             Container(
-              margin: const EdgeInsets.all(6),
+              margin: const EdgeInsets.all(8),
               child: Material(
-                color: const Color(0xFFEC4899),
-                borderRadius: BorderRadius.circular(6),
+                color: const Color(0xFF3B82F6),
+                borderRadius: BorderRadius.circular(10),
+                elevation: 2,
                 child: InkWell(
                   onTap: widget.onToggleCollapse,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    width: 52,
-                    height: 36,
-                    alignment: Alignment.center,
-                    constraints: const BoxConstraints(
-                      minWidth: 52,
-                      maxWidth: 52,
-                      minHeight: 36,
-                      maxHeight: 36,
+                  borderRadius: BorderRadius.circular(10),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: _isHovered ? 12 : 8,
+                      vertical: 10,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -396,28 +473,19 @@ class _CustomSidebarState extends State<CustomSidebar> {
                         Icon(
                           _isHovered ? Icons.chevron_left : Icons.chevron_right,
                           color: Colors.white,
-                          size: 16,
+                          size: 18,
                         ),
                         if (_isHovered) ...[
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              AppLocalizations.of(context)!.expand,
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                          const SizedBox(width: 6),
+                          Text(
+                            AppLocalizations.of(context)?.expand ?? 'Expand',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ),
-                        ] else ...[
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.qr_code_scanner,
-                            color: Colors.white,
-                            size: 12,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ],
                       ],
@@ -426,13 +494,13 @@ class _CustomSidebarState extends State<CustomSidebar> {
                 ),
               ),
             ),
-            const SizedBox(height: 2),
-            // Icon list - all items flattened with constraints
+            const SizedBox(height: 4),
+            // Sections organized, not flattened
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 shrinkWrap: false,
-                children: allItems.map((item) => _buildCollapsedIcon(item)).toList(),
+                children: _sections.map((section) => _buildCollapsedSection(section)).toList(),
               ),
             ),
           ],
@@ -441,62 +509,133 @@ class _CustomSidebarState extends State<CustomSidebar> {
     );
   }
 
+  Widget _buildCollapsedSection(SidebarSection section) {
+    return Container(
+      key: ValueKey('collapsed_${section.id}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Section header (icon only when collapsed, or title when hovered)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _toggleSection(section),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.grid_view,
+                      size: 16,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                    if (_isHovered) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          section.title.toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF9CA3AF),
+                            letterSpacing: 0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: section.isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.keyboard_arrow_up,
+                          size: 14,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Section items (only if expanded)
+          if (section.isExpanded && _isHovered)
+            ...section.items.map((item) => _buildCollapsedIcon(item)).toList(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCollapsedIcon(SidebarItem item) {
     final isSelected = widget.selectedIndex == item.screenIndex;
-    final itemColor = item.colorValue != null
-        ? Color(item.colorValue!)
-        : const Color(0xFF4B5563);
 
     return Tooltip(
       message: SidebarLocalization.translate(context, item.label),
       waitDuration: const Duration(milliseconds: 300),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 4), // Reduced from 8
+        margin: const EdgeInsets.only(bottom: 6),
         child: Material(
-          color: itemColor,
-          borderRadius: BorderRadius.circular(10), // Reduced from 12
+          color: Colors.transparent,
           child: InkWell(
             onTap: () {
               widget.onItemSelected(item.screenIndex);
             },
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: _isHovered ? null : 52, // Use null instead of double.infinity
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
               constraints: BoxConstraints(
-                minWidth: 52,
-                maxWidth: _isHovered ? double.infinity : 52,
-                minHeight: 48,
-                maxHeight: 48,
+                minWidth: 56,
+                maxWidth: _isHovered ? double.infinity : 56,
+                minHeight: 52,
+                maxHeight: 52,
               ),
-              padding: _isHovered 
-                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 0)
+              padding: _isHovered
+                  ? const EdgeInsets.symmetric(horizontal: 12, vertical: 0)
                   : EdgeInsets.zero,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                color: isSelected
+                    ? const Color(0xFFEFF6FF)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
                 border: isSelected
                     ? Border.all(color: const Color(0xFF0386FF), width: 2)
-                    : null,
+                    : Border.all(color: const Color(0xFFE5E7EB), width: 1),
               ),
               child: _isHovered
                   ? Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          item.icon,
-                          color: Colors.white,
-                          size: 18, // Reduced from 20
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF0386FF).withOpacity(0.1)
+                                : const Color(0xFF6B7280).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            item.icon,
+                            color: isSelected 
+                                ? const Color(0xFF0386FF) 
+                                : const Color(0xFF6B7280),
+                            size: 18,
+                          ),
                         ),
-                        const SizedBox(width: 10), // Reduced from 12
+                        const SizedBox(width: 10),
                         Flexible(
                           child: Text(
                             SidebarLocalization.translate(context, item.label),
                             style: GoogleFonts.inter(
-                              fontSize: 12, // Reduced from 13
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 13,
+                              color: isSelected
+                                  ? const Color(0xFF0386FF)
+                                  : const Color(0xFF374151),
+                              fontWeight: FontWeight.w600,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -504,10 +643,21 @@ class _CustomSidebarState extends State<CustomSidebar> {
                         ),
                       ],
                     )
-                  : Icon(
-                      item.icon,
-                      color: Colors.white,
-                      size: 22, // Reduced from 24
+                  : Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF0386FF).withOpacity(0.1)
+                            : const Color(0xFF6B7280).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        item.icon,
+                        color: isSelected 
+                            ? const Color(0xFF0386FF) 
+                            : const Color(0xFF6B7280),
+                        size: 22,
+                      ),
                     ),
             ),
           ),

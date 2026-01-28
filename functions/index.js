@@ -113,6 +113,12 @@ exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
 // Callable version - note: may have IAM issues on some projects
 exports.publishEnrollmentToJobBoard = onCall({ cors: true }, enrollmentHandlers.publishEnrollmentToJobBoard);
 exports.acceptJob = onCall({ cors: true }, jobHandlers.acceptJob);
+exports.withdrawFromJob = onCall({ cors: true }, jobHandlers.withdrawFromJob);
+
+// Application management functions (Leader & Teacher)
+const applicationHandlers = require('./handlers/applications');
+exports.onLeadershipApplicationCreated = applicationHandlers.onLeadershipApplicationCreated;
+exports.onTeacherApplicationCreated = applicationHandlers.onTeacherApplicationCreated;
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

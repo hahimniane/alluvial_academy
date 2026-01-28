@@ -78,6 +78,12 @@ class JobBoardService {
         'isAdult': metadata['isAdult'] ?? enrollmentData['isAdult'] ?? false,
         'status': 'open',
         'createdAt': FieldValue.serverTimestamp(),
+        // Parent/Family grouping info
+        'parentEmail': contact['email'],
+        'parentName': contact['parentName'],
+        'parentLinkId': metadata['parentLinkId'],
+        'studentIndex': metadata['studentIndex'],
+        'totalStudents': metadata['totalStudents'],
       };
       
       // Remove null values
@@ -89,7 +95,35 @@ class JobBoardService {
       final jobRef = await _jobCollection.add(jobData);
       AppLogger.info('Created job opportunity: ${jobRef.id}');
       
-      // 6. Update enrollment status
+      // 6. Update enrollment status with admin tracking
+      final currentUser = FirebaseAuth.instance.currentUser;
+      String? adminName;
+      if (currentUser != null) {
+        try {
+          final adminDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+          if (adminDoc.exists) {
+            final data = adminDoc.data() as Map<String, dynamic>;
+            adminName = '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+            if (adminName.isEmpty) adminName = data['e-mail'] as String?;
+          }
+        } catch (e) {
+          adminName = currentUser.email;
+        }
+      }
+      
+      final actionEntry = {
+        'action': 'broadcasted',
+        'status': 'broadcasted',
+        'adminId': currentUser?.uid ?? 'system',
+        'adminName': adminName ?? 'System',
+        'adminEmail': currentUser?.email ?? '',
+        'jobId': jobRef.id,
+        'timestamp': Timestamp.fromDate(DateTime.now()),
+      };
+      
       await FirebaseFirestore.instance
           .collection('enrollments')
           .doc(enrollment.id)
@@ -97,6 +131,12 @@ class JobBoardService {
         'metadata.status': 'broadcasted',
         'metadata.broadcastedAt': FieldValue.serverTimestamp(),
         'metadata.jobId': jobRef.id,
+        'metadata.broadcastedBy': currentUser?.uid,
+        'metadata.broadcastedByName': adminName,
+        'metadata.lastUpdated': FieldValue.serverTimestamp(),
+        'metadata.updatedBy': currentUser?.uid,
+        'metadata.updatedByName': adminName,
+        'metadata.actionHistory': FieldValue.arrayUnion([actionEntry]),
       });
       
       AppLogger.info('Successfully broadcasted enrollment ${enrollment.id}, jobId: ${jobRef.id}');
@@ -108,7 +148,8 @@ class JobBoardService {
   }
 
   /// Allows a teacher to accept a job (via Cloud Function)
-  Future<void> acceptJob(String jobId, String teacherId) async {
+  /// [selectedTimes] is an optional map of day -> time slot selected by teacher
+  Future<void> acceptJob(String jobId, String teacherId, {Map<String, String>? selectedTimes}) async {
     try {
       // Ensure user is authenticated
       final user = FirebaseAuth.instance.currentUser;
@@ -125,6 +166,7 @@ class JobBoardService {
       
       final result = await callable.call(<String, dynamic>{
         'jobId': jobId,
+        if (selectedTimes != null) 'selectedTimes': selectedTimes,
       });
 
       if (result.data['success'] != true) {
@@ -136,6 +178,214 @@ class JobBoardService {
       AppLogger.error('Error accepting job: $e');
       throw Exception('Failed to accept job: $e');
     }
+  }
+
+  /// When admin un-broadcasts an enrollment, close matching job_board entries
+  /// so they no longer appear as open/accepted on the teacher job board.
+  Future<void> unbroadcastEnrollment(String enrollmentId) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('job_board')
+        .where('enrollmentId', isEqualTo: enrollmentId)
+        .get();
+    for (final doc in snap.docs) {
+      await doc.reference.update({'status': 'closed'});
+    }
+    if (snap.docs.isNotEmpty) {
+      AppLogger.info('Unbroadcast: closed ${snap.docs.length} job(s) for enrollment $enrollmentId');
+    }
+  }
+
+  /// Admin revokes teacher acceptance and re-broadcasts the job
+  /// Clears all acceptance info and sets status back to 'open'
+  Future<void> adminRevokeAcceptance(String jobId) async {
+    try {
+      final jobDoc = await _jobCollection.doc(jobId).get();
+      if (!jobDoc.exists) throw Exception('Job not found');
+      
+      final jobData = jobDoc.data() as Map<String, dynamic>;
+      final enrollmentId = jobData['enrollmentId'] as String?;
+      final previousTeacherId = jobData['acceptedByTeacherId'];
+      
+      // 1. Clear acceptance fields on job_board and re-open
+      await _jobCollection.doc(jobId).update({
+        'status': 'open',
+        'acceptedByTeacherId': FieldValue.delete(),
+        'acceptedAt': FieldValue.delete(),
+        'teacherSelectedTimes': FieldValue.delete(),
+        'revokedAt': FieldValue.serverTimestamp(),
+        'revokedByAdminId': FirebaseAuth.instance.currentUser?.uid,
+      });
+      
+      // 2. Reset enrollment status to broadcasted
+      if (enrollmentId != null && enrollmentId.isNotEmpty) {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        String? adminName;
+        if (currentUser != null) {
+          try {
+            final adminDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(currentUser.uid)
+                .get();
+            if (adminDoc.exists) {
+              final data = adminDoc.data() as Map<String, dynamic>;
+              adminName = '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+              if (adminName.isEmpty) adminName = data['e-mail'] as String?;
+            }
+          } catch (_) {
+            adminName = currentUser.email;
+          }
+        }
+        
+        final revokeEntry = {
+          'action': 'admin_revoked',
+          'status': 'broadcasted',
+          'adminId': currentUser?.uid ?? 'system',
+          'adminName': adminName ?? 'Admin',
+          'adminEmail': currentUser?.email ?? '',
+          'previousTeacherId': previousTeacherId,
+          'timestamp': Timestamp.fromDate(DateTime.now()),
+        };
+        
+        await FirebaseFirestore.instance
+            .collection('enrollments')
+            .doc(enrollmentId)
+            .update({
+          'metadata.status': 'broadcasted',
+          'metadata.matchedTeacherId': FieldValue.delete(),
+          'metadata.matchedTeacherName': FieldValue.delete(),
+          'metadata.matchedAt': FieldValue.delete(),
+          'metadata.teacherSelectedTimes': FieldValue.delete(),
+          'metadata.lastUpdated': FieldValue.serverTimestamp(),
+          'metadata.updatedBy': currentUser?.uid,
+          'metadata.updatedByName': adminName,
+          'metadata.actionHistory': FieldValue.arrayUnion([revokeEntry]),
+        });
+      }
+      
+      AppLogger.info('Admin revoked acceptance for job $jobId. Job re-broadcasted.');
+    } catch (e) {
+      AppLogger.error('Error revoking acceptance: $e');
+      throw Exception('Failed to revoke acceptance: $e');
+    }
+  }
+
+  /// Admin closes the job without re-broadcasting (like archive: opportunity is closed for good).
+  /// The job disappears from filled list and is not offered to teachers again.
+  Future<void> adminCloseJob(String jobId) async {
+    try {
+      final jobDoc = await _jobCollection.doc(jobId).get();
+      if (!jobDoc.exists) throw Exception('Job not found');
+
+      final jobData = jobDoc.data() as Map<String, dynamic>;
+      final enrollmentId = jobData['enrollmentId'] as String?;
+      final previousTeacherId = jobData['acceptedByTeacherId'];
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      // 1. Close job and clear acceptance fields (no re-broadcast)
+      await _jobCollection.doc(jobId).update({
+        'status': 'closed',
+        'acceptedByTeacherId': FieldValue.delete(),
+        'acceptedAt': FieldValue.delete(),
+        'teacherSelectedTimes': FieldValue.delete(),
+        'closedByAdminAt': FieldValue.serverTimestamp(),
+        'closedByAdminId': currentUser?.uid,
+      });
+
+      // 2. Add audit entry on enrollment
+      if (enrollmentId != null && enrollmentId.isNotEmpty) {
+        String? adminName;
+        if (currentUser != null) {
+          try {
+            final adminDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(currentUser.uid)
+                .get();
+            if (adminDoc.exists) {
+              final data = adminDoc.data() as Map<String, dynamic>;
+              adminName = '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim();
+              if (adminName.isEmpty) adminName = data['e-mail'] as String?;
+            }
+          } catch (_) {
+            adminName = currentUser.email;
+          }
+        }
+        final closeEntry = {
+          'action': 'admin_closed',
+          'jobId': jobId,
+          'adminId': currentUser?.uid ?? 'system',
+          'adminName': adminName ?? 'Admin',
+          'adminEmail': currentUser?.email ?? '',
+          'previousTeacherId': previousTeacherId,
+          'timestamp': Timestamp.fromDate(DateTime.now()),
+        };
+        await FirebaseFirestore.instance
+            .collection('enrollments')
+            .doc(enrollmentId)
+            .update({
+          'metadata.lastUpdated': FieldValue.serverTimestamp(),
+          'metadata.updatedBy': currentUser?.uid,
+          'metadata.updatedByName': adminName,
+          'metadata.actionHistory': FieldValue.arrayUnion([closeEntry]),
+        });
+      }
+
+      AppLogger.info('Admin closed job $jobId (no re-broadcast).');
+    } catch (e) {
+      AppLogger.error('Error closing job: $e');
+      throw Exception('Failed to close job: $e');
+    }
+  }
+
+  /// Allows a teacher to withdraw from an accepted job (re-broadcasts it)
+  Future<void> withdrawFromJob(String jobId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('You must be signed in to withdraw from a job.');
+      }
+      
+      // Refresh the ID token to ensure it's valid
+      await user.getIdToken(true);
+      
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('withdrawFromJob');
+      
+      final result = await callable.call(<String, dynamic>{
+        'jobId': jobId,
+      });
+
+      if (result.data['success'] != true) {
+        throw Exception(result.data['message'] ?? 'Unknown error withdrawing from job');
+      }
+      
+      AppLogger.info('Successfully withdrew from job $jobId. Job re-broadcasted.');
+    } catch (e) {
+      AppLogger.error('Error withdrawing from job: $e');
+      throw Exception('Failed to withdraw from job: $e');
+    }
+  }
+
+  /// Get jobs accepted by current teacher (for "My Accepted Jobs" view)
+  Stream<List<JobOpportunity>> getMyAcceptedJobs() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream.value([]);
+    
+    return _jobCollection
+        .where('status', isEqualTo: 'accepted')
+        .where('acceptedByTeacherId', isEqualTo: user.uid)
+        .snapshots()
+        .map((snapshot) {
+          final jobs = snapshot.docs
+              .map((doc) => JobOpportunity.fromFirestore(doc))
+              .toList();
+          jobs.sort((a, b) {
+            if (a.acceptedAt == null && b.acceptedAt == null) return 0;
+            if (a.acceptedAt == null) return 1;
+            if (b.acceptedAt == null) return -1;
+            return b.acceptedAt!.compareTo(a.acceptedAt!);
+          });
+          return jobs;
+        });
   }
 
   /// Get stream of open jobs
@@ -177,6 +427,20 @@ class JobBoardService {
           jobs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return jobs;
         });
+  }
+
+  /// One-time fetch of jobs accepted by a specific teacher (for conflict detection).
+  Future<List<JobOpportunity>> getAcceptedJobsForTeacher(String teacherId) async {
+    try {
+      final snap = await _jobCollection
+          .where('status', isEqualTo: 'accepted')
+          .where('acceptedByTeacherId', isEqualTo: teacherId)
+          .get();
+      return snap.docs.map((d) => JobOpportunity.fromFirestore(d)).toList();
+    } catch (e) {
+      AppLogger.error('JobBoardService.getAcceptedJobsForTeacher: $e');
+      return [];
+    }
   }
 
   /// Get stream of accepted jobs for admin

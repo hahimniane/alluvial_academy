@@ -1761,7 +1761,7 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
         shiftStart: shiftStart,
         shiftEnd: shiftEnd,
         status: _parseShiftStatus(shiftData['status']),
-        subject: shiftData['subject'],
+        subject: _parseSubject(shiftData['subject']),
         hourlyRate: (shiftData['hourly_rate'] as num?)?.toDouble() ?? 0.0,
         createdAt: createdAt,
         notes: shiftData['notes'],
@@ -1799,6 +1799,43 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
       case 'missed': return ShiftStatus.missed;
       case 'cancelled': return ShiftStatus.cancelled;
       default: return ShiftStatus.scheduled;
+    }
+  }
+
+  /// Parse subject from shift data (Firestore may store String; TeachingShift requires IslamicSubject).
+  IslamicSubject _parseSubject(dynamic value) {
+    if (value == null) return IslamicSubject.quranStudies;
+    if (value is IslamicSubject) return value;
+    final s = value.toString().trim();
+    if (s.isEmpty) return IslamicSubject.quranStudies;
+    // Try enum name (e.g. "quranStudies")
+    for (final e in IslamicSubject.values) {
+      if (e.name == s) return e;
+    }
+    // Try normalized display/snake_case (e.g. "quran_studies", "Quran Studies")
+    final normalized = s.toLowerCase().replaceAll(' ', '_');
+    switch (normalized) {
+      case 'quran_studies':
+      case 'quran':
+        return IslamicSubject.quranStudies;
+      case 'hadith_studies':
+      case 'hadith':
+        return IslamicSubject.hadithStudies;
+      case 'fiqh':
+        return IslamicSubject.fiqh;
+      case 'arabic_language':
+      case 'arabic':
+        return IslamicSubject.arabicLanguage;
+      case 'islamic_history':
+        return IslamicSubject.islamicHistory;
+      case 'aqeedah':
+        return IslamicSubject.aqeedah;
+      case 'tafseer':
+        return IslamicSubject.tafseer;
+      case 'seerah':
+        return IslamicSubject.seerah;
+      default:
+        return IslamicSubject.quranStudies;
     }
   }
 }
