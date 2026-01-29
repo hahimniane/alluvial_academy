@@ -50,7 +50,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
   bool _isAutoSelecting = false; // New state to track auto-selection
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  final Map<String, bool> _userFormSubmissions = {}; // Track user form submissions
+  final Map<String, bool> _userFormSubmissions = {}; // Track user form submissions (formId -> true)
+  final Map<String, bool> _userFormSubmissionsByShift = {}; // (formId_shiftId) -> true for per-shift one submission
   String? _currentUserRole;
   String? _currentUserId;
   Map<String, dynamic>? _currentUserData;
@@ -70,9 +71,8 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
   }
 
-  /// Submit is disabled while submitting or when this form was already submitted (one per shift).
-  bool get _isSubmitDisabled =>
-      _isSubmitting || (_userFormSubmissions[selectedFormId] ?? false);
+  /// Submit is disabled only while a submission is in progress. Form closes after submit so no double-submit.
+  bool get _isSubmitDisabled => _isSubmitting || selectedFormId == null;
 
   @override
   void initState() {
@@ -247,10 +247,16 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       if (mounted) {
         setState(() {
           _userFormSubmissions.clear();
+          _userFormSubmissionsByShift.clear();
           for (var doc in submissions.docs) {
-            final formId = doc.data()['formId'] as String?;
+            final data = doc.data();
+            final formId = data['formId'] as String?;
             if (formId != null) {
               _userFormSubmissions[formId] = true;
+              final shiftId = data['shiftId'] as String?;
+              if (shiftId != null) {
+                _userFormSubmissionsByShift['${formId}_$shiftId'] = true;
+              }
             }
           }
         });
@@ -835,6 +841,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     if (selectedFormData != null || widget.template != null) {
       // Show the form content with a back button
       return Scaffold(
+        resizeToAvoidBottomInset: true,
         backgroundColor: const Color(0xffF8FAFC),
         appBar: AppBar(
           backgroundColor: const Color(0xff0386FF),
@@ -1338,8 +1345,9 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       opacity: _fadeAnimation,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
+            padding: EdgeInsets.fromLTRB(32, 32, 32, 32 + bottomInset),
             child: Center(
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 800),
@@ -1416,61 +1424,6 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
                 ),
 
                 const SizedBox(height: 24),
-
-                // Submission status banner (if already submitted)
-                if (_userFormSubmissions[selectedFormId] ?? false) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff10B981).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xff10B981).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xff10B981),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                AppLocalizations.of(context)!.formAlreadySubmitted,
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xff047857),
-                                ),
-                              ),
-                              Text(
-                                AppLocalizations.of(context)?.youHaveAlreadySubmittedThisForm ?? 'You have already submitted this form for this shift. One submission per shift.',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: const Color(0xff059669),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
 
                 // Form fields - each field is now a separate card (Google Forms style)
                 Form(
@@ -1893,58 +1846,57 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // The colored focus indicator on the left (Google Forms style)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: isFocused ? 6 : 0,
-                  color: _primaryColor,
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Question Label
-                        RichText(
-                          text: TextSpan(
-                            text: localizedLabel,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                            children: [
-                              if (required)
-                                 TextSpan(
-                                  text: AppLocalizations.of(context)!.text,
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                            ],
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // The colored focus indicator on the left (Google Forms style)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: isFocused ? 6 : 0,
+                color: _primaryColor,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Question Label
+                      RichText(
+                        text: TextSpan(
+                          text: localizedLabel,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
                           ),
+                          children: [
+                            if (required)
+                               TextSpan(
+                                text: ' ${AppLocalizations.of(context)!.commonRequired}',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 16),
 
-                        // Render specific input based on type
-                        _renderInputByType(
-                          fieldKey,
-                          type,
-                          controller,
-                          localizedHint,
-                          localizedOptions,
-                          required,
-                          localizedLabel,
-                        ),
-                      ],
-                    ),
+                      // Render specific input based on type
+                      _renderInputByType(
+                        fieldKey,
+                        type,
+                        controller,
+                        localizedHint,
+                        localizedOptions,
+                        required,
+                        localizedLabel,
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2525,36 +2477,40 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxHeight: 220),
           decoration: BoxDecoration(
             color: const Color(0xffF9FAFB),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xffE5E7EB)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: optionList.map((option) {
-              return RadioListTile<String>(
-                title: Text(
-                  option,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: const Color(0xff111827),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: optionList.map((option) {
+                return RadioListTile<String>(
+                  title: Text(
+                    option,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xff111827),
+                    ),
                   ),
-                ),
-                value: option,
-                groupValue: controller.text.isEmpty ? null : controller.text,
-                onChanged: (value) {
-                  setState(() {
-                    controller.text = value ?? '';
-                    fieldValues[fieldKey] = value;
-                  });
-                },
-                activeColor: const Color(0xff0386FF),
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              );
-            }).toList(),
+                  value: option,
+                  groupValue: controller.text.isEmpty ? null : controller.text,
+                  onChanged: (value) {
+                    setState(() {
+                      controller.text = value ?? '';
+                      fieldValues[fieldKey] = value;
+                    });
+                  },
+                  activeColor: const Color(0xff0386FF),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],
@@ -4100,16 +4056,6 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
       return;
     }
 
-    // One submission per form per shift — no duplicate documents
-    final hasAlreadySubmitted = _userFormSubmissions[selectedFormId] ?? false;
-    if (hasAlreadySubmitted) {
-      _showSnackBar(
-        AppLocalizations.of(context)?.youHaveAlreadySubmittedThisForm ?? 'This form has already been submitted for this shift.',
-        isError: true,
-      );
-      return;
-    }
-
     AppLogger.debug('Starting form submission...');
     if (mounted) {
       setState(() => _isSubmitting = true);
@@ -4433,14 +4379,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           'Form submitted to Firestore successfully! Document ID: ${docRef.id}');
       _showSnackBar('Form submitted successfully!', isError: false);
 
-      // Update the submissions tracker
-      if (mounted) {
-        setState(() {
-          _userFormSubmissions[selectedFormId!] = true;
-        });
-      }
-
-      // Close the form (one submission per shift — no staying to resubmit)
+      // Close the form immediately so user cannot double-submit
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }

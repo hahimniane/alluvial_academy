@@ -3,6 +3,7 @@ import 'dart:io';
 import 'core/services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -143,6 +144,23 @@ Future<void> main() async {
   if (actualProjectId != expectedProjectId) {
     AppLogger.error(
       'Firebase project mismatch. expected=$expectedProjectId actual=$actualProjectId',
+    );
+  }
+
+  // App Check: in debug on device/emulator use the debug provider so you can
+  // whitelist this device in Firebase Console (App Check > Manage debug tokens).
+  // When App Check validation fails, the callable layer does not pass the request
+  // body to the function (hence jobId/idToken were undefined). A valid debug
+  // token fixes that. Only active in debug + native mobile.
+  if (kDebugMode && _isNativeMobilePlatform) {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.debug,
+      appleProvider: AppleProvider.debug,
+    );
+    AppLogger.info(
+      'App Check debug provider active. In Flutter console look for the debug '
+      'token (UUID) and add it in Firebase Console > App Check > your app > '
+      'Manage debug tokens.',
     );
   }
 

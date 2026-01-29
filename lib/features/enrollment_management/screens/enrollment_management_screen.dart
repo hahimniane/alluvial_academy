@@ -20,6 +20,7 @@ class EnrollmentManagementScreen extends StatefulWidget {
 class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _currentTabIndex = 0;
 
   // Pipeline Counts
   int _inboxCount = 0;
@@ -30,10 +31,18 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (mounted && _currentTabIndex != _tabController.index) {
+      setState(() => _currentTabIndex = _tabController.index);
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -51,19 +60,28 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
               controller: _tabController,
               children: [
                 _EnrollmentList(
-                    status: 'pending',
-                    nextActionLabel: 'Mark Contacted',
-                    onRefreshCounts: _updateCounts),
+                  status: 'pending',
+                  nextActionLabel: 'Mark Contacted',
+                  onRefreshCounts: _updateCounts,
+                  tabIndex: 0,
+                  currentTabIndex: _currentTabIndex,
+                ),
                 _EnrollmentList(
-                    status: 'contacted',
-                    nextActionLabel: 'Broadcast',
-                    onRefreshCounts: _updateCounts),
+                  status: 'contacted',
+                  nextActionLabel: 'Broadcast',
+                  onRefreshCounts: _updateCounts,
+                  tabIndex: 1,
+                  currentTabIndex: _currentTabIndex,
+                ),
                 _EnrollmentList(
-                    status: 'broadcasted',
-                    nextActionLabel: 'View Matches',
-                    isLive: true,
-                    onRefreshCounts: _updateCounts),
-                const FilledOpportunitiesScreen(),
+                  status: 'broadcasted',
+                  nextActionLabel: 'View Matches',
+                  isLive: true,
+                  onRefreshCounts: _updateCounts,
+                  tabIndex: 2,
+                  currentTabIndex: _currentTabIndex,
+                ),
+                _currentTabIndex == 3 ? const FilledOpportunitiesScreen() : const _TabPlaceholder(),
               ],
             ),
           ),
@@ -178,7 +196,7 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                AppLocalizations.of(context)!.count,
+                count.toString(),
                 style: GoogleFonts.inter(
                     fontSize: 11, fontWeight: FontWeight.w700),
               ),
@@ -190,18 +208,32 @@ class _EnrollmentManagementScreenState extends State<EnrollmentManagementScreen>
   }
 }
 
+/// Placeholder when a tab is not active (avoids running its stream until selected)
+class _TabPlaceholder extends StatelessWidget {
+  const _TabPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: SizedBox.shrink());
+  }
+}
+
 // FIX: Converted to StatefulWidget to cache the Stream and prevent infinite rebuild loops
 class _EnrollmentList extends StatefulWidget {
   final String status;
   final String nextActionLabel;
   final bool isLive;
   final Function(String, int) onRefreshCounts;
+  final int tabIndex;
+  final int currentTabIndex;
 
   const _EnrollmentList({
     required this.status,
     required this.nextActionLabel,
     this.isLive = false,
     required this.onRefreshCounts,
+    required this.tabIndex,
+    required this.currentTabIndex,
   });
 
   @override
@@ -209,16 +241,30 @@ class _EnrollmentList extends StatefulWidget {
 }
 
 class _EnrollmentListState extends State<_EnrollmentList> with AutomaticKeepAliveClientMixin {
-  late Stream<QuerySnapshot> _enrollmentStream;
+  Stream<QuerySnapshot>? _enrollmentStream;
+
+  bool get _isActive => widget.currentTabIndex == widget.tabIndex;
+
+  Stream<QuerySnapshot> _createStream() {
+    return FirebaseFirestore.instance
+        .collection('enrollments')
+        .where('metadata.status', isEqualTo: widget.status)
+        .limit(80)
+        .snapshots();
+  }
 
   @override
   void initState() {
     super.initState();
-    // Initialize stream ONCE to prevent recreating it on every parent rebuild
-    _enrollmentStream = FirebaseFirestore.instance
-          .collection('enrollments')
-          .where('metadata.status', isEqualTo: widget.status)
-          .snapshots();
+    if (_isActive) _enrollmentStream = _createStream();
+  }
+
+  @override
+  void didUpdateWidget(covariant _EnrollmentList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isActive && _enrollmentStream == null) {
+      setState(() => _enrollmentStream = _createStream());
+    }
   }
 
   @override
@@ -227,7 +273,15 @@ class _EnrollmentListState extends State<_EnrollmentList> with AutomaticKeepAliv
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
+
+    // Only run Firestore stream when this tab is active (speeds up Ready/Live/Enrolled)
+    if (!_isActive) {
+      return const Center(child: SizedBox.shrink());
+    }
+    if (_enrollmentStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: _enrollmentStream,
       builder: (context, snapshot) {
@@ -838,8 +892,13 @@ class _EnrollmentCard extends StatelessWidget {
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.errorE)));
+                  final msg = e is Exception ? e.toString().replaceFirst('Exception: ', '') : '$e';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(msg.length > 120 ? '${msg.substring(0, 120)}…' : msg),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },

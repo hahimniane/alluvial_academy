@@ -1290,10 +1290,10 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
     );
 
     try {
-      // Fetch recent shifts (last 7 days) - show ALL statuses including missed
+      // Fetch shifts for the whole current month - show ALL statuses including missed
       // Use existing index pattern: query by teacher_id only, then filter/sort in memory
       final now = DateTime.now();
-      final lastWeek = now.subtract(const Duration(days: 7));
+      final startOfMonth = DateTime(now.year, now.month, 1);
       
       final shiftsSnapshot = await FirebaseFirestore.instance
           .collection('teaching_shifts')
@@ -1367,6 +1367,11 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
               return false; // Has not started yet
             }
             
+            // FOURTH CHECK: Shift must be within the current month (so teachers see the whole month)
+            if (startLocal.isBefore(startOfMonth)) {
+              return false; // Before current month
+            }
+            
             // Shift must have ended (end time is in the past, at least 1 second ago)
             final timeSinceEnd = now.difference(endLocal);
             if (timeSinceEnd.inSeconds <= 0) {
@@ -1386,8 +1391,8 @@ class _TeacherFormsScreenState extends State<TeacherFormsScreen> {
             return bStart.compareTo(aStart); // Descending (most recent first)
           });
       
-      // Limit to 20 most recent
-      final shiftsToShow = recentShifts.take(20).map((item) => item['doc'] as QueryDocumentSnapshot).toList();
+      // Show all shifts in the month (up to 100 to cover busy schedules)
+      final shiftsToShow = recentShifts.take(100).map((item) => item['doc'] as QueryDocumentSnapshot).toList();
       
 
       // Check for existing forms for each shift

@@ -305,14 +305,20 @@ class _JobCardState extends State<_JobCard> {
     // User cancelled
     if (result == null) return;
 
+    // Ensure we send the teacher's chosen times (from conflict picker or initial suggestion)
+    final raw = result['selectedTimes'];
+    final Map<String, String>? selectedTimes = (raw != null && raw is Map)
+        ? Map<String, String>.from(raw)
+        : null;
+
     setState(() => _isAccepting = true);
 
     try {
       // Accept with selected time preferences
       await JobBoardService().acceptJob(
-        widget.job.id, 
+        widget.job.id,
         currentUser.uid,
-        selectedTimes: result['selectedTimes'] as Map<String, String>?,
+        selectedTimes: selectedTimes,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -766,7 +772,7 @@ class _JobCardState extends State<_JobCard> {
                       children: [
                         if (isConverted) ...[
                           Text(
-                            AppLocalizations.of(context)!.slotStudenttzabbr,
+                            '$slot ($studentTzAbbr)',
                             style: GoogleFonts.inter(
                               color: Colors.grey[600],
                               fontSize: 12,
@@ -775,7 +781,7 @@ class _JobCardState extends State<_JobCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            AppLocalizations.of(context)!.convertedslotTeachertzabbr,
+                            '$convertedSlot ($teacherTzAbbr)',
                             style: GoogleFonts.inter(
                               color: const Color(0xff1E40AF),
                               fontSize: 13,
@@ -784,7 +790,7 @@ class _JobCardState extends State<_JobCard> {
                           ),
                         ] else
                           Text(
-                            AppLocalizations.of(context)!.slotStudenttzabbr,
+                            slot,
                             style: GoogleFonts.inter(
                               color: const Color(0xff4B5563),
                               fontSize: 13,
@@ -1092,6 +1098,17 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
     } catch (_) {}
     return false;
   }
+
+  /// True if the currently proposed slots (one per day) conflict with the teacher's schedule.
+  /// When there is no teacher or we are still loading, returns false (no conflict → show simple accept).
+  bool get _hasProposedSlotsConflict {
+    if (widget.teacherId == null || _loadingShifts) return false;
+    for (final day in widget.job.days) {
+      final slot = _selectedTimes[day];
+      if (slot != null && _slotConflictsWithTeacher(day, slot)) return true;
+    }
+    return false;
+  }
   
   /// Generate time slots based on the available range
   List<String> _generateTimeSlots(String rangeSlot) {
@@ -1180,8 +1197,8 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
     return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
   }
 
-  /// Créneaux où le prof n'a pas de cours ce jour-là (même durée que la demande).
-  /// Permet de "choisir un autre créneau qui m'arrange" et d'accepter sous réserve.
+  /// Slots when the teacher has no class that day (same duration as the job).
+  /// Lets the teacher pick an alternative time and accept subject to admin confirmation.
   List<String> _getFreeSlotsForDay(String day) {
     if (_loadingShifts || _busyRangesByDay.isEmpty) return [];
     final durationMinutes = _parseDurationMinutes(widget.job.sessionDuration ?? '60 minutes');
@@ -1327,7 +1344,7 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
                           ],
                         ),
                       )
-                    else if (widget.teacherId != null)
+                    else if (_hasProposedSlotsConflict) ...[
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
@@ -1344,94 +1361,106 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
                           ],
                         ),
                       ),
-                    Text(
-                      'Available Times (${widget.teacherTimezone})',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff374151),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Choisissez un créneau par jour. Vert = vous êtes libre, orange = déjà un cours. '
-                      'Si vous prenez un créneau libre différent de celui demandé par l\'étudiant, ce sera accepté sous réserve.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: const Color(0xff6B7280),
-                      ),
-                    ),
-                    if (widget.inModalSheet && widget.job.days.length > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Row(
-                          children: [
-                            Icon(Icons.swipe_up, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Scroll down to see and pick a time for each day.',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                          ],
+                      Text(
+                        'Available Times (${widget.teacherTimezone})',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff374151),
                         ),
                       ),
-                    const SizedBox(height: 14),
-                    // Use Column so day blocks always layout (ListView.builder could yield nothing in some scroll configs)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 120),
-                      child: widget.job.days.isEmpty && availableSlots.isNotEmpty
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Pick your preferred time:',
+                      const SizedBox(height: 6),
+                      Text(
+                        'Pick one slot per day. Green = you\'re free, orange = you have another class. '
+                        'If you pick a different free slot than the student requested, it will be accepted pending admin confirmation.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xff6B7280),
+                        ),
+                      ),
+                      if (widget.inModalSheet && widget.job.days.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            children: [
+                              Icon(Icons.swipe_up, size: 16, color: Colors.grey[600]),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Scroll down to see and pick a time for each day.',
                                   style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xff374151),
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.grey[600],
                                   ),
                                 ),
-                                const SizedBox(height: 10),
-                                _buildDayTimeSelector('Preferred', availableSlots),
-                              ],
-                            )
-                          : (widget.job.days.isEmpty || availableSlots.isEmpty)
-                              ? Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  child: Text(
-                                    widget.job.days.isEmpty && availableSlots.isEmpty
-                                        ? 'No days or times set for this opportunity. Ask admin to update it.'
-                                        : widget.job.days.isEmpty
-                                            ? 'No days set. Ask admin to add preferred days.'
-                                            : 'No time slots available. Ask admin to add preferred times.',
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 14),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 120),
+                        child: widget.job.days.isEmpty && availableSlots.isNotEmpty
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Pick your preferred time:',
                                     style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontStyle: FontStyle.italic,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xff374151),
                                     ),
                                   ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: widget.job.days
-                                      .map<Widget>((day) {
-                                        final freeSlots = _getFreeSlotsForDay(day);
-                                        final merged = List<String>.from(
-                                          LinkedHashSet<String>.from([...freeSlots, ...availableSlots]),
-                                        );
-                                        return _buildDayTimeSelector(day, merged);
-                                      })
-                                      .toList(),
-                                ),
-                    ),
+                                  const SizedBox(height: 10),
+                                  _buildDayTimeSelector('Preferred', availableSlots),
+                                ],
+                              )
+                            : (widget.job.days.isEmpty || availableSlots.isEmpty)
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: Text(
+                                      widget.job.days.isEmpty && availableSlots.isEmpty
+                                          ? 'No days or times set for this opportunity. Ask admin to update it.'
+                                          : widget.job.days.isEmpty
+                                              ? 'No days set. Ask admin to add preferred days.'
+                                              : 'No time slots available. Ask admin to add preferred times.',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: Colors.grey[600],
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: widget.job.days
+                                        .map<Widget>((day) {
+                                          final freeSlots = _getFreeSlotsForDay(day);
+                                          final merged = List<String>.from(
+                                            LinkedHashSet<String>.from([...freeSlots, ...availableSlots]),
+                                          );
+                                          return _buildDayTimeSelector(day, merged);
+                                        })
+                                        .toList(),
+                                  ),
+                      ),
+                    ]
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'No conflicts with your schedule. Accept with the suggested times?',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xff374151),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1460,28 +1489,28 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
                           conflictingDays.add(e.key);
                         }
                       }
-                      // Si des conflits existent, demander confirmation au lieu de bloquer
+                      // If there are conflicts, ask for confirmation instead of blocking
                       if (conflictingDays.isNotEmpty) {
                         final shouldProceed = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: Text(
-                              'Conflit détecté',
+                              'Schedule conflict',
                               style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                             ),
                             content: Text(
-                              'Vous avez déjà un cours les jours suivants : ${conflictingDays.join(", ")}.\n\nVoulez-vous quand même accepter ce créneau ?',
+                              'You already have a class on: ${conflictingDays.join(", ")}.\n\nDo you still want to accept this slot?',
                               style: GoogleFonts.inter(),
                             ),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Annuler'),
+                                child: const Text('Cancel'),
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Forcer et Accepter'),
+                                child: const Text('Accept anyway'),
                               ),
                             ],
                           ),
@@ -1489,8 +1518,9 @@ class _TimeSelectionDialogState extends State<_TimeSelectionDialog> {
                         if (shouldProceed != true || !context.mounted) return;
                       }
                       if (!context.mounted) return;
+                      // Return a snapshot so the exact teacher selection is sent to acceptJob
                       Navigator.pop(context, {
-                        'selectedTimes': _selectedTimes,
+                        'selectedTimes': Map<String, String>.from(_selectedTimes),
                       });
                     },
                     icon: const Icon(Icons.check_circle_outline, size: 18),

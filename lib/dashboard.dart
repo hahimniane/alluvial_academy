@@ -1368,7 +1368,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 width: size,
                 height: size,
                 errorBuilder: (context, error, stackTrace) {
-                  AppLogger.error('Dashboard: Failed to load profile picture: $error');
+                  // statusCode: 0 often means CORS (web) or network; we show initials as fallback
+                  if (kDebugMode) {
+                    AppLogger.debug('Dashboard: Profile image could not be loaded (showing initials): $error');
+                  }
                   return Center(child: initials);
                 },
                 loadingBuilder: (context, child, loadingProgress) {

@@ -5,8 +5,19 @@ const { onCall } = require('firebase-functions/v2/https');
 // NOTE: auto-scheduling (generateShifts) has been removed.
 // Shifts will be created manually/assisted by Admin later.
 
+/** Normalize client selectedTimes to a plain object (day -> time string). Ignores null, arrays, and non-string values. */
+function normalizeSelectedTimes(value) {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof k === 'string' && typeof v === 'string' && k.length > 0) out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 const acceptJob = async (request) => {
-  const { jobId, selectedTimes } = request.data;
+  const { jobId, selectedTimes: rawSelectedTimes } = request.data || {};
+  const selectedTimes = normalizeSelectedTimes(rawSelectedTimes);
   const teacherId = request.auth?.uid;
 
   if (!request.auth) {
@@ -48,8 +59,8 @@ const acceptJob = async (request) => {
         acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
       
-      // Store teacher's time preferences if provided
-      if (selectedTimes && typeof selectedTimes === 'object') {
+      // Store teacher's time preferences when provided (from conflict picker or suggested times)
+      if (selectedTimes) {
         jobUpdate.teacherSelectedTimes = selectedTimes;
       }
       
@@ -89,7 +100,7 @@ const acceptJob = async (request) => {
         'metadata.lastUpdated': admin.firestore.FieldValue.serverTimestamp(),
       };
       
-      if (selectedTimes && typeof selectedTimes === 'object') {
+      if (selectedTimes) {
         enrollmentUpdate['metadata.teacherSelectedTimes'] = selectedTimes;
       }
       
@@ -140,7 +151,17 @@ const withdrawFromJob = async (request) => {
   const { jobId } = request.data;
   const teacherId = request.auth?.uid;
 
+  // #region agent log
+  const hasAuth = !!request.auth;
+  const authUid = request.auth ? request.auth.uid : 'none';
+  console.log(`[withdrawFromJob] Called with jobId=${jobId}, auth=${request.auth ? `uid=${request.auth.uid}` : 'null'}, hasAuth=${hasAuth}`);
+  try {
+    fetch('http://127.0.0.1:7242/ingest/63ac8384-4404-4220-b813-f04f5289394c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'jobs.js:withdrawFromJob', message: 'handler', data: { jobId, hasAuth, authUid }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H2' }) }).catch(() => {});
+  } catch (_) {}
+  // #endregion
+
   if (!request.auth) {
+    console.error('[withdrawFromJob] UNAUTHENTICATED: request.auth is null/undefined');
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in to withdraw from a job.');
   }
 
