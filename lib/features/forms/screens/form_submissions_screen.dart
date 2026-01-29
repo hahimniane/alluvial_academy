@@ -123,7 +123,7 @@ class _SubmissionsTable extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: DataTable(
           columns: [
-            DataColumn(label: Text(AppLocalizations.of(context)!.text4)),
+            DataColumn(label: Text(AppLocalizations.of(context)!.number)),
             DataColumn(label: Text(AppLocalizations.of(context)!.roleUser)),
             DataColumn(label: Text(AppLocalizations.of(context)!.dateSubmitted)),
             DataColumn(label: Text(AppLocalizations.of(context)!.userStatus)),

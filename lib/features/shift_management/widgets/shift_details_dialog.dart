@@ -10,6 +10,7 @@ import '../../../core/enums/shift_enums.dart';
 import '../../../core/services/shift_timesheet_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/shift_form_service.dart';
+import '../../../core/services/form_template_service.dart';
 import '../../../core/services/user_role_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/utils/app_logger.dart';
@@ -772,31 +773,27 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             await _loadDetails();
           }
 
-          // Navigate to the ACTUAL Readiness Form from the database
-          // This uses the same form that appears in "Available Forms"
-          if (mounted) {
-            // Only navigate if we are fully clocked out (no active sessions left)
-            // For now, we assume one session at a time per shift in UI logic, 
-            // but _isActive checks all. If we just clocked out, _isActive should be false unless parallel sessions exist (unlikely)
-            
-            if (timesheetId != null) {
+          // Navigate to Daily Class Report (new template system)
+          if (mounted && timesheetId != null) {
+            final template = await FormTemplateService.getActiveDailyTemplate();
+            if (template != null && mounted) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => FormScreen(
+                    template: template,
                     timesheetId: timesheetId,
                     shiftId: widget.shift.id,
-                    autoSelectFormId: ShiftFormService.readinessFormId, // The actual form ID
                   ),
                 ),
               ).then((_) {
-                // Refresh after returning from form
                 widget.onRefresh?.call();
               });
-            } else {
-              // If no timesheetId, still refresh
+            } else if (mounted) {
               widget.onRefresh?.call();
             }
+          } else if (mounted) {
+            widget.onRefresh?.call();
           }
         }
       } else {
@@ -2059,21 +2056,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                 onPressed: () async {
                   final timesheetId = _timesheetEntry!['id'];
                   final shiftId = widget.shift.id;
-                  final formId = ShiftFormService.readinessFormId;
-                  
-                  debugPrint('📋 Fill Form button pressed:');
-                  debugPrint('   - timesheetId: $timesheetId');
-                  debugPrint('   - shiftId: $shiftId');
-                  debugPrint('   - formId: $formId');
-                  
-                  // Verify the form exists before navigating
-                  final formDoc = await FirebaseFirestore.instance
-                      .collection('form')
-                      .doc(formId)
-                      .get();
-                  
-                  if (!formDoc.exists) {
-                    debugPrint('❌ Form with ID $formId does NOT exist in database!');
+
+                  // Use new template system (Daily Class Report from form_templates)
+                  final template = await FormTemplateService.getActiveDailyTemplate();
+                  if (template == null) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -2084,23 +2070,19 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                     }
                     return;
                   }
-                  
-                  debugPrint('✅ Form exists: ${formDoc.data()?['title'] ?? 'Untitled'}');
-                  
-                  // Navigate to the form
+
                   if (mounted) {
                     Navigator.pop(context); // Close the dialog first
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => FormScreen(
+                          template: template,
                           timesheetId: timesheetId,
                           shiftId: shiftId,
-                          autoSelectFormId: formId,
                         ),
                       ),
                     ).then((_) {
-                      // Refresh after returning from form
                       widget.onRefresh?.call();
                     });
                   }
@@ -2234,20 +2216,10 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       final shiftId = widget.shift.id;
-                      final formId = ShiftFormService.readinessFormId;
-                      
-                      debugPrint('📋 Fill Form button pressed for missed shift:');
-                      debugPrint('   - shiftId: $shiftId');
-                      debugPrint('   - formId: $formId');
-                      
-                      // Verify the form exists before navigating
-                      final formDoc = await FirebaseFirestore.instance
-                          .collection('form')
-                          .doc(formId)
-                          .get();
-                      
-                      if (!formDoc.exists) {
-                        debugPrint('❌ Form with ID $formId does NOT exist in database!');
+
+                      // Use new template system (Daily Class Report from form_templates)
+                      final template = await FormTemplateService.getActiveDailyTemplate();
+                      if (template == null) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -2258,22 +2230,18 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
                         }
                         return;
                       }
-                      
-                      debugPrint('✅ Form exists: ${formDoc.data()?['title'] ?? 'Untitled'}');
-                      
-                      // Navigate to the form (no timesheetId for missed shifts)
+
                       if (mounted) {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => FormScreen(
+                              template: template,
                               timesheetId: null, // No timesheet for missed shift
                               shiftId: shiftId,
-                              autoSelectFormId: formId,
                             ),
                           ),
                         ).then((_) {
-                          // Refresh after returning from form
                           _loadDetails();
                           widget.onRefresh?.call();
                         });

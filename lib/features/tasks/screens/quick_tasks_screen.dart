@@ -3094,7 +3094,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                       ),
                     ),
                     // Sub-tasks count
-                    Text(AppLocalizations.of(context)!.text3, style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    Text(AppLocalizations.of(context)!.subTasksOptional, style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
                     // Labels display
                     if (task.labels.isNotEmpty)
                       ...task.labels.take(2).map((label) => Container(

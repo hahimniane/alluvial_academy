@@ -234,6 +234,13 @@ class UserRoleService {
     _cacheTimestamp = null;
   }
 
+  /// Prime cache with user data (e.g. from a real-time listener). Ensures getCurrentUserRole() and getCurrentUserData() use this data without another Firestore read.
+  static void setCachedUserDataForUid(String uid, Map<String, dynamic> data) {
+    _cachedUserData = data;
+    _cachedUserEmail = uid;
+    _cacheTimestamp = DateTime.now();
+  }
+
   /// Get the current user ID - checks cache first, then FirebaseAuth
   /// This is useful when FirebaseAuth.instance.currentUser might be null temporarily on web
   static String? getCurrentUserId() {

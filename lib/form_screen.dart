@@ -3244,7 +3244,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
     final fields = formData['fields'] as Map<String, dynamic>?;
     if (fields != null) {
       fields.forEach((fieldId, fieldData) {
-        fieldControllers[fieldId] = TextEditingController(text: AppLocalizations.of(context)!.text2);
+        fieldControllers[fieldId] = TextEditingController(text: '');
       });
     }
   }

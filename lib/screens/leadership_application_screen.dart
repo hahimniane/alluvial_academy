@@ -314,7 +314,7 @@ class _LeadershipApplicationScreenState extends State<LeadershipApplicationScree
               ),
             ),
             if (required)
-              Text(AppLocalizations.of(context)!.text, style: TextStyle(color: Colors.red, fontSize: 15)),
+              Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(color: Colors.red, fontSize: 15)),
           ],
         ),
         const SizedBox(height: 12),

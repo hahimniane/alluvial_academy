@@ -54,13 +54,52 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
     super.dispose();
   }
 
-  Future<void> _checkAccessAndInitialize() async {
+  Future<void> _checkAccessAndInitialize({int retryCount = 0}) async {
+    const maxRetries = 15;
+    const retryDelay = Duration(milliseconds: 600);
+    const initialDelay = Duration(milliseconds: 400);
+
     try {
+      // Give dashboard/listener time to prime role cache on first run.
+      if (retryCount == 0) {
+        await Future.delayed(initialDelay);
+        if (!mounted) return;
+      }
+
       final role = await UserRoleService.getCurrentUserRole();
+      final availableRoles = await UserRoleService.getAvailableRoles();
       final lower = role?.toLowerCase();
-      final isAdmin = lower == 'admin' || lower == 'super_admin';
+      final isAdminByRole = lower == 'admin' || lower == 'super_admin';
+      final hasAdminAvailable = availableRoles
+          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final isAdmin = isAdminByRole || hasAdminAvailable;
 
       if (!mounted) return;
+
+      // Role/data may not be loaded yet (e.g. just after login or dual admin+teacher). Retry before showing Access Restricted.
+      if (role == null &&
+          availableRoles.isEmpty &&
+          FirebaseAuth.instance.currentUser != null &&
+          retryCount < maxRetries) {
+        await Future.delayed(retryDelay);
+        if (mounted) _checkAccessAndInitialize(retryCount: retryCount + 1);
+        return;
+      }
+
+      // Before showing Access Restricted, force one fresh read (bypass cache) in case cache was stale.
+      if (!isAdmin && role == null && availableRoles.isEmpty) {
+        UserRoleService.clearCache();
+        final freshRole = await UserRoleService.getCurrentUserRole();
+        final freshRoles = await UserRoleService.getAvailableRoles();
+        final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
+            freshRole?.toLowerCase() == 'super_admin' ||
+            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+        if (freshAdmin && mounted) {
+          setState(() => _hasAccess = true);
+          _setupRealtimeListener();
+          return;
+        }
+      }
 
       if (!isAdmin) {
         setState(() {

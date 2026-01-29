@@ -115,20 +115,67 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     _initializeUserRole();
   }
 
-  Future<void> _initializeUserRole() async {
+  Future<void> _initializeUserRole({int retryCount = 0}) async {
+    const maxRetries = 15;
+    const retryDelay = Duration(milliseconds: 600);
+    const initialDelay = Duration(milliseconds: 400);
+
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         throw Exception('No authenticated user');
       }
 
+      // Give dashboard/listener time to prime role cache on first run (e.g. when built with IndexedStack).
+      if (retryCount == 0) {
+        await Future.delayed(initialDelay);
+        if (!mounted) return;
+      }
+
       final role = await UserRoleService.getCurrentUserRole();
-      final activeRole = await UserRoleService.getActiveRole();
-      final isAdmin = role?.toLowerCase() == 'admin' ||
+      final availableRoles = await UserRoleService.getAvailableRoles();
+      // Grant admin access if current role is admin OR if user has admin among available roles (dual admin+teacher)
+      final isAdminByRole = role?.toLowerCase() == 'admin' ||
           role?.toLowerCase() == 'super_admin';
+      final hasAdminAvailable = availableRoles
+          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final isAdmin = isAdminByRole || hasAdminAvailable;
 
       AppLogger.debug(
-          'ShiftManagement: User ${currentUser.uid} - role=$role, isAdmin=$isAdmin, activeRole=$activeRole');
+          'ShiftManagement: User ${currentUser.uid} - role=$role, availableRoles=$availableRoles, isAdmin=$isAdmin');
+
+      // Role/data may not be loaded yet (e.g. just after login). Retry before showing Access Restricted.
+      if (availableRoles.isEmpty && role == null && retryCount < maxRetries) {
+        await Future.delayed(retryDelay);
+        if (mounted) _initializeUserRole(retryCount: retryCount + 1);
+        return;
+      }
+
+      // Before showing Access Restricted, force one fresh read (bypass cache) in case cache was stale.
+      if (!isAdmin && availableRoles.isEmpty && role == null) {
+        UserRoleService.clearCache();
+        final freshRole = await UserRoleService.getCurrentUserRole();
+        final freshRoles = await UserRoleService.getAvailableRoles();
+        final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
+            freshRole?.toLowerCase() == 'super_admin' ||
+            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+        if (freshAdmin && mounted) {
+          setState(() {
+            _currentUserId = currentUser.uid;
+            _isAdmin = true;
+          });
+          final futures = <Future>[
+            _loadShiftData(),
+            _loadSubjects(),
+            _loadTeachers(),
+            _loadLeaders(),
+            _loadStudents(),
+          ];
+          await Future.wait(futures);
+          await _loadShiftStatistics();
+          return;
+        }
+      }
 
       if (mounted) {
         setState(() {
@@ -1502,12 +1549,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 6),
           Text(
-            AppLocalizations.of(context)!.title,
+            title,
             style: GoogleFonts.inter(
               fontSize: 12,
               color: color,
             ),
           ),
+          const SizedBox(width: 4),
           Text(
             value,
             style: GoogleFonts.inter(
@@ -1552,7 +1600,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  AppLocalizations.of(context)!.live2,
+                  AppLocalizations.of(context)!.live,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2638,7 +2686,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         countryCode: '',
         mobilePhone: '',
         userType: 'teacher',
-        title: AppLocalizations.of(context)!.text2,
+        title: AppLocalizations.of(context)!.roleTeacher,
         employmentStartDate: '',
         kioskCode: '',
         dateAdded: '',

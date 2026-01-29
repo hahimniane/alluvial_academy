@@ -1058,7 +1058,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
           SizedBox(
             width: 60,
             child: Text(
-              AppLocalizations.of(context)!.text4,
+              AppLocalizations.of(context)!.number,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

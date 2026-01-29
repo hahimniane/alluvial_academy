@@ -2247,7 +2247,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(context)!.schedule2,
+          AppLocalizations.of(context)!.schedule,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2670,7 +2670,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text(AppLocalizations.of(context)!.text8),
+              child: Text(AppLocalizations.of(context)!.to),
             ),
             Expanded(
               child: InkWell(
