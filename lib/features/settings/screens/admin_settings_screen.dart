@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/build_info.dart';
+import '../../../core/services/mobile_classes_access_service.dart';
 import '../../../core/services/user_role_service.dart';
+import '../../admin/screens/mobile_classes_access_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -19,6 +21,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   final _notificationEmailController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _updatingMobileClasses = false;
   bool _hasAccess = true;
 
   @override
@@ -123,6 +126,50 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     }
   }
 
+  Future<void> _setAllowAllTeachers(bool allowAll) async {
+    if (!_hasAccess) return;
+    if (_updatingMobileClasses) return;
+
+    setState(() => _updatingMobileClasses = true);
+    try {
+      await MobileClassesAccessService.setAllowAllTeachers(allowAll);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            allowAll
+                ? 'All teachers can now teach from the mobile app.'
+                : 'Mobile app classes are now restricted to selected teachers.',
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update mobile classes setting: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingMobileClasses = false);
+      }
+    }
+  }
+
+  void _openMobileClassesManager() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MobileClassesAccessScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_hasAccess) {
@@ -205,6 +252,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             ),
                           ),
                           const SizedBox(height: 48),
+                          _buildSectionTitle('Mobile Classes'),
+                          const SizedBox(height: 16),
+                          _buildMobileClassesCard(),
+                          const SizedBox(height: 48),
                           _buildSectionTitle('About'),
                           const SizedBox(height: 16),
                           _buildVersionCard(),
@@ -215,6 +266,112 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMobileClassesCard() {
+    return StreamBuilder<bool>(
+      stream: MobileClassesAccessService.watchAllowAllTeachers(),
+      builder: (context, snapshot) {
+        final allowAll = snapshot.data == true;
+        final loading = snapshot.connectionState == ConnectionState.waiting;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff0EA5E9).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.tablet_mac,
+                      color: Color(0xff0EA5E9),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Allow teachers to teach from mobile',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xff111827),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Enable for all teachers, or restrict to selected teachers.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xff6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: allowAll,
+                    onChanged: (loading || _updatingMobileClasses)
+                        ? null
+                        : _setAllowAllTeachers,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _openMobileClassesManager,
+                    icon: const Icon(Icons.manage_accounts),
+                    label: Text(
+                      'Manage teachers',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xff0386FF),
+                      side: const BorderSide(color: Color(0xff0386FF)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      allowAll
+                          ? 'Currently enabled for all teachers.'
+                          : 'Currently enabled only for selected teachers.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xff6B7280),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

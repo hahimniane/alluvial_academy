@@ -1136,7 +1136,7 @@
   "formFields": "Champs de formulaire",
   "formLinkedToShiftSuccessfullyPayment": "Formulaire lié au paiement réussi",
   "formListResponseCounts": "Nombres de réponses à la liste de formulaires",
-  "formNotFoundIdFormidPlease": "Formulaire Non trouvé Id Form S'il vous plaît.",
+  "formNotFoundIdFormidPlease": "Formulaire introuvable (ID : {formId}). Veuillez sélectionner un autre formulaire.",
   "formNotFoundPleaseContactAdmin": "Formulaire non trouvé Veuillez contacter Admin",
   "formResponses2": "Réponses au formulaire2",
   "formSavedSuccessfully": "Formulaire sauvegardé avec succès",
@@ -1207,7 +1207,7 @@
   "iMemorizeLessThanJuzuAnma": "Je mémorise moins que Juzu Anna",
   "iconDescription": "Désignation des icônes",
   "idCode": "Code d'identification",
-  "idDisplaystudentcode": "Id Affiche le code étudiant",
+  "idDisplaystudentcode": "ID : {studentCode}",
   "ifLeftBlankASecurePassword": "Si gauche blanc ASecure Mot de passe",
   "ifYouBelieveThereSAn": "Si vous y croyez SAn",
   "imageUploadFailed": "Impossible de télécharger l'image",
@@ -1939,17 +1939,17 @@
   "statsEditor": "Éditeur de statistiques",
   "status": "État",
   "statusStatus": "État d ' avancement",
-  "statusUpdatedToNewstatus": "État mis à jour vers Newstatus",
-  "statusUpdatedToStatus": "État mis à jour",
+  "statusUpdatedToNewstatus": "État mis à jour vers {newStatus}",
+  "statusUpdatedToStatus": "État mis à jour vers {status}",
   "stayOnTrackWithReminders": "Restez sur la bonne voie avec les rappels",
   "stepnumberOfTotalsteps": "Nombre d'étapes",
   "stillNoInternetConnectionPleaseTry": "Toujours aucune connexion Internet Veuillez essayer",
   "storageService": "Service de stockage",
   "structuredLearningPaths": "Voies d'apprentissage structurées",
   "student1": "Étudiant1",
-  "studentAccountCreatedIdStudentcode": "Création du compte étudiant Code étudiant",
+  "studentAccountCreatedIdStudentcode": "Compte étudiant créé. ID : {studentCode}",
   "studentApplicants": "Candidats étudiants",
-  "studentIdStudentcode": "Code étudiant",
+  "studentIdStudentcode": "ID étudiant : {studentCode}",
   "studentJoined": "Étudiant rejoint",
   "studentLoginCredentials": "Connexion étudiante Pouvoirs",
   "studentProgressOverview": "Aperçu des progrès des élèves",
@@ -1961,8 +1961,8 @@
   "studentsWillAppearHereAfterYou": "Les étudiants apparaîtront ici après vous",
   "subTasksOptional": "Sous-tâches Facultative",
   "subject": "Sujet",
-  "subjectDisplaynameAddedSuccessfully": "Nom d'affichage du sujet Ajouté avec succès",
-  "subjectDisplaynameUpdatedSuccessfully": "Nom d'affichage du sujet Mis à jour avec succès",
+  "subjectDisplaynameAddedSuccessfully": "Sujet \"{displayName}\" ajouté avec succès",
+  "subjectDisplaynameUpdatedSuccessfully": "Sujet \"{displayName}\" mis à jour avec succès",
   "subjectHourlyRates": "Sujet Taux horaires",
   "subjectManagement": "Gestion des sujets",
   "subjectName": "Nom du sujet",
@@ -2016,6 +2016,7 @@
   "taskName2": "Nom de la tâche2",
   "taskReminders": "Rappel des tâches",
   "taskTitle": "Titre de la tâche",
+  "taskSubtasksCount": "Sous-tâches : {count}",
   "taskUnarchived": "Tâche non archivée",
   "teachForUs": "Apprenez-nous",
   "teacherApplicants": "Candidats enseignants",
@@ -2056,15 +2057,15 @@
   "testimonialsEditor": "Éditeur de témoignages",
   "testingConnection": "Essai de connexion",
   "text": "Texte",
-  "text10": "Texte10",
+  "text10": "*",
   "text2": "Texte2",
   "text3": "Texte3",
-  "text4": "Texte4",
-  "text5": "Texte5",
-  "text6": "Texte6",
+  "text4": "#",
+  "text5": "Non renseigné",
+  "text6": " • ",
   "text7": "Texte7",
-  "text8": "Texte8",
-  "text9": "Texte9",
+  "text8": "à",
+  "text9": " • ",
   "thankYouForYourInterestIn": "Merci de votre intérêt pour",
   "thankYouForYourInterestIn2": "Merci de votre intérêt pour In2",
   "thankYouForYourInterestIn3": "Merci de votre intérêt pour In3",
@@ -2118,7 +2119,7 @@
   "timesheetSubmittedForReview": "Calendrier soumis à l'examen",
   "timesheetWasEdited": "La feuille de temps a été modifiée",
   "timesheets": "Feuilles horaires",
-  "timezoneUpdatedToSelectedtimezone": "Timezone Mise à jour vers SelectedTimezone",
+  "timezoneUpdatedToSelectedtimezone": "Fuseau horaire mis à jour vers {timezone}",
   "tipIfYouJustCompletedPayment": "Conseil Si vous venez de compléter le paiement",
   "title": "Titre",
   "to": "Aux",
@@ -2250,7 +2251,7 @@
   "yearlyRecurrenceSettings": "Paramètres annuels de récurrence",
   "yesAndAlways": "Oui et toujours",
   "yesUpdateTemplate": "Oui Modèle de mise à jour",
-  "youAreAboutToRejectCount": "Vous êtes sur le point de rejeter le compte",
+  "youAreAboutToRejectCount": "{count, plural, =1{Vous êtes sur le point de rejeter 1 feuille de temps.} other{Vous êtes sur le point de rejeter {count} feuilles de temps.}}",
   "youAreNotAssignedToThis": "Vous n'êtes pas assigné à ceci",
   "youCanAddMultipleStudentsIn": "Vous pouvez ajouter plusieurs étudiants dans",
   "youCanOnlyDeleteTasksYou": "Vous ne pouvez supprimer que les tâches Toi",
@@ -3084,7 +3085,7 @@
   "performanceLogViewerFast": "FAST",
   "performanceLogViewerAvg": "Avg",
   "adminSettingsNotificationemail": "Notification Email",
-  "notificationPreferencesMinutesmin": "$minutes min",
+  "notificationPreferencesMinutesmin": "{minutes} min",
   "quickTasksAssignedby": "Assigned By",
   "quickTasksLabels": "Labels",
   "quickTasksAssignedbyme": "Assigned by Me",
@@ -3118,7 +3119,7 @@
   "financialSummaryOutstanding": "Outstanding",
   "zoomCheckingwhosintheroom": "Checking who’s in the room…",
   "zoomUnabletoloadparticipants": "Unable to load participants",
-  "zoomInclassnowcount": "In class now: $count",
+  "zoomInclassnowcount": "En classe maintenant : {count}",
   "studentFeatureTourLive": "LIVE",
   "studentFeatureTourJoinnow": "JOIN NOW",
   "studentFeatureTourStartingsoon": "Starting soon",
@@ -3647,6 +3648,11 @@
   "livekitPip": "Image dans l'image",
   "livekitQuran": "Coran",
   "livekitLeave": "Quitter",
+  "whiteboard": "Tableau blanc",
+  "whiteboardClose": "Fermer tableau",
+  "whiteboardTeacherView": "Tableau de l'enseignant",
+  "whiteboardViewOnly": "Lecture seule",
+  "whiteboardStudentsCanDraw": "Les élèves peuvent dessiner",
   "parentInvoiceDueDate": "Échéance {date}",
   "@parentInvoiceDueDate": {
     "placeholders": {
@@ -3666,5 +3672,80 @@
     "placeholders": {
       "role": {}
     }
-  }
+  },
+  "navTutor": "Tuteur",
+  "tutorTitle": "Tuteur IA",
+  "tutorSubtitle": "Votre assistant d'apprentissage personnel",
+  "tutorConnecting": "Connexion à votre tuteur...",
+  "tutorConnectionError": "Erreur de connexion",
+  "tutorConnectionFailed": "Échec de la connexion au tuteur IA. Veuillez réessayer.",
+  "tutorMicPermissionRequired": "L'autorisation du microphone est requise pour parler au tuteur IA.",
+  "tutorNotAvailableForRole": "Le tuteur IA est disponible uniquement pour les étudiants.",
+  "tutorServiceUnavailable": "Le service de tuteur IA est actuellement indisponible. Veuillez réessayer plus tard.",
+  "tutorListening": "À l'écoute...",
+  "tutorWaitingForAgent": "Connexion à Alluwal",
+  "tutorSpeakNow": "Posez-moi n'importe quelle question sur vos études!",
+  "tutorAgentConnecting": "Alluwal arrive...",
+  "tutorMicOn": "Micro activé",
+  "tutorMicOff": "Micro désactivé",
+  "tutorEndSession": "Terminer",
+  "tutorStartSession": "Commencer la session",
+  "tutorDescription": "Parlez à Alluwal, votre compagnon d'apprentissage IA. Posez des questions sur les matières scolaires ou explorez les histoires de l'histoire islamique.",
+
+  "classJoin": "Rejoindre",
+  "classMeetingNotReady": "Réunion pas prête",
+  "classJoinIn": "Rejoindre ({time})",
+  "@classJoinIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "classEnded": "Terminé",
+  "classFilterAll": "Tous",
+  "classFilterJoinable": "Disponibles",
+  "classFilterActive": "Actifs",
+  "classFilterUpcoming": "À venir",
+  "classFilterPast": "Passés",
+  "livekitErrorNotDeployed": "Fonction de présence non déployée",
+  "livekitErrorPermissionDenied": "Permission refusée",
+  "livekitErrorUnauthenticated": "Veuillez vous reconnecter",
+  "livekitErrorServiceUnavailable": "Service indisponible",
+  "classAvailableWhenJoinable": "Disponible lorsque le cours peut être rejoint",
+  "classNoOneJoinedYet": "Personne n'a encore rejoint",
+  "classesMyClasses": "Mes cours",
+  "classesYourClasses": "Vos cours",
+  "classesJoinDescription": "Rejoignez vos cours directement dans l'application. Le bouton Rejoindre devient actif 10 minutes avant le début du cours.",
+  "filtersCount": "Filtres ({count})",
+  "@filtersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterAny": "Tous",
+  "classesNoActiveClassesNow": "Aucun cours actif en ce moment",
+  "classesSwitchTimeFilter": "Changez le filtre Heure sur À venir ou Tous pour parcourir d'autres cours.",
+  "classesResultsCount": "{count, plural, =1{1 résultat} other{{count} résultats}}",
+  "@classesResultsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classesParticipantsCount": "Participants ({count})",
+  "@classesParticipantsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classesNoMatchFilters": "Aucun cours ne correspond à vos filtres",
+  "classesNoClassesFound": "Aucun cours trouvé",
+  "classesTryAdjustingFilters": "Essayez d'ajuster vos filtres ou de les effacer.",
+  "classesTryClearingFilters": "Essayez d'effacer les filtres ou revenez plus tard."
 }

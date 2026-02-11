@@ -2319,7 +2319,7 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                   radius: 16,
                   backgroundColor: const Color(0xff0386FF),
                   child: Text(
-                    AppLocalizations.of(context)!.remainingcount,
+                    '+$remainingCount',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -3088,7 +3088,10 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                       ),
                     ),
                     // Sub-tasks count
-                    Text(AppLocalizations.of(context)!.text3, style: TextStyle(fontSize: 12, color: Color(0xff6B7280))),
+                    Text(
+                      AppLocalizations.of(context)!.taskSubtasksCount(task.subTaskIds.length),
+                      style: TextStyle(fontSize: 12, color: Color(0xff6B7280)),
+                    ),
                     // Labels display
                     if (task.labels.isNotEmpty)
                       ...task.labels.take(2).map((label) => Container(
@@ -3687,8 +3690,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         _isBulkMode = false;
       });
       if (mounted) {
+        final noun = selectedCount == 1 ? 'task' : 'tasks';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.updatedSelectedcountTaskS)),
+          SnackBar(content: Text('Updated $selectedCount $noun')),
         );
       }
     } catch (e) {
@@ -3717,8 +3721,9 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
         _isBulkMode = false;
       });
       if (mounted) {
+        final noun = selectedCount == 1 ? 'task' : 'tasks';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.updatedSelectedcountTaskS)),
+          SnackBar(content: Text('Updated $selectedCount $noun')),
         );
       }
     } catch (e) {

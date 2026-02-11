@@ -653,7 +653,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  AppLocalizations.of(context)!.completedcountCompleted,
+                                  '$completedCount completed',
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,

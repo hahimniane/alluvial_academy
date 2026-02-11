@@ -24,6 +24,7 @@ import '../../profile/screens/teacher_profile_screen.dart';
 import '../../student/screens/student_classes_screen.dart'; // Student classes screen
 import '../../admin/screens/admin_classes_screen.dart'; // Admin classes screen
 import '../../quiz/screens/quiz_home_screen.dart'; // Quiz feature
+import '../../tutor/screens/ai_tutor_screen.dart'; // AI Tutor feature
 
 // Onboarding imports
 import '../../../core/services/onboarding_service.dart';
@@ -460,6 +461,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         const QuizHomeScreen(), // Quiz feature
         const ChatPage(),
         const QuickTasksScreen(),
+        // Note: AI Tutor is accessed via FAB, not bottom navigation
       ];
     }
 
@@ -771,6 +773,29 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
         ],
       ),
       body: _screens[_selectedIndex],
+      // AI Tutor FAB for students
+      floatingActionButton: _userRole?.toLowerCase() == 'student'
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AITutorScreen(),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFF0E72ED),
+              icon: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+              label: Text(
+                AppLocalizations.of(context)!.navTutor,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,

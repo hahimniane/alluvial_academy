@@ -177,13 +177,23 @@ class UserRoleService {
           }
         }
 
-        // Fallback: Query by email
+        // Fallback: Query by email field (try both 'email' and 'e-mail' variants)
         if (userData == null) {
-          final QuerySnapshot userQuery = await _firestore
+          // First try 'email' field (standard)
+          QuerySnapshot userQuery = await _firestore
               .collection('users')
-              .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
+              .where('email', isEqualTo: currentUser.email?.toLowerCase())
               .limit(1)
               .get();
+
+          // If not found, try 'e-mail' field (legacy)
+          if (userQuery.docs.isEmpty) {
+            userQuery = await _firestore
+                .collection('users')
+                .where('e-mail', isEqualTo: currentUser.email?.toLowerCase())
+                .limit(1)
+                .get();
+          }
 
           if (userQuery.docs.isEmpty) return null;
 

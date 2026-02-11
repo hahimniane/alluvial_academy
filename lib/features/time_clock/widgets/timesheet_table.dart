@@ -2298,7 +2298,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               items: [0, 15, 30, 45, 60, 90].map((minutes) {
                 return DropdownMenuItem(
                   value: minutes,
-                  child: Text(AppLocalizations.of(context)!.minutesMinutes),
+                  child: Text('$minutes min'),
                 );
               }).toList(),
             ),

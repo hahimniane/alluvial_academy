@@ -22,6 +22,7 @@ const paymentHandlers = require('./handlers/payments');
 const noShowHandlers = require('./handlers/no_show');
 const chatHandlers = require('./handlers/chat');
 const directCallHandlers = require('./handlers/direct_calls');
+const aiTutorHandlers = require('./handlers/ai_tutor');
 // Temporarily commented out to allow deployment
 // const { fixDecemberForms } = require('./fix_december_forms');
 const newImplementation = require('./new_implementation');
@@ -294,3 +295,7 @@ exports.revertLiveKitMigration = migrationLivekitHandlers.revertLiveKitMigration
 // Password Management Functions
 exports.resetStudentPassword = passwordHandlers.resetStudentPassword;
 exports.syncAllStudentPasswords = passwordHandlers.syncAllStudentPasswords;
+
+// AI Tutor Functions
+exports.getAITutorToken = aiTutorHandlers.getAITutorToken;
+exports.endAITutorSession = aiTutorHandlers.endAITutorSession;

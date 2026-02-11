@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/teaching_shift.dart';
 import '../enums/shift_enums.dart';
 import '../utils/app_logger.dart';
+import 'mobile_classes_access_service.dart';
 import 'user_role_service.dart';
 import 'livekit_service.dart';
 import 'join_link_service.dart';
@@ -50,6 +53,7 @@ class VideoCallService {
       }
       return;
     }
+    final email = currentUser!.email;
 
     var isAllowed = uid == shift.teacherId || shift.studentIds.contains(uid);
     if (!isAllowed) {
@@ -76,6 +80,43 @@ class VideoCallService {
       return;
     }
 
+    // Teachers hosting from the native mobile app (iOS/Android) must be enabled by admins.
+    final isNativeMobile = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    final isTeacherForShift = uid == shift.teacherId;
+
+    if (isNativeMobile && isTeacherForShift) {
+      // Primary admins can always join for support/testing.
+      final userData = await UserRoleService.getCurrentUserData();
+      final primaryRole =
+          (userData?['user_type'] as String?)?.trim().toLowerCase();
+      final isPrimaryAdmin =
+          primaryRole == 'admin' || primaryRole == 'super_admin';
+
+      if (!isPrimaryAdmin) {
+        final allowed = await MobileClassesAccessService.canTeacherHostFromMobile(
+          uid: uid,
+          email: email,
+        );
+        if (!allowed) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Mobile app classes are not enabled for your account. Please contact an administrator.',
+                ),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    if (!context.mounted) return;
     await LiveKitService.joinClass(context, shift, isTeacher: isTeacher);
   }
 

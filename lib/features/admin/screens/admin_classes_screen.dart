@@ -403,7 +403,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            AppLocalizations.of(context)!.participantcountInClass,
+                            '$participantCount in class',
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

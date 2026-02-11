@@ -2525,7 +2525,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${AppLocalizations.of(context)!.successcountSuccessfulN}\n'
+                      '✅ $successCount successful\n'
                       '❌ ${errorDetails.length} errors\n'
                       '⏭️ $skippedCount skipped (no data)',
                       style: GoogleFonts.inter(
@@ -6789,7 +6789,7 @@ class _FormRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.enseignantTeachername,
+                  'Teacher: $teacherName',
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,

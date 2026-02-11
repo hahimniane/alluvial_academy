@@ -10,8 +10,10 @@ import '../../../core/services/profile_picture_service.dart';
 import '../../../core/services/language_service.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/services/onboarding_service.dart';
+import '../../../core/services/mobile_classes_access_service.dart';
 import '../../onboarding/services/student_feature_tour.dart';
 import 'notification_preferences_screen.dart';
+import '../../admin/screens/mobile_classes_access_screen.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 
@@ -28,6 +30,7 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
   String? _userRole;
   bool _isLoading = true;
   bool _isUploadingPicture = false;
+  bool _updatingMobileClasses = false;
 
   @override
   void initState() {
@@ -57,6 +60,18 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
   }
   
   bool get _isStudent => _userRole == 'student';
+  bool get _isAdmin {
+    final fromUserType =
+        (_userData?['user_type'] as String?)?.trim().toLowerCase();
+    final fromRole = (_userData?['role'] as String?)?.trim().toLowerCase();
+    final fromActive = (_userRole ?? '').trim().toLowerCase();
+    return fromUserType == 'admin' ||
+        fromUserType == 'super_admin' ||
+        fromRole == 'admin' ||
+        fromRole == 'super_admin' ||
+        fromActive == 'admin' ||
+        fromActive == 'super_admin';
+  }
 
   String _languageLabel(AppLocalizations l10n, Locale locale) {
     switch (locale.languageCode) {
@@ -147,6 +162,43 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
   ) {
     languageService.setLocale(locale);
     Navigator.pop(context);
+  }
+
+  Future<void> _setAllowAllTeachers(bool allowAll) async {
+    if (_updatingMobileClasses) return;
+
+    setState(() => _updatingMobileClasses = true);
+    try {
+      await MobileClassesAccessService.setAllowAllTeachers(allowAll);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            allowAll
+                ? 'All teachers can now teach from the mobile app'
+                : 'Mobile app classes are now restricted to selected teachers',
+          ),
+          backgroundColor: const Color(0xff10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update setting: $e'),
+          backgroundColor: const Color(0xffEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingMobileClasses = false);
+      }
+    }
   }
 
   Widget _buildLanguageOption({
@@ -1034,6 +1086,79 @@ class _MobileSettingsScreenState extends State<MobileSettingsScreen> {
                   ),
                   const Divider(height: 1, indent: 56),
                   _buildDarkModeToggle(),
+                  if (_isAdmin) ...[
+                    const Divider(height: 1, indent: 56),
+                    StreamBuilder<bool>(
+                      stream: MobileClassesAccessService.watchAllowAllTeachers(),
+                      builder: (context, snapshot) {
+                        final allowAll = snapshot.data == true;
+                        final subtitle = allowAll
+                            ? 'Enabled for all teachers'
+                            : 'Enabled for selected teachers';
+                        return ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0386FF).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.tablet_mac,
+                              color: Color(0xff0386FF),
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            'Mobile Classes',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Text(
+                            subtitle,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.color,
+                            ),
+                          ),
+                          trailing: Switch(
+                            value: allowAll,
+                            onChanged:
+                                _updatingMobileClasses ? null : _setAllowAllTeachers,
+                            activeThumbColor: const Color(0xff0386FF),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const MobileClassesAccessScreen(),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    _buildSettingsTile(
+                      icon: Icons.manage_accounts_outlined,
+                      title: 'Manage Teachers',
+                      subtitle: 'Enable mobile classes for specific teachers',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const MobileClassesAccessScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),

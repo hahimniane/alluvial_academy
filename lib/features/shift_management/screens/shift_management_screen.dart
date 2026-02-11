@@ -2638,7 +2638,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         countryCode: '',
         mobilePhone: '',
         userType: 'teacher',
-        title: AppLocalizations.of(context)!.text2,
+        title: l10n.commonNotAvailable,
         employmentStartDate: '',
         kioskCode: '',
         dateAdded: '',

@@ -196,7 +196,7 @@ class _TeacherApplicationManagementScreenState extends State<TeacherApplicationM
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.statusUpdatedToNewstatus),
+            content: Text(AppLocalizations.of(context)!.statusUpdatedToNewstatus(newStatus)),
             backgroundColor: Colors.green,
           ),
         );
