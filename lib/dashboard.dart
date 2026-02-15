@@ -3,6 +3,7 @@ import 'features/dashboard/screens/admin_dashboard_screen.dart';
 import 'features/chat/screens/chat_page.dart';
 import 'form_screen.dart';
 import 'features/forms/screens/form_responses_screen.dart';
+import 'features/forms/screens/admin_all_submissions_screen.dart';
 import 'job_scheduling.dart';
 import 'features/time_clock/screens/time_clock_screen.dart';
 import 'features/time_clock/screens/admin_timesheet_review.dart';
@@ -33,6 +34,7 @@ import 'features/teacher_applications/screens/teacher_application_management_scr
 import 'features/settings/screens/admin_settings_screen.dart';
 import 'admin/screens/admin_audit_screen.dart';
 import 'features/audit/screens/teacher_audit_screen.dart';
+import 'features/audit/screens/teacher_audit_detail_screen.dart';
 import 'admin/screens/test_audit_generation.dart';
 import 'features/forms/screens/teacher_forms_screen.dart';
 import 'features/dashboard/screens/teacher_job_board_screen.dart';
@@ -152,10 +154,11 @@ class _DashboardPageState extends State<DashboardPage> {
         const AdminSettingsScreen(),
         // Additional screens for admin and teacher features
         const AdminAuditScreen(), // Index 19
-        const TeacherAuditScreen(), // Index 20 - My Report
+        const TeacherAuditDetailScreen(), // Index 20 - Mon rapport mensuel (3 tabs: Résumé, Mes classes, Contester)
         const TestAuditGenerationScreen(), // Index 21
         const TeacherFormsScreen(), // Index 22 - Submit Form
         const TeacherJobBoardScreen(), // Index 23 - Job Board / Opportunities
+        const AdminAllSubmissionsScreen(), // Index 24 - All submissions (admin)
       ];
 
   /// Updates the selected index when a navigation item is tapped

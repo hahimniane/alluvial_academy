@@ -70,6 +70,10 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     if (oldWidget.searchQuery != widget.searchQuery && _searchController.text != widget.searchQuery) {
       _searchController.text = widget.searchQuery;
     }
+    // Invalidate shift cache when shifts or week changes
+    if (oldWidget.shifts != widget.shifts || oldWidget.weekStart != widget.weekStart) {
+      _invalidateShiftCache();
+    }
   }
 
   @override
@@ -91,6 +95,9 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
         final weekNavWidth = widget.onWeekChanged != null ? 80.0 : 0.0;
         final dayColumnWidth = ((availableWidth - userColumnWidth - weekNavWidth) / 7).clamp(40.0, double.infinity);
 
+        // Pre-compute grouped list once, not per-row
+        final groupedItems = _buildGroupedUserList(filteredUsers);
+
         return Column(
           children: [
             // Header Row with Days - compact
@@ -99,13 +106,12 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
             // Scrollable User Rows
             Expanded(
               child: ListView.builder(
-                itemCount: _buildGroupedUserList(filteredUsers).length,
+                itemCount: groupedItems.length,
                 itemBuilder: (context, index) {
-                  final item = _buildGroupedUserList(filteredUsers)[index];
+                  final item = groupedItems[index];
                   if (item.isHeader) {
                     return _buildSectionHeader(item);
                   }
-                  // FIX: Pass the weekNavWidth here
                   return _buildUserShiftRow(
                       item.user!, weekDays, userColumnWidth, dayColumnWidth, weekNavWidth);
                 },
@@ -763,18 +769,43 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
     }).toList();
   }
 
+  // Cached lookup maps for O(1) shift matching (rebuilt when widget updates)
+  Map<String, List<TeachingShift>>? _shiftsByTeacherId;
+  Map<String, Map<String, List<TeachingShift>>>? _shiftsByTeacherAndDay;
+
+  Map<String, List<TeachingShift>> _getShiftsByTeacherId() {
+    if (_shiftsByTeacherId != null) return _shiftsByTeacherId!;
+    _shiftsByTeacherId = <String, List<TeachingShift>>{};
+    for (final shift in widget.shifts) {
+      _shiftsByTeacherId!.putIfAbsent(shift.teacherId, () => []).add(shift);
+    }
+    return _shiftsByTeacherId!;
+  }
+
+  String _dayKey(DateTime day) => '${day.year}-${day.month}-${day.day}';
+
+  Map<String, Map<String, List<TeachingShift>>> _getShiftsByTeacherAndDay() {
+    if (_shiftsByTeacherAndDay != null) return _shiftsByTeacherAndDay!;
+    _shiftsByTeacherAndDay = <String, Map<String, List<TeachingShift>>>{};
+    for (final shift in widget.shifts) {
+      final dk = _dayKey(DateTime(shift.shiftStart.year, shift.shiftStart.month, shift.shiftStart.day));
+      _shiftsByTeacherAndDay!
+          .putIfAbsent(shift.teacherId, () => {})
+          .putIfAbsent(dk, () => [])
+          .add(shift);
+    }
+    return _shiftsByTeacherAndDay!;
+  }
+
+  void _invalidateShiftCache() {
+    _shiftsByTeacherId = null;
+    _shiftsByTeacherAndDay = null;
+  }
+
   List<TeachingShift> _getUserShiftsForDay(Employee user, DateTime day) {
-    // Get user ID from email
-    final userShifts = widget.shifts.where((shift) {
-      // Match by teacher name (since we don't have direct email mapping here)
-      final shiftTeacherName = shift.teacherName.toLowerCase();
-      final userName = '${user.firstName} ${user.lastName}'.toLowerCase();
-      return shiftTeacherName == userName;
-    }).toList();
-    
-    return _getShiftsForDay(day).where((shift) {
-      return userShifts.any((s) => s.id == shift.id);
-    }).toList();
+    final map = _getShiftsByTeacherAndDay();
+    final dk = _dayKey(DateTime(day.year, day.month, day.day));
+    return map[user.documentId]?[dk] ?? [];
   }
 
   _DayStats _calculateDayStats(List<TeachingShift> dayShifts) {
@@ -795,12 +826,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 
   String _getUserTotalHours(Employee user) {
-    final userShifts = widget.shifts.where((shift) {
-      final shiftTeacherName = shift.teacherName.toLowerCase();
-      final userName = '${user.firstName} ${user.lastName}'.toLowerCase();
-      return shiftTeacherName == userName;
-    }).toList();
-
+    final userShifts = _getShiftsByTeacherId()[user.documentId] ?? [];
     double totalHours = 0;
     for (var shift in userShifts) {
       final duration = shift.shiftEnd.difference(shift.shiftStart);
@@ -810,11 +836,7 @@ class _WeeklyScheduleGridState extends State<WeeklyScheduleGrid> {
   }
 
   int _getUserShiftCount(Employee user) {
-    return widget.shifts.where((shift) {
-      final shiftTeacherName = shift.teacherName.toLowerCase();
-      final userName = '${user.firstName} ${user.lastName}'.toLowerCase();
-      return shiftTeacherName == userName;
-    }).length;
+    return (_getShiftsByTeacherId()[user.documentId] ?? []).length;
   }
 }
 

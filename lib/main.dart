@@ -1145,7 +1145,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
           child: Container(
             constraints: const BoxConstraints(maxWidth: 450),
             margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(48),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -1165,54 +1165,54 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                 Column(
                   children: [
                     Container(
-                      width: 280,
-                      height: 280,
+                      width: 170,
+                      height: 170,
                       decoration: BoxDecoration(
                         color: const Color(0xffF8FAFC),
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.08),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(20),
                         child: Container(
                           color: const Color(0xffF8FAFC),
                           child: Image.asset(
                             'assets/Alluwal_Education_Hub_Logo.png',
-                            width: 280,
-                            height: 280,
+                            width: 170,
+                            height: 170,
                             fit: BoxFit.contain,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 14),
                     Text(
                       AppLocalizations.of(context)!.loginWelcomeBack,
                       style: GoogleFonts.inter(
-                        fontSize: 28,
+                        fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xff111827),
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       AppLocalizations.of(context)!.pleaseSignInToYourAccount,
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 15,
                         color: const Color(0xff6B7280),
                         fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 20),
 
                 // Login Mode Toggle
                 Row(
@@ -1237,7 +1237,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // Email or Student ID Field
                 Column(
@@ -1251,7 +1251,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         color: const Color(0xff374151),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     TextFormField(
                       controller: emailAddressController,
                       keyboardType: TextInputType.text,
@@ -1292,14 +1292,14 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         filled: true,
                         fillColor: const Color(0xffF9FAFB),
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
+                          horizontal: 14,
+                          vertical: 12,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
 
                 // Password Field
                 Column(
@@ -1313,7 +1313,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         color: const Color(0xff374151),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     TextFormField(
                       controller: passwordController,
                       obscureText: _obscurePassword,
@@ -1366,14 +1366,14 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                         filled: true,
                         fillColor: const Color(0xffF9FAFB),
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
+                          horizontal: 14,
+                          vertical: 12,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Forgot Password
                 Align(
@@ -1394,11 +1394,11 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
 
                 // Sign In Button
                 SizedBox(
-                  height: 48,
+                  height: 44,
                   child: ElevatedButton(
                     onPressed: _handleSignIn,
                     style: ElevatedButton.styleFrom(
@@ -1418,7 +1418,7 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
 
                 // Divider
                 Row(
@@ -1447,11 +1447,11 @@ class _EmployeeHubAppState extends State<EmployeeHubApp> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
 
                 // Google Sign In Button
                 SizedBox(
-                  height: 48,
+                  height: 44,
                   child: OutlinedButton(
                     onPressed: _handleGoogleSignIn,
                     style: OutlinedButton.styleFrom(

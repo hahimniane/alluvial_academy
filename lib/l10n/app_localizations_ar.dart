@@ -588,6 +588,42 @@ class AppLocalizationsAr extends AppLocalizations {
   String get shiftReschedule => 'إعادة جدولة الحصة';
 
   @override
+  String shiftFilterHint(String name, int count) {
+    return 'Showing shifts for $name. Use ← → above to view other weeks, or switch to List to scroll all $count shifts';
+  }
+
+  @override
+  String get shiftReassignTeacher => 'إعادة تعيين لمعلم آخر';
+
+  @override
+  String get shiftReassignTitle => 'إعادة تعيين الحصة';
+
+  @override
+  String shiftReassignConfirm(String teacherName) {
+    return 'هل أنت متأكد من إعادة تعيين هذه الحصة إلى $teacherName؟';
+  }
+
+  @override
+  String get shiftReassignSuccess => 'تم إعادة تعيين الحصة بنجاح';
+
+  @override
+  String get shiftReassignError => 'فشل إعادة تعيين الحصة';
+
+  @override
+  String get shiftSelectTeacher => 'اختر معلمًا';
+
+  @override
+  String get shiftSearchTeacher => 'البحث عن معلمين...';
+
+  @override
+  String get shiftNoTeachersFound => 'لم يتم العثور على معلمين';
+
+  @override
+  String shiftOriginalTeacher(String teacherName) {
+    return 'الأصلي: $teacherName';
+  }
+
+  @override
   String get shiftReportIssue => 'الإبلاغ عن مشكلة';
 
   @override
@@ -925,6 +961,152 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get formNoSubmissionsYet => 'لا توجد نماذج مرسلة بعد';
+
+  @override
+  String get adminAllSubmissionsTitle => 'All Submissions (Admin)';
+
+  @override
+  String get adminSubmissionsTotal => 'Total';
+
+  @override
+  String get adminSubmissionsTeachers => 'Teachers';
+
+  @override
+  String get adminSubmissionsCompleted => 'Completed';
+
+  @override
+  String get adminSubmissionsPending => 'Pending';
+
+  @override
+  String get adminSubmissionsSearchPlaceholder =>
+      'Search by teacher or form...';
+
+  @override
+  String get adminSubmissionsTeachersAll => 'Teachers (All)';
+
+  @override
+  String get adminSubmissionsFilterTeachers => 'Teachers';
+
+  @override
+  String get adminSubmissionsFilterMonth => 'Month';
+
+  @override
+  String get adminSubmissionsFilterStatus => 'Status';
+
+  @override
+  String get adminSubmissionsAllTime => 'All Time';
+
+  @override
+  String get adminSubmissionsAllStatus => 'All Status';
+
+  @override
+  String get adminSubmissionsAllForms => 'جميع النماذج';
+
+  @override
+  String get adminSubmissionsFilterByForm => 'تصفية حسب النموذج';
+
+  @override
+  String get adminSubmissionsClearFilters => 'Clear All';
+
+  @override
+  String get adminSubmissionsViewByForm => 'View by Form';
+
+  @override
+  String get adminSubmissionsViewByTeacher => 'View by Teacher';
+
+  @override
+  String get adminSubmissionsSelectTeachers => 'Select Teachers';
+
+  @override
+  String get adminSubmissionsSelectMonth => 'Select Month';
+
+  @override
+  String get adminSubmissionsFilterByStatus => 'Filter by Status';
+
+  @override
+  String get adminSubmissionsSelectAll => 'Select All';
+
+  @override
+  String get adminSubmissionsClearAll => 'Clear All';
+
+  @override
+  String get adminSubmissionsFavoritesOnly => 'Favorites Only';
+
+  @override
+  String get adminSubmissionsApply => 'Apply';
+
+  @override
+  String get adminSubmissionsNoSubmissions => 'No submissions found';
+
+  @override
+  String get adminSubmissionsTryAdjustingFilters =>
+      'Try adjusting your filters';
+
+  @override
+  String get adminSubmissionsAddToFavorites => 'Add to favorites';
+
+  @override
+  String get adminSubmissionsLoadMore => 'تحميل المزيد';
+
+  @override
+  String get adminSubmissionsLoadOtherForms => 'تحميل النماذج الأخرى';
+
+  @override
+  String get adminSubmissionsPriorityForm => 'Priority Form';
+
+  @override
+  String get adminSubmissionsGroupedByTeacher => 'Grouped by Teacher';
+
+  @override
+  String adminSubmissionsCount(int count) {
+    return '$count submission(s)';
+  }
+
+  @override
+  String adminSubmissionsShiftDetail(String date, String students) {
+    return '$date • $students';
+  }
+
+  @override
+  String get adminSubmissionsGeneralUnknown => 'عام / غير معروف';
+
+  @override
+  String get formDefaultTitle => 'نموذج';
+
+  @override
+  String get adminPreferencesTitle => 'Admin Preferences';
+
+  @override
+  String get adminPreferencesDefaultViewMode => 'Default View Mode';
+
+  @override
+  String get adminPreferencesByTeacher => 'By Teacher';
+
+  @override
+  String get adminPreferencesByForm => 'By Form';
+
+  @override
+  String get adminPreferencesShowAllMonthsDefault =>
+      'Show All Months by Default';
+
+  @override
+  String get adminPreferencesFavoriteTeachers => 'Favorite Teachers';
+
+  @override
+  String get adminPreferencesSaved => 'Preferences saved';
+
+  @override
+  String adminPreferencesFavoriteCount(int count) {
+    return '$count teacher(s) marked as favorite';
+  }
+
+  @override
+  String get adminPreferencesUseStarHint =>
+      'Use the star icon on teacher cards to add favorites';
+
+  @override
+  String get adminPreferencesDefaultTeachersHint =>
+      'When you set favorite teachers, they are shown by default. Clear the teacher filter on the screen to see all submissions.';
 
   @override
   String get formNoResults => 'لم يتم العثور على نتائج';
@@ -3602,6 +3784,249 @@ class AppLocalizationsAr extends AppLocalizations {
   String get formSubmitted => 'Form Submitted';
 
   @override
+  String get formsWithNoSchedule => 'Forms with no schedule';
+
+  @override
+  String get auditTabOverview => 'نظرة عامة';
+
+  @override
+  String get auditTabActivity => 'النشاط';
+
+  @override
+  String get auditTabPayment => 'الدفع';
+
+  @override
+  String get auditTabForms => 'النماذج';
+
+  @override
+  String get auditKeyIndicators => 'Indicateurs clés';
+
+  @override
+  String get auditPerformanceRates => 'Taux de performance';
+
+  @override
+  String get auditIssuesAlerts => 'Issues & alertes';
+
+  @override
+  String get auditClassesCompleted => 'Classes réalisées';
+
+  @override
+  String get auditHoursTaught => 'Heures enseignées';
+
+  @override
+  String get auditCompletionRateLabel => 'Taux de complétion';
+
+  @override
+  String get auditLateClockInsLabel => 'Retards de pointage';
+
+  @override
+  String get auditClassesMissedLabel => 'Classes manquées';
+
+  @override
+  String get auditNoLateClockIns => 'Aucun';
+
+  @override
+  String get auditNoMissedClasses => 'Aucune';
+
+  @override
+  String get auditClassCompletionRate => 'Complétion des classes';
+
+  @override
+  String get auditFormComplianceLabel => 'Conformité formulaires';
+
+  @override
+  String get auditNoIssuesDetected => 'Aucune issue détectée';
+
+  @override
+  String get auditFormsAccepted => 'Acceptés';
+
+  @override
+  String get auditFormsRejected => 'Rejetés';
+
+  @override
+  String auditFormsRejectedBreakdown(int noShift, int duplicates) {
+    return '($noShift sans shift, $duplicates doublon)';
+  }
+
+  @override
+  String get auditFormStatusAccepted => 'Accepté';
+
+  @override
+  String get auditFormStatusRejectedDuplicate => 'Rejeté (doublon)';
+
+  @override
+  String get auditFormStatusRejectedNoShift => 'Rejeté (sans shift)';
+
+  @override
+  String get auditTotalLabel => 'Total';
+
+  @override
+  String get auditFormsSubmittedLabel => 'Formulaires soumis';
+
+  @override
+  String get auditGeneralOrUnlinked => 'Général / Non lié';
+
+  @override
+  String get auditNoFormsSubmitted => 'Aucun formulaire soumis';
+
+  @override
+  String get auditTierExcellent => 'Excellent';
+
+  @override
+  String get auditTierGood => 'Bien';
+
+  @override
+  String get auditTierNeedsImprovement => 'À améliorer';
+
+  @override
+  String get auditTierCritical => 'Critique';
+
+  @override
+  String get auditStatusCompleted => 'Terminé';
+
+  @override
+  String get auditStatusSubmitted => 'Soumis';
+
+  @override
+  String get auditStatusDisputed => 'Contesté';
+
+  @override
+  String get auditStatusPending => 'En attente';
+
+  @override
+  String get teacherAuditTabSummary => 'Résumé';
+
+  @override
+  String get teacherAuditTabMyClasses => 'Mes classes';
+
+  @override
+  String get teacherAuditTabDispute => 'Contester';
+
+  @override
+  String get teacherAuditPaymentSection => 'Paiement';
+
+  @override
+  String get teacherAuditPerformanceSection => 'Performance';
+
+  @override
+  String get teacherAuditNetToReceive => 'NET À PERCEVOIR';
+
+  @override
+  String get teacherAuditPointsOfAttention => 'Points d\'attention';
+
+  @override
+  String get teacherAuditReportNotAvailable => 'Rapport non disponible';
+
+  @override
+  String teacherAuditReportNotFinalizedMessage(String month) {
+    return 'Votre rapport pour $month n\'est pas encore finalisé ou n\'existe pas.';
+  }
+
+  @override
+  String get teacherAuditClassesLabel => 'Classes';
+
+  @override
+  String get teacherAuditHoursLabel => 'Heures';
+
+  @override
+  String get teacherAuditFormsLabel => 'Formulaires';
+
+  @override
+  String get teacherAuditPunctualityLabel => 'Ponctualité';
+
+  @override
+  String get teacherAuditContestationSent => 'Contestation envoyée avec succès';
+
+  @override
+  String teacherAuditContestationError(String message) {
+    return 'Erreur : $message';
+  }
+
+  @override
+  String get teacherAuditNewDispute => 'Nouvelle contestation';
+
+  @override
+  String get teacherAuditExistingDispute => 'Contestation existante';
+
+  @override
+  String get teacherAuditAdminResponse => 'Réponse admin :';
+
+  @override
+  String get teacherAuditSelectField => 'Sélectionnez un champ';
+
+  @override
+  String get teacherAuditReasonLabel => 'Raison';
+
+  @override
+  String get teacherAuditSuggestedValue => 'Valeur correcte (optionnel)';
+
+  @override
+  String get teacherAuditSendDispute => 'Envoyer la contestation';
+
+  @override
+  String get teacherAuditSending => 'Envoi...';
+
+  @override
+  String get teacherAuditDisputeInfoMessage =>
+      'Si vous pensez qu\'une donnée est incorrecte, soumettez une contestation ci-dessous. L\'équipe examinera votre demande.';
+
+  @override
+  String get teacherAuditFieldToDispute => 'Champ à contester';
+
+  @override
+  String get teacherAuditDetailReason =>
+      'Expliquez pourquoi cette donnée vous semble incorrecte...';
+
+  @override
+  String get teacherAuditExampleValue => 'Ex. : 24h, 95 %, 3 classes...';
+
+  @override
+  String get teacherAuditGross => 'Brut';
+
+  @override
+  String get teacherAuditPenalties => 'Pénalités';
+
+  @override
+  String get teacherAuditBonuses => 'Bonus';
+
+  @override
+  String get teacherAuditAdminAdjustment => 'Ajustement admin';
+
+  @override
+  String get teacherAuditDisputeFieldLabel => 'Champ';
+
+  @override
+  String get auditPaymentCalculation => 'Calcul';
+
+  @override
+  String get auditHoursWorked => 'Heures travaillées';
+
+  @override
+  String get auditTotalAdjustments => 'Ajustements totaux';
+
+  @override
+  String get auditNetToPay => 'NET À PAYER';
+
+  @override
+  String get auditNoPaymentDataAvailable =>
+      'Aucune donnée de paiement disponible';
+
+  @override
+  String get auditPaymentSummary => 'Récapitulatif de paiement';
+
+  @override
+  String get auditGrossSalary => 'Salaire brut';
+
+  @override
+  String get auditNetSalary => 'Salaire net';
+
+  @override
+  String get auditAdjustments => 'Ajustements';
+
+  @override
+  String get auditGlobalAdjustment => 'Ajustement global';
+
+  @override
   String get formTemplates => 'Form Templates';
 
   @override
@@ -4107,8 +4532,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get loadUserRoleFirst => 'Load User Role First';
 
   @override
-  String get loadingAuditsForSelectedyearmonth =>
-      'Loading Audits For Selectedyearmonth';
+  String get loadingAuditsForSelectedyearmonth => 'جاري تحميل التدقيقات…';
 
   @override
   String get loadingDashboard => 'Loading Dashboard';
@@ -4654,6 +5078,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noShiftsWithFormsFoundLink => 'No Shifts With Forms Found Link';
 
   @override
+  String get missedClassFormSubmittedRecovery =>
+      'Missed class • Form submitted (recovery)';
+
+  @override
   String get noStudentsAvailableInTheSystem =>
       'No Students Available In The System';
 
@@ -4684,7 +5112,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noTeachersFoundMakeSureTeachers =>
-      'No Teachers Found Make Sure Teachers';
+      'لم يتم العثور على معلمين. تأكد من وجود عمليات تدقيق للفترة المحددة.';
 
   @override
   String get noTemplatesForThisFrequency => 'No Templates For This Frequency';
@@ -5720,7 +6148,28 @@ class AppLocalizationsAr extends AppLocalizations {
   String get searchTasks => 'Search Tasks';
 
   @override
-  String get searchTeacher => 'Search Teacher';
+  String get searchTeacher => 'البحث بالاسم أو البريد الإلكتروني';
+
+  @override
+  String get periodOneMonth => 'شهر واحد';
+
+  @override
+  String get periodTwoMonths => 'شهران';
+
+  @override
+  String get periodCustomRange => 'نطاق مخصص';
+
+  @override
+  String get periodAllTime => 'الكل';
+
+  @override
+  String get startMonth => 'شهر البداية';
+
+  @override
+  String get endMonth => 'شهر النهاية';
+
+  @override
+  String get auditPeriodLabel => 'الفترة';
 
   @override
   String get searchTeachers => 'Search Teachers';
@@ -7849,10 +8298,125 @@ class AppLocalizationsAr extends AppLocalizations {
   String get timelineShiftUpcoming => 'UPCOMING';
 
   @override
+  String get shiftManagementTitle => 'Shift Management';
+
+  @override
+  String get shiftThisWeek => 'This week';
+
+  @override
+  String get shiftSelectDays => 'Select days';
+
+  @override
+  String get shiftNoTemplatesFound => 'No schedule templates found';
+
+  @override
+  String get shiftTimeLabel => 'Time';
+
+  @override
+  String get shiftTimePerDayLabel => 'Time per day';
+
+  @override
+  String get shiftScheduleUpdatedSuccess => 'Schedule updated successfully';
+
+  @override
+  String get shiftScheduleUpdateFailed => 'Failed to update schedule';
+
+  @override
+  String get hideFilters => 'Hide filters';
+
+  @override
+  String get showFilters => 'Show filters';
+
+  @override
   String get shiftManagementGrid => 'Grid';
 
   @override
   String get shiftManagementList => 'List';
+
+  @override
+  String shiftTabAllCount(int count) {
+    return 'All Shifts ($count)';
+  }
+
+  @override
+  String shiftTabTodayCount(int count) {
+    return 'Today ($count)';
+  }
+
+  @override
+  String shiftTabUpcomingCount(int count) {
+    return 'Upcoming ($count)';
+  }
+
+  @override
+  String shiftTabActiveCount(int count) {
+    return 'Active ($count)';
+  }
+
+  @override
+  String get shiftTemplateManagement => 'Schedule Templates';
+
+  @override
+  String get shiftTemplateDeactivate => 'Deactivate Schedule';
+
+  @override
+  String get shiftTemplateReactivate => 'Reactivate Schedule';
+
+  @override
+  String get shiftTemplateReassign => 'Reassign Schedule';
+
+  @override
+  String get shiftTemplateModifyDays => 'Modify Days';
+
+  @override
+  String get shiftTemplateDeactivateConfirm =>
+      'This will stop generating future shifts for this schedule. Existing shifts won\'t be deleted.';
+
+  @override
+  String get shiftTemplateReactivateConfirm =>
+      'This will resume generating future shifts for this schedule.';
+
+  @override
+  String get shiftTemplateDeactivated => 'Schedule deactivated';
+
+  @override
+  String get shiftTemplateReactivated => 'Schedule reactivated';
+
+  @override
+  String get shiftTemplateFilterTeacher => 'Filter by teacher';
+
+  @override
+  String get shiftTemplateCompleteSchedule => 'Complete schedule';
+
+  @override
+  String get shiftTemplateSearchPlaceholder => 'Search teacher, student...';
+
+  @override
+  String get shiftTemplateViewTemplates => 'Templates';
+
+  @override
+  String get shiftTemplateViewSchedule => 'Complete schedule';
+
+  @override
+  String get shiftTemplateAllTeachers => 'All teachers';
+
+  @override
+  String get shiftTemplateSelectTeacher => 'Select teacher';
+
+  @override
+  String get shiftTemplateStudentSchedule => 'Student schedule';
+
+  @override
+  String get shiftWeeklyScheduleSetup => 'Weekly Schedule Setup';
+
+  @override
+  String get shiftPerDayTime => 'Set time per day';
+
+  @override
+  String get shiftSameTimeAllDays => 'Same time for all days';
+
+  @override
+  String get shiftDifferentTimePerDay => 'Different time per day';
 
   @override
   String get subjectManagementDisplayname => 'Display Name *';

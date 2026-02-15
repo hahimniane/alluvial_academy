@@ -927,6 +927,218 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
     );
   }
 
+  /// Shows a dialog to reassign this shift to a different teacher
+  void _showReassignTeacherDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+    
+    // Load available teachers
+    final teachersSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('user_type', isEqualTo: 'teacher')
+        .where('is_active', isEqualTo: true)
+        .get();
+    
+    final teachers = teachersSnapshot.docs
+        .where((doc) => doc.id != widget.shift.teacherId) // Exclude current teacher
+        .map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+            'email': data['e-mail'] ?? '',
+            'timezone': data['timezone'] ?? 'UTC',
+          };
+        })
+        .where((t) => (t['name'] as String).isNotEmpty)
+        .toList()
+      ..sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+
+    if (!mounted) return;
+
+    String searchQuery = '';
+    String? selectedTeacherId;
+    String? selectedTeacherName;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = teachers.where((t) {
+              if (searchQuery.isEmpty) return true;
+              final name = (t['name'] as String).toLowerCase();
+              final email = (t['email'] as String).toLowerCase();
+              return name.contains(searchQuery.toLowerCase()) ||
+                     email.contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.swap_horiz, color: Color(0xFF8B5CF6)),
+                  const SizedBox(width: 8),
+                  Text(l10n.shiftReassignTitle,
+                      style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              content: SizedBox(
+                width: 400,
+                height: 400,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Show original teacher
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person, size: 16, color: Color(0xFFF59E0B)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.shiftOriginalTeacher(widget.shift.teacherName ?? ''),
+                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF92400E)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Search field
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: l10n.shiftSearchTeacher,
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        isDense: true,
+                      ),
+                      onChanged: (value) => setDialogState(() => searchQuery = value),
+                    ),
+                    const SizedBox(height: 8),
+                    // Teacher list
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(child: Text(l10n.shiftNoTeachersFound,
+                              style: GoogleFonts.inter(color: const Color(0xFF9CA3AF))))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final teacher = filtered[index];
+                                final isSelected = selectedTeacherId == teacher['id'];
+                                return ListTile(
+                                  dense: true,
+                                  selected: isSelected,
+                                  selectedTileColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: isSelected 
+                                        ? const Color(0xFF8B5CF6) 
+                                        : const Color(0xFF0386FF).withOpacity(0.1),
+                                    child: Text(
+                                      (teacher['name'] as String).isNotEmpty 
+                                          ? (teacher['name'] as String)[0].toUpperCase() 
+                                          : '?',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected ? Colors.white : const Color(0xFF0386FF),
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(teacher['name'] as String,
+                                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
+                                  subtitle: Text(teacher['email'] as String,
+                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF9CA3AF))),
+                                  trailing: isSelected
+                                      ? const Icon(Icons.check_circle, color: Color(0xFF8B5CF6), size: 20)
+                                      : null,
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedTeacherId = teacher['id'] as String;
+                                      selectedTeacherName = teacher['name'] as String;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(l10n.commonCancel),
+                ),
+                ElevatedButton(
+                  onPressed: selectedTeacherId == null
+                      ? null
+                      : () async {
+                          Navigator.pop(dialogContext);
+                          await _performReassignment(selectedTeacherId!, selectedTeacherName!);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text(l10n.shiftReassignTitle),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _performReassignment(String newTeacherId, String newTeacherName) async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      // Update the shift document directly in Firestore
+      await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(widget.shift.id)
+          .update({
+        'original_teacher_id': widget.shift.teacherId,
+        'original_teacher_name': widget.shift.teacherName,
+        'teacher_id': newTeacherId,
+        'teacher_name': newTeacherName,
+        'updated_at': FieldValue.serverTimestamp(),
+        'reassigned_at': FieldValue.serverTimestamp(),
+        'reassigned_by': FirebaseAuth.instance.currentUser?.uid,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.shiftReassignSuccess),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+        _loadDetails();
+        widget.onRefresh?.call();
+      }
+    } catch (e) {
+      AppLogger.error('Shift reassignment failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.shiftReassignError),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -1014,6 +1226,13 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
               ],
             ),
           ),
+          // Admin: Reassign shift to another teacher
+          if (_isAdmin && widget.shift.shiftStart.isAfter(DateTime.now()))
+            IconButton(
+              icon: const Icon(Icons.swap_horiz, color: Color(0xFF8B5CF6), size: 20),
+              tooltip: AppLocalizations.of(context)!.shiftReassignTeacher,
+              onPressed: _showReassignTeacherDialog,
+            ),
           // Reschedule & Report Issue buttons (for teachers)
           if (FirebaseAuth.instance.currentUser?.uid == widget.shift.teacherId) ...[
             // Only show reschedule if shift hasn't started yet

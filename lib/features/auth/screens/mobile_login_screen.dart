@@ -143,30 +143,30 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
             child: SingleChildScrollView(
               child: Container(
                 height: size.height - MediaQuery.of(context).padding.top,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo Section
+                    // Logo Section (minimal height so form fits without scrolling)
                     if (!keyboardVisible) ...[
                         Hero(
                           tag: 'app_logo',
                           child: Container(
-                            width: 80,
-                            height: 80,
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xff0386FF).withOpacity(0.15),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 4),
+                                  color: const Color(0xff0386FF).withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 1),
                                 ),
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(10),
                               child: Image.asset(
                                 'assets/Alluwal_Education_Hub_Logo.png',
                                 fit: BoxFit.contain,
@@ -174,33 +174,33 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 6),
                         Text(
                           l10n.loginWelcomeBack,
                           style: GoogleFonts.inter(
-                            fontSize: 24,
+                            fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xff111827),
                             letterSpacing: -0.5,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 0),
                         Text(
                           l10n.loginSignInContinue,
                           style: GoogleFonts.inter(
-                            fontSize: 14,
+                            fontSize: 12,
                             color: const Color(0xff6B7280),
                             fontWeight: FontWeight.w400,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
                     ] else ...[
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 6),
                     ],
 
                     // Login Form Card
                     Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
@@ -219,10 +219,10 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                           children: [
                             // Login Mode Toggle
                             Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
                                 color: const Color(0xffF3F4F6),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 children: [
@@ -253,18 +253,18 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 10),
 
                             // Email/Student ID Field
                             Text(
                               _useStudentIdLogin ? l10n.loginStudentId : l10n.loginEmail,
                               style: GoogleFonts.inter(
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xff374151),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             TextFormField(
                               controller: _emailController,
                               keyboardType: _useStudentIdLogin
@@ -310,8 +310,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                   ),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
+                                  horizontal: 12,
+                                  vertical: 10,
                                 ),
                                 prefixIcon: Icon(
                                   _useStudentIdLogin ? Icons.badge : Icons.email,
@@ -329,18 +329,18 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 10),
 
                             // Password Field
                             Text(
                               l10n.loginPassword,
                               style: GoogleFonts.inter(
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xff374151),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
@@ -383,8 +383,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                   ),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
+                                  horizontal: 12,
+                                  vertical: 10,
                                 ),
                                 prefixIcon: const Icon(
                                   Icons.lock,
@@ -411,11 +411,11 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: 14),
 
                             // Sign In Button
                             SizedBox(
-                              height: 56,
+                              height: 44,
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _handleSignIn,
                                 style: ElevatedButton.styleFrom(
@@ -481,7 +481,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: isActive ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -489,8 +489,8 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
                   ),
                 ]
               : null,
@@ -499,7 +499,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> with SingleTicker
           label,
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
             color: isActive ? const Color(0xff111827) : const Color(0xff6B7280),
           ),

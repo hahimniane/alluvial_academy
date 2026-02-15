@@ -172,6 +172,10 @@ class TeacherAuditFull {
   final List<Map<String, dynamic>> detailedShifts; // Full shift details
   final List<Map<String, dynamic>> detailedTimesheets; // Full timesheet details
   final List<Map<String, dynamic>> detailedForms; // Full form responses
+  /// Forms submitted in the month with no schedule associated (auditor sees same total as All Submissions).
+  final List<Map<String, dynamic>> detailedFormsNoSchedule;
+  /// Forms rejected as duplicates (second+ per shift). Each map includes 'rejectionReason': 'duplicate'.
+  final List<Map<String, dynamic>> detailedFormsRejected;
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION 6: OVERALL SCORE
@@ -233,6 +237,8 @@ class TeacherAuditFull {
     this.detailedShifts = const [],
     this.detailedTimesheets = const [],
     this.detailedForms = const [],
+    this.detailedFormsNoSchedule = const [],
+    this.detailedFormsRejected = const [],
     required this.automaticScore,
     required this.coachScore,
     required this.overallScore,
@@ -289,6 +295,8 @@ class TeacherAuditFull {
         'detailedShifts': detailedShifts,
         'detailedTimesheets': detailedTimesheets,
         'detailedForms': detailedForms,
+        'detailedFormsNoSchedule': detailedFormsNoSchedule,
+        'detailedFormsRejected': detailedFormsRejected,
         'automaticScore': automaticScore,
         'coachScore': coachScore,
         'overallScore': overallScore,
@@ -372,6 +380,14 @@ class TeacherAuditFull {
               .toList() ??
           [],
       detailedForms: (data['detailedForms'] as List<dynamic>?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ??
+          [],
+      detailedFormsNoSchedule: (data['detailedFormsNoSchedule'] as List<dynamic>?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ??
+          [],
+      detailedFormsRejected: (data['detailedFormsRejected'] as List<dynamic>?)
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           [],

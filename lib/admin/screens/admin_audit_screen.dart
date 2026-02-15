@@ -15,6 +15,7 @@ import '../../core/services/audit_performance_optimizer.dart';
 import '../../core/services/advanced_excel_export_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../features/shift_management/widgets/shift_details_dialog.dart';
+import '../../features/forms/widgets/form_details_modal.dart';
 import 'coach_evaluation_screen.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -42,6 +43,8 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
   bool _isGenerating = false;
   bool _isRefreshing = false; // Prevent multiple simultaneous refreshes
   String _selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
+  String _selectedEndYearMonth = DateFormat('yyyy-MM').format(DateTime.now()); // for two months / custom
+  String _periodMode = 'one_month'; // one_month | two_months | custom | all_time
   String _statusFilter = 'all';
   String _tierFilter = 'all';
   String _searchQuery = ''; // For search functionality
@@ -91,12 +94,28 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
     });
 
     try {
-      AppLogger.debug('Loading audits for month: $_selectedYearMonth');
-      // Use optimized parallel loading
-      final audits = await OptimizedAuditLoader.loadAuditsOptimized(
-        yearMonth: _selectedYearMonth,
-      );
-      AppLogger.debug('Loaded ${audits.length} audits for month: $_selectedYearMonth');
+      AppLogger.debug('Loading audits: periodMode=$_periodMode, start=$_selectedYearMonth, end=$_selectedEndYearMonth');
+      List<TeacherAuditFull> audits;
+      if (_periodMode == 'all_time') {
+        audits = await OptimizedAuditLoader.loadAuditsOptimized(allTime: true);
+      } else if (_periodMode == 'one_month') {
+        audits = await OptimizedAuditLoader.loadAuditsOptimized(yearMonth: _selectedYearMonth);
+      } else {
+        final months = <String>[];
+        final start = DateTime.parse('$_selectedYearMonth-01');
+        final end = DateTime.parse('$_selectedEndYearMonth-01');
+        if (end.isBefore(start)) {
+          for (var d = DateTime(end.year, end.month); !d.isAfter(DateTime(start.year, start.month)); d = DateTime(d.year, d.month + 1)) {
+            months.add(DateFormat('yyyy-MM').format(d));
+          }
+        } else {
+          for (var d = DateTime(start.year, start.month); !d.isAfter(DateTime(end.year, end.month)); d = DateTime(d.year, d.month + 1)) {
+            months.add(DateFormat('yyyy-MM').format(d));
+          }
+        }
+        audits = await OptimizedAuditLoader.loadAuditsOptimized(yearMonths: months);
+      }
+      AppLogger.debug('Loaded ${audits.length} audits');
       if (mounted) {
         setState(() {
           _audits = audits;
@@ -162,131 +181,326 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
   int get _totalPages => (_filteredAudits.length / _itemsPerPage).ceil();
 
-  void _selectMonth() async {
+  String get _periodLabel {
+    final l10n = AppLocalizations.of(context)!;
+    if (_periodMode == 'all_time') return l10n.periodAllTime;
+    if (_periodMode == 'one_month') {
+      return DateFormat('MMM yyyy').format(DateTime.parse('$_selectedYearMonth-01'));
+    }
+    final start = DateFormat('MMM yyyy').format(DateTime.parse('$_selectedYearMonth-01'));
+    final end = DateFormat('MMM yyyy').format(DateTime.parse('$_selectedEndYearMonth-01'));
+    if (start == end) return start;
+    return '$start – $end';
+  }
+
+  void _selectPeriod() async {
     HapticFeedback.lightImpact();
+    final l10n = AppLocalizations.of(context)!;
     final now = DateTime.now();
-    final months = List.generate(12, (i) {
+    final months = List.generate(24, (i) {
       final date = DateTime(now.year, now.month - i);
       return DateFormat('yyyy-MM').format(date);
     });
 
-    final selected = await showDialog<String>(
+    String? dialogMode = _periodMode;
+    String? dialogStart = _selectedYearMonth;
+    String? dialogEnd = _selectedEndYearMonth;
+
+    final result = await showDialog<Map<String, String>>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 350, // Largeur fixe pour éviter l'effet "trop grand"
-            constraints: const BoxConstraints(maxHeight: 500),
-            decoration: BoxDecoration(
-              color: Win11Colors.card,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 380,
+                constraints: const BoxConstraints(maxHeight: 520),
+                decoration: BoxDecoration(
+                  color: Win11Colors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: Win11Colors.border, width: 1),
                 ),
-              ],
-              border: Border.all(color: Win11Colors.border, width: 1),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context)!.selectPeriod,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: Win11Colors.textMain,
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => Navigator.pop(context),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.close, size: 18, color: Win11Colors.textSecondary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: Win11Colors.border),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: months.length,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemBuilder: (context, index) {
-                      final m = months[index];
-                      final date = DateTime.parse('$m-01');
-                      final isSelected = m == _selectedYearMonth;
-                      return InkWell(
-                        onTap: () => Navigator.pop(context, m),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Win11Colors.accent.withOpacity(0.1) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: isSelected
-                                ? Border.all(color: Win11Colors.accent, width: 1.5)
-                                : null,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            l10n.selectPeriod,
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Win11Colors.textMain,
+                            ),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  DateFormat('MMMM yyyy').format(date),
-                                  style: GoogleFonts.inter(
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                    fontSize: 14,
-                                    color: isSelected ? Win11Colors.accent : Win11Colors.textMain,
+                          InkWell(
+                            onTap: () => Navigator.pop(context),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(Icons.close, size: 18, color: Win11Colors.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Win11Colors.border),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _periodChip(l10n.periodOneMonth, 'one_month', dialogMode ?? 'one_month', setDialogState, (v) => dialogMode = v),
+                            const SizedBox(width: 6),
+                            _periodChip(l10n.periodTwoMonths, 'two_months', dialogMode ?? 'one_month', setDialogState, (v) => dialogMode = v),
+                            const SizedBox(width: 6),
+                            _periodChip(l10n.periodCustomRange, 'custom', dialogMode ?? 'one_month', setDialogState, (v) => dialogMode = v),
+                            const SizedBox(width: 6),
+                            _periodChip(l10n.periodAllTime, 'all_time', dialogMode ?? 'one_month', setDialogState, (v) => dialogMode = v),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (dialogMode != 'all_time') ...[
+                      if (dialogMode == 'one_month')
+                        Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: months.length,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            itemBuilder: (context, index) {
+                              final m = months[index];
+                              final date = DateTime.parse('$m-01');
+                              final isSelected = m == dialogStart;
+                              return InkWell(
+                                onTap: () => setDialogState(() => dialogStart = m),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Win11Colors.accent.withOpacity(0.1) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: isSelected ? Border.all(color: Win11Colors.accent, width: 1.5) : null,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          DateFormat('MMMM yyyy').format(date),
+                                          style: GoogleFonts.inter(
+                                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                            fontSize: 14,
+                                            color: isSelected ? Win11Colors.accent : Win11Colors.textMain,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected) Icon(Icons.check_circle, color: Win11Colors.accent, size: 20),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              if (isSelected)
-                                Icon(Icons.check_circle, color: Win11Colors.accent, size: 20)
-                              else
-                                Icon(Icons.chevron_right, size: 16, color: Win11Colors.textSecondary),
-                            ],
+                              );
+                            },
+                          ),
+                        )
+                      else if (dialogMode == 'two_months') ...[
+                        Text(l10n.startMonth, style: GoogleFonts.inter(fontSize: 12, color: Win11Colors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: months.length - 1,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            itemBuilder: (context, index) {
+                              final m = months[index];
+                              final date = DateTime.parse('$m-01');
+                              final endDate = DateTime(date.year, date.month + 1);
+                              final endStr = DateFormat('yyyy-MM').format(endDate);
+                              final isSelected = dialogStart == m;
+                              return InkWell(
+                                onTap: () => setDialogState(() {
+                                  dialogStart = m;
+                                  dialogEnd = endStr;
+                                }),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Win11Colors.accent.withOpacity(0.1) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: isSelected ? Border.all(color: Win11Colors.accent, width: 1.5) : null,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '${DateFormat('MMM yyyy').format(date)} – ${DateFormat('MMM yyyy').format(endDate)}',
+                                          style: GoogleFonts.inter(
+                                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                            fontSize: 14,
+                                            color: isSelected ? Win11Colors.accent : Win11Colors.textMain,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected) Icon(Icons.check_circle, color: Win11Colors.accent, size: 20),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ] else ...[
+                        Text(l10n.startMonth, style: GoogleFonts.inter(fontSize: 12, color: Win11Colors.textSecondary)),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 120,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: months.length,
+                            itemBuilder: (context, index) {
+                              final m = months[index];
+                              final isSelected = m == dialogStart;
+                              return InkWell(
+                                onTap: () => setDialogState(() {
+                                  dialogStart = m;
+                                  if (dialogEnd != null && dialogEnd!.compareTo(m) < 0) dialogEnd = m;
+                                }),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    DateFormat('MMMM yyyy').format(DateTime.parse('$m-01')),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                      fontSize: 13,
+                                      color: isSelected ? Win11Colors.accent : Win11Colors.textMain,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(l10n.endMonth, style: GoogleFonts.inter(fontSize: 12, color: Win11Colors.textSecondary)),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 120,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: months.length,
+                            itemBuilder: (context, index) {
+                              final m = months[index];
+                              final isSelected = m == dialogEnd;
+                              final startOk = dialogStart != null && m.compareTo(dialogStart!) >= 0;
+                              return InkWell(
+                                onTap: startOk
+                                    ? () => setDialogState(() => dialogEnd = m)
+                                    : null,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    DateFormat('MMMM yyyy').format(DateTime.parse('$m-01')),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                      fontSize: 13,
+                                      color: isSelected ? Win11Colors.accent : (startOk ? Win11Colors.textMain : Win11Colors.textSecondary),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(l10n.commonCancel),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            onPressed: () {
+                              if (dialogMode == 'all_time') {
+                                Navigator.pop(context, {'mode': 'all_time', 'start': dialogStart ?? _selectedYearMonth, 'end': dialogEnd ?? _selectedEndYearMonth});
+                              } else if (dialogMode == 'one_month' && dialogStart != null) {
+                                Navigator.pop(context, {'mode': 'one_month', 'start': dialogStart, 'end': dialogStart});
+                              } else if (dialogMode == 'two_months' && dialogStart != null && dialogEnd != null) {
+                                Navigator.pop(context, {'mode': 'two_months', 'start': dialogStart, 'end': dialogEnd});
+                              } else if (dialogMode == 'custom' && dialogStart != null && dialogEnd != null) {
+                                Navigator.pop(context, {'mode': 'custom', 'start': dialogStart, 'end': dialogEnd});
+                              }
+                            },
+                            child: Text(l10n.commonApply),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-              ],
+              ),
             ),
+          );
+        },
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _periodMode = result['mode']!;
+        _selectedYearMonth = result['start']!;
+        _selectedEndYearMonth = result['end']!;
+        _audits = [];
+        _isLoading = true;
+        _isRefreshing = false;
+      });
+      Future.microtask(() => _loadAudits(force: true));
+    }
+  }
+
+  Widget _periodChip(String label, String value, String current, void Function(void Function()) setDialogState, void Function(String) onSelect) {
+    final selected = current == value;
+    return InkWell(
+      onTap: () => setDialogState(() => onSelect(value)),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Win11Colors.accent.withOpacity(0.15) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: selected ? Border.all(color: Win11Colors.accent, width: 1.5) : null,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? Win11Colors.accent : Win11Colors.textSecondary,
           ),
         ),
       ),
     );
-
-    if (selected != null && selected != _selectedYearMonth) {
-      // Same behavior as clicking refresh button
-      HapticFeedback.lightImpact();
-      // Update state first
-      setState(() {
-        _selectedYearMonth = selected;
-        // Clear current audits and set loading state immediately
-        _audits = [];
-        _isLoading = true;
-        _isRefreshing = false; // Reset refresh state
-      });
-      // Force reload after state update completes
-      // Use Future.microtask to ensure setState completes first
-      Future.microtask(() => _loadAudits(force: true));
-    }
   }
 
   /// Show dialog to generate audits for selected teachers
@@ -356,10 +570,21 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
     if (!mounted) return;
 
+    String generateDialogSearchQuery = '';
+
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AnimatedContainer(
+        builder: (context, setDialogState) {
+          final query = generateDialogSearchQuery.toLowerCase();
+          final filteredTeachers = query.isEmpty
+              ? teachers
+              : teachers.where((t) {
+                  final name = (t['name'] as String? ?? '').toLowerCase();
+                  final email = (t['email'] as String? ?? '').toLowerCase();
+                  return name.contains(query) || email.contains(query);
+                }).toList();
+          return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -399,31 +624,39 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                   ),
                 ),
                 const SizedBox(height: 12),
+                TextField(
+                  onChanged: (value) => setDialogState(() => generateDialogSearchQuery = value),
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context)!.searchTeacher,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  style: GoogleFonts.inter(fontSize: 14),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     TextButton(
                       onPressed: () {
-                        // Select all teachers (including those with existing audits for regeneration)
-                        final allTeacherIds = teachers.map((t) => t['id'] as String).toList();
+                        // Select all visible (filtered) teachers
+                        final ids = filteredTeachers.map((t) => t['id'] as String).toList();
                         setDialogState(() {
-                          selectedTeachers.clear();
-                          selectedTeachers.addAll(allTeacherIds);
+                          selectedTeachers.addAll(ids);
                         });
                       },
                       child: Text(AppLocalizations.of(context)!.selectAll2),
                     ),
                     TextButton(
                       onPressed: () {
-                        // Select only teachers without audits
-                        final newTeachers = teachers
+                        // Select only visible teachers without audits
+                        final newTeachers = filteredTeachers
                             .where((t) => !existingAuditIds.contains(t['id']))
                             .map((t) => t['id'] as String)
                             .toList();
                         setDialogState(() {
-                          selectedTeachers.clear();
-                          if (newTeachers.isNotEmpty) {
-                            selectedTeachers.addAll(newTeachers);
-                          }
+                          selectedTeachers.addAll(newTeachers);
                         });
                       },
                       child: Text(AppLocalizations.of(context)!.selectNewOnly),
@@ -438,27 +671,30 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
                 ),
                 const Divider(),
                 Expanded(
-                  child: teachers.isEmpty
+                  child: filteredTeachers.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.person_off, size: 48, color: Colors.grey.shade400),
+                              Icon(Icons.person_search, size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 12),
                               Text(
-                                AppLocalizations.of(context)!.noTeachersFound,
+                                generateDialogSearchQuery.isEmpty
+                                    ? AppLocalizations.of(context)!.noTeachersFound
+                                    : AppLocalizations.of(context)!.noTeachersFoundMakeSureTeachers,
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   color: Colors.grey.shade600,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          itemCount: teachers.length,
+                          itemCount: filteredTeachers.length,
                           itemBuilder: (context, index) {
-                      final teacher = teachers[index];
+                      final teacher = filteredTeachers[index];
                       final teacherId = teacher['id'] as String;
                       final hasAudit = existingAuditIds.contains(teacherId);
                       final isSelected = selectedTeachers.contains(teacherId);
@@ -538,7 +774,8 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
             ),
           ],
           ),
-        ),
+        );
+        },
       ),
     );
   }
@@ -866,13 +1103,13 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
           // Header Actions (Windows 11 style)
           _buildHeaderAction(
             icon: Icons.calendar_today_outlined,
-            label: DateFormat('MMM yyyy').format(DateTime.parse('$_selectedYearMonth-01')),
-            onTap: _selectMonth,
+            label: _periodLabel,
+            onTap: _selectPeriod,
           ),
           const SizedBox(width: 8),
           _buildHeaderAction(
             icon: Icons.refresh_rounded,
-            label: 'Refresh',
+            label: AppLocalizations.of(context)!.commonRefresh,
             onTap: () {
               HapticFeedback.lightImpact();
               _loadAudits(force: true);
@@ -1667,10 +1904,11 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
         );
       }
 
-      // Use advanced Excel export with colors and formatting
+      // Use advanced Excel export with colors and formatting (locale for translated sheet/headers)
       await AdvancedExcelExportService.exportToExcel(
         audits: _filteredAudits,
         yearMonth: _selectedYearMonth,
+        locale: Localizations.localeOf(context).languageCode,
       );
 
       if (mounted) {
@@ -2075,15 +2313,45 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
 
   void _showAuditDetails(TeacherAuditFull audit) {
     HapticFeedback.lightImpact();
-    showDialog(
+    showGeneralDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (context) => _DraggableFullScreenDialog(
-        child: _AuditDetailSheet(
-          audit: audit,
-          scrollController: ScrollController(),
-        ),
-      ),
+      barrierDismissible: true,
+      barrierLabel: AppLocalizations.of(context)?.commonClose ?? 'Dismiss',
+      barrierColor: Colors.black.withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 680,
+              height: double.infinity,
+              margin: const EdgeInsets.only(top: 0, right: 0, bottom: 0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 24,
+                    offset: const Offset(-4, 0),
+                  ),
+                ],
+              ),
+              child: _AuditDetailFullPanel(audit: audit),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
+          child: child,
+        );
+      },
     );
   }
 
@@ -2640,6 +2908,994 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> with SingleTickerPr
               style: GoogleFonts.inter(fontWeight: FontWeight.w600),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full audit detail panel – 680px side panel with 4 tabs (Overview, Activity, Payment, Forms).
+class _AuditDetailFullPanel extends StatefulWidget {
+  final TeacherAuditFull audit;
+  const _AuditDetailFullPanel({required this.audit});
+
+  @override
+  State<_AuditDetailFullPanel> createState() => _AuditDetailFullPanelState();
+}
+
+class _AuditDetailFullPanelState extends State<_AuditDetailFullPanel>
+    with SingleTickerProviderStateMixin {
+  late TabController _tab;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
+
+  Color _tierColor(String tier) {
+    switch (tier) {
+      case 'excellent': return const Color(0xFF10B981);
+      case 'good': return const Color(0xFF3B82F6);
+      case 'needsImprovement': return const Color(0xFFF59E0B);
+      default: return const Color(0xFFEF4444);
+    }
+  }
+
+  String _tierLabel(String tier) {
+    switch (tier) {
+      case 'excellent': return AppLocalizations.of(context)!.auditTierExcellent;
+      case 'good': return AppLocalizations.of(context)!.auditTierGood;
+      case 'needsImprovement': return AppLocalizations.of(context)!.auditTierNeedsImprovement;
+      default: return AppLocalizations.of(context)!.auditTierCritical;
+    }
+  }
+
+  Color _statusColor(AuditStatus s) {
+    switch (s) {
+      case AuditStatus.completed: return const Color(0xFF10B981);
+      case AuditStatus.coachSubmitted: return const Color(0xFF3B82F6);
+      case AuditStatus.disputed: return const Color(0xFFEF4444);
+      default: return const Color(0xFF9CA3AF);
+    }
+  }
+
+  String _statusLabel(AuditStatus s) {
+    switch (s) {
+      case AuditStatus.completed: return AppLocalizations.of(context)!.auditStatusCompleted;
+      case AuditStatus.coachSubmitted: return AppLocalizations.of(context)!.auditStatusSubmitted;
+      case AuditStatus.disputed: return AppLocalizations.of(context)!.auditStatusDisputed;
+      default: return AppLocalizations.of(context)!.auditStatusPending;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final audit = widget.audit;
+    final tier = audit.performanceTier;
+    final tc = _tierColor(tier);
+
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: tc.withOpacity(0.15),
+                    child: Text(
+                      audit.teacherName.isNotEmpty
+                          ? audit.teacherName[0].toUpperCase()
+                          : '?',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: tc,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          audit.teacherName,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xff1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${audit.teacherEmail}  ·  ${audit.yearMonth}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff64748B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    color: const Color(0xff64748B),
+                    onPressed: () => Navigator.of(context).pop(),
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _AuditDetailPill(
+                    label: '${audit.overallScore.toStringAsFixed(0)}%',
+                    color: tc,
+                  ),
+                  const SizedBox(width: 6),
+                  _AuditDetailPill(
+                    label: _tierLabel(tier),
+                    color: tc,
+                    outlined: true,
+                  ),
+                  const SizedBox(width: 6),
+                  _AuditDetailPill(
+                    label: _statusLabel(audit.status),
+                    color: _statusColor(audit.status),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
+            ),
+          ),
+          child: TabBar(
+            controller: _tab,
+            isScrollable: false,
+            labelColor: const Color(0xff0078D4),
+            unselectedLabelColor: const Color(0xff64748B),
+            indicatorColor: const Color(0xff0078D4),
+            indicatorWeight: 2,
+            labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: GoogleFonts.inter(fontSize: 13),
+            tabs: [
+              Tab(text: AppLocalizations.of(context)!.auditTabOverview),
+              Tab(text: AppLocalizations.of(context)!.auditTabActivity),
+              Tab(text: AppLocalizations.of(context)!.auditTabPayment),
+              Tab(text: AppLocalizations.of(context)!.auditTabForms),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tab,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _AuditOverviewTab(audit: audit),
+              _AuditActivityTab(audit: audit),
+              _AuditPaymentTab(audit: audit),
+              _AuditFormsTab(audit: audit),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AuditDetailPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool outlined;
+
+  const _AuditDetailPill({required this.label, required this.color, this.outlined = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: outlined ? Colors.transparent : color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: outlined ? color : Colors.transparent),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+      ),
+    );
+  }
+}
+
+class _AuditOverviewTab extends StatelessWidget {
+  final TeacherAuditFull audit;
+  const _AuditOverviewTab({required this.audit});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasIssues = audit.issues.isNotEmpty;
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditKeyIndicators),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.6,
+          children: [
+            _AuditKpiCard(
+              icon: Icons.school_outlined,
+              color: const Color(0xFF3B82F6),
+              label: AppLocalizations.of(context)!.auditClassesCompleted,
+              value: '${audit.totalClassesCompleted} / ${audit.totalClassesScheduled}',
+            ),
+            _AuditKpiCard(
+              icon: Icons.timer_outlined,
+              color: const Color(0xFF10B981),
+              label: AppLocalizations.of(context)!.auditHoursTaught,
+              value: '${audit.totalHoursTaught.toStringAsFixed(1)} h',
+            ),
+            _AuditKpiCard(
+              icon: Icons.description_outlined,
+              color: const Color(0xFF8B5CF6),
+              label: AppLocalizations.of(context)!.auditTabForms,
+              value: '${audit.readinessFormsSubmitted} / ${audit.readinessFormsRequired}',
+            ),
+            _AuditKpiCard(
+              icon: Icons.check_circle_outline,
+              color: const Color(0xFF059669),
+              label: AppLocalizations.of(context)!.auditCompletionRateLabel,
+              value: '${audit.completionRate.clamp(0, 100).toStringAsFixed(0)}%',
+            ),
+            _AuditKpiCard(
+              icon: Icons.access_time_outlined,
+              color: audit.lateClockIns > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+              label: AppLocalizations.of(context)!.auditLateClockInsLabel,
+              value: audit.lateClockIns == 0 ? '✓ ${AppLocalizations.of(context)!.auditNoLateClockIns}' : '${audit.lateClockIns}',
+            ),
+            _AuditKpiCard(
+              icon: Icons.assignment_late_outlined,
+              color: audit.totalClassesMissed > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+              label: AppLocalizations.of(context)!.auditClassesMissedLabel,
+              value: audit.totalClassesMissed > 0 ? '${audit.totalClassesMissed}' : '✓ ${AppLocalizations.of(context)!.auditNoMissedClasses}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditPerformanceRates),
+        const SizedBox(height: 10),
+        _AuditRateBar(label: AppLocalizations.of(context)!.auditClassCompletionRate, rate: audit.completionRate, goodThreshold: 80, warningThreshold: 60),
+        const SizedBox(height: 8),
+        _AuditRateBar(label: AppLocalizations.of(context)!.punctuality, rate: audit.punctualityRate, goodThreshold: 85, warningThreshold: 70),
+        const SizedBox(height: 8),
+        _AuditRateBar(label: AppLocalizations.of(context)!.auditFormComplianceLabel, rate: audit.formComplianceRate, goodThreshold: 90, warningThreshold: 70),
+        if (audit.hoursTaughtBySubject.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _AuditSectionTitle(title: AppLocalizations.of(context)!.hoursBySubject),
+          const SizedBox(height: 10),
+          ...(audit.hoursTaughtBySubject.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+              .take(8)
+              .map((e) => _AuditSubjectRow(
+                    subject: e.key,
+                    hours: e.value,
+                    maxHours: audit.hoursTaughtBySubject.values.fold(0.0, (a, b) => a > b ? a : b),
+                  )),
+        ],
+        const SizedBox(height: 20),
+        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditIssuesAlerts),
+        const SizedBox(height: 8),
+        if (!hasIssues)
+          _AuditEmptyState(
+            icon: Icons.check_circle_outline,
+            message: AppLocalizations.of(context)!.auditNoIssuesDetected,
+            color: const Color(0xFF10B981),
+          )
+        else
+          Column(
+            children: audit.issues.map((issue) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${issue.type}: ${issue.description}',
+                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+}
+
+class _AuditActivityTab extends StatelessWidget {
+  final TeacherAuditFull audit;
+  const _AuditActivityTab({required this.audit});
+
+  @override
+  Widget build(BuildContext context) {
+    final shifts = audit.detailedShifts;
+
+    return shifts.isEmpty
+        ? _AuditEmptyState(icon: Icons.calendar_today_outlined, message: 'Aucun shift enregistré')
+        : Column(
+            children: [
+              Container(
+                color: const Color(0xFFF8FAFC),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  children: [
+                    _AuditMiniStat(label: AppLocalizations.of(context)!.auditTotalLabel, value: '${shifts.length}', icon: Icons.event_note),
+                    const SizedBox(width: 16),
+                    _AuditMiniStat(label: AppLocalizations.of(context)!.auditCompleted, value: '${audit.totalClassesCompleted}', icon: Icons.check_circle_outline, color: const Color(0xFF10B981)),
+                    const SizedBox(width: 16),
+                    _AuditMiniStat(label: AppLocalizations.of(context)!.auditMissed, value: '${audit.totalClassesMissed}', icon: Icons.cancel_outlined, color: audit.totalClassesMissed > 0 ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF)),
+                    const SizedBox(width: 16),
+                    _AuditMiniStat(label: AppLocalizations.of(context)!.hours, value: '${audit.totalHoursTaught.toStringAsFixed(1)}h', icon: Icons.timer_outlined, color: const Color(0xFF3B82F6)),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xffE2E8F0)),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: shifts.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 56, color: Color(0xffF1F5F9)),
+                  itemBuilder: (context, index) {
+                    final shift = shifts[index];
+                    final title = (shift['title'] as String?) ?? '—';
+                    final status = (shift['status'] as String?) ?? '';
+                    final start = (shift['start'] as Timestamp?)?.toDate();
+                    final duration = (shift['duration'] as num?)?.toDouble() ?? 0;
+
+                    final isDone = status == 'fullyCompleted' || status == 'completed' || status == 'partiallyCompleted';
+                    final isMissed = status == 'missed';
+                    final statusColor = isDone ? const Color(0xFF10B981) : isMissed ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+                    final statusBg = isDone ? const Color(0xFFDCFCE7) : isMissed ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7);
+                    final statusLabel = isDone ? 'Done' : isMissed ? 'Missed' : (status.isNotEmpty ? status : '—');
+
+                    return ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(8)),
+                        child: Icon(isDone ? Icons.check : isMissed ? Icons.close : Icons.schedule, size: 18, color: statusColor),
+                      ),
+                      title: Text(
+                        title,
+                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xff1E293B)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        start != null ? DateFormat('EEE d MMM · HH:mm').format(start) : '—',
+                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff94A3B8)),
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(12)),
+                            child: Text(
+                              statusLabel,
+                              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor),
+                            ),
+                          ),
+                          if (duration > 0) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '${duration.toStringAsFixed(1)}h',
+                              style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff94A3B8)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+  }
+}
+
+class _AuditPaymentTab extends StatelessWidget {
+  final TeacherAuditFull audit;
+  const _AuditPaymentTab({required this.audit});
+
+  @override
+  Widget build(BuildContext context) {
+    final ps = audit.paymentSummary;
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditPaymentSummary),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _AuditPayCard(
+                label: AppLocalizations.of(context)!.auditGrossSalary,
+                amount: ps?.totalGrossPayment ?? 0,
+                color: const Color(0xFF3B82F6),
+                icon: Icons.account_balance_wallet_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _AuditPayCard(
+                label: AppLocalizations.of(context)!.auditNetSalary,
+                amount: ps?.totalNetPayment ?? 0,
+                color: const Color(0xFF10B981),
+                icon: Icons.payments_outlined,
+                isHighlighted: true,
+              ),
+            ),
+          ],
+        ),
+        if (ps != null && (ps.shiftPaymentAdjustments.isNotEmpty || ps.adminAdjustment != 0)) ...[
+          const SizedBox(height: 16),
+          _AuditSectionTitle(title: AppLocalizations.of(context)!.auditAdjustments),
+          const SizedBox(height: 10),
+          if (ps.adminAdjustment != 0) ...[
+            _AuditAdjustmentRow(
+              amount: ps.adminAdjustment,
+              reason: ps.adjustmentReason.isNotEmpty ? ps.adjustmentReason : AppLocalizations.of(context)!.auditGlobalAdjustment,
+            ),
+          ],
+          ...ps.shiftPaymentAdjustments.entries.map((e) => _AuditAdjustmentRow(
+                amount: e.value,
+                reason: 'Shift ${e.key.length > 12 ? e.key.substring(e.key.length - 8) : e.key}',
+              )),
+          const SizedBox(height: 12),
+        ],
+        _AuditSectionTitle(title: AppLocalizations.of(context)!.auditPaymentCalculation),
+        const SizedBox(height: 10),
+        _AuditPayDetailRow(label: AppLocalizations.of(context)!.auditClassesCompleted, value: '${audit.totalClassesCompleted}'),
+        _AuditPayDetailRow(label: AppLocalizations.of(context)!.auditHoursWorked, value: '${audit.totalHoursTaught.toStringAsFixed(2)} h'),
+        _AuditPayDetailRow(label: AppLocalizations.of(context)!.auditFormsSubmittedLabel, value: '${audit.readinessFormsSubmitted} / ${audit.readinessFormsRequired}'),
+        if (ps != null) ...[
+          const Divider(height: 20, color: Color(0xffE2E8F0)),
+          _AuditPayDetailRow(label: AppLocalizations.of(context)!.teacherAuditGross, value: '\$${ps.totalGrossPayment.toStringAsFixed(2)}'),
+          _AuditPayDetailRow(
+            label: AppLocalizations.of(context)!.auditTotalAdjustments,
+            value: '\$${(ps.totalNetPayment - ps.totalGrossPayment).toStringAsFixed(2)}',
+            valueColor: ps.totalNetPayment >= ps.totalGrossPayment ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          ),
+          const Divider(height: 12, color: Color(0xffE2E8F0)),
+          _AuditPayDetailRow(
+            label: AppLocalizations.of(context)!.auditNetToPay,
+            value: '\$${ps.totalNetPayment.toStringAsFixed(2)}',
+            isBold: true,
+            valueColor: const Color(0xFF10B981),
+            fontSize: 16,
+          ),
+        ],
+        if (ps == null)
+          _AuditEmptyState(icon: Icons.money_off_outlined, message: AppLocalizations.of(context)!.auditNoPaymentDataAvailable),
+      ],
+    );
+  }
+}
+
+class _AuditAdjustmentRow extends StatelessWidget {
+  final double amount;
+  final String reason;
+
+  const _AuditAdjustmentRow({required this.amount, required this.reason});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPositive = amount >= 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isPositive ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isPositive ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isPositive ? Icons.add_circle_outline : Icons.remove_circle_outline,
+            size: 16,
+            color: isPositive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(reason, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151))),
+          ),
+          Text(
+            '${isPositive ? '+' : ''}\$${amount.toStringAsFixed(2)}',
+            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: isPositive ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditFormsTab extends StatelessWidget {
+  final TeacherAuditFull audit;
+  const _AuditFormsTab({required this.audit});
+
+  static String _extractStudentName(String title) {
+    final parts = title.split(' - ');
+    if (parts.length >= 3) return parts[2].trim();
+    if (parts.length == 2) return parts[1].trim();
+    return title.trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const generalKey = 'General / Unknown';
+
+    final shiftIdToStudent = <String, String>{};
+    for (var shift in audit.detailedShifts) {
+      final id = shift['id'] as String? ?? '';
+      final title = shift['title'] as String? ?? '';
+      if (id.isNotEmpty) shiftIdToStudent[id] = _extractStudentName(title);
+    }
+
+    final allForms = <Map<String, dynamic>>[...audit.detailedForms];
+    for (final f in audit.detailedFormsNoSchedule) {
+      allForms.add({...f, '_noSchedule': true, 'rejectionReason': 'no_shift'});
+    }
+    for (final f in audit.detailedFormsRejected) {
+      allForms.add({...f, 'rejectionReason': f['rejectionReason'] ?? 'duplicate'});
+    }
+
+    final byStudent = <String, List<Map<String, dynamic>>>{};
+    for (var map in allForms) {
+      final sid = (map['shiftId'] as String?) ?? '';
+      final studentName = (sid.isNotEmpty && shiftIdToStudent.containsKey(sid)) ? shiftIdToStudent[sid]! : generalKey;
+      byStudent.putIfAbsent(studentName, () => []).add(map);
+    }
+
+    final sorted = byStudent.keys.toList()
+      ..sort((a, b) {
+        if (a == generalKey) return 1;
+        if (b == generalKey) return -1;
+        return a.compareTo(b);
+      });
+
+    if (allForms.isEmpty) {
+      return _AuditEmptyState(icon: Icons.description_outlined, message: AppLocalizations.of(context)!.auditNoFormsSubmitted);
+    }
+
+    final acceptedCount = audit.detailedForms.length;
+    final rejectedNoShift = audit.detailedFormsNoSchedule.length;
+    final rejectedDuplicates = audit.detailedFormsRejected.length;
+    final rejectedCount = rejectedNoShift + rejectedDuplicates;
+
+    return Column(
+      children: [
+        Container(
+          color: const Color(0xFFF8FAFC),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              _AuditMiniStat(label: AppLocalizations.of(context)!.auditTotalLabel, value: '${allForms.length}', icon: Icons.description_outlined),
+              const SizedBox(width: 16),
+              _AuditMiniStat(
+                label: AppLocalizations.of(context)!.auditFormsAccepted,
+                value: '$acceptedCount',
+                icon: Icons.check_circle_outline,
+                color: const Color(0xFF10B981),
+              ),
+              const SizedBox(width: 16),
+              _AuditMiniStat(
+                label: AppLocalizations.of(context)!.auditFormsRejected,
+                value: '$rejectedCount',
+                icon: Icons.cancel_outlined,
+                color: rejectedCount > 0 ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
+              ),
+              if (rejectedCount > 0) ...[
+                const SizedBox(width: 12),
+                Text(
+                  AppLocalizations.of(context)!.auditFormsRejectedBreakdown(rejectedNoShift, rejectedDuplicates),
+                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xffE2E8F0)),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 16),
+            itemCount: sorted.length,
+            itemBuilder: (context, si) {
+              final student = sorted[si];
+              final docs = byStudent[student]!;
+              final displayName = student == generalKey ? AppLocalizations.of(context)!.auditGeneralOrUnlinked : student;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    color: const Color(0xffF8FAFC),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 11,
+                          backgroundColor: const Color(0xff0078D4).withOpacity(0.15),
+                          child: Text(
+                            displayName[0].toUpperCase(),
+                            style: GoogleFonts.inter(fontSize: 9, color: const Color(0xff0078D4), fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            displayName,
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xff475569)),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff0078D4).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${docs.length} form${docs.length > 1 ? 's' : ''}',
+                            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xff0078D4)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...docs.map((map) {
+                    final submittedAt = (map['submittedAt'] as Timestamp?)?.toDate();
+                    final dateStr = submittedAt != null ? DateFormat('MMM d, HH:mm').format(submittedAt) : '—';
+                    final rejectionReason = map['rejectionReason'] as String?;
+                    final isAccepted = rejectionReason == null || rejectionReason.isEmpty;
+                    final isNoShift = rejectionReason == 'no_shift' || map['_noSchedule'] == true;
+                    final isDuplicate = rejectionReason == 'duplicate';
+                    final formId = (map['id'] as String?) ?? '';
+                    final shiftId = (map['shiftId'] as String?)?.toString() ?? '';
+                    final responses = (map['responses'] as Map<String, dynamic>?) ?? {};
+
+                    String statusLabel;
+                    Color statusColor;
+                    Color statusBg;
+                    IconData statusIcon;
+                    if (isAccepted) {
+                      statusLabel = AppLocalizations.of(context)!.auditFormStatusAccepted;
+                      statusColor = const Color(0xFF16A34A);
+                      statusBg = const Color(0xFFDCFCE7);
+                      statusIcon = Icons.check_circle_outline;
+                    } else if (isDuplicate) {
+                      statusLabel = AppLocalizations.of(context)!.auditFormStatusRejectedDuplicate;
+                      statusColor = const Color(0xFFDC2626);
+                      statusBg = const Color(0xFFFEE2E2);
+                      statusIcon = Icons.copy_outlined;
+                    } else {
+                      statusLabel = AppLocalizations.of(context)!.auditFormStatusRejectedNoShift;
+                      statusColor = const Color(0xFFB45309);
+                      statusBg = const Color(0xFFFEF3C7);
+                      statusIcon = Icons.link_off_outlined;
+                    }
+
+                    return InkWell(
+                      onTap: () {
+                        FormDetailsModal.show(context, formId: formId, shiftId: shiftId, responses: responses);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        child: Row(
+                          children: [
+                            Icon(statusIcon, size: 16, color: statusColor),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(dateStr, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff475569))),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right, size: 16, color: Color(0xff94A3B8)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  const Divider(height: 1, color: Color(0xffF1F5F9)),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AuditSectionTitle extends StatelessWidget {
+  final String title;
+  const _AuditSectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title.toUpperCase(),
+      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xff9CA3AF), letterSpacing: 0.8),
+    );
+  }
+}
+
+class _AuditKpiCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  const _AuditKpiCard({required this.icon, required this.color, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 16, color: color),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xff1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(label, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditRateBar extends StatelessWidget {
+  final String label;
+  final double rate;
+  final double goodThreshold;
+  final double warningThreshold;
+
+  const _AuditRateBar({required this.label, required this.rate, this.goodThreshold = 80, this.warningThreshold = 60});
+
+  Color get _color {
+    if (rate >= goodThreshold) return const Color(0xFF10B981);
+    if (rate >= warningThreshold) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = rate.clamp(0.0, 100.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff475569))),
+            Text('${clamped.toStringAsFixed(0)}%', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: _color)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: clamped / 100,
+            minHeight: 6,
+            backgroundColor: const Color(0xffF1F5F9),
+            valueColor: AlwaysStoppedAnimation<Color>(_color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AuditSubjectRow extends StatelessWidget {
+  final String subject;
+  final double hours;
+  final double maxHours;
+
+  const _AuditSubjectRow({required this.subject, required this.hours, required this.maxHours});
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = maxHours > 0 ? (hours / maxHours).clamp(0.0, 1.0) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(subject, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151)), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: fraction,
+                minHeight: 6,
+                backgroundColor: const Color(0xffF1F5F9),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff0078D4)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 40,
+            child: Text('${hours.toStringAsFixed(1)}h', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xff64748B), fontWeight: FontWeight.w600), textAlign: TextAlign.right),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final Color? color;
+
+  const _AuditEmptyState({required this.icon, required this.message, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 40, color: color ?? const Color(0xffCBD5E1)),
+          const SizedBox(height: 12),
+          Text(message, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xff94A3B8)), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditMiniStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color? color;
+
+  const _AuditMiniStat({required this.label, required this.value, required this.icon, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color ?? const Color(0xff9CA3AF)),
+        const SizedBox(width: 4),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: color ?? const Color(0xff1E293B))),
+            Text(label, style: GoogleFonts.inter(fontSize: 10, color: const Color(0xff9CA3AF))),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AuditPayCard extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+  final IconData icon;
+  final bool isHighlighted;
+
+  const _AuditPayCard({required this.label, required this.amount, required this.color, required this.icon, this.isHighlighted = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isHighlighted ? color.withOpacity(0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isHighlighted ? color.withOpacity(0.3) : const Color(0xffE2E8F0), width: isHighlighted ? 1.5 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [Icon(icon, size: 16, color: color), const SizedBox(width: 6), Text(label, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff64748B)))]),
+          const SizedBox(height: 8),
+          Text('\$${amount.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: isHighlighted ? color : const Color(0xff1E293B))),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditPayDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+  final Color? valueColor;
+  final double fontSize;
+
+  const _AuditPayDetailRow({required this.label, required this.value, this.isBold = false, this.valueColor, this.fontSize = 13});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: fontSize, fontWeight: isBold ? FontWeight.w700 : FontWeight.normal, color: const Color(0xff374151))),
+          Text(value, style: GoogleFonts.inter(fontSize: fontSize, fontWeight: isBold ? FontWeight.w700 : FontWeight.w600, color: valueColor ?? const Color(0xff1E293B))),
         ],
       ),
     );
@@ -3535,7 +4791,7 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     }
   }
   
-  /// **OPTIMIZATION: Compute grouped data once and cache it**
+  /// **OPTIMIZATION: Compute grouped data once and cache it (synchronous – no Firestore in loop).**
   Future<void> _computeGroupedData() async {
     if (_cachedDayItems != null) {
       _isLoadingDayData = false;
@@ -3548,16 +4804,24 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       });
     }
     
+    // Build shiftId -> start DateTime from in-memory detailedShifts (no Firestore)
+    final shiftIdToStart = <String, DateTime>{};
+    for (var shift in widget.audit.detailedShifts) {
+      final shiftId = shift['id'] as String? ?? '';
+      final start = shift['start'] as Timestamp?;
+      if (shiftId.isNotEmpty && start != null) {
+        shiftIdToStart[shiftId] = start.toDate();
+      }
+    }
+    
     // Build lookup maps for O(1) access
     final shiftFormMap = <String, String>{}; // shiftId -> formId
-    final formShiftMap = <String, String>{}; // formId -> shiftId
     
     for (var form in widget.audit.detailedForms) {
       final formId = form['id'] as String? ?? '';
       final shiftId = form['shiftId'] as String?;
       if (formId.isNotEmpty && shiftId != null && shiftId.isNotEmpty) {
         shiftFormMap[shiftId] = formId;
-        formShiftMap[formId] = shiftId;
       }
     }
     
@@ -3571,7 +4835,6 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       final shiftId = shift['id'] as String? ?? '';
       final status = shift['status'] as String? ?? 'scheduled';
       
-      // Get student names from shift (need to parse from title or get from detailed data)
       final title = shift['title'] as String? ?? 'Unknown';
       final subject = shift['subject'] as String? ?? 'Other';
       final scheduledHours = (shift['duration'] as num?)?.toDouble() ?? 0;
@@ -3595,13 +4858,12 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       
       (shiftsByDay[day] ??= []).add(shiftItem);
       
-      // Track orphan shifts (completed/missed without form)
       if ((status == 'completed' || status == 'fullyCompleted' || status == 'missed') && !hasForm) {
         orphanShifts.add(shiftItem);
       }
     }
     
-    // Group forms by day
+    // Group forms by day (sync – use shiftIdToStart, no Firestore)
     final formsByDay = <int, List<_FormItem>>{};
     final unlinkedForms = <_FormItem>[];
     
@@ -3611,10 +4873,13 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       final submittedAt = (form['submittedAt'] as Timestamp?)?.toDate();
       final responses = form['responses'] as Map<String, dynamic>? ?? {};
       
-      // Extract day of week from form responses, or derive from shift if available
-      final dayOfWeek = await _extractDayOfWeekFromForm(responses, shiftId, form);
+      final dayOfWeek = _extractDayOfWeekFromFormSync(
+        responses,
+        shiftId,
+        form,
+        shiftIdToStart,
+      );
       
-      // Determine date - use shift end if linked, otherwise submission date
       DateTime? formDate;
       if (shiftId != null && shiftId.isNotEmpty) {
         final shiftEnd = (form['shiftEnd'] as Timestamp?)?.toDate();
@@ -3692,6 +4957,37 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
       return parts[1];
     }
     return title;
+  }
+  
+  /// Sync version: uses in-memory shiftIdToStart only (no Firestore). Keeps grouping fast.
+  String? _extractDayOfWeekFromFormSync(
+    Map<String, dynamic> responses,
+    String? shiftId,
+    Map<String, dynamic> formData,
+    Map<String, DateTime> shiftIdToStart,
+  ) {
+    var dayValue = responses['1754406288023'];
+    if (dayValue != null) {
+      if (dayValue is List && dayValue.isNotEmpty) {
+        return dayValue.first.toString();
+      }
+      return dayValue.toString();
+    }
+    for (var value in responses.values) {
+      if (value is String || (value is List && value.isNotEmpty)) {
+        final str = value is List ? value.first.toString() : value.toString();
+        if (_isDayOfWeekString(str)) return str;
+      }
+    }
+    if (shiftId != null && shiftId.isNotEmpty) {
+      final start = shiftIdToStart[shiftId];
+      if (start != null) return _getDayOfWeekFromDate(start);
+    }
+    final submittedAt = formData['submittedAt'] as Timestamp?;
+    if (submittedAt != null) {
+      return _getDayOfWeekFromDate(submittedAt.toDate());
+    }
+    return null;
   }
   
   Future<String?> _extractDayOfWeekFromForm(Map<String, dynamic> responses, String? shiftId, Map<String, dynamic> formData) async {
@@ -3957,6 +5253,8 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                         const SizedBox(height: 8),
                         _DetailRow('Required', '${widget.audit.readinessFormsRequired}'),
                         _DetailRow('Readiness Forms Submitted', '${widget.audit.readinessFormsSubmitted}'),
+                        if (widget.audit.detailedFormsNoSchedule.isNotEmpty)
+                          _DetailRow('With no schedule', '${widget.audit.detailedFormsNoSchedule.length}'),
                         _DetailRow('Compliance Rate', '${widget.audit.formComplianceRate.toStringAsFixed(1)}%'),
                       ],
                     ),
@@ -4007,15 +5305,6 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
               ),
               const SizedBox(height: 12),
               
-              // **NEW: Individual Shift Payouts with Adjustment**
-              _buildSectionHeader('Individual Shift Payouts'),
-              const SizedBox(height: 8),
-              _IndividualShiftPaymentsSection(
-                audit: widget.audit,
-                onUpdatePayment: _updateShiftPayment,
-              ),
-              const SizedBox(height: 24),
-              
               // ============================================================
               // SECTION 3: FORMS LIST (Shifts & Forms by Day)
               // ============================================================
@@ -4052,6 +5341,33 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
                     textAlign: TextAlign.center,
                   ),
                 ),
+              ],
+              // Forms with no schedule (same total as All Submissions so auditor can decide)
+              if (widget.audit.detailedFormsNoSchedule.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildSectionHeader('${AppLocalizations.of(context)!.formsWithNoSchedule} (${widget.audit.detailedFormsNoSchedule.length})'),
+                const SizedBox(height: 8),
+                ...widget.audit.detailedFormsNoSchedule.map((map) {
+                  final formId = (map['id'] as String?) ?? '';
+                  final submittedAt = (map['submittedAt'] as Timestamp?)?.toDate();
+                  final formItem = _FormItem(
+                    formId: formId,
+                    submissionDate: submittedAt,
+                    dayOfWeek: null,
+                    isLinked: false,
+                    linkedShiftId: null,
+                    linkedShiftTitle: null,
+                    durationHours: (map['durationHours'] as num?)?.toDouble() ?? 0,
+                    formDate: submittedAt,
+                  );
+                  return _FormRow(
+                    form: formItem,
+                    formData: map,
+                    orphanShifts: const [],
+                    onLinkFormToShift: _linkFormToShift,
+                    parentContext: context,
+                  );
+                }),
               ],
               if (widget.audit.issues.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -4205,84 +5521,47 @@ class _AuditDetailSheetState extends State<_AuditDetailSheet> {
     }
   }
   
-  /// Apply penalty for missing forms
-  Future<void> _updateShiftPayment(String shiftId, double newAmount) async {
-    try {
-      final success = await TeacherAuditService.updateShiftPayment(
-        auditId: widget.audit.id,
-        shiftId: shiftId,
-        adjustedAmount: newAmount,
-        reason: 'Admin adjustment',
-      );
-      
-      if (success && mounted) {
-        // Reload audit to show updated payment
-        final updatedAudit = await TeacherAuditService.getAudit(
-          oderId: widget.audit.oderId,
-          yearMonth: widget.audit.yearMonth,
-        );
-        
-        if (updatedAudit != null) {
-          // Update widget's audit
-          setState(() {
-            // Update the audit in the widget
-            // Note: We can't directly modify widget.audit, so we need to reload the parent
-          });
-          
-          // Update parent screen's audit list
-          final parentState = context.findAncestorStateOfType<_AdminAuditScreenState>();
-          if (parentState != null) {
-            await parentState._loadAudits(force: true);
-          }
-          
-          // Close and reopen detail sheet with updated audit
-          Navigator.of(context).pop(); // Close current detail sheet
-          if (parentState != null && mounted) {
-            Future.delayed(Duration(milliseconds: 100), () {
-              // Reopen with updated audit
-              parentState._showAuditDetails(updatedAudit);
-            });
-          }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Payment updated to \$${newAmount.toStringAsFixed(2)}. Total payment recalculated.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.failedToUpdatePayment),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-  
   void _showAuditDetails(TeacherAuditFull audit) {
-    // Helper to show audit details (used after payment update)
-    showDialog(
+    // Helper (e.g. after payment update) – same full-height side panel as main screen
+    showGeneralDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (context) => _DraggableFullScreenDialog(
-        child: _AuditDetailSheet(
-          audit: audit,
-          scrollController: ScrollController(),
-        ),
-      ),
+      barrierDismissible: true,
+      barrierLabel: AppLocalizations.of(context)?.commonClose ?? 'Dismiss',
+      barrierColor: Colors.black.withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 680,
+              height: double.infinity,
+              margin: const EdgeInsets.only(top: 0, right: 0, bottom: 0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 24,
+                    offset: const Offset(-4, 0),
+                  ),
+                ],
+              ),
+              child: _AuditDetailFullPanel(audit: audit),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
+          child: child,
+        );
+      },
     );
   }
 
@@ -4762,305 +6041,6 @@ class _OrphanShiftsPenaltySectionState extends State<_OrphanShiftsPenaltySection
   }
 }
 
-/// **Individual Shift Payments Section** - Shows all shift payouts with edit capability
-class _IndividualShiftPaymentsSection extends StatefulWidget {
-  final TeacherAuditFull audit;
-  final Function(String shiftId, double newAmount) onUpdatePayment;
-
-  const _IndividualShiftPaymentsSection({
-    required this.audit,
-    required this.onUpdatePayment,
-  });
-
-  @override
-  State<_IndividualShiftPaymentsSection> createState() => _IndividualShiftPaymentsSectionState();
-}
-
-class _IndividualShiftPaymentsSectionState extends State<_IndividualShiftPaymentsSection> {
-  // Map of shiftId -> editing state
-  final Map<String, bool> _editingStates = {};
-  final Map<String, TextEditingController> _controllers = {};
-
-  @override
-  void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Get shifts with forms (only these have payouts)
-    final shiftsWithForms = <Map<String, dynamic>>[];
-    final shiftFormMap = <String, String>{};
-    
-    for (var form in widget.audit.detailedForms) {
-      final shiftId = form['shiftId'] as String?;
-      if (shiftId != null && shiftId.isNotEmpty) {
-        shiftFormMap[shiftId] = form['id'] as String? ?? '';
-      }
-    }
-    
-    for (var shift in widget.audit.detailedShifts) {
-      final shiftId = shift['id'] as String? ?? '';
-      final status = shift['status'] as String? ?? 'scheduled';
-      
-      // Only show completed/partially completed shifts with forms
-      if ((status == 'fullyCompleted' || status == 'completed' || status == 'partiallyCompleted') &&
-          shiftFormMap.containsKey(shiftId)) {
-        shiftsWithForms.add(shift);
-      }
-    }
-    
-    if (shiftsWithForms.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          AppLocalizations.of(context)!.noShiftsWithFormsFoundLink,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      );
-    }
-    
-    return Column(
-      children: shiftsWithForms.map((shift) {
-        final shiftId = shift['id'] as String? ?? '';
-        final title = shift['title'] as String? ?? 'Unknown';
-        final subject = shift['subject'] as String? ?? 'Other';
-        final start = (shift['start'] as Timestamp).toDate();
-        final end = (shift['end'] as Timestamp).toDate();
-        final hours = end.difference(start).inMinutes / 60.0;
-        final hourlyRate = (shift['hourlyRate'] as num?)?.toDouble() ?? 0;
-        final originalPayment = hours * hourlyRate;
-        
-        // Get adjusted payment if exists
-        final adjustments = widget.audit.paymentSummary?.shiftPaymentAdjustments ?? {};
-        final adjustedPayment = adjustments[shiftId] ?? originalPayment;
-        final maxPayment = PaymentSummary.getMaxShiftPayment(subject, hours);
-        
-        // Initialize controller if not exists
-        if (!_controllers.containsKey(shiftId)) {
-          _controllers[shiftId] = TextEditingController(
-            text: adjustedPayment.toStringAsFixed(2),
-          );
-        }
-        
-        final isEditing = _editingStates[shiftId] ?? false;
-        
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade900,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                subject,
-                                style: GoogleFonts.inter(
-                                  fontSize: 10,
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${hours.toStringAsFixed(2)}h',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              DateFormat('MMM d').format(start),
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isEditing) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '\$${adjustedPayment.toStringAsFixed(2)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: adjustedPayment != originalPayment 
-                                ? Colors.orange.shade700 
-                                : Colors.green.shade700,
-                          ),
-                        ),
-                        if (adjustedPayment != originalPayment)
-                          Text(
-                            'was \$${originalPayment.toStringAsFixed(2)}',
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              color: Colors.grey.shade500,
-                              decoration: TextDecoration.lineThrough,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(Icons.edit, size: 18, color: Colors.blue.shade700),
-                      onPressed: () {
-                        setState(() {
-                          _editingStates[shiftId] = true;
-                        });
-                      },
-                      tooltip: AppLocalizations.of(context)!.adjustPayment2,
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
-                    ),
-                  ] else ...[
-                    SizedBox(
-                      width: 100,
-                      child: TextField(
-                        controller: _controllers[shiftId],
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          prefixText: '\$',
-                          prefixStyle: GoogleFonts.inter(color: Colors.grey.shade700),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: Colors.blue.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
-                          ),
-                          filled: true,
-                          fillColor: Colors.blue.shade50,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(Icons.check, size: 18, color: Colors.green.shade700),
-                      onPressed: () async {
-                        final newAmount = double.tryParse(_controllers[shiftId]!.text) ?? adjustedPayment;
-                        
-                        // Validate max limit
-                        if (newAmount > maxPayment) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Maximum payment for $subject is \$${maxPayment.toStringAsFixed(2)} (max \$${PaymentSummary.getMaxHourlyRate(subject).toStringAsFixed(0)}/hour)'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        
-                        await widget.onUpdatePayment(shiftId, newAmount);
-                        setState(() {
-                          _editingStates[shiftId] = false;
-                        });
-                      },
-                      tooltip: AppLocalizations.of(context)!.commonSave,
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                      onPressed: () {
-                        _controllers[shiftId]!.text = adjustedPayment.toStringAsFixed(2);
-                        setState(() {
-                          _editingStates[shiftId] = false;
-                        });
-                      },
-                      tooltip: AppLocalizations.of(context)!.commonCancel,
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
-                    ),
-                  ],
-                ],
-              ),
-              if (isEditing) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 14, color: Colors.blue.shade700),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Max: \$${maxPayment.toStringAsFixed(2)} (\$${PaymentSummary.getMaxHourlyRate(subject).toStringAsFixed(0)}/hour × ${hours.toStringAsFixed(2)}h)',
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
 /// **User-friendly Stat Card** - Shows label and value clearly
 class _StatCard extends StatelessWidget {
   final IconData icon;
@@ -5419,545 +6399,13 @@ class _AdminFormCardState extends State<_AdminFormCard> {
     return DateFormat('MMM d, h:mm a').format(date);
   }
   
-  /// Show form details in a fluid modal
+  /// Show form details using same dialog as Admin All Submissions (Form Details modal)
   void _showFormDetailsModal(BuildContext context, Map<String, dynamic> form) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (context) => _DraggableFullScreenDialog(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: _FormDetailsContent(
-            formId: form['id'] ?? '',
-            shiftId: form['shiftId'] ?? 'N/A',
-            responses: form['responses'] as Map<String, dynamic>? ?? {},
-            parentContext: widget.parentContext,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FormDetailsContent extends StatefulWidget {
-  final String formId;
-  final String shiftId;
-  final Map<String, dynamic> responses;
-  final BuildContext parentContext;
-
-  const _FormDetailsContent({
-    required this.formId,
-    required this.shiftId,
-    required this.responses,
-    required this.parentContext,
-  });
-
-  @override
-  State<_FormDetailsContent> createState() => _FormDetailsContentState();
-}
-
-class _FormDetailsContentState extends State<_FormDetailsContent> {
-  Map<String, String>? _fieldLabels;
-  bool _isLoadingLabels = true;
-  TeachingShift? _shift;
-  bool _isLoadingShift = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFieldLabels();
-    _loadShiftData();
-  }
-  
-  Future<void> _loadShiftData() async {
-    if (widget.shiftId == 'N/A' || widget.shiftId.isEmpty) {
-      setState(() {
-        _isLoadingShift = false;
-      });
-      return;
-    }
-    
-    try {
-      final shiftDoc = await FirebaseFirestore.instance
-          .collection('teaching_shifts')
-          .doc(widget.shiftId)
-          .get();
-
-      if (shiftDoc.exists) {
-        final shift = TeachingShift.fromFirestore(shiftDoc);
-        if (mounted) {
-          setState(() {
-            _shift = shift;
-            _isLoadingShift = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoadingShift = false;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Error loading shift data: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingShift = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadFieldLabels() async {
-    try {
-      // Use cache service for fast retrieval
-      final labels = await FormLabelsCacheService().getLabelsForFormResponse(widget.formId);
-      
-      if (labels.isNotEmpty) {
-        setState(() {
-          _fieldLabels = labels;
-          _isLoadingLabels = false;
-        });
-      } else {
-        setState(() {
-          _isLoadingLabels = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ Error loading field labels: $e');
-      setState(() {
-        _isLoadingLabels = false;
-      });
-    }
-  }
-
-  void _navigateToShift() async {
-    if (widget.shiftId == 'N/A' || widget.shiftId.isEmpty) return;
-    
-    try {
-      final shiftDoc = await FirebaseFirestore.instance
-          .collection('teaching_shifts')
-          .doc(widget.shiftId)
-          .get();
-
-      if (!shiftDoc.exists) {
-        if (widget.parentContext.mounted) {
-          ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context)!.shiftNotFound)),
-          );
-        }
-        return;
-      }
-
-      final shift = TeachingShift.fromFirestore(shiftDoc);
-      
-      if (widget.parentContext.mounted) {
-        Navigator.of(widget.parentContext).pop(); // Close audit details first
-        showDialog(
-          context: widget.parentContext,
-          builder: (context) => ShiftDetailsDialog(shift: shift),
-        );
-      }
-    } catch (e) {
-      if (widget.parentContext.mounted) {
-        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingShiftE)),
-        );
-      }
-    }
-  }
-
-  String _getFieldLabel(String fieldId) {
-    if (_fieldLabels != null && _fieldLabels!.containsKey(fieldId)) {
-      return _fieldLabels![fieldId]!;
-    }
-    
-    // Try to find by numeric match (in case ID is stored differently)
-    if (_fieldLabels != null) {
-      for (var entry in _fieldLabels!.entries) {
-        if (entry.key.toString() == fieldId.toString()) {
-          return entry.value;
-        }
-      }
-    }
-    
-    // Fallback: if it's a numeric ID, try to find similar patterns
-    // Otherwise return a generic label
-    if (RegExp(r'^\d+$').hasMatch(fieldId)) {
-      return 'Question $fieldId';
-    }
-    
-    // Format text IDs nicely
-    return fieldId
-        .replaceAll('_', ' ')
-        .split(' ')
-        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
-        .join(' ');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // FIX: Wrap in SingleChildScrollView to prevent overflow
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Shift Information Section (Autofilled Data)
-          if (widget.shiftId != 'N/A' && widget.shiftId.isNotEmpty) ...[
-            if (_isLoadingShift)
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppLocalizations.of(context)!.loadingShiftInformation,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else if (_shift != null) ...[
-              // Display all shift information
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200, width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)!.shiftInformationAutofilled,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.blue.shade900,
-                          ),
-                        ),
-                        InkWell(
-                onTap: _navigateToShift,
-                          borderRadius: BorderRadius.circular(4),
-                child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                              border: Border.all(color: Colors.blue.shade300),
-                              borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                                Icon(Icons.open_in_new, size: 12, color: Colors.blue.shade700),
-                                const SizedBox(width: 4),
-                      Text(
-                        AppLocalizations.of(context)!.viewShift,
-                        style: GoogleFonts.inter(
-                                    fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Student Names
-                    if (_shift!.studentNames.isNotEmpty)
-                      _buildShiftInfoRow(
-                        'Students',
-                        _shift!.studentNames.join(', '),
-                      ),
-                    // Subject
-                    if (_shift!.subjectDisplayName != null && _shift!.subjectDisplayName!.isNotEmpty)
-                      _buildShiftInfoRow(
-                        'Subject',
-                        _shift!.subjectDisplayName!,
-                      ),
-                    // Schedule Time
-                    _buildShiftInfoRow(
-                      'Schedule',
-                      '${DateFormat('MMM d, yyyy').format(_shift!.shiftStart)} • ${DateFormat('HH:mm').format(_shift!.shiftStart)} - ${DateFormat('HH:mm').format(_shift!.shiftEnd)}',
-                    ),
-                    // Duration
-                    Builder(
-                      builder: (context) {
-                        final duration = _shift!.shiftEnd.difference(_shift!.shiftStart);
-                        final hours = duration.inHours;
-                        final minutes = duration.inMinutes % 60;
-                        return _buildShiftInfoRow(
-                          'Duration',
-                          hours > 0 
-                            ? '$hours ${hours == 1 ? 'hour' : 'hours'}${minutes > 0 ? ' $minutes min' : ''}'
-                            : '$minutes min',
-                        );
-                      },
-                    ),
-                    // Teacher
-                    _buildShiftInfoRow(
-                      'Teacher',
-                      _shift!.teacherName,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-          const SizedBox(height: 8),
-          // Form Responses Section
-          Text(
-            AppLocalizations.of(context)!.formResponses2,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey.shade900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Responses - Modern minimal design
-          if (_isLoadingLabels)
-            Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-          if (!_isLoadingLabels && widget.responses.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Text(
-                AppLocalizations.of(context)!.noResponses,
-                style: GoogleFonts.inter(
-                  color: Colors.grey.shade400,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          if (!_isLoadingLabels && widget.responses.isNotEmpty)
-            ...widget.responses.entries.map((entry) {
-              final label = _getFieldLabel(entry.key);
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200, width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                        color: Colors.grey.shade900,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _formatResponseValue(entry.value),
-                  ],
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShiftInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: Colors.grey.shade900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _formatResponseValue(dynamic value) {
-    if (value == null) {
-      return Text(
-        AppLocalizations.of(context)!.text5,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          color: Colors.grey.shade400,
-          fontStyle: FontStyle.italic,
-        ),
-      );
-    }
-    if (value is String) {
-      if (value.isEmpty) {
-        return Text(
-          AppLocalizations.of(context)!.text5,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: Colors.grey.shade400,
-            fontStyle: FontStyle.italic,
-          ),
-        );
-      }
-      return Text(
-        value,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          color: Colors.grey.shade800,
-          height: 1.4,
-        ),
-        maxLines: 4,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-    if (value is bool) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: value ? Colors.green.shade50 : Colors.red.shade50,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          value ? 'Yes' : 'No',
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: value ? Colors.green.shade700 : Colors.red.shade700,
-          ),
-        ),
-      );
-    }
-    if (value is num) {
-      return Text(
-        value.toString(),
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          color: Colors.grey.shade800,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-    }
-    if (value is Map) {
-      if (value.containsKey('downloadURL')) {
-        return InkWell(
-          onTap: () {
-            // TODO: Open image
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.image, size: 14, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Text(
-                  AppLocalizations.of(context)!.viewAttachment,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue.shade700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-      return Text(
-        value.toString(),
-        style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade600),
-      );
-    }
-    if (value is List) {
-      if (value.isEmpty) {
-        return Text(
-          AppLocalizations.of(context)!.text5,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: Colors.grey.shade400,
-            fontStyle: FontStyle.italic,
-          ),
-        );
-      }
-      return Wrap(
-        spacing: 4,
-        runSpacing: 4,
-        children: value.map((item) {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              item.toString(),
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: Colors.blue.shade900,
-              ),
-            ),
-          );
-        }).toList(),
-      );
-    }
-    return Text(
-      value.toString(),
-      style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade800),
+    FormDetailsModal.show(
+      context,
+      formId: (form['id'] ?? '').toString(),
+      shiftId: (form['shiftId'] ?? 'N/A').toString(),
+      responses: form['responses'] as Map<String, dynamic>? ?? {},
     );
   }
 }
@@ -6156,19 +6604,31 @@ class _ShiftRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: shift.status == 'missed'
+                    ? Colors.blue.shade50
+                    : Colors.green.shade50,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_circle, size: 12, color: Colors.green.shade700),
+                  Icon(
+                    shift.status == 'missed' ? Icons.update : Icons.check_circle,
+                    size: 12,
+                    color: shift.status == 'missed'
+                        ? Colors.blue.shade700
+                        : Colors.green.shade700,
+                  ),
                   const SizedBox(width: 4),
                   Text(
-                    AppLocalizations.of(context)!.formSubmitted,
+                    shift.status == 'missed'
+                        ? AppLocalizations.of(context)!.missedClassFormSubmittedRecovery
+                        : AppLocalizations.of(context)!.formSubmitted,
                     style: GoogleFonts.inter(
                       fontSize: 10,
-                      color: Colors.green.shade700,
+                      color: shift.status == 'missed'
+                          ? Colors.blue.shade700
+                          : Colors.green.shade700,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -6414,11 +6874,15 @@ class _FormRow extends StatelessWidget {
     final parentContext = this.parentContext;
     final dateStr = form.submissionDate != null
         ? DateFormat('MMM d, h:mm a').format(form.submissionDate!)
-        : 'No date';
-    
+        : '—';
+    final l10n = AppLocalizations.of(context)!;
+    // Same format as Admin All Submissions list: date left, status badge, chevron; tap opens FormDetailsModal
+    final statusLabel = form.isLinked ? l10n.commonDone : l10n.adminSubmissionsPending;
+    final statusColor = form.isLinked ? const Color(0xff16A34A) : const Color(0xffF59E0B);
+    final statusBgColor = form.isLinked ? const Color(0xffDCFCE7) : const Color(0xffFEF3C7);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -6429,44 +6893,51 @@ class _FormRow extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.assignment,
-                size: 16,
-                color: form.isLinked ? Colors.green.shade700 : Colors.blue.shade700,
+          InkWell(
+            onTap: () => _showFormDetailsModal(context, formData, form.formId, form.linkedShiftId ?? 'N/A', parentContext),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: form.isLinked
+                    ? null
+                    : const Border(
+                        bottom: BorderSide(color: Color(0xffF1F5F9), width: 0.5),
+                      ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Day: ${form.dayOfWeek ?? "N/A"}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade900,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 150,
+                    child: Text(
+                      dateStr,
+                      style: GoogleFonts.inter(fontSize: 14, color: const Color(0xff475569)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusBgColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, size: 20, color: Color(0xff94A3B8)),
+                ],
               ),
-              // Eye icon to view form details
-              IconButton(
-                icon: Icon(Icons.visibility_outlined, size: 18),
-                color: Colors.grey.shade600,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () {
-                  _showFormDetailsModal(context, formData, form.formId, form.linkedShiftId ?? 'N/A', parentContext);
-                },
-                tooltip: AppLocalizations.of(context)!.shiftViewDetails,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            AppLocalizations.of(context)!.submittedDatestr,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              color: Colors.grey.shade600,
             ),
           ),
           if (!form.isLinked) ...[
@@ -6605,91 +7076,37 @@ class _FormRow extends StatelessWidget {
   }
   
   void _showFormDetailsModal(BuildContext context, Map<String, dynamic> formData, String formId, String shiftId, BuildContext parentContext) {
-    // If formData doesn't have responses, try to fetch from Firestore directly
+    // If formData doesn't have responses, fetch from Firestore then show same dialog as Admin All Submissions
     if ((formData['responses'] as Map<String, dynamic>?)?.isEmpty ?? true) {
-      _fetchFormDataAndShowModal(context, formId, shiftId, parentContext);
+      _fetchFormDataAndShowModal(context, formId, shiftId);
     } else {
-      showDialog(
-        context: context,
-        barrierColor: Colors.black.withOpacity(0.5),
-        builder: (context) => _DraggableFullScreenDialog(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: _FormDetailsContent(
-              formId: formData['id'] ?? formId,
-              shiftId: formData['shiftId'] ?? shiftId,
-              responses: formData['responses'] as Map<String, dynamic>? ?? {},
-              parentContext: parentContext,
-            ),
-          ),
-        ),
+      FormDetailsModal.show(
+        context,
+        formId: formData['id'] ?? formId,
+        shiftId: formData['shiftId'] ?? shiftId,
+        responses: formData['responses'] as Map<String, dynamic>? ?? {},
       );
     }
   }
 
-  Future<void> _fetchFormDataAndShowModal(BuildContext context, String formId, String shiftId, BuildContext parentContext) async {
+  Future<void> _fetchFormDataAndShowModal(BuildContext context, String formId, String shiftId) async {
     try {
       final formDoc = await FirebaseFirestore.instance.collection('form_responses').doc(formId).get();
       if (formDoc.exists) {
         final data = formDoc.data() as Map<String, dynamic>;
         final responses = data['responses'] as Map<String, dynamic>? ?? {};
-
         if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierColor: Colors.black.withOpacity(0.5),
-            builder: (context) => _DraggableFullScreenDialog(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: _FormDetailsContent(
-                  formId: formId,
-                  shiftId: shiftId,
-                  responses: responses,
-                  parentContext: parentContext,
-                ),
-              ),
-            ),
-          );
+          FormDetailsModal.show(context, formId: formId, shiftId: shiftId, responses: responses);
         }
       } else {
-        // Form not found, show empty modal
         if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierColor: Colors.black.withOpacity(0.5),
-            builder: (context) => _DraggableFullScreenDialog(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: _FormDetailsContent(
-                  formId: formId,
-                  shiftId: shiftId,
-                  responses: {},
-                  parentContext: parentContext,
-                ),
-              ),
-            ),
-          );
+          FormDetailsModal.show(context, formId: formId, shiftId: shiftId, responses: {});
         }
       }
     } catch (e) {
-      print('Error fetching form data: $e');
-      // Show empty modal on error
+      debugPrint('Error fetching form data: $e');
       if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierColor: Colors.black.withOpacity(0.5),
-          builder: (context) => _DraggableFullScreenDialog(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: _FormDetailsContent(
-                formId: formId,
-                shiftId: shiftId,
-                responses: {},
-                parentContext: parentContext,
-              ),
-            ),
-          ),
-        );
+        FormDetailsModal.show(context, formId: formId, shiftId: shiftId, responses: {});
       }
     }
   }
@@ -7087,6 +7504,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         await AdvancedExcelExportService.exportToExcel(
           audits: auditsToExport,
           yearMonth: widget.selectedYearMonth,
+          locale: Localizations.localeOf(context).languageCode,
         );
       }
       
@@ -7140,6 +7558,7 @@ class _ExportDialogState extends State<_ExportDialog> {
     await AdvancedExcelExportService.exportToExcel(
       audits: allAudits,
       yearMonth: 'all_months',
+      locale: Localizations.localeOf(context).languageCode,
     );
   }
 
@@ -7205,7 +7624,7 @@ class _ExportDialogState extends State<_ExportDialog> {
             
             // Filter by Teacher
             Text(
-              AppLocalizations.of(context)!.filterByTeacher2,
+              AppLocalizations.of(context)!.filterByTeacher,
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -7315,17 +7734,12 @@ class _ExportDialogState extends State<_ExportDialog> {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      _buildSheetChip('📊 Monthly View', 'Pivot 6 metrics'),
-                      _buildSheetChip('📊 Complete View', 'All metrics'),
-                      _buildSheetChip('📈 Scores by Month', 'Evolution'),
-                      _buildSheetChip('⏰ Hours by Month', 'Time worked'),
-                      _buildSheetChip('💰 Payments by Month', 'Finances'),
-                      _buildSheetChip('📋 Forms by Month', 'Compliance'),
-                      _buildSheetChip('⏰ Punctuality by Month', 'Lateness'),
-                      _buildSheetChip('📚 Classes by Month', 'Completion'),
-                      _buildSheetChip('📖 Academic by Month', 'Quizzes/Assignments'),
-                      _buildSheetChip('📝 Evaluation', 'Coach'),
-                      _buildSheetChip('🏆 Leaderboard', 'Ranking'),
+                      _buildSheetChip('🎯', 'Dashboard'),
+                      _buildSheetChip('📋', 'Activité'),
+                      _buildSheetChip('💰', 'Paiement'),
+                      _buildSheetChip('📝', 'Evaluation'),
+                      _buildSheetChip('✅', 'Reviews'),
+                      _buildSheetChip('🏖️', 'Leave Requests'),
                     ],
                   ),
                 ],
@@ -7416,7 +7830,7 @@ class _ExportDialogState extends State<_ExportDialog> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Text(
-        AppLocalizations.of(context)!.iconDescription,
+        '$icon $description',
         style: GoogleFonts.inter(
           fontSize: 10,
           color: Colors.grey.shade700,

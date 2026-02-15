@@ -5,17 +5,137 @@ import 'package:universal_html/html.dart' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/teacher_audit_full.dart';
 
+/// Translations for Excel export (no BuildContext in service, so we use locale code).
+class _ExcelExportL10n {
+  final String sheetDashboard;
+  final String sheetActivity;
+  final String sheetPaiement;
+  final String payrollSummaryTitle;
+  final String payrollSummarySubtitle;
+  final String colTeacher;
+  final String colSubject;
+  final String colHrsTs;
+  final String colHrsForms;
+  final String colPayTs;
+  final String colPayForms;
+  final String colGrossPay;
+  final String colPenalties;
+  final String colBonuses;
+  final String colNetPay;
+  final String colGlobalAdj;
+  final String colFinalPay;
+  final String totalLabel;
+  final String issuesAndFlagsTitle;
+  final String colIssueType;
+  final String colDescription;
+  final String colSeverity;
+  final String dashboardTitle;
+  final String dashboardSubtitle;
+  final String teacherPerformanceOverview;
+
+  const _ExcelExportL10n({
+    required this.sheetDashboard,
+    required this.sheetActivity,
+    required this.sheetPaiement,
+    required this.payrollSummaryTitle,
+    required this.payrollSummarySubtitle,
+    required this.colTeacher,
+    required this.colSubject,
+    required this.colHrsTs,
+    required this.colHrsForms,
+    required this.colPayTs,
+    required this.colPayForms,
+    required this.colGrossPay,
+    required this.colPenalties,
+    required this.colBonuses,
+    required this.colNetPay,
+    required this.colGlobalAdj,
+    required this.colFinalPay,
+    required this.totalLabel,
+    required this.issuesAndFlagsTitle,
+    required this.colIssueType,
+    required this.colDescription,
+    required this.colSeverity,
+    required this.dashboardTitle,
+    required this.dashboardSubtitle,
+    required this.teacherPerformanceOverview,
+  });
+
+  static _ExcelExportL10n forLocale(String locale) {
+    final isFr = locale.startsWith('fr');
+    return isFr ? _fr : _en;
+  }
+
+  static const _en = _ExcelExportL10n(
+    sheetDashboard: '🎯 Dashboard',
+    sheetActivity: '📋 Activity',
+    sheetPaiement: '💰 Payment',
+    payrollSummaryTitle: 'PAYROLL SUMMARY',
+    payrollSummarySubtitle: 'Summary by teacher · Final Pay = sum of Final Pay (Activity)',
+    colTeacher: 'Teacher',
+    colSubject: 'Subject',
+    colHrsTs: 'Hrs (TS)',
+    colHrsForms: 'Hrs (Forms)',
+    colPayTs: 'Pay (TS)',
+    colPayForms: 'Pay (Forms)',
+    colGrossPay: 'Gross Pay',
+    colPenalties: 'Penalties',
+    colBonuses: 'Bonuses',
+    colNetPay: 'Net Pay',
+    colGlobalAdj: 'Global Adj',
+    colFinalPay: 'Final Pay',
+    totalLabel: 'TOTAL',
+    issuesAndFlagsTitle: 'ISSUES & FLAGS',
+    colIssueType: 'Issue Type',
+    colDescription: 'Description',
+    colSeverity: 'Severity',
+    dashboardTitle: 'TEACHER AUDIT REPORT',
+    dashboardSubtitle: 'teachers · 1 month · Auto-generated report',
+    teacherPerformanceOverview: 'TEACHER PERFORMANCE OVERVIEW',
+  );
+
+  static const _fr = _ExcelExportL10n(
+    sheetDashboard: '🎯 Tableau de bord',
+    sheetActivity: '📋 Activité',
+    sheetPaiement: '💰 Paiement',
+    payrollSummaryTitle: 'RÉSUMÉ DE PAIE',
+    payrollSummarySubtitle: 'Résumé par enseignant · Paiement final = somme des Paiements finaux (Activité)',
+    colTeacher: 'Enseignant',
+    colSubject: 'Matière',
+    colHrsTs: 'H (feuilles)',
+    colHrsForms: 'H (form.)',
+    colPayTs: 'Paie (feuilles)',
+    colPayForms: 'Paie (form.)',
+    colGrossPay: 'Brut',
+    colPenalties: 'Pénalités',
+    colBonuses: 'Bonus',
+    colNetPay: 'Net',
+    colGlobalAdj: 'Ajust. global',
+    colFinalPay: 'Paiement final',
+    totalLabel: 'TOTAL',
+    issuesAndFlagsTitle: 'PROBLÈMES & ALERTES',
+    colIssueType: 'Type',
+    colDescription: 'Description',
+    colSeverity: 'Gravité',
+    dashboardTitle: 'RAPPORT D\'AUDIT ENSEIGNANTS',
+    dashboardSubtitle: 'enseignants · 1 mois · Rapport généré automatiquement',
+    teacherPerformanceOverview: 'APERÇU DE LA PERFORMANCE',
+  );
+}
+
 /// Advanced Excel Export Service with colors, filters, and all audit data
 /// Organized by Teacher with monthly breakdown - PIVOT TABLE STYLE
 /// Months are columns, Teachers are rows
 class AdvancedExcelExportService {
-  /// Export audits to a well-formatted Excel file with multiple sheets
-  /// REORGANIZED: Pivot table with months as columns
+  /// Export audits to a well-formatted Excel file with multiple sheets.
+  /// [locale] e.g. 'en' or 'fr' to translate sheet names and content.
   static Future<void> exportToExcel({
     required List<TeacherAuditFull> audits,
     required String yearMonth,
     bool groupByTeacher = true,
+    String? locale,
   }) async {
+    final l10n = _ExcelExportL10n.forLocale(locale ?? 'en');
     final stopwatch = Stopwatch()..start();
     
     try {
@@ -32,58 +152,25 @@ class AdvancedExcelExportService {
         teacherAudits.sort((a, b) => a.yearMonth.compareTo(b.yearMonth));
       }
       
-      // Get all unique months sorted chronologically
-      final allMonths = audits.map((a) => a.yearMonth).toSet().toList()..sort();
-      
       // ══════════════════════════════════════════════════════════════════════
-      // NEW PIVOT TABLE LAYOUT - Main sheet with months as columns
+      // STYLED REPORT (same layout as Python build_report.py): Dashboard,
+      // Activity, Payment + Evaluation, Reviews, Leave Requests
       // ══════════════════════════════════════════════════════════════════════
-      _createMonthlyPivotSheet(excel, auditsByTeacher, allMonths);
-      
-      // Create the score comparison sheet (teachers vs months)
-      _createScoreComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // Create hours comparison sheet
-      _createHoursComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // Create payment comparison sheet
-      _createPaymentComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // NEW: Form compliance comparison sheet (CRITICAL - includes form fields)
-      _createFormComplianceComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // NEW: Punctuality comparison sheet
-      _createPunctualityComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // NEW: Classes completion comparison sheet
-      _createClassesCompletionComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // NEW: Academic metrics comparison sheet
-      _createAcademicMetricsComparisonSheet(excel, auditsByTeacher, allMonths);
-      
-      // NEW: Extended pivot with ALL metrics in one view
-      _createExtendedPivotSheet(excel, auditsByTeacher, allMonths);
-      
-      // Keep existing detail sheets for deep-dive analysis
-      _createSummarySheet(excel, audits, yearMonth, auditsByTeacher);
-      _createTeacherDetailSheets(excel, auditsByTeacher);
-      _createDetailedMetricsSheet(excel, audits);
-      _createPaymentSheet(excel, audits);
-      _createShiftPaymentDetailsSheet(excel, audits);
+      _createDashboardSheetStyled(excel, audits, yearMonth, l10n);
+      _createActiviteSheetStyled(excel, audits, yearMonth, l10n);
+      _createPaiementSheetStyled(excel, audits, yearMonth, l10n);
       _createEvaluationSheet(excel, audits);
       _createReviewSheet(excel, audits);
-      _createIssuesSheet(excel, audits);
-      _createFormDetailsSheet(excel, audits);
+      await _createLeaveRequestsSheet(excel, audits, yearMonth);
       
-      // NEW: Additional sheets for new features (run in parallel)
-      await Future.wait([
-        _createAdditionalFormsSheet(excel, audits, yearMonth),
-        _createLeaveRequestsSheet(excel, audits, yearMonth),
-        _createLeaderboardSheet(excel, audits, yearMonth),
-      ]);
-      
-      // Remove default sheet
-      excel.delete('Sheet1');
+      // Remove default sheet if present (excel package creates "Sheet1" by default)
+      if (excel.sheets.containsKey('Sheet1') && excel.sheets.length >= 2) {
+        excel.delete('Sheet1');
+      }
+      // Force workbook to open on Dashboard (styled report)
+      if (excel.sheets.containsKey(l10n.sheetDashboard)) {
+        excel.setDefaultSheet(l10n.sheetDashboard);
+      }
       
       // Generate file
       final bytes = excel.encode();
@@ -91,12 +178,14 @@ class AdvancedExcelExportService {
         throw Exception('Failed to encode Excel file');
       }
       
-      // Download in browser
+      // Download in browser (unique filename so you don't open an old cached file)
       if (kIsWeb) {
+        final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+        final fileName = 'teacher_audit_report_${yearMonth}_$timestamp.xlsx';
         final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.AnchorElement(href: url)
-          ..setAttribute('download', 'teacher_audit_report_$yearMonth.xlsx')
+          ..setAttribute('download', fileName)
           ..click();
         html.Url.revokeObjectUrl(url);
       }
@@ -2179,12 +2268,24 @@ class AdvancedExcelExportService {
       // Get adjustments map
       final adjustments = audit.paymentSummary?.shiftPaymentAdjustments ?? {};
       
-      // Build a map of shiftId -> form info
+      // Build a map of shiftId -> form info (and by last-8-chars suffix for ID mismatch fallback)
       final shiftForms = <String, Map<String, dynamic>>{};
+      final shiftFormsBySuffix = <String, Map<String, dynamic>>{};
       for (var form in audit.detailedForms) {
-        final shiftId = form['shiftId'] as String?;
-        if (shiftId != null && shiftId.isNotEmpty) {
-          shiftForms[shiftId] = form;
+        final sid = form['shiftId'] as String?;
+        if (sid == null || sid.isEmpty) continue;
+        shiftForms[sid] = form;
+        if (sid.length >= 8) shiftFormsBySuffix[sid.substring(sid.length - 8)] = form;
+      }
+      // Map shiftId -> timesheet (and by suffix) for worked hours / payment
+      final timesheetByShiftId = <String, Map<String, dynamic>>{};
+      final timesheetBySuffix = <String, Map<String, dynamic>>{};
+      for (var ts in audit.detailedTimesheets) {
+        final tsMap = ts as Map<String, dynamic>;
+        final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
+        if (sid != null && sid.isNotEmpty) {
+          timesheetByShiftId[sid] = tsMap;
+          if (sid.length >= 8) timesheetBySuffix[sid.substring(sid.length - 8)] = tsMap;
         }
       }
       
@@ -2198,15 +2299,39 @@ class AdvancedExcelExportService {
         final subject = shiftData['subject_display_name'] as String? ?? 
                        shiftData['subject'] as String? ?? 'N/A';
         
-        // Calculate hours
+        // Scheduled hours from duration (minutes or hours)
         final scheduledMinutes = (shiftData['duration_minutes'] as num?)?.toDouble() ?? 0;
-        final scheduledHours = scheduledMinutes / 60.0;
-        final workedMinutes = (shiftData['workedMinutes'] as num?)?.toDouble() ?? 0;
-        final workedHours = workedMinutes / 60.0;
+        final durationHours = (shiftData['duration'] as num?)?.toDouble() ?? 0;
+        final scheduledHours = scheduledMinutes > 0 ? scheduledMinutes / 60.0 : durationHours;
         
-        // Get form info
-        final hasForm = shiftForms.containsKey(shiftId);
-        final formData = shiftForms[shiftId];
+        final timesheetEntry = timesheetByShiftId[shiftId] ?? (shiftId.length >= 8 ? timesheetBySuffix[shiftId.substring(shiftId.length - 8)] : null) ?? <String, dynamic>{};
+        // Worked hours = same as "Total Worked" in Shift Details: clock_in to effective_end/clock_out, capped at shift end
+        double workedHours = 0;
+        if (timesheetEntry.isNotEmpty) {
+          final clockInRaw = timesheetEntry['clock_in_time'] ?? timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clockIn'];
+          final clockOutRaw = timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['clockOut'];
+          final shiftEndDt = (shiftData['end'] as Timestamp?)?.toDate();
+          final shiftStartDt = (shiftData['start'] as Timestamp?)?.toDate();
+          if (clockInRaw != null && clockOutRaw != null && clockInRaw is Timestamp && clockOutRaw is Timestamp) {
+            DateTime start = (clockInRaw as Timestamp).toDate();
+            DateTime end = (clockOutRaw as Timestamp).toDate();
+            if (shiftEndDt != null && end.isAfter(shiftEndDt)) end = shiftEndDt;
+            if (shiftStartDt != null && start.isBefore(shiftStartDt)) start = shiftStartDt;
+            final dur = end.difference(start);
+            if (!dur.isNegative) workedHours = dur.inSeconds / 3600.0;
+          }
+          if (workedHours <= 0) {
+            final mins = (timesheetEntry['worked_minutes'] as num?)?.toDouble() ?? (timesheetEntry['workedMinutes'] as num?)?.toDouble();
+            if (mins != null && mins > 0) workedHours = mins / 60.0;
+          }
+        }
+        if (workedHours <= 0 && (status.toString().toLowerCase().contains('completed') || status.toString().toLowerCase().contains('fully') || status.toString().toLowerCase().contains('partially'))) {
+          workedHours = scheduledHours;
+        }
+        
+        // Get form info (try exact shiftId then suffix match)
+        final formData = shiftForms[shiftId] ?? (shiftId.length >= 8 ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)] : null);
+        final hasForm = formData != null;
         final formHours = formData != null
             ? ((formData['durationHours'] as num?)?.toDouble() ?? 0)
             : 0.0;
@@ -2214,12 +2339,6 @@ class AdvancedExcelExportService {
         // Determine payment source
         String paymentSource = 'None';
         double baseAmount = 0.0;
-        
-        // Check if shift has timesheet entry with payment
-        final timesheetEntry = audit.detailedTimesheets.firstWhere(
-          (ts) => ts['shift_id'] == shiftId || ts['shiftId'] == shiftId,
-          orElse: () => {},
-        );
         
         if (timesheetEntry.isNotEmpty) {
           final paymentAmount = (timesheetEntry['payment_amount'] as num?)?.toDouble() ?? 0;
@@ -2342,6 +2461,626 @@ class AdvancedExcelExportService {
     sheet.setColumnWidth(11, 15); // Manual Adjustment
     sheet.setColumnWidth(12, 14); // Final Payment
     sheet.setColumnWidth(13, 12); // Hourly Rate
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STYLED SHEETS (same layout as Python build_report.py)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  static const String _bgHeader = '#1E3A5F';
+  static const String _bgSub = '#152A47';
+  static const String _bgAccent = '#EFF6FF';
+  static const String _bgRowAlt = '#F8FAFC';
+  static const String _bgWhite = '#FFFFFF';
+  static const String _textWhite = '#FFFFFF';
+  static const String _textDark = '#1A1A2E';
+  static const String _textMuted = '#6B7280';
+  static const String _excellent = '#16A34A';
+  static const String _good = '#65A30D';
+  static const String _needsImp = '#D97706';
+  static const String _critical = '#DC2626';
+  static const String _greenBg = '#DCFCE7';
+  static const String _greenFg = '#166534';
+  static const String _yellowBg = '#FEF9C3';
+  static const String _yellowFg = '#854D0E';
+  static const String _redBg = '#FEE2E2';
+  static const String _redFg = '#991B1B';
+  static const String _blueBg = '#DBEAFE';
+  static const String _blueFg = '#1E40AF';
+  
+  static String _monthLabelUpper(String yearMonth) {
+    try {
+      final date = DateTime.parse('$yearMonth-01');
+      return DateFormat('MMMM yyyy').format(date).toUpperCase();
+    } catch (_) {
+      return yearMonth;
+    }
+  }
+  
+  static ExcelColor _tierColorHex(String tier) {
+    final t = tier.toLowerCase();
+    if (t.contains('excellent')) return ExcelColor.fromHexString(_excellent);
+    if (t.contains('good')) return ExcelColor.fromHexString(_good);
+    if (t.contains('needs')) return ExcelColor.fromHexString(_needsImp);
+    if (t.contains('critical')) return ExcelColor.fromHexString(_critical);
+    return ExcelColor.fromHexString('#9E9E9E');
+  }
+  
+  static ExcelColor _rateBgFg(double rate) {
+    if (rate >= 90) return ExcelColor.fromHexString(_greenBg);
+    if (rate >= 70) return ExcelColor.fromHexString(_yellowBg);
+    return ExcelColor.fromHexString(_redBg);
+  }
+  
+  static ExcelColor _rateFg(double rate) {
+    if (rate >= 90) return ExcelColor.fromHexString(_greenFg);
+    if (rate >= 70) return ExcelColor.fromHexString(_yellowFg);
+    return ExcelColor.fromHexString(_redFg);
+  }
+
+  /// Totals from Activity sheet logic (same as Activité): hrs from timesheets, hrs from forms, pay by source, sum Final Pay.
+  static Map<String, double> _computeActivityTotalsForAudit(TeacherAuditFull audit) {
+    double totalWorkedFromTs = 0, totalFormHrs = 0, payFromTs = 0, payFromForm = 0, sumFinalPay = 0;
+    final shiftForms = <String, Map<String, dynamic>>{};
+    final shiftFormsBySuffix = <String, Map<String, dynamic>>{};
+    for (var form in audit.detailedForms) {
+      final sid = form['shiftId'] as String?;
+      if (sid == null || sid.isEmpty) continue;
+      shiftForms[sid] = form;
+      if (sid.length >= 8) shiftFormsBySuffix[sid.substring(sid.length - 8)] = form;
+    }
+    final adjustments = audit.paymentSummary?.shiftPaymentAdjustments ?? {};
+    final timesheetByShiftId = <String, Map<String, dynamic>>{};
+    final timesheetBySuffix = <String, Map<String, dynamic>>{};
+    for (var ts in audit.detailedTimesheets) {
+      final tsMap = ts as Map<String, dynamic>;
+      final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
+      if (sid != null && sid.isNotEmpty) {
+        timesheetByShiftId[sid] = tsMap;
+        if (sid.length >= 8) timesheetBySuffix[sid.substring(sid.length - 8)] = tsMap;
+      }
+    }
+    for (var shiftData in audit.detailedShifts) {
+      final shiftId = shiftData['id'] as String? ?? '';
+      if (shiftId.isEmpty) continue;
+      final status = shiftData['status'] as String? ?? 'unknown';
+      final duration = (shiftData['duration'] as num?)?.toDouble() ?? 0.0;
+      final formData = shiftForms[shiftId] ?? (shiftId.length >= 8 ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)] : null);
+      final hasForm = formData != null;
+      final formHours = hasForm ? ((formData!['durationHours'] as num?)?.toDouble() ?? 0) : 0.0;
+      totalFormHrs += formHours;
+      String paymentSource = 'None';
+      double baseAmount = 0.0;
+      final timesheetEntry = timesheetByShiftId[shiftId] ?? (shiftId.length >= 8 ? timesheetBySuffix[shiftId.substring(shiftId.length - 8)] : null) ?? <String, dynamic>{};
+      if (timesheetEntry.isNotEmpty) {
+        final pay = (timesheetEntry['payment_amount'] as num?)?.toDouble() ?? (timesheetEntry['total_pay'] as num?)?.toDouble() ?? 0;
+        if (pay > 0) {
+          paymentSource = 'Timesheet';
+          baseAmount = pay;
+        }
+      }
+      if (baseAmount == 0 && hasForm && formHours > 0) {
+        final rate = (shiftData['hourlyRate'] as num?)?.toDouble() ?? 0;
+        if (rate > 0) {
+          paymentSource = 'Form Duration';
+          baseAmount = formHours * rate;
+        }
+      }
+      final adj = adjustments[shiftId] ?? 0.0;
+      final finalPay = baseAmount + adj;
+      sumFinalPay += finalPay;
+      if (paymentSource == 'Timesheet') payFromTs += baseAmount;
+      if (paymentSource == 'Form Duration') payFromForm += baseAmount;
+      double workedHours = 0;
+      if (timesheetEntry.isNotEmpty) {
+        final clockInRaw = timesheetEntry['clock_in_time'] ?? timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clockIn'];
+        final clockOutRaw = timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['clockOut'];
+        final shiftEndDt = (shiftData['end'] as Timestamp?)?.toDate();
+        final shiftStartDt = (shiftData['start'] as Timestamp?)?.toDate();
+        if (clockInRaw != null && clockOutRaw != null && clockInRaw is Timestamp && clockOutRaw is Timestamp) {
+          DateTime start = (clockInRaw as Timestamp).toDate();
+          DateTime end = (clockOutRaw as Timestamp).toDate();
+          if (shiftEndDt != null && end.isAfter(shiftEndDt)) end = shiftEndDt;
+          if (shiftStartDt != null && start.isBefore(shiftStartDt)) start = shiftStartDt;
+          final dur = end.difference(start);
+          if (!dur.isNegative) workedHours = dur.inSeconds / 3600.0;
+        }
+        if (workedHours <= 0) {
+          final mins = (timesheetEntry['worked_minutes'] as num?)?.toDouble() ?? (timesheetEntry['workedMinutes'] as num?)?.toDouble();
+          if (mins != null && mins > 0) workedHours = mins / 60.0;
+        }
+      }
+      if (workedHours <= 0 && (status.toString().toLowerCase().contains('completed') || status.toString().toLowerCase().contains('fully') || status.toString().toLowerCase().contains('partially'))) {
+        workedHours = duration;
+      }
+      totalWorkedFromTs += workedHours;
+    }
+    return {
+      'totalWorkedFromTs': totalWorkedFromTs,
+      'totalFormHrs': totalFormHrs,
+      'payFromTs': payFromTs,
+      'payFromForm': payFromForm,
+      'sumFinalPay': sumFinalPay,
+    };
+  }
+
+  /// Sheet: Dashboard — title, KPIs, teacher performance table, awards
+  static void _createDashboardSheetStyled(Excel excel, List<TeacherAuditFull> audits, String yearMonth, _ExcelExportL10n l10n) {
+    final sheet = excel[l10n.sheetDashboard];
+    final monthLabel = _monthLabelUpper(yearMonth);
+    final nTeachers = audits.length;
+    
+    // Title row (row 0)
+    sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('R1'));
+    final titleCell = sheet.cell(CellIndex.indexByString('A1'));
+    titleCell.value = TextCellValue('  📋  ${l10n.dashboardTitle} — $monthLabel');
+    titleCell.cellStyle = CellStyle(
+      bold: true,
+      fontSize: 18,
+      fontColorHex: ExcelColor.fromHexString(_textWhite),
+      backgroundColorHex: ExcelColor.fromHexString(_bgHeader),
+    );
+    
+    // Subtitle (row 1)
+    sheet.merge(CellIndex.indexByString('A2'), CellIndex.indexByString('R2'));
+    final subCell = sheet.cell(CellIndex.indexByString('A2'));
+    subCell.value = TextCellValue('  $nTeachers ${l10n.dashboardSubtitle}');
+    subCell.cellStyle = CellStyle(
+      fontSize: 10,
+      fontColorHex: ExcelColor.fromHexString('#A0B4CC'),
+      backgroundColorHex: ExcelColor.fromHexString(_bgSub),
+    );
+    
+    // Pre-compute Activity totals per audit (same logic as Activité sheet)
+    final activityTotalsByAudit = <String, Map<String, double>>{};
+    for (var a in audits) {
+      activityTotalsByAudit[a.oderId] = _computeActivityTotalsForAudit(a);
+    }
+    // KPIs (row 3): Avg Score, Total Hours (= sum of Activity Worked Hours), Total Payroll (= sum of Final Pay), Active Issues
+    double avgScore = 0;
+    double totalHours = 0;
+    double totalPay = 0;
+    int totalIssues = 0;
+    for (var a in audits) {
+      avgScore += a.overallScore;
+      final tot = activityTotalsByAudit[a.oderId] ?? {};
+      totalHours += tot['totalWorkedFromTs'] ?? 0;
+      totalPay += tot['sumFinalPay'] ?? 0;
+      totalIssues += a.issues.length;
+    }
+    if (audits.isNotEmpty) avgScore /= audits.length;
+    
+    final kpis = [
+      ('Avg Score', '${avgScore.toStringAsFixed(1)} / 10', '#2563EB', _blueBg),
+      ('Total Hours', '${totalHours.toStringAsFixed(0)} h', '#059669', _greenBg),
+      ('Total Payroll', '\$${totalPay.toStringAsFixed(2)}', '#7C3AED', '#EDE9FE'),
+      ('Active Issues', '$totalIssues', _critical, _redBg),
+    ];
+    final kpiColStarts = [1, 5, 9, 13]; // B, F, J, N
+    for (var i = 0; i < kpis.length; i++) {
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: kpiColStarts[i], rowIndex: 3),
+        CellIndex.indexByColumnRow(columnIndex: kpiColStarts[i] + 3, rowIndex: 3),
+      );
+      final c = sheet.cell(CellIndex.indexByColumnRow(columnIndex: kpiColStarts[i], rowIndex: 3));
+      c.value = TextCellValue('${kpis[i].$1}\n${kpis[i].$2}');
+      c.cellStyle = CellStyle(
+        bold: true,
+        fontSize: 14,
+        fontColorHex: ExcelColor.fromHexString(kpis[i].$3),
+        backgroundColorHex: ExcelColor.fromHexString(kpis[i].$4),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+    }
+    
+    // Section label (row 4)
+    sheet.merge(CellIndex.indexByString('A4'), CellIndex.indexByString('R4'));
+    final sectionCell = sheet.cell(CellIndex.indexByString('A4'));
+    sectionCell.value = TextCellValue('  ${l10n.teacherPerformanceOverview}');
+    sectionCell.cellStyle = CellStyle(
+      bold: true,
+      fontSize: 10,
+      fontColorHex: ExcelColor.fromHexString('#4B5563'),
+      backgroundColorHex: ExcelColor.fromHexString(_bgAccent),
+    );
+    
+    // Headers (row 5)
+    final dashboardCols = [
+      l10n.colTeacher, 'Score', 'Tier',
+      'Classes\nDone / Total', 'Completion\nRate', 'On-Time\nClockIns', 'Punctuality',
+      'Forms\nSub / Req', 'Form\nCompliance', l10n.colHrsTs.replaceAll(' ', '\n'), l10n.colHrsForms.replaceAll(' ', '\n'),
+      l10n.colGrossPay, l10n.colNetPay, 'Late\nClockIns', 'Missed\nClasses', 'Issues', 'Status'
+    ];
+    for (var i = 0; i < dashboardCols.length; i++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i + 1, rowIndex: 5));
+      cell.value = TextCellValue(dashboardCols[i]);
+      cell.cellStyle = CellStyle(
+        bold: true,
+        fontSize: 9,
+        fontColorHex: ExcelColor.fromHexString(_textWhite),
+        backgroundColorHex: ExcelColor.fromHexString(_bgHeader),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+    }
+    
+    // Sort by overall score for rank
+    final sorted = List<TeacherAuditFull>.from(audits)
+      ..sort((a, b) => b.overallScore.compareTo(a.overallScore));
+    
+    var dataRow = 6;
+    for (var idx = 0; idx < sorted.length; idx++) {
+      final audit = sorted[idx];
+      final rank = idx + 1;
+      final rowBg = idx.isEven ? _bgWhite : _bgRowAlt;
+      final tierHex = _tierColorHex(audit.performanceTier);
+      final completionRate = audit.completionRate.clamp(0.0, 100.0);
+      final punctRate = audit.punctualityRate.clamp(0.0, 100.0);
+      final formRate = audit.formComplianceRate.clamp(0.0, 100.0);
+      final tot = activityTotalsByAudit[audit.oderId] ?? {};
+      final hrsTs = tot['totalWorkedFromTs'] ?? 0;
+      final hrsForms = tot['totalFormHrs'] ?? 0;
+      final sumFinalPay = tot['sumFinalPay'] ?? 0;
+      final statusStr = _formatStatus(audit.status);
+      final issuesCount = audit.issues.length;
+      final issuesText = issuesCount > 0 ? audit.issues.map((e) => e.type).join(' / ') : '✓ None';
+      
+      final rowData = [
+        '#$rank  ${audit.teacherName}',
+        audit.overallScore.toStringAsFixed(1),
+        _formatTier(audit.performanceTier),
+        '${audit.totalClassesCompleted}/${audit.totalClassesScheduled}',
+        '${completionRate.toStringAsFixed(0)}%',
+        audit.lateClockIns == 0 ? '✓' : '${audit.lateClockIns} late',
+        '${punctRate.toStringAsFixed(0)}%',
+        '${audit.readinessFormsSubmitted}/${audit.readinessFormsRequired}',
+        '${formRate.toStringAsFixed(0)}%',
+        '${hrsTs.toStringAsFixed(1)}h',
+        '${hrsForms.toStringAsFixed(1)}h',
+        '\$${((tot['payFromTs'] ?? 0) + (tot['payFromForm'] ?? 0)).toStringAsFixed(2)}',
+        '\$${sumFinalPay.toStringAsFixed(2)}',
+        '${audit.lateClockIns}',
+        '${audit.totalClassesMissed}',
+        issuesText,
+        statusStr,
+      ];
+      for (var col = 0; col < rowData.length; col++) {
+        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col + 1, rowIndex: dataRow));
+        cell.value = TextCellValue(rowData[col]);
+        final isNetCol = col == 12;
+        cell.cellStyle = CellStyle(
+          bold: col == 0 || col == 1 || col == 2 || (isNetCol && sumFinalPay > 0),
+          fontSize: col == 16 ? 8 : 10,
+          fontColorHex: col == 2 ? ExcelColor.fromHexString(_textWhite)
+              : (col == 5 || col == 7 || col == 8 ? _rateFg(col == 5 ? completionRate : col == 7 ? punctRate : formRate) : ExcelColor.fromHexString(_textDark)),
+          backgroundColorHex: col == 2 ? tierHex
+              : (col == 5 ? _rateBgFg(completionRate) : (col == 7 ? _rateBgFg(punctRate) : (col == 8 ? _rateBgFg(formRate) : (isNetCol ? ExcelColor.fromHexString(_greenBg) : (col == 13 ? (audit.lateClockIns > 0 ? ExcelColor.fromHexString(_redBg) : ExcelColor.fromHexString(_greenBg)) : (col == 14 ? (audit.totalClassesMissed > 0 ? ExcelColor.fromHexString(_redBg) : ExcelColor.fromHexString(_greenBg)) : (col == 15 ? (issuesCount > 0 ? ExcelColor.fromHexString(_redBg) : ExcelColor.fromHexString(_greenBg)) : ExcelColor.fromHexString(rowBg)))))))),
+          horizontalAlign: HorizontalAlign.Center,
+          verticalAlign: VerticalAlign.Center,
+        );
+      }
+      dataRow++;
+    }
+    
+    // Awards row
+    final awardsParts = <String>[];
+    for (var idx = 0; idx < sorted.length; idx++) {
+      final a = sorted[idx];
+      final nameFirst = a.teacherName.split(' ').first;
+      String awards = '';
+      if (idx == 0 && a.overallScore >= 75) awards = '🏆 Teacher of Month';
+      if (a.formComplianceRate >= 95) awards += (awards.isEmpty ? '' : ', ') + '📋 Most Diligent';
+      if (awards.isNotEmpty) awardsParts.add('$nameFirst: $awards');
+    }
+    if (awardsParts.isNotEmpty) {
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: dataRow), CellIndex.indexByColumnRow(columnIndex: 17, rowIndex: dataRow));
+      final aw = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: dataRow));
+      aw.value = TextCellValue('  🏅  ' + awardsParts.join('   ·   '));
+      aw.cellStyle = CellStyle(bold: true, fontSize: 9, fontColorHex: ExcelColor.fromHexString('#4338CA'), backgroundColorHex: ExcelColor.fromHexString('#EEF2FF'));
+    }
+    
+    // Column widths
+    sheet.setColumnWidth(0, 2);
+    sheet.setColumnWidth(1, 26);
+    sheet.setColumnWidth(2, 8);
+    sheet.setColumnWidth(3, 14);
+    for (var i = 4; i <= 17; i++) sheet.setColumnWidth(i, i == 16 ? 22 : 12);
+    sheet.setColumnWidth(18, 2);
+  }
+  
+  /// Sheet: Activity — shifts + forms merged (Lesson/Content, Session Quality)
+  static void _createActiviteSheetStyled(Excel excel, List<TeacherAuditFull> audits, String yearMonth, _ExcelExportL10n l10n) {
+    final sheet = excel[l10n.sheetActivity];
+    final monthLabel = _monthLabelUpper(yearMonth);
+    
+    sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('O1'));
+    final titleCell = sheet.cell(CellIndex.indexByString('A1'));
+    titleCell.value = TextCellValue('  📋  ACTIVITY LOG — SHIFTS & FORMS — $monthLabel');
+    titleCell.cellStyle = CellStyle(
+      bold: true,
+      fontSize: 14,
+      fontColorHex: ExcelColor.fromHexString(_textWhite),
+      backgroundColorHex: ExcelColor.fromHexString('#065F46'),
+    );
+    
+    const actCols = [
+      'Teacher', 'Date', 'Subject', 'Shift ID', 'Status',
+      'Sched\nHours', 'Worked\nHours', 'Form\nHours', 'Form\nFiled?',
+      'Lesson / Content', 'Session\nQuality',
+      'Payment\nSource', 'Base\nAmount', 'Adj', 'Final\nPay'
+    ];
+    for (var i = 0; i < actCols.length; i++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2));
+      cell.value = TextCellValue(actCols[i]);
+      cell.cellStyle = CellStyle(
+        bold: true,
+        fontSize: 9,
+        fontColorHex: ExcelColor.fromHexString(_textWhite),
+        backgroundColorHex: ExcelColor.fromHexString('#065F46'),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+    }
+    
+    var actRow = 3;
+    for (var audit in audits) {
+      final shiftForms = <String, Map<String, dynamic>>{};
+      final shiftFormsBySuffix = <String, Map<String, dynamic>>{};
+      for (var form in audit.detailedForms) {
+        final sid = form['shiftId'] as String?;
+        if (sid == null || sid.isEmpty) continue;
+        shiftForms[sid] = form;
+        if (sid.length >= 8) shiftFormsBySuffix[sid.substring(sid.length - 8)] = form;
+      }
+      final adjustments = audit.paymentSummary?.shiftPaymentAdjustments ?? {};
+      // Map shiftId -> timesheet entry (and by last-8-chars for ID mismatch)
+      final timesheetByShiftId = <String, Map<String, dynamic>>{};
+      final timesheetBySuffix = <String, Map<String, dynamic>>{};
+      for (var ts in audit.detailedTimesheets) {
+        final tsMap = ts as Map<String, dynamic>;
+        final sid = tsMap['shift_id'] as String? ?? tsMap['shiftId'] as String?;
+        if (sid != null && sid.isNotEmpty) {
+          timesheetByShiftId[sid] = tsMap;
+          if (sid.length >= 8) timesheetBySuffix[sid.substring(sid.length - 8)] = tsMap;
+        }
+      }
+      
+      for (var shiftData in audit.detailedShifts) {
+        final shiftId = shiftData['id'] as String? ?? '';
+        if (shiftId.isEmpty) continue;
+        final shiftStart = (shiftData['start'] as Timestamp?)?.toDate();
+        final status = shiftData['status'] as String? ?? 'unknown';
+        final subject = shiftData['subject'] as String? ?? shiftData['subject_display_name'] as String? ?? 'N/A';
+        final duration = (shiftData['duration'] as num?)?.toDouble() ?? 0.0;
+        final formData = shiftForms[shiftId] ?? (shiftId.length >= 8 ? shiftFormsBySuffix[shiftId.substring(shiftId.length - 8)] : null);
+        final hasForm = formData != null;
+        final formHours = hasForm ? ((formData!['durationHours'] as num?)?.toDouble() ?? 0) : 0.0;
+        String paymentSource = 'None';
+        double baseAmount = 0.0;
+        final timesheetEntry = timesheetByShiftId[shiftId] ?? (shiftId.length >= 8 ? timesheetBySuffix[shiftId.substring(shiftId.length - 8)] : null) ?? <String, dynamic>{};
+        if (timesheetEntry.isNotEmpty) {
+          final pay = (timesheetEntry['payment_amount'] as num?)?.toDouble() ?? (timesheetEntry['total_pay'] as num?)?.toDouble() ?? 0;
+          if (pay > 0) {
+            paymentSource = 'Timesheet';
+            baseAmount = pay;
+          }
+        }
+        if (baseAmount == 0 && hasForm && formHours > 0) {
+          final rate = (shiftData['hourlyRate'] as num?)?.toDouble() ?? 0;
+          if (rate > 0) {
+            paymentSource = 'Form Duration';
+            baseAmount = formHours * rate;
+          }
+        }
+        if (!hasForm && baseAmount == 0) paymentSource = 'Orphan (No Form)';
+        final adj = adjustments[shiftId] ?? 0.0;
+        final finalPay = baseAmount + adj;
+        
+        String statusLabel = status;
+        ExcelColor stBg = ExcelColor.fromHexString(_blueBg);
+        ExcelColor stFg = ExcelColor.fromHexString(_blueFg);
+        if (status.toString().toLowerCase().contains('completed') || status.toString().toLowerCase().contains('fully')) {
+          statusLabel = '✓ Done';
+          stBg = ExcelColor.fromHexString(_greenBg);
+          stFg = ExcelColor.fromHexString(_greenFg);
+        } else if (status.toString().toLowerCase().contains('missed')) {
+          statusLabel = '✗ Missed';
+          stBg = ExcelColor.fromHexString(_redBg);
+          stFg = ExcelColor.fromHexString(_redFg);
+        } else if (status.toString().toLowerCase().contains('late')) {
+          statusLabel = '⚠ Late';
+          stBg = ExcelColor.fromHexString(_yellowBg);
+          stFg = ExcelColor.fromHexString(_yellowFg);
+        }
+        
+        final lesson = hasForm ? (formData!['lessonCovered'] as String? ?? '').toString().replaceAll('nan', '').trim() : '';
+        final quality = hasForm ? (formData!['sessionQuality'] as String? ?? '').toString().replaceAll('nan', '').trim() : '';
+        
+        // Worked hours = same as "Total Worked" in Shift Details: clock_in to effective_end/clock_out, capped at shift end
+        double workedHours = 0;
+        if (timesheetEntry.isNotEmpty) {
+          final clockInRaw = timesheetEntry['clock_in_time'] ?? timesheetEntry['clock_in_timestamp'] ?? timesheetEntry['clockIn'];
+          final clockOutRaw = timesheetEntry['effective_end_timestamp'] ?? timesheetEntry['clock_out_time'] ?? timesheetEntry['clock_out_timestamp'] ?? timesheetEntry['clockOut'];
+          final shiftEndDt = (shiftData['end'] as Timestamp?)?.toDate();
+          final shiftStartDt = (shiftData['start'] as Timestamp?)?.toDate();
+          if (clockInRaw != null && clockOutRaw != null && clockInRaw is Timestamp && clockOutRaw is Timestamp) {
+            DateTime start = (clockInRaw as Timestamp).toDate();
+            DateTime end = (clockOutRaw as Timestamp).toDate();
+            if (shiftEndDt != null && end.isAfter(shiftEndDt)) end = shiftEndDt;
+            if (shiftStartDt != null && start.isBefore(shiftStartDt)) start = shiftStartDt;
+            final dur = end.difference(start);
+            if (!dur.isNegative) workedHours = dur.inSeconds / 3600.0;
+          }
+          if (workedHours <= 0) {
+            final mins = (timesheetEntry['worked_minutes'] as num?)?.toDouble() ?? (timesheetEntry['workedMinutes'] as num?)?.toDouble();
+            if (mins != null && mins > 0) workedHours = mins / 60.0;
+          }
+        }
+        if (workedHours <= 0 && (status.toString().toLowerCase().contains('completed') || status.toString().toLowerCase().contains('fully') || status.toString().toLowerCase().contains('partially'))) {
+          workedHours = duration;
+        }
+        final rowValues = [
+          audit.teacherName,
+          shiftStart != null ? DateFormat('MMM d, yyyy').format(shiftStart) : '',
+          subject,
+          shiftId.length > 8 ? shiftId.substring(shiftId.length - 8) : shiftId,
+          statusLabel,
+          duration.toStringAsFixed(2),
+          workedHours > 0 ? workedHours.toStringAsFixed(2) : '-',
+          formHours > 0 ? formHours.toStringAsFixed(2) : '-',
+          hasForm ? 'Yes' : 'No',
+          lesson.isEmpty ? '—' : (lesson.length > 40 ? lesson.substring(0, 40) : lesson),
+          quality.isEmpty ? '—' : (quality.length > 15 ? quality.substring(0, 15) : quality),
+          paymentSource.length > 14 ? paymentSource.substring(0, 14) : paymentSource,
+          '\$${baseAmount.toStringAsFixed(2)}',
+          adj != 0 ? '\$${adj.toStringAsFixed(2)}' : '-',
+          '\$${finalPay.toStringAsFixed(2)}',
+        ];
+        for (var c = 0; c < rowValues.length; c++) {
+          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: actRow));
+          cell.value = TextCellValue(rowValues[c].toString());
+          if (c == 4) {
+            cell.cellStyle = CellStyle(bold: true, fontColorHex: stFg, backgroundColorHex: stBg, horizontalAlign: HorizontalAlign.Center);
+          } else if (c == 8) {
+            cell.cellStyle = CellStyle(
+              bold: true,
+              fontColorHex: hasForm ? ExcelColor.fromHexString(_greenFg) : ExcelColor.fromHexString(_redFg),
+              backgroundColorHex: hasForm ? ExcelColor.fromHexString(_greenBg) : ExcelColor.fromHexString(_redBg),
+              horizontalAlign: HorizontalAlign.Center,
+            );
+          } else if (c == 14) {
+            cell.cellStyle = CellStyle(bold: true, fontColorHex: ExcelColor.fromHexString(_greenFg), backgroundColorHex: ExcelColor.fromHexString(_greenBg), horizontalAlign: HorizontalAlign.Center);
+          } else {
+            cell.cellStyle = CellStyle(backgroundColorHex: actRow % 2 == 0 ? ExcelColor.fromHexString(_bgWhite) : ExcelColor.fromHexString(_bgRowAlt), horizontalAlign: c >= 1 && c <= 4 || (c >= 5 && c <= 9) || c >= 11 ? HorizontalAlign.Center : HorizontalAlign.Left);
+          }
+        }
+        actRow++;
+      }
+    }
+    
+    final actWidths = [22.0, 13.0, 14.0, 11.0, 10.0, 7.0, 8.0, 7.0, 8.0, 28.0, 12.0, 13.0, 11.0, 8.0, 10.0];
+    for (var i = 0; i < actWidths.length; i++) sheet.setColumnWidth(i, actWidths[i]);
+  }
+  
+  /// Sheet: Payment — payroll summary aligned with Activity (Pay from TS, Pay from Forms, Final Pay = sum of Activity Final Pay)
+  static void _createPaiementSheetStyled(Excel excel, List<TeacherAuditFull> audits, String yearMonth, _ExcelExportL10n l10n) {
+    final sheet = excel[l10n.sheetPaiement];
+    final monthLabel = _monthLabelUpper(yearMonth);
+    
+    sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('L1'));
+    final t = sheet.cell(CellIndex.indexByString('A1'));
+    t.value = TextCellValue('  💰  ${l10n.payrollSummaryTitle} — $monthLabel');
+    t.cellStyle = CellStyle(bold: true, fontSize: 14, fontColorHex: ExcelColor.fromHexString(_textWhite), backgroundColorHex: ExcelColor.fromHexString('#92400E'));
+    
+    sheet.merge(CellIndex.indexByString('A2'), CellIndex.indexByString('L2'));
+    final lbl = sheet.cell(CellIndex.indexByString('A2'));
+    lbl.value = TextCellValue('  ${l10n.payrollSummarySubtitle}');
+    lbl.cellStyle = CellStyle(bold: true, fontSize: 9, fontColorHex: ExcelColor.fromHexString('#78350F'), backgroundColorHex: ExcelColor.fromHexString('#FEF3C7'));
+    
+    final sumCols = [l10n.colTeacher, l10n.colSubject, l10n.colHrsTs, l10n.colHrsForms, l10n.colPayTs, l10n.colPayForms, l10n.colGrossPay, l10n.colPenalties, l10n.colBonuses, l10n.colNetPay, l10n.colGlobalAdj, l10n.colFinalPay];
+    for (var i = 0; i < sumCols.length; i++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
+      cell.value = TextCellValue(sumCols[i]);
+      cell.cellStyle = CellStyle(bold: true, fontSize: 9, fontColorHex: ExcelColor.fromHexString(_textWhite), backgroundColorHex: ExcelColor.fromHexString('#92400E'), horizontalAlign: HorizontalAlign.Center);
+    }
+    
+    double grandTotalFinalPay = 0;
+    var payRow = 4;
+    for (var audit in audits) {
+      final tot = _computeActivityTotalsForAudit(audit);
+      final hrsTs = tot['totalWorkedFromTs'] ?? 0;
+      final hrsForms = tot['totalFormHrs'] ?? 0;
+      final payFromTs = tot['payFromTs'] ?? 0;
+      final payFromForm = tot['payFromForm'] ?? 0;
+      final sumFinalPay = tot['sumFinalPay'] ?? 0;
+      grandTotalFinalPay += sumFinalPay;
+      final ps = audit.paymentSummary;
+      final subjectLabel = ps != null && ps.paymentsBySubject.isNotEmpty
+          ? (ps.paymentsBySubject.length == 1 ? ps.paymentsBySubject.values.first.subjectName : 'All')
+          : '-';
+      final gross = (ps != null ? ps.totalGrossPayment : 0.0);
+      final penalties = ps?.totalPenalties ?? 0;
+      final bonuses = ps?.totalBonuses ?? 0;
+      final net = ps?.totalNetPayment ?? 0;
+      final adj = ps?.adminAdjustment ?? 0;
+      final rowData = [
+        audit.teacherName,
+        subjectLabel,
+        hrsTs > 0 ? '${hrsTs.toStringAsFixed(2)}' : '-',
+        hrsForms > 0 ? '${hrsForms.toStringAsFixed(2)}' : '-',
+        '\$${payFromTs.toStringAsFixed(2)}',
+        '\$${payFromForm.toStringAsFixed(2)}',
+        '\$${gross.toStringAsFixed(2)}',
+        '\$${penalties.toStringAsFixed(2)}',
+        '\$${bonuses.toStringAsFixed(2)}',
+        '\$${net.toStringAsFixed(2)}',
+        adj != 0 ? '\$${adj.toStringAsFixed(2)}' : '-',
+        '\$${sumFinalPay.toStringAsFixed(2)}',
+      ];
+      for (var c = 0; c < rowData.length; c++) {
+        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: payRow));
+        cell.value = TextCellValue(rowData[c]);
+        final isFinal = c == 11;
+        final isPenalty = c == 7;
+        final isBonus = c == 8;
+        var bg = payRow % 2 == 0 ? _bgWhite : _bgRowAlt;
+        var fg = _textDark;
+        if (isFinal) { bg = _greenBg; fg = _greenFg; }
+        else if (isPenalty && penalties != 0) { bg = _redBg; fg = _redFg; }
+        else if (isBonus && bonuses != 0) { bg = _greenBg; fg = _greenFg; }
+        cell.cellStyle = CellStyle(bold: c == 0 || isFinal, fontSize: c == 0 ? 10 : 9, fontColorHex: ExcelColor.fromHexString(fg), backgroundColorHex: ExcelColor.fromHexString(bg), horizontalAlign: c == 0 ? HorizontalAlign.Left : HorizontalAlign.Center);
+      }
+      payRow++;
+    }
+    // Total row: sum of Final Pay (= sum of Activity Final Pay)
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: payRow)).value = TextCellValue(l10n.totalLabel);
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: payRow)).cellStyle = CellStyle(bold: true, fontSize: 10, fontColorHex: ExcelColor.fromHexString(_textWhite), backgroundColorHex: ExcelColor.fromHexString('#92400E'));
+    for (var c = 1; c < 11; c++) sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: payRow)).value = TextCellValue('');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 11, rowIndex: payRow)).value = TextCellValue('\$${grandTotalFinalPay.toStringAsFixed(2)}');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 11, rowIndex: payRow)).cellStyle = CellStyle(bold: true, fontSize: 10, fontColorHex: ExcelColor.fromHexString(_greenFg), backgroundColorHex: ExcelColor.fromHexString(_greenBg), horizontalAlign: HorizontalAlign.Center);
+    payRow++;
+    
+    payRow++;
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: payRow), CellIndex.indexByColumnRow(columnIndex: 11, rowIndex: payRow));
+    final lbl2 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: payRow));
+    lbl2.value = TextCellValue('  ⚠️  ${l10n.issuesAndFlagsTitle}');
+    lbl2.cellStyle = CellStyle(bold: true, fontSize: 9, fontColorHex: ExcelColor.fromHexString('#991B1B'), backgroundColorHex: ExcelColor.fromHexString(_redBg));
+    payRow++;
+    for (var i = 0; i < 4; i++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: payRow));
+      cell.value = TextCellValue([l10n.colTeacher, l10n.colIssueType, l10n.colDescription, l10n.colSeverity][i]);
+      cell.cellStyle = CellStyle(bold: true, fontSize: 9, fontColorHex: ExcelColor.fromHexString(_textWhite), backgroundColorHex: ExcelColor.fromHexString('#DC2626'), horizontalAlign: HorizontalAlign.Center);
+    }
+    payRow++;
+    for (var audit in audits) {
+      for (var issue in audit.issues) {
+        final sev = issue.severity.toLowerCase();
+        final sevBg = sev == 'high' ? _redBg : (sev == 'medium' ? _yellowBg : _greenBg);
+        final sevFg = sev == 'high' ? _redFg : (sev == 'medium' ? _yellowFg : _greenFg);
+        setCell(sheet, payRow, 0, audit.teacherName, bold: true);
+        setCell(sheet, payRow, 1, issue.type, color: _redFg, bold: true);
+        setCell(sheet, payRow, 2, issue.description);
+        final sc = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: payRow));
+        sc.value = TextCellValue(sev.toUpperCase());
+        sc.cellStyle = CellStyle(bold: true, fontColorHex: ExcelColor.fromHexString(sevFg), backgroundColorHex: ExcelColor.fromHexString(sevBg), horizontalAlign: HorizontalAlign.Center);
+        payRow++;
+      }
+    }
+    
+    final payWidths = [22.0, 12.0, 8.0, 9.0, 10.0, 10.0, 10.0, 9.0, 9.0, 10.0, 10.0, 11.0];
+    for (var i = 0; i < payWidths.length; i++) sheet.setColumnWidth(i, payWidths[i]);
+  }
+  
+  static void setCell(Sheet sheet, int row, int col, String value, {bool bold = false, String? color, String? bg}) {
+    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+    cell.value = TextCellValue(value);
+    cell.cellStyle = CellStyle(
+      bold: bold,
+      fontSize: 9,
+      fontColorHex: color != null ? ExcelColor.fromHexString(color) : ExcelColor.fromHexString(_textDark),
+      backgroundColorHex: bg != null ? ExcelColor.fromHexString(bg) : ExcelColor.fromHexString(_bgWhite),
+    );
   }
   
   /// Sheet 5: Coach Evaluation (16 factors)

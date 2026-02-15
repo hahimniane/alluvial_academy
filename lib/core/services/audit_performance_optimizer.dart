@@ -10,26 +10,40 @@ import '../services/form_labels_cache_service.dart';
 /// Load audits, labels, and other data in parallel instead of sequentially
 class OptimizedAuditLoader {
   
-  /// Load all audit data with maximum parallelization
+  /// Load all audit data with maximum parallelization.
+  /// [yearMonth] single month (e.g. "2026-02").
+  /// [yearMonths] multiple months; if non-null and non-empty, used instead of yearMonth.
+  /// [allTime] if true, load all available months (ignores yearMonth/yearMonths).
   static Future<List<TeacherAuditFull>> loadAuditsOptimized({
-    required String yearMonth,
+    String? yearMonth,
+    List<String>? yearMonths,
+    bool allTime = false,
   }) async {
-    // Start timer for performance measurement
     final stopwatch = Stopwatch()..start();
-    
+    final String effectiveMonth = yearMonth ?? DateFormat('yyyy-MM').format(DateTime.now());
+
     try {
-      // **PARALLEL LOAD**: Fetch audits and preload form labels simultaneously
-      final results = await Future.wait([
-        TeacherAuditService.getAuditsForMonth(yearMonth: yearMonth),
-        _preloadAllFormLabels(yearMonth), // Preload labels in parallel
-      ]);
-      
-      final audits = results[0] as List<TeacherAuditFull>;
-      
-      if (kDebugMode) {
-        print('✅ Loaded ${audits.length} audits in ${stopwatch.elapsedMilliseconds}ms');
+      List<String> monthsToLoad = [];
+      if (allTime) {
+        monthsToLoad = await TeacherAuditService.getAvailableYearMonths();
+        if (monthsToLoad.isEmpty) return [];
+      } else if (yearMonths != null && yearMonths.isNotEmpty) {
+        monthsToLoad = yearMonths;
+      } else {
+        monthsToLoad = [effectiveMonth];
       }
-      
+
+      final results = await Future.wait([
+        TeacherAuditService.getAuditsForYearMonths(yearMonths: monthsToLoad),
+        ...monthsToLoad.map((m) => _preloadAllFormLabels(m)),
+      ]);
+
+      final audits = results[0] as List<TeacherAuditFull>;
+
+      if (kDebugMode) {
+        print('✅ Loaded ${audits.length} audits (${monthsToLoad.length} month(s)) in ${stopwatch.elapsedMilliseconds}ms');
+      }
+
       return audits;
     } catch (e) {
       if (kDebugMode) {

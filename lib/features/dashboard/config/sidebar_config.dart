@@ -137,6 +137,13 @@ class SidebarConfig {
             colorValue: 0xff6366F1,
           ),
           const SidebarItem(
+            id: 'all_submissions',
+            label: 'All Submissions',
+            icon: Icons.assignment_ind,
+            screenIndex: 24,
+            colorValue: 0xff0EA5E9,
+          ),
+          const SidebarItem(
             id: 'submit_form',
             label: 'Submit Form',
             icon: Icons.description,

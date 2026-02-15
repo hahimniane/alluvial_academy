@@ -1318,7 +1318,27 @@ class ShiftService {
           DateTime localStartTime;
           DateTime localEndTime;
 
-          if (originalLocalStart != null && originalLocalEnd != null) {
+          // Check for per-day time slots first
+          final weekdayValue = occurrence.weekday;
+          final weekday = WeekDay.values.firstWhere(
+            (d) => d.value == weekdayValue,
+            orElse: () => WeekDay.monday,
+          );
+          final daySlot = enhancedRecurrence.getTimeSlotForDay(weekday);
+
+          if (daySlot != null) {
+            // Use per-day time slot
+            localStartTime = DateTime(
+              occurrence.year, occurrence.month, occurrence.day,
+              daySlot.startHour, daySlot.startMinute,
+            );
+            localEndTime = DateTime(
+              occurrence.year, occurrence.month, occurrence.day,
+              daySlot.endHour, daySlot.endMinute,
+            );
+            AppLogger.debug(
+                'Recurring shift (enhanced): Using per-day time slot for ${weekday.name} - Start: ${daySlot.startHour}:${daySlot.startMinute.toString().padLeft(2, '0')}, End: ${daySlot.endHour}:${daySlot.endMinute.toString().padLeft(2, '0')} ($adminTimezone)');
+          } else if (originalLocalStart != null && originalLocalEnd != null) {
             // Use the provided local times (naive DateTime in admin timezone)
             localStartTime = originalLocalStart;
             localEndTime = originalLocalEnd;
@@ -1561,6 +1581,10 @@ class ShiftService {
         'selectedWeekdays': enhanced.selectedWeekdays.map((d) => d.value).toList(),
         'selectedMonthDays': enhanced.selectedMonthDays,
         'selectedMonths': enhanced.selectedMonths,
+        // Per-day time slots for different times per day
+        if (enhanced.useDifferentTimesPerDay && enhanced.weekdayTimeSlots.isNotEmpty)
+          'weekdayTimeSlots': enhanced.weekdayTimeSlots.map((slot) => slot.toFirestore()).toList(),
+        'useDifferentTimesPerDay': enhanced.useDifferentTimesPerDay,
       };
     }
 
@@ -1776,6 +1800,147 @@ class ShiftService {
       });
     } catch (e) {
       AppLogger.warning('ShiftService: Failed to deactivate template: $e');
+    }
+  }
+
+  /// Reactivate a deactivated shift template (resumes future shift generation)
+  static Future<void> reactivateShiftTemplate(String templateId) async {
+    if (!EnvironmentUtils.isShiftTemplateEnabled) return;
+    if (templateId.trim().isEmpty) return;
+    try {
+      final callable = _functions.httpsCallable('updateShiftTemplate');
+      await callable.call({
+        'templateId': templateId,
+        'is_active': true,
+        'deactivated_reason': null,
+      });
+    } catch (e) {
+      AppLogger.warning('ShiftService: Failed to reactivate template: $e');
+    }
+  }
+
+  /// Reassign a shift template to another teacher (updates template + regenerates shifts)
+  static Future<void> reassignShiftTemplate(
+    String templateId, {
+    required String newTeacherId,
+    required String newTeacherName,
+  }) async {
+    if (!EnvironmentUtils.isShiftTemplateEnabled) return;
+    if (templateId.trim().isEmpty) return;
+    try {
+      final callable = _functions.httpsCallable('updateShiftTemplate');
+      await callable.call({
+        'templateId': templateId,
+        'teacher_id': newTeacherId,
+        'teacher_name': newTeacherName,
+      });
+    } catch (e) {
+      AppLogger.warning('ShiftService: Failed to reassign template: $e');
+      rethrow;
+    }
+  }
+
+  /// Update the weekdays and time slots for a shift template
+  static Future<void> updateShiftTemplateDays(
+    String templateId, {
+    required List<int> selectedWeekdays,
+    String? startTime,
+    String? endTime,
+    List<Map<String, dynamic>>? weekdayTimeSlots,
+    bool? useDifferentTimesPerDay,
+  }) async {
+    if (!EnvironmentUtils.isShiftTemplateEnabled) return;
+    if (templateId.trim().isEmpty) return;
+    try {
+      final payload = <String, dynamic>{
+        'templateId': templateId,
+        'enhanced_recurrence': {
+          'selectedWeekdays': selectedWeekdays,
+          if (weekdayTimeSlots != null) 'weekdayTimeSlots': weekdayTimeSlots,
+          if (useDifferentTimesPerDay != null)
+            'useDifferentTimesPerDay': useDifferentTimesPerDay,
+        },
+      };
+      if (startTime != null) payload['start_time'] = startTime;
+      if (endTime != null) payload['end_time'] = endTime;
+
+      // CRITICAL: Always calculate and send duration_minutes when times are provided
+      // This ensures the backend can regenerate shifts with correct duration
+      if (startTime != null && endTime != null) {
+        final startParts = startTime.split(':');
+        final endParts = endTime.split(':');
+        if (startParts.length == 2 && endParts.length == 2) {
+          try {
+            final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+            final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+            int durationMinutes = endMinutes - startMinutes;
+            if (durationMinutes <= 0) durationMinutes += 24 * 60; // Cross-midnight
+            payload['duration_minutes'] = durationMinutes;
+          } catch (e) {
+            AppLogger.warning('Failed to parse time for duration calculation: $e');
+          }
+        }
+      }
+
+      final callable = _functions.httpsCallable('updateShiftTemplate');
+      await callable.call(payload);
+    } catch (e) {
+      AppLogger.warning('ShiftService: Failed to update template days: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all shift templates (for template management)
+  static Future<List<Map<String, dynamic>>> getShiftTemplates({
+    String? teacherId,
+    bool activeOnly = true,
+  }) async {
+    try {
+      Query query = FirebaseFirestore.instance.collection('shift_templates');
+      if (teacherId != null) {
+        query = query.where('teacher_id', isEqualTo: teacherId);
+      }
+      if (activeOnly) {
+        query = query.where('is_active', isEqualTo: true);
+      }
+      final snapshot = await query.get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } on FirebaseException catch (firestoreError) {
+      final missingIndex = firestoreError.code == 'failed-precondition' &&
+          (firestoreError.message?.contains('index') ?? false);
+      if (!missingIndex) {
+        AppLogger.error('ShiftService: Failed to get shift templates: $firestoreError');
+        return [];
+      }
+      AppLogger.warning(
+          'ShiftService: Missing composite index for shift_templates (teacher_id + is_active). Falling back to full scan.');
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('shift_templates')
+            .get();
+        var list = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        if (teacherId != null) {
+          list = list.where((t) => t['teacher_id'] == teacherId).toList();
+        }
+        if (activeOnly) {
+          list = list.where((t) => t['is_active'] != false).toList();
+        }
+        return list;
+      } catch (e) {
+        AppLogger.error('ShiftService: Fallback get shift templates failed: $e');
+        return [];
+      }
+    } catch (e) {
+      AppLogger.error('ShiftService: Failed to get shift templates: $e');
+      return [];
     }
   }
 

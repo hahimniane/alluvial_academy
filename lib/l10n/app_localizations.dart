@@ -1192,6 +1192,66 @@ abstract class AppLocalizations {
   /// **'Reschedule shift'**
   String get shiftReschedule;
 
+  /// No description provided for @shiftFilterHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing shifts for {name}. Use ← → above to view other weeks, or switch to List to scroll all {count} shifts'**
+  String shiftFilterHint(String name, int count);
+
+  /// No description provided for @shiftReassignTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign to another teacher'**
+  String get shiftReassignTeacher;
+
+  /// No description provided for @shiftReassignTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign Shift'**
+  String get shiftReassignTitle;
+
+  /// No description provided for @shiftReassignConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to reassign this shift to {teacherName}?'**
+  String shiftReassignConfirm(String teacherName);
+
+  /// No description provided for @shiftReassignSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift reassigned successfully'**
+  String get shiftReassignSuccess;
+
+  /// No description provided for @shiftReassignError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to reassign shift'**
+  String get shiftReassignError;
+
+  /// No description provided for @shiftSelectTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a teacher'**
+  String get shiftSelectTeacher;
+
+  /// No description provided for @shiftSearchTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Search teachers...'**
+  String get shiftSearchTeacher;
+
+  /// No description provided for @shiftNoTeachersFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No teachers found'**
+  String get shiftNoTeachersFound;
+
+  /// No description provided for @shiftOriginalTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Original: {teacherName}'**
+  String shiftOriginalTeacher(String teacherName);
+
   /// No description provided for @shiftReportIssue.
   ///
   /// In en, this message translates to:
@@ -1827,6 +1887,276 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No form submissions yet'**
   String get formNoSubmissionsYet;
+
+  /// No description provided for @adminAllSubmissionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All Submissions (Admin)'**
+  String get adminAllSubmissionsTitle;
+
+  /// No description provided for @adminSubmissionsTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get adminSubmissionsTotal;
+
+  /// No description provided for @adminSubmissionsTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers'**
+  String get adminSubmissionsTeachers;
+
+  /// No description provided for @adminSubmissionsCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get adminSubmissionsCompleted;
+
+  /// No description provided for @adminSubmissionsPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get adminSubmissionsPending;
+
+  /// No description provided for @adminSubmissionsSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by teacher or form...'**
+  String get adminSubmissionsSearchPlaceholder;
+
+  /// No description provided for @adminSubmissionsTeachersAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers (All)'**
+  String get adminSubmissionsTeachersAll;
+
+  /// No description provided for @adminSubmissionsFilterTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers'**
+  String get adminSubmissionsFilterTeachers;
+
+  /// No description provided for @adminSubmissionsFilterMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get adminSubmissionsFilterMonth;
+
+  /// No description provided for @adminSubmissionsFilterStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get adminSubmissionsFilterStatus;
+
+  /// No description provided for @adminSubmissionsAllTime.
+  ///
+  /// In en, this message translates to:
+  /// **'All Time'**
+  String get adminSubmissionsAllTime;
+
+  /// No description provided for @adminSubmissionsAllStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'All Status'**
+  String get adminSubmissionsAllStatus;
+
+  /// No description provided for @adminSubmissionsAllForms.
+  ///
+  /// In en, this message translates to:
+  /// **'All forms'**
+  String get adminSubmissionsAllForms;
+
+  /// No description provided for @adminSubmissionsFilterByForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by form'**
+  String get adminSubmissionsFilterByForm;
+
+  /// No description provided for @adminSubmissionsClearFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get adminSubmissionsClearFilters;
+
+  /// No description provided for @adminSubmissionsViewByForm.
+  ///
+  /// In en, this message translates to:
+  /// **'View by Form'**
+  String get adminSubmissionsViewByForm;
+
+  /// No description provided for @adminSubmissionsViewByTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'View by Teacher'**
+  String get adminSubmissionsViewByTeacher;
+
+  /// No description provided for @adminSubmissionsSelectTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Teachers'**
+  String get adminSubmissionsSelectTeachers;
+
+  /// No description provided for @adminSubmissionsSelectMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Month'**
+  String get adminSubmissionsSelectMonth;
+
+  /// No description provided for @adminSubmissionsFilterByStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by Status'**
+  String get adminSubmissionsFilterByStatus;
+
+  /// No description provided for @adminSubmissionsSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select All'**
+  String get adminSubmissionsSelectAll;
+
+  /// No description provided for @adminSubmissionsClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get adminSubmissionsClearAll;
+
+  /// No description provided for @adminSubmissionsFavoritesOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites Only'**
+  String get adminSubmissionsFavoritesOnly;
+
+  /// No description provided for @adminSubmissionsApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get adminSubmissionsApply;
+
+  /// No description provided for @adminSubmissionsNoSubmissions.
+  ///
+  /// In en, this message translates to:
+  /// **'No submissions found'**
+  String get adminSubmissionsNoSubmissions;
+
+  /// No description provided for @adminSubmissionsTryAdjustingFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Try adjusting your filters'**
+  String get adminSubmissionsTryAdjustingFilters;
+
+  /// No description provided for @adminSubmissionsAddToFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get adminSubmissionsAddToFavorites;
+
+  /// No description provided for @adminSubmissionsLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get adminSubmissionsLoadMore;
+
+  /// No description provided for @adminSubmissionsLoadOtherForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Load other forms'**
+  String get adminSubmissionsLoadOtherForms;
+
+  /// No description provided for @adminSubmissionsPriorityForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority Form'**
+  String get adminSubmissionsPriorityForm;
+
+  /// No description provided for @adminSubmissionsGroupedByTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Grouped by Teacher'**
+  String get adminSubmissionsGroupedByTeacher;
+
+  /// No description provided for @adminSubmissionsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} submission(s)'**
+  String adminSubmissionsCount(int count);
+
+  /// No description provided for @adminSubmissionsShiftDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{date} • {students}'**
+  String adminSubmissionsShiftDetail(String date, String students);
+
+  /// No description provided for @adminSubmissionsGeneralUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'General / Unknown'**
+  String get adminSubmissionsGeneralUnknown;
+
+  /// No description provided for @formDefaultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Form'**
+  String get formDefaultTitle;
+
+  /// No description provided for @adminPreferencesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin Preferences'**
+  String get adminPreferencesTitle;
+
+  /// No description provided for @adminPreferencesDefaultViewMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Default View Mode'**
+  String get adminPreferencesDefaultViewMode;
+
+  /// No description provided for @adminPreferencesByTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'By Teacher'**
+  String get adminPreferencesByTeacher;
+
+  /// No description provided for @adminPreferencesByForm.
+  ///
+  /// In en, this message translates to:
+  /// **'By Form'**
+  String get adminPreferencesByForm;
+
+  /// No description provided for @adminPreferencesShowAllMonthsDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Show All Months by Default'**
+  String get adminPreferencesShowAllMonthsDefault;
+
+  /// No description provided for @adminPreferencesFavoriteTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite Teachers'**
+  String get adminPreferencesFavoriteTeachers;
+
+  /// No description provided for @adminPreferencesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences saved'**
+  String get adminPreferencesSaved;
+
+  /// No description provided for @adminPreferencesFavoriteCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} teacher(s) marked as favorite'**
+  String adminPreferencesFavoriteCount(int count);
+
+  /// No description provided for @adminPreferencesUseStarHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the star icon on teacher cards to add favorites'**
+  String get adminPreferencesUseStarHint;
+
+  /// No description provided for @adminPreferencesDefaultTeachersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When you set favorite teachers, they are shown by default. Clear the teacher filter on the screen to see all submissions.'**
+  String get adminPreferencesDefaultTeachersHint;
 
   /// No description provided for @formNoResults.
   ///
@@ -6958,6 +7288,474 @@ abstract class AppLocalizations {
   /// **'Form Submitted'**
   String get formSubmitted;
 
+  /// No description provided for @formsWithNoSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms with no schedule'**
+  String get formsWithNoSchedule;
+
+  /// No description provided for @auditTabOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get auditTabOverview;
+
+  /// No description provided for @auditTabActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get auditTabActivity;
+
+  /// No description provided for @auditTabPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment'**
+  String get auditTabPayment;
+
+  /// No description provided for @auditTabForms.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms'**
+  String get auditTabForms;
+
+  /// No description provided for @auditKeyIndicators.
+  ///
+  /// In en, this message translates to:
+  /// **'Key indicators'**
+  String get auditKeyIndicators;
+
+  /// No description provided for @auditPerformanceRates.
+  ///
+  /// In en, this message translates to:
+  /// **'Performance rates'**
+  String get auditPerformanceRates;
+
+  /// No description provided for @auditIssuesAlerts.
+  ///
+  /// In en, this message translates to:
+  /// **'Issues & alerts'**
+  String get auditIssuesAlerts;
+
+  /// No description provided for @auditClassesCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes completed'**
+  String get auditClassesCompleted;
+
+  /// No description provided for @auditHoursTaught.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours taught'**
+  String get auditHoursTaught;
+
+  /// No description provided for @auditCompletionRateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Completion rate'**
+  String get auditCompletionRateLabel;
+
+  /// No description provided for @auditLateClockInsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Late clock-ins'**
+  String get auditLateClockInsLabel;
+
+  /// No description provided for @auditClassesMissedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes missed'**
+  String get auditClassesMissedLabel;
+
+  /// No description provided for @auditNoLateClockIns.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get auditNoLateClockIns;
+
+  /// No description provided for @auditNoMissedClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get auditNoMissedClasses;
+
+  /// No description provided for @auditClassCompletionRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Class completion'**
+  String get auditClassCompletionRate;
+
+  /// No description provided for @auditFormComplianceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Form compliance'**
+  String get auditFormComplianceLabel;
+
+  /// No description provided for @auditNoIssuesDetected.
+  ///
+  /// In en, this message translates to:
+  /// **'No issues detected'**
+  String get auditNoIssuesDetected;
+
+  /// No description provided for @auditFormsAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get auditFormsAccepted;
+
+  /// No description provided for @auditFormsRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get auditFormsRejected;
+
+  /// No description provided for @auditFormsRejectedBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'({noShift} no shift, {duplicates} duplicate)'**
+  String auditFormsRejectedBreakdown(int noShift, int duplicates);
+
+  /// No description provided for @auditFormStatusAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get auditFormStatusAccepted;
+
+  /// No description provided for @auditFormStatusRejectedDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (duplicate)'**
+  String get auditFormStatusRejectedDuplicate;
+
+  /// No description provided for @auditFormStatusRejectedNoShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected (no shift)'**
+  String get auditFormStatusRejectedNoShift;
+
+  /// No description provided for @auditTotalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get auditTotalLabel;
+
+  /// No description provided for @auditFormsSubmittedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms submitted'**
+  String get auditFormsSubmittedLabel;
+
+  /// No description provided for @auditGeneralOrUnlinked.
+  ///
+  /// In en, this message translates to:
+  /// **'General / Unlinked'**
+  String get auditGeneralOrUnlinked;
+
+  /// No description provided for @auditNoFormsSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'No forms submitted'**
+  String get auditNoFormsSubmitted;
+
+  /// No description provided for @auditTierExcellent.
+  ///
+  /// In en, this message translates to:
+  /// **'Excellent'**
+  String get auditTierExcellent;
+
+  /// No description provided for @auditTierGood.
+  ///
+  /// In en, this message translates to:
+  /// **'Good'**
+  String get auditTierGood;
+
+  /// No description provided for @auditTierNeedsImprovement.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs Improvement'**
+  String get auditTierNeedsImprovement;
+
+  /// No description provided for @auditTierCritical.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical'**
+  String get auditTierCritical;
+
+  /// No description provided for @auditStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get auditStatusCompleted;
+
+  /// No description provided for @auditStatusSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted'**
+  String get auditStatusSubmitted;
+
+  /// No description provided for @auditStatusDisputed.
+  ///
+  /// In en, this message translates to:
+  /// **'Disputed'**
+  String get auditStatusDisputed;
+
+  /// No description provided for @auditStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get auditStatusPending;
+
+  /// No description provided for @teacherAuditTabSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary'**
+  String get teacherAuditTabSummary;
+
+  /// No description provided for @teacherAuditTabMyClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'My classes'**
+  String get teacherAuditTabMyClasses;
+
+  /// No description provided for @teacherAuditTabDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute'**
+  String get teacherAuditTabDispute;
+
+  /// No description provided for @teacherAuditPaymentSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment'**
+  String get teacherAuditPaymentSection;
+
+  /// No description provided for @teacherAuditPerformanceSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Performance'**
+  String get teacherAuditPerformanceSection;
+
+  /// No description provided for @teacherAuditNetToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'NET TO RECEIVE'**
+  String get teacherAuditNetToReceive;
+
+  /// No description provided for @teacherAuditPointsOfAttention.
+  ///
+  /// In en, this message translates to:
+  /// **'Points of attention'**
+  String get teacherAuditPointsOfAttention;
+
+  /// No description provided for @teacherAuditReportNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Report not available'**
+  String get teacherAuditReportNotAvailable;
+
+  /// No description provided for @teacherAuditReportNotFinalizedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your report for {month} is not yet finalized or does not exist.'**
+  String teacherAuditReportNotFinalizedMessage(String month);
+
+  /// No description provided for @teacherAuditClassesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Classes'**
+  String get teacherAuditClassesLabel;
+
+  /// No description provided for @teacherAuditHoursLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours'**
+  String get teacherAuditHoursLabel;
+
+  /// No description provided for @teacherAuditFormsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Forms'**
+  String get teacherAuditFormsLabel;
+
+  /// No description provided for @teacherAuditPunctualityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Punctuality'**
+  String get teacherAuditPunctualityLabel;
+
+  /// No description provided for @teacherAuditContestationSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute submitted successfully'**
+  String get teacherAuditContestationSent;
+
+  /// No description provided for @teacherAuditContestationError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {message}'**
+  String teacherAuditContestationError(String message);
+
+  /// No description provided for @teacherAuditNewDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'New dispute'**
+  String get teacherAuditNewDispute;
+
+  /// No description provided for @teacherAuditExistingDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing dispute'**
+  String get teacherAuditExistingDispute;
+
+  /// No description provided for @teacherAuditAdminResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin response:'**
+  String get teacherAuditAdminResponse;
+
+  /// No description provided for @teacherAuditSelectField.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a field'**
+  String get teacherAuditSelectField;
+
+  /// No description provided for @teacherAuditReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get teacherAuditReasonLabel;
+
+  /// No description provided for @teacherAuditSuggestedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Correct value (optional)'**
+  String get teacherAuditSuggestedValue;
+
+  /// No description provided for @teacherAuditSendDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit dispute'**
+  String get teacherAuditSendDispute;
+
+  /// No description provided for @teacherAuditSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending...'**
+  String get teacherAuditSending;
+
+  /// No description provided for @teacherAuditDisputeInfoMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'If you believe a value is incorrect, submit a dispute below. The team will review your request.'**
+  String get teacherAuditDisputeInfoMessage;
+
+  /// No description provided for @teacherAuditFieldToDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'Field to dispute'**
+  String get teacherAuditFieldToDispute;
+
+  /// No description provided for @teacherAuditDetailReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain why this value seems incorrect...'**
+  String get teacherAuditDetailReason;
+
+  /// No description provided for @teacherAuditExampleValue.
+  ///
+  /// In en, this message translates to:
+  /// **'E.g.: 24h, 95%, 3 classes...'**
+  String get teacherAuditExampleValue;
+
+  /// No description provided for @teacherAuditGross.
+  ///
+  /// In en, this message translates to:
+  /// **'Gross'**
+  String get teacherAuditGross;
+
+  /// No description provided for @teacherAuditPenalties.
+  ///
+  /// In en, this message translates to:
+  /// **'Penalties'**
+  String get teacherAuditPenalties;
+
+  /// No description provided for @teacherAuditBonuses.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonuses'**
+  String get teacherAuditBonuses;
+
+  /// No description provided for @teacherAuditAdminAdjustment.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin adjustment'**
+  String get teacherAuditAdminAdjustment;
+
+  /// No description provided for @teacherAuditDisputeFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Field'**
+  String get teacherAuditDisputeFieldLabel;
+
+  /// No description provided for @auditPaymentCalculation.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculation'**
+  String get auditPaymentCalculation;
+
+  /// No description provided for @auditHoursWorked.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours worked'**
+  String get auditHoursWorked;
+
+  /// No description provided for @auditTotalAdjustments.
+  ///
+  /// In en, this message translates to:
+  /// **'Total adjustments'**
+  String get auditTotalAdjustments;
+
+  /// No description provided for @auditNetToPay.
+  ///
+  /// In en, this message translates to:
+  /// **'NET TO PAY'**
+  String get auditNetToPay;
+
+  /// No description provided for @auditNoPaymentDataAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No payment data available'**
+  String get auditNoPaymentDataAvailable;
+
+  /// No description provided for @auditPaymentSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment summary'**
+  String get auditPaymentSummary;
+
+  /// No description provided for @auditGrossSalary.
+  ///
+  /// In en, this message translates to:
+  /// **'Gross salary'**
+  String get auditGrossSalary;
+
+  /// No description provided for @auditNetSalary.
+  ///
+  /// In en, this message translates to:
+  /// **'Net salary'**
+  String get auditNetSalary;
+
+  /// No description provided for @auditAdjustments.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjustments'**
+  String get auditAdjustments;
+
+  /// No description provided for @auditGlobalAdjustment.
+  ///
+  /// In en, this message translates to:
+  /// **'Global adjustment'**
+  String get auditGlobalAdjustment;
+
   /// No description provided for @formTemplates.
   ///
   /// In en, this message translates to:
@@ -7927,7 +8725,7 @@ abstract class AppLocalizations {
   /// No description provided for @loadingAuditsForSelectedyearmonth.
   ///
   /// In en, this message translates to:
-  /// **'Loading Audits For Selectedyearmonth'**
+  /// **'Loading audits…'**
   String get loadingAuditsForSelectedyearmonth;
 
   /// No description provided for @loadingDashboard.
@@ -8968,6 +9766,12 @@ abstract class AppLocalizations {
   /// **'No Shifts With Forms Found Link'**
   String get noShiftsWithFormsFoundLink;
 
+  /// No description provided for @missedClassFormSubmittedRecovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed class • Form submitted (recovery)'**
+  String get missedClassFormSubmittedRecovery;
+
   /// No description provided for @noStudentsAvailableInTheSystem.
   ///
   /// In en, this message translates to:
@@ -9025,7 +9829,7 @@ abstract class AppLocalizations {
   /// No description provided for @noTeachersFoundMakeSureTeachers.
   ///
   /// In en, this message translates to:
-  /// **'No Teachers Found Make Sure Teachers'**
+  /// **'No teachers found. Make sure teachers have audits for the selected period.'**
   String get noTeachersFoundMakeSureTeachers;
 
   /// No description provided for @noTemplatesForThisFrequency.
@@ -10993,8 +11797,50 @@ abstract class AppLocalizations {
   /// No description provided for @searchTeacher.
   ///
   /// In en, this message translates to:
-  /// **'Search Teacher'**
+  /// **'Search by name or email'**
   String get searchTeacher;
+
+  /// No description provided for @periodOneMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'One month'**
+  String get periodOneMonth;
+
+  /// No description provided for @periodTwoMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'Two months'**
+  String get periodTwoMonths;
+
+  /// No description provided for @periodCustomRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom range'**
+  String get periodCustomRange;
+
+  /// No description provided for @periodAllTime.
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get periodAllTime;
+
+  /// No description provided for @startMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Start month'**
+  String get startMonth;
+
+  /// No description provided for @endMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'End month'**
+  String get endMonth;
+
+  /// No description provided for @auditPeriodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get auditPeriodLabel;
 
   /// No description provided for @searchTeachers.
   ///
@@ -14610,6 +15456,66 @@ abstract class AppLocalizations {
   /// **'UPCOMING'**
   String get timelineShiftUpcoming;
 
+  /// No description provided for @shiftManagementTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift Management'**
+  String get shiftManagementTitle;
+
+  /// No description provided for @shiftThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get shiftThisWeek;
+
+  /// No description provided for @shiftSelectDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Select days'**
+  String get shiftSelectDays;
+
+  /// No description provided for @shiftNoTemplatesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No schedule templates found'**
+  String get shiftNoTemplatesFound;
+
+  /// No description provided for @shiftTimeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get shiftTimeLabel;
+
+  /// No description provided for @shiftTimePerDayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Time per day'**
+  String get shiftTimePerDayLabel;
+
+  /// No description provided for @shiftScheduleUpdatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule updated successfully'**
+  String get shiftScheduleUpdatedSuccess;
+
+  /// No description provided for @shiftScheduleUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update schedule'**
+  String get shiftScheduleUpdateFailed;
+
+  /// No description provided for @hideFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide filters'**
+  String get hideFilters;
+
+  /// No description provided for @showFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Show filters'**
+  String get showFilters;
+
   /// No description provided for @shiftManagementGrid.
   ///
   /// In en, this message translates to:
@@ -14621,6 +15527,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'List'**
   String get shiftManagementList;
+
+  /// No description provided for @shiftTabAllCount.
+  ///
+  /// In en, this message translates to:
+  /// **'All Shifts ({count})'**
+  String shiftTabAllCount(int count);
+
+  /// No description provided for @shiftTabTodayCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Today ({count})'**
+  String shiftTabTodayCount(int count);
+
+  /// No description provided for @shiftTabUpcomingCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming ({count})'**
+  String shiftTabUpcomingCount(int count);
+
+  /// No description provided for @shiftTabActiveCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Active ({count})'**
+  String shiftTabActiveCount(int count);
+
+  /// No description provided for @shiftTemplateManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule Templates'**
+  String get shiftTemplateManagement;
+
+  /// No description provided for @shiftTemplateDeactivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate Schedule'**
+  String get shiftTemplateDeactivate;
+
+  /// No description provided for @shiftTemplateReactivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Reactivate Schedule'**
+  String get shiftTemplateReactivate;
+
+  /// No description provided for @shiftTemplateReassign.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign Schedule'**
+  String get shiftTemplateReassign;
+
+  /// No description provided for @shiftTemplateModifyDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Modify Days'**
+  String get shiftTemplateModifyDays;
+
+  /// No description provided for @shiftTemplateDeactivateConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'This will stop generating future shifts for this schedule. Existing shifts won\'t be deleted.'**
+  String get shiftTemplateDeactivateConfirm;
+
+  /// No description provided for @shiftTemplateReactivateConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'This will resume generating future shifts for this schedule.'**
+  String get shiftTemplateReactivateConfirm;
+
+  /// No description provided for @shiftTemplateDeactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule deactivated'**
+  String get shiftTemplateDeactivated;
+
+  /// No description provided for @shiftTemplateReactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule reactivated'**
+  String get shiftTemplateReactivated;
+
+  /// No description provided for @shiftTemplateFilterTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by teacher'**
+  String get shiftTemplateFilterTeacher;
+
+  /// No description provided for @shiftTemplateCompleteSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete schedule'**
+  String get shiftTemplateCompleteSchedule;
+
+  /// No description provided for @shiftTemplateSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search teacher, student...'**
+  String get shiftTemplateSearchPlaceholder;
+
+  /// No description provided for @shiftTemplateViewTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Templates'**
+  String get shiftTemplateViewTemplates;
+
+  /// No description provided for @shiftTemplateViewSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete schedule'**
+  String get shiftTemplateViewSchedule;
+
+  /// No description provided for @shiftTemplateAllTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'All teachers'**
+  String get shiftTemplateAllTeachers;
+
+  /// No description provided for @shiftTemplateSelectTeacher.
+  ///
+  /// In en, this message translates to:
+  /// **'Select teacher'**
+  String get shiftTemplateSelectTeacher;
+
+  /// No description provided for @shiftTemplateStudentSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Student schedule'**
+  String get shiftTemplateStudentSchedule;
+
+  /// No description provided for @shiftWeeklyScheduleSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly Schedule Setup'**
+  String get shiftWeeklyScheduleSetup;
+
+  /// No description provided for @shiftPerDayTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Set time per day'**
+  String get shiftPerDayTime;
+
+  /// No description provided for @shiftSameTimeAllDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Same time for all days'**
+  String get shiftSameTimeAllDays;
+
+  /// No description provided for @shiftDifferentTimePerDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Different time per day'**
+  String get shiftDifferentTimePerDay;
 
   /// No description provided for @subjectManagementDisplayname.
   ///
