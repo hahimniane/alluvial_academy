@@ -21,6 +21,7 @@ import 'reschedule_shift_dialog.dart';
 import 'package:flutter/foundation.dart';
 // Zoom imports removed - using LiveKit now
 import '../../../core/services/video_call_service.dart';
+import '../../../core/services/mobile_classes_access_service.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
 class ShiftDetailsDialog extends StatefulWidget {
@@ -97,11 +98,15 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
   // Cached shift data (for real-time status updates)
   TeachingShift? _liveShift;
 
+  // Mobile class access permission (for teachers on native mobile)
+  bool _canJoinFromMobile = true; // Default true, will be set false if teacher is blocked
+
   @override
   void initState() {
     super.initState();
     _liveShift = widget.shift;
     _checkAdminStatus();
+    _checkMobileClassAccess();
     _loadDetails();
     _setupRealtimeListeners();
   }
@@ -116,6 +121,56 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
       }
     } catch (e) {
       AppLogger.error('Error checking admin status: $e');
+    }
+  }
+
+  /// Check if the current user can join classes from native mobile app.
+  /// Only applies to teachers on iOS/Android - web users and students always see the button.
+  Future<void> _checkMobileClassAccess() async {
+    // Only check on native mobile platforms
+    final isNativeMobile = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+
+    if (!isNativeMobile) {
+      // Web users always have access
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final uid = user.uid;
+    final shift = _liveShift ?? widget.shift;
+
+    // Only restrict teachers (the shift owner), not students or admins
+    final isTeacherForShift = uid == shift.teacherId;
+    if (!isTeacherForShift) {
+      // Students/admins can always see the join button
+      return;
+    }
+
+    // Primary admins can always join
+    try {
+      final userData = await UserRoleService.getCurrentUserData();
+      final primaryRole = (userData?['user_type'] as String?)?.trim().toLowerCase();
+      final isPrimaryAdmin = primaryRole == 'admin' || primaryRole == 'super_admin';
+      if (isPrimaryAdmin) return;
+    } catch (_) {}
+
+    // Check if this teacher is allowed to host from mobile
+    try {
+      final allowed = await MobileClassesAccessService.canTeacherHostFromMobile(
+        uid: uid,
+        email: user.email,
+      );
+      if (mounted) {
+        setState(() {
+          _canJoinFromMobile = allowed;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error checking mobile class access: $e');
     }
   }
 
@@ -2500,8 +2555,8 @@ class _ShiftDetailsDialogState extends State<ShiftDetailsDialog> {
             ),
           ),
 
-          // Zoom button (if meeting is configured and within time window)
-          if (_liveShift?.hasZoomMeeting == true || widget.shift.hasZoomMeeting) ...[
+          // Video call button (LiveKit - available if user has permission)
+          if (_canJoinFromMobile && (_liveShift?.hasVideoCall == true || widget.shift.hasVideoCall)) ...[
             const SizedBox(width: 8),
             _buildVideoCallButton(),
           ],

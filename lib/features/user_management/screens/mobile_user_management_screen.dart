@@ -635,7 +635,7 @@ class _MobileUserManagementScreenState extends State<MobileUserManagementScreen>
                 ),
                 SizedBox(height: 6),
                 Text(
-                  AppLocalizations.of(context)!.studentIdStudentcode,
+                  AppLocalizations.of(context)!.studentIdStudentcode(studentCode),
                   style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 12),

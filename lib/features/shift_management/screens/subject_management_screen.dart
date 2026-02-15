@@ -523,7 +523,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(AppLocalizations.of(context)!.subjectDisplaynameAddedSuccessfully),
+                    content: Text(AppLocalizations.of(context)!.subjectDisplaynameAddedSuccessfully(displayName)),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -657,7 +657,7 @@ class _SubjectManagementScreenState extends State<SubjectManagementScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content:
-                        Text(AppLocalizations.of(context)!.subjectDisplaynameUpdatedSuccessfully),
+                        Text(AppLocalizations.of(context)!.subjectDisplaynameUpdatedSuccessfully(displayName)),
                     backgroundColor: Colors.green,
                   ),
                 );

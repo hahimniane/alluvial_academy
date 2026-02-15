@@ -1054,7 +1054,7 @@ class _AdminTimesheetReviewState extends State<AdminTimesheetReview> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              AppLocalizations.of(context)!.youAreAboutToRejectCount,
+              AppLocalizations.of(context)!.youAreAboutToRejectCount(count),
               style: GoogleFonts.inter(fontSize: 14),
             ),
             const SizedBox(height: 16),

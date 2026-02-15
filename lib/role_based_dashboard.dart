@@ -40,6 +40,11 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   Timer? _userDocTimeout;
   bool _userRoleResolved = false;
 
+  // Retry mechanism for loading user role
+  int _roleLoadRetryCount = 0;
+  static const int _maxRoleLoadRetries = 3;
+  static const Duration _roleLoadRetryDelay = Duration(seconds: 2);
+
   static const Duration _presenceInterval = Duration(minutes: 1);
   static const Duration _presenceMinInterval = Duration(seconds: 20);
   static const Duration _userDocWaitTimeout = Duration(seconds: 30);
@@ -188,11 +193,31 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   }
 
   /// One-shot load (used by role switcher). Not used for initial load; initial load uses listener.
-  Future<void> _loadUserRole() async {
+  Future<void> _loadUserRole({bool isRetry = false}) async {
     try {
-      UserRoleService.clearCache();
+      AppLogger.debug('=== Loading User Role ${isRetry ? "(retry $_roleLoadRetryCount)" : ""} ===');
+      AppLogger.debug('Current user: ${FirebaseAuth.instance.currentUser?.uid}');
+      AppLogger.debug('Current user email: ${FirebaseAuth.instance.currentUser?.email}');
+
+      // Clear cache before retry to ensure fresh data
+      if (isRetry) {
+        UserRoleService.clearCache();
+      }
+
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
+
+      // If role is null and we haven't exceeded retry limit, try again
+      if (role == null && _roleLoadRetryCount < _maxRoleLoadRetries) {
+        _roleLoadRetryCount++;
+        AppLogger.debug('Role is null, scheduling retry $_roleLoadRetryCount of $_maxRoleLoadRetries');
+        await Future.delayed(_roleLoadRetryDelay);
+        if (mounted) {
+          await _loadUserRole(isRetry: true);
+        }
+        return;
+      }
+
       if (mounted) {
         setState(() {
           userRole = role;
@@ -202,6 +227,18 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
       }
     } catch (e) {
       AppLogger.error('Error loading user role: $e');
+
+      // Retry on error if we haven't exceeded limit
+      if (_roleLoadRetryCount < _maxRoleLoadRetries) {
+        _roleLoadRetryCount++;
+        AppLogger.debug('Error occurred, scheduling retry $_roleLoadRetryCount of $_maxRoleLoadRetries');
+        await Future.delayed(_roleLoadRetryDelay);
+        if (mounted) {
+          await _loadUserRole(isRetry: true);
+        }
+        return;
+      }
+
       if (mounted) {
         setState(() {
           error = e.toString();
@@ -387,27 +424,54 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              AppLocalizations.of(context)!.yourAccountHasNotBeenSet,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: const Color(0xff6B7280),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                AppLocalizations.of(context)!.yourAccountHasNotBeenSet,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xff6B7280),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff0386FF),
-                foregroundColor: Colors.white,
-              ),
-              child: Text(AppLocalizations.of(context)!.settingsSignOut),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Retry button
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      isLoading = true;
+                      error = null;
+                      _roleLoadRetryCount = 0;
+                    });
+                    _loadUserRole();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: Text(AppLocalizations.of(context)!.commonRetry),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xff0386FF),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Sign out button
+                ElevatedButton(
+                  onPressed: () async {
+                    UserRoleService.clearCache();
+                    await FirebaseAuth.instance.signOut();
+                    if (context.mounted) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff0386FF),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(AppLocalizations.of(context)!.settingsSignOut),
+                ),
+              ],
             ),
           ],
         ),

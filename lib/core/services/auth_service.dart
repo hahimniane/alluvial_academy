@@ -36,6 +36,19 @@ class AuthService {
           }
         }
 
+        // Check if the user exists in our system (Firestore users collection)
+        final userData = await UserRoleService.getCurrentUserData();
+        if (userData == null) {
+          AppLogger.debug('AuthService: User authenticated but no Firestore document found for ${user.email}');
+          // Sign out and throw error
+          await _auth.signOut();
+          throw FirebaseAuthException(
+            code: 'user-not-registered',
+            message:
+                'No account found with this email. Please contact an administrator to create your account.',
+          );
+        }
+
         // Check if the user is active before proceeding
         final isActive = await UserRoleService.isUserActive(user.email!);
         if (!isActive) {

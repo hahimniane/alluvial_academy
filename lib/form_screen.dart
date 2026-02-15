@@ -179,7 +179,7 @@ class _FormScreenState extends State<FormScreen> with TickerProviderStateMixin {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(AppLocalizations.of(context)!.formNotFoundIdFormidPlease),
+                content: Text(AppLocalizations.of(context)!.formNotFoundIdFormidPlease(formId)),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 5),
               ),

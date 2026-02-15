@@ -28,8 +28,9 @@ echo "🏷️  Web build version: $VERSION"
 echo ""
 
 # Step 2: Build Flutter web app for release
+# --no-wasm-dry-run: avoid WASM dry-run failure (org-dartlang-untranslatable-uri)
 echo "🔨 Step 2: Building Flutter web app for release..."
-flutter build web --release --pwa-strategy=none --no-tree-shake-icons --dart-define=WEB_BUILD_VERSION=$VERSION
+flutter build web --release --pwa-strategy=none --no-tree-shake-icons --no-wasm-dry-run --dart-define=WEB_BUILD_VERSION=$VERSION
 
 if [ $? -ne 0 ]; then
     echo "❌ Error: Flutter build failed"

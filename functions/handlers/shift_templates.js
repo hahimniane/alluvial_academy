@@ -274,6 +274,8 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
 
   let created = 0;
   let skippedConflicts = 0;
+  let skippedTeacherModified = 0;
+  let skippedTerminalState = 0;
   let skippedNotStarted = 0;
   let skippedOutsideEndDate = 0;
   let skippedNoMatch = 0;
@@ -317,6 +319,24 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
 
     const generatedShiftId = _buildGeneratedShiftId({templateId, shiftStartUtc});
     const shiftRef = db.collection(SHIFTS_COLLECTION).doc(generatedShiftId);
+
+    // Check if shift already exists and was modified by teacher - never overwrite teacher modifications
+    const existingShift = await shiftRef.get();
+    if (existingShift.exists) {
+      const existingData = existingShift.data() || {};
+      if (existingData.teacher_modified || existingData.teacher_modified_at) {
+        // Skip regeneration for teacher-modified shifts to preserve their changes
+        console.log(`[shift_templates] Skipping shift ${generatedShiftId}: teacher-modified`);
+        skippedTeacherModified += 1;
+        continue;
+      }
+      // Also skip if shift is already in a terminal or active state
+      if (['completed', 'cancelled', 'active', 'missed'].includes(existingData.status)) {
+        skippedTerminalState += 1;
+        continue;
+      }
+    }
+
     const shiftData = _buildGeneratedShiftData({
       templateId,
       shiftId: generatedShiftId,
@@ -356,7 +376,7 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
       {merge: true},
     );
 
-  return {created, skippedConflicts, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch};
+  return {created, skippedConflicts, skippedTeacherModified, skippedTerminalState, skippedNotStarted, skippedOutsideEndDate, skippedNoMatch};
 };
 
 // Remove legacy generated shifts so the dev UI doesn't show duplicates.

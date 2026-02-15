@@ -3698,8 +3698,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Nombres de réponses à la liste de formulaires';
 
   @override
-  String get formNotFoundIdFormidPlease =>
-      'Formulaire Non trouvé Id Form S\'il vous plaît.';
+  String formNotFoundIdFormidPlease(String formId) {
+    return 'Formulaire introuvable (ID : $formId). Veuillez sélectionner un autre formulaire.';
+  }
 
   @override
   String get formNotFoundPleaseContactAdmin =>
@@ -3926,7 +3927,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get idCode => 'Code d\'identification';
 
   @override
-  String get idDisplaystudentcode => 'Id Affiche le code étudiant';
+  String idDisplaystudentcode(Object studentCode) {
+    return 'ID : $studentCode';
+  }
 
   @override
   String get ifLeftBlankASecurePassword =>
@@ -6297,10 +6300,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get statusStatus => 'État d \' avancement';
 
   @override
-  String get statusUpdatedToNewstatus => 'État mis à jour vers Newstatus';
+  String statusUpdatedToNewstatus(String newStatus) {
+    return 'État mis à jour vers $newStatus';
+  }
 
   @override
-  String get statusUpdatedToStatus => 'État mis à jour';
+  String statusUpdatedToStatus(String status) {
+    return 'État mis à jour vers $status';
+  }
 
   @override
   String get stayOnTrackWithReminders =>
@@ -6323,14 +6330,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get student1 => 'Étudiant1';
 
   @override
-  String get studentAccountCreatedIdStudentcode =>
-      'Création du compte étudiant Code étudiant';
+  String studentAccountCreatedIdStudentcode(String studentCode) {
+    return 'Compte étudiant créé. ID : $studentCode';
+  }
 
   @override
   String get studentApplicants => 'Candidats étudiants';
 
   @override
-  String get studentIdStudentcode => 'Code étudiant';
+  String studentIdStudentcode(Object studentCode) {
+    return 'ID étudiant : $studentCode';
+  }
 
   @override
   String get studentJoined => 'Étudiant rejoint';
@@ -6368,12 +6378,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get subject => 'Sujet';
 
   @override
-  String get subjectDisplaynameAddedSuccessfully =>
-      'Nom d\'affichage du sujet Ajouté avec succès';
+  String subjectDisplaynameAddedSuccessfully(String displayName) {
+    return 'Sujet \"$displayName\" ajouté avec succès';
+  }
 
   @override
-  String get subjectDisplaynameUpdatedSuccessfully =>
-      'Nom d\'affichage du sujet Mis à jour avec succès';
+  String subjectDisplaynameUpdatedSuccessfully(String displayName) {
+    return 'Sujet \"$displayName\" mis à jour avec succès';
+  }
 
   @override
   String get subjectHourlyRates => 'Sujet Taux horaires';
@@ -6542,6 +6554,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get taskTitle => 'Titre de la tâche';
 
   @override
+  String taskSubtasksCount(Object count) {
+    return 'Sous-tâches : $count';
+  }
+
+  @override
   String get taskUnarchived => 'Tâche non archivée';
 
   @override
@@ -6671,7 +6688,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get text => 'Texte';
 
   @override
-  String get text10 => 'Texte10';
+  String get text10 => '*';
 
   @override
   String get text2 => 'Texte2';
@@ -6680,22 +6697,22 @@ class AppLocalizationsFr extends AppLocalizations {
   String get text3 => 'Texte3';
 
   @override
-  String get text4 => 'Texte4';
+  String get text4 => '#';
 
   @override
-  String get text5 => 'Texte5';
+  String get text5 => 'Non renseigné';
 
   @override
-  String get text6 => 'Texte6';
+  String get text6 => ' • ';
 
   @override
   String get text7 => 'Texte7';
 
   @override
-  String get text8 => 'Texte8';
+  String get text8 => 'à';
 
   @override
-  String get text9 => 'Texte9';
+  String get text9 => ' • ';
 
   @override
   String get thankYouForYourInterestIn => 'Merci de votre intérêt pour';
@@ -6883,8 +6900,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get timesheets => 'Feuilles horaires';
 
   @override
-  String get timezoneUpdatedToSelectedtimezone =>
-      'Timezone Mise à jour vers SelectedTimezone';
+  String timezoneUpdatedToSelectedtimezone(String timezone) {
+    return 'Fuseau horaire mis à jour vers $timezone';
+  }
 
   @override
   String get tipIfYouJustCompletedPayment =>
@@ -7317,8 +7335,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get yesUpdateTemplate => 'Oui Modèle de mise à jour';
 
   @override
-  String get youAreAboutToRejectCount =>
-      'Vous êtes sur le point de rejeter le compte';
+  String youAreAboutToRejectCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Vous êtes sur le point de rejeter $count feuilles de temps.',
+      one: 'Vous êtes sur le point de rejeter 1 feuille de temps.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get youAreNotAssignedToThis => 'Vous n\'êtes pas assigné à ceci';
@@ -7990,7 +8015,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get adminSettingsNotificationemail => 'Notification Email';
 
   @override
-  String get notificationPreferencesMinutesmin => '\$minutes min';
+  String notificationPreferencesMinutesmin(int minutes) {
+    return '$minutes min';
+  }
 
   @override
   String get quickTasksAssignedby => 'Assigned By';
@@ -8093,7 +8120,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get zoomUnabletoloadparticipants => 'Unable to load participants';
 
   @override
-  String get zoomInclassnowcount => 'In class now: \$count';
+  String zoomInclassnowcount(int count) {
+    return 'En classe maintenant : $count';
+  }
 
   @override
   String get studentFeatureTourLive => 'LIVE';
@@ -9338,6 +9367,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get livekitLeave => 'Quitter';
 
   @override
+  String get whiteboard => 'Tableau blanc';
+
+  @override
+  String get whiteboardClose => 'Fermer tableau';
+
+  @override
+  String get whiteboardTeacherView => 'Tableau de l\'enseignant';
+
+  @override
+  String get whiteboardViewOnly => 'Lecture seule';
+
+  @override
+  String get whiteboardStudentsCanDraw => 'Les élèves peuvent dessiner';
+
+  @override
   String parentInvoiceDueDate(Object date) {
     return 'Échéance $date';
   }
@@ -9373,4 +9417,167 @@ class AppLocalizationsFr extends AppLocalizations {
   String roleUnknownMessage(Object role) {
     return 'Rôle : $role\nVeuillez contacter un administrateur.';
   }
+
+  @override
+  String get navTutor => 'Tuteur';
+
+  @override
+  String get tutorTitle => 'Tuteur IA';
+
+  @override
+  String get tutorSubtitle => 'Votre assistant d\'apprentissage personnel';
+
+  @override
+  String get tutorConnecting => 'Connexion à votre tuteur...';
+
+  @override
+  String get tutorConnectionError => 'Erreur de connexion';
+
+  @override
+  String get tutorConnectionFailed =>
+      'Échec de la connexion au tuteur IA. Veuillez réessayer.';
+
+  @override
+  String get tutorMicPermissionRequired =>
+      'L\'autorisation du microphone est requise pour parler au tuteur IA.';
+
+  @override
+  String get tutorNotAvailableForRole =>
+      'Le tuteur IA est disponible uniquement pour les étudiants.';
+
+  @override
+  String get tutorServiceUnavailable =>
+      'Le service de tuteur IA est actuellement indisponible. Veuillez réessayer plus tard.';
+
+  @override
+  String get tutorListening => 'À l\'écoute...';
+
+  @override
+  String get tutorWaitingForAgent => 'Connexion à Alluwal';
+
+  @override
+  String get tutorSpeakNow =>
+      'Posez-moi n\'importe quelle question sur vos études!';
+
+  @override
+  String get tutorAgentConnecting => 'Alluwal arrive...';
+
+  @override
+  String get tutorMicOn => 'Micro activé';
+
+  @override
+  String get tutorMicOff => 'Micro désactivé';
+
+  @override
+  String get tutorEndSession => 'Terminer';
+
+  @override
+  String get tutorStartSession => 'Commencer la session';
+
+  @override
+  String get tutorDescription =>
+      'Parlez à Alluwal, votre compagnon d\'apprentissage IA. Posez des questions sur les matières scolaires ou explorez les histoires de l\'histoire islamique.';
+
+  @override
+  String get classJoin => 'Rejoindre';
+
+  @override
+  String get classMeetingNotReady => 'Réunion pas prête';
+
+  @override
+  String classJoinIn(String time) {
+    return 'Rejoindre ($time)';
+  }
+
+  @override
+  String get classEnded => 'Terminé';
+
+  @override
+  String get classFilterAll => 'Tous';
+
+  @override
+  String get classFilterJoinable => 'Disponibles';
+
+  @override
+  String get classFilterActive => 'Actifs';
+
+  @override
+  String get classFilterUpcoming => 'À venir';
+
+  @override
+  String get classFilterPast => 'Passés';
+
+  @override
+  String get livekitErrorNotDeployed => 'Fonction de présence non déployée';
+
+  @override
+  String get livekitErrorPermissionDenied => 'Permission refusée';
+
+  @override
+  String get livekitErrorUnauthenticated => 'Veuillez vous reconnecter';
+
+  @override
+  String get livekitErrorServiceUnavailable => 'Service indisponible';
+
+  @override
+  String get classAvailableWhenJoinable =>
+      'Disponible lorsque le cours peut être rejoint';
+
+  @override
+  String get classNoOneJoinedYet => 'Personne n\'a encore rejoint';
+
+  @override
+  String get classesMyClasses => 'Mes cours';
+
+  @override
+  String get classesYourClasses => 'Vos cours';
+
+  @override
+  String get classesJoinDescription =>
+      'Rejoignez vos cours directement dans l\'application. Le bouton Rejoindre devient actif 10 minutes avant le début du cours.';
+
+  @override
+  String filtersCount(int count) {
+    return 'Filtres ($count)';
+  }
+
+  @override
+  String get filterAny => 'Tous';
+
+  @override
+  String get classesNoActiveClassesNow => 'Aucun cours actif en ce moment';
+
+  @override
+  String get classesSwitchTimeFilter =>
+      'Changez le filtre Heure sur À venir ou Tous pour parcourir d\'autres cours.';
+
+  @override
+  String classesResultsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count résultats',
+      one: '1 résultat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String classesParticipantsCount(int count) {
+    return 'Participants ($count)';
+  }
+
+  @override
+  String get classesNoMatchFilters => 'Aucun cours ne correspond à vos filtres';
+
+  @override
+  String get classesNoClassesFound => 'Aucun cours trouvé';
+
+  @override
+  String get classesTryAdjustingFilters =>
+      'Essayez d\'ajuster vos filtres ou de les effacer.';
+
+  @override
+  String get classesTryClearingFilters =>
+      'Essayez d\'effacer les filtres ou revenez plus tard.';
 }

@@ -250,7 +250,7 @@ class _FormSubmissionsDialogState extends State<FormSubmissionsDialog>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.statusUpdatedToStatus),
+            content: Text(AppLocalizations.of(context)!.statusUpdatedToStatus(status)),
             backgroundColor: const Color(0xFF059669),
             duration: const Duration(seconds: 2),
           ),

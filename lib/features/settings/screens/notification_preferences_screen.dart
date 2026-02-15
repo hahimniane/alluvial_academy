@@ -261,7 +261,7 @@ class _NotificationPreferencesScreenState
                                 .shiftNotificationOptions
                                 .map(
                               (minutes) => _buildTimeChip(
-                                label: AppLocalizations.of(context)!.notificationPreferencesMinutesmin,
+                                label: AppLocalizations.of(context)!.notificationPreferencesMinutesmin(minutes),
                                 value: minutes,
                                 isSelected:
                                     _shiftNotificationMinutes == minutes,

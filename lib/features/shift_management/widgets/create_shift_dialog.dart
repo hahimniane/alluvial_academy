@@ -1062,7 +1062,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    AppLocalizations.of(context)!.selectedSelectedteachername,
+                    'Selected: $selectedTeacherName',
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1131,8 +1131,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                 icon: const Icon(Icons.check_circle,
                                     color: Color(0xff0386FF), size: 20),
                                 onPressed: null, // Visual indicator only
-                                tooltip:
-                                    AppLocalizations.of(context)!.teacherSelectedSelectedteachername,
+                                tooltip: 'Teacher selected: $selectedTeacherName',
                               )
                             : null,
                         contentPadding: const EdgeInsets.symmetric(
@@ -1778,7 +1777,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
                                                   children: [
                                                     TextSpan(
                                                       text:
-                                                          AppLocalizations.of(context)!.idDisplaystudentcode,
+                                                          AppLocalizations.of(context)!.idDisplaystudentcode(displayStudentCode),
                                                       style: GoogleFonts.inter(
                                                         fontSize: 12,
                                                         color: const Color(
@@ -3601,7 +3600,8 @@ class _EmployeeSelectionDialogState extends State<EmployeeSelectionDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      AppLocalizations.of(context)!.idCode,
+                                      AppLocalizations.of(context)!
+                                          .idDisplaystudentcode(code.isEmpty ? employee.documentId : code),
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: const Color(0xff059669),

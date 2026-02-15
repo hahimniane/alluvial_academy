@@ -47,7 +47,7 @@ class SubjectStatCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppLocalizations.of(context)!.classcount,
+                      classCount.toString(),
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -71,7 +71,7 @@ class SubjectStatCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppLocalizations.of(context)!.completedcount,
+                      completedCount.toString(),
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -143,4 +143,3 @@ class SubjectStatCard extends StatelessWidget {
     );
   }
 }
-

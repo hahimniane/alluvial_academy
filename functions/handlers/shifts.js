@@ -1,5 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const {isDeepStrictEqual} = require('util');
 const {onCall, onRequest} = require('firebase-functions/v2/https');
 const {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
@@ -640,6 +641,26 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
 
     if (afterData.status !== beforeData.status) {
       console.log('Only status changed - skipping onShiftUpdated');
+      return;
+    }
+
+    // Ignore whiteboard persistence updates. The whiteboard state is written
+    // into the shift document for rejoin/late-join, but it should not trigger
+    // "shift updated" notifications.
+    const keys = new Set([
+      ...Object.keys(beforeData || {}),
+      ...Object.keys(afterData || {}),
+    ]);
+    const changedTopLevelKeys = [];
+    for (const key of keys) {
+      if (key === 'whiteboard') continue;
+      if (!isDeepStrictEqual(beforeData?.[key], afterData?.[key])) {
+        changedTopLevelKeys.push(key);
+      }
+    }
+
+    if (changedTopLevelKeys.length === 0) {
+      console.log('Only whiteboard changed - skipping onShiftUpdated');
       return;
     }
 

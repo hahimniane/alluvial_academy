@@ -584,7 +584,7 @@ class _TeacherShiftScreenState extends State<TeacherShiftScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content:
-                              Text(AppLocalizations.of(context)!.timezoneUpdatedToSelectedtimezone),
+                              Text(AppLocalizations.of(context)!.timezoneUpdatedToSelectedtimezone(selectedTimezone!)),
                           backgroundColor: Colors.green,
                         ),
                       );

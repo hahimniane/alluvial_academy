@@ -449,9 +449,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildWelcomeHeader() {
-    final firstName = userData?['first_name'] ?? 'User';
-    final roleDisplay = UserRoleService.getRoleDisplayName(userRole);
-
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -472,7 +469,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.welcomeBackFirstname,
+                  'Welcome Back, ${userData?['first_name'] ?? 'User'}',
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -481,7 +478,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  AppLocalizations.of(context)!.youReSignedInAsRoledisplay,
+                  'You\'re signed in as ${UserRoleService.getRoleDisplayName(userRole)}',
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -665,7 +662,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final greeting = _getGreeting();
     final uptime =
         _formatPercentage(stats['uptime_percentage'], fractionDigits: 1);
-    final responseRate = _formatPercentage(stats['average_response_rate']);
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -711,7 +707,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                     ),
                     Text(
-                      AppLocalizations.of(context)!.firstname,
+                      firstName,
                       style: GoogleFonts.inter(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -720,7 +716,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      AppLocalizations.of(context)!.youReManagingRoledisplay,
+                      'You\'re managing as $roleDisplay',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: Colors.white.withOpacity(0.75),
@@ -4693,7 +4689,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.assalamuAlaikumFirstname,
+                  'Assalamu Alaikum, $firstName',
                   style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,

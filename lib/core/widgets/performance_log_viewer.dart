@@ -116,7 +116,7 @@ class _PerformanceLogViewerState extends State<PerformanceLogViewer> {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            AppLocalizations.of(context)!.entrycountEvents,
+            '$entryCount events',
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w600,

@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
-import 'package:flutter_beep/flutter_beep.dart';
 
-/// Service for playing quiz sound effects using system sounds
+/// Service for playing quiz sound effects using haptic feedback
 class QuizAudioService {
   static final QuizAudioService _instance = QuizAudioService._internal();
   factory QuizAudioService() => _instance;
@@ -15,60 +14,40 @@ class QuizAudioService {
     _initialized = true;
   }
 
-  /// Play sound for correct answer - success beep
+  /// Play sound for correct answer - success haptic
   Future<void> playCorrectSound() async {
     try {
-      // Play success beep sound
-      await FlutterBeep.beep(); // Default success sound
       await HapticFeedback.mediumImpact();
     } catch (e) {
-      // Fallback to haptic only
-      await HapticFeedback.mediumImpact();
+      // Ignore errors
     }
   }
 
-  /// Play sound for wrong answer - error beep
+  /// Play sound for wrong answer - error haptic
   Future<void> playWrongSound() async {
     try {
-      // Play error/failure beep sound
-      await FlutterBeep.beep(false); // false = error sound
       await HapticFeedback.heavyImpact();
     } catch (e) {
-      // Fallback to haptic only
-      await HapticFeedback.heavyImpact();
+      // Ignore errors
     }
   }
 
-  /// Play cheerful celebration sound at quiz completion
+  /// Play cheerful celebration pattern at quiz completion
   Future<void> playCelebrationSound() async {
     try {
-      // Play multiple success beeps for celebration effect
-      await FlutterBeep.beep();
       await HapticFeedback.heavyImpact();
-      
-      await Future.delayed(const Duration(milliseconds: 150));
-      await FlutterBeep.beep();
+      await Future.delayed(const Duration(milliseconds: 100));
       await HapticFeedback.mediumImpact();
-      
-      await Future.delayed(const Duration(milliseconds: 150));
-      await FlutterBeep.beep();
+      await Future.delayed(const Duration(milliseconds: 100));
       await HapticFeedback.lightImpact();
-      
-      await Future.delayed(const Duration(milliseconds: 150));
-      // Final triumphant beep
-      await FlutterBeep.playSysSound(1025); // iOS payment success sound
+      await Future.delayed(const Duration(milliseconds: 100));
       await HapticFeedback.heavyImpact();
     } catch (e) {
-      // Fallback to haptic pattern
-      await HapticFeedback.heavyImpact();
-      await Future.delayed(const Duration(milliseconds: 100));
-      await HapticFeedback.mediumImpact();
-      await Future.delayed(const Duration(milliseconds: 100));
-      await HapticFeedback.heavyImpact();
+      // Ignore errors
     }
   }
 
-  /// Dispose - nothing to dispose for FlutterBeep
+  /// Dispose
   Future<void> dispose() async {
     _initialized = false;
   }

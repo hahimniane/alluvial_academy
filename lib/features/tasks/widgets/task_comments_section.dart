@@ -401,7 +401,7 @@ class _TaskCommentsSectionState extends State<TaskCommentsSection> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    AppLocalizations.of(context)!.commentcount,
+                    commentCount.toString(),
                     style: const TextStyle(
                       color: Color(0xff0386FF),
                       fontWeight: FontWeight.w600,

@@ -228,7 +228,7 @@ class _FormBuilderState extends State<FormBuilder> {
           FormQuestion(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             type: QuestionType.shortAnswer,
-            title: AppLocalizations.of(context)!.formQuestion,
+            title: AppLocalizations.of(context)!.formsListNewquestion,
             required: false,
           ),
         ];
@@ -301,7 +301,7 @@ class _FormBuilderState extends State<FormBuilder> {
       _questions.add(FormQuestion(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         type: QuestionType.shortAnswer,
-        title: AppLocalizations.of(context)!.formQuestion,
+        title: AppLocalizations.of(context)!.formsListNewquestion,
         required: false,
       ));
     }
@@ -756,7 +756,7 @@ class _FormBuilderState extends State<FormBuilder> {
       final newQ = FormQuestion(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         type: QuestionType.shortAnswer,
-        title: AppLocalizations.of(context)!.formQuestion,
+        title: AppLocalizations.of(context)!.formsListNewquestion,
         required: false,
       );
       if (_focusedQuestionIndex != null) {

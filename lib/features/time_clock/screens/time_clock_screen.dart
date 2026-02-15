@@ -2170,7 +2170,7 @@ class _TimeClockScreenState extends State<TimeClockScreen>
                         child: Column(
                           children: [
                             Text(
-                              AppLocalizations.of(context)!.teachingSelectedstudentname,
+                              'Teaching: ${_currentShift!.studentNames.join(', ')}',
                               style: GoogleFonts.inter(
                                 fontSize: _isMobile ? 14 : 16,
                                 fontWeight: FontWeight.w600,

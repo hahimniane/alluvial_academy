@@ -23,18 +23,19 @@ enum _ClassesTimeFilter {
 }
 
 extension on _ClassesTimeFilter {
-  String get label {
+  String label(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (this) {
       case _ClassesTimeFilter.all:
-        return 'All';
+        return l10n.classFilterAll;
       case _ClassesTimeFilter.joinable:
-        return 'Joinable';
+        return l10n.classFilterJoinable;
       case _ClassesTimeFilter.activeNow:
-        return 'Active';
+        return l10n.classFilterActive;
       case _ClassesTimeFilter.upcoming:
-        return 'Upcoming';
+        return l10n.classFilterUpcoming;
       case _ClassesTimeFilter.past:
-        return 'Past';
+        return l10n.classFilterPast;
     }
   }
 }
@@ -55,6 +56,9 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
   static const _ClassesTimeFilter _defaultTimeFilter = _ClassesTimeFilter.activeNow;
 
   String? _userRole;
+  /// Primary role from Firestore (user_type). Used for shifts stream so admins
+  /// always see all classes even when role switcher has "teacher" selected.
+  String? _primaryRole;
   bool _isLoadingRole = true;
   final Map<String, Future<LiveKitRoomPresenceResult>> _liveKitPresenceFutures = {};
 
@@ -130,9 +134,11 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 
   Future<void> _loadUserRole() async {
     final role = await UserRoleService.getCurrentUserRole();
+    final primary = await UserRoleService.getPrimaryRole();
     if (mounted) {
       setState(() {
         _userRole = role?.toLowerCase();
+        _primaryRole = primary?.toLowerCase();
         _isLoadingRole = false;
       });
     }
@@ -147,11 +153,15 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// Get the appropriate shifts stream based on user role
+  /// Get the appropriate shifts stream based on user role.
+  /// Uses primary role for admin check so admins always see all classes even when
+  /// the role switcher has "teacher" selected (avoids empty list on web).
   Stream<List<TeachingShift>> _getShiftsStream(String uid) {
-    if (_userRole == 'student') {
+    final isAdminByPrimary =
+        _primaryRole == 'admin' || _primaryRole == 'super_admin';
+    if (_userRole == 'student' && !isAdminByPrimary) {
       return ShiftService.getStudentShifts(uid);
-    } else if (_userRole == 'admin' || _userRole == 'super_admin') {
+    } else if (isAdminByPrimary) {
       return ShiftService.getAllShifts();
     } else {
       // Teachers and others get teacher shifts
@@ -351,7 +361,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
             }
 
             final teacherLabel = teacherFilter == null
-                ? 'Any'
+                ? AppLocalizations.of(context)!.filterAny
                 : '${teacherFilter!.firstName} ${teacherFilter!.lastName}';
 
             return Dialog(
@@ -422,7 +432,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                   .map(
                                     (f) => ChoiceChip(
                                       label: Text(
-                                        f.label,
+                                        f.label(context),
                                         style: GoogleFonts.inter(
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -449,7 +459,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                                 Expanded(
                                   child: Text(
                                     dateRange == null
-                                        ? 'Any'
+                                        ? AppLocalizations.of(context)!.filterAny
                                         : _formatDateRange(dateRange!, localizations),
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
@@ -753,8 +763,8 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
-    final title = _userRole == 'student' ? 'My Classes' : 'Classes';
+    final l10n = AppLocalizations.of(context)!;
+    final title = _userRole == 'student' ? l10n.classesMyClasses : l10n.navClasses;
     final isAdmin = _userRole == 'admin' || _userRole == 'super_admin';
     
     return Scaffold(
@@ -884,8 +894,8 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                              icon: const Icon(Icons.tune, size: 18),
 	                              label: Text(
 	                                filterCount == 0
-	                                    ? 'Filters'
-	                                    : 'Filters ($filterCount)',
+	                                    ? AppLocalizations.of(context)!.filters
+	                                    : AppLocalizations.of(context)!.filtersCount(filterCount),
 	                                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
 	                              ),
 	                              style: OutlinedButton.styleFrom(
@@ -930,10 +940,10 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 	                        showClearButton: hasActiveSearchOrFilters,
 	                        title: hasActiveSearchOrFilters
 	                            ? null
-	                            : 'No active classes right now',
+	                            : AppLocalizations.of(context)!.classesNoActiveClassesNow,
 	                        subtitle: hasActiveSearchOrFilters
 	                            ? null
-	                            : 'Switch the Time filter to Upcoming or All to browse other classes.',
+	                            : AppLocalizations.of(context)!.classesSwitchTimeFilter,
 	                        onClear: _clearFilters,
 	                      ),
 	                      SizedBox(height: MediaQuery.of(context).padding.bottom),
@@ -981,7 +991,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                               onPressed: () => _openFiltersSheet(context, isAdmin: isAdmin),
                               icon: const Icon(Icons.tune, size: 18),
                               label: Text(
-                                filterCount == 0 ? 'Filters' : 'Filters ($filterCount)',
+                                filterCount == 0 ? AppLocalizations.of(context)!.filters : AppLocalizations.of(context)!.filtersCount(filterCount),
                                 style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                               ),
                               style: OutlinedButton.styleFrom(
@@ -1010,7 +1020,7 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          '${zoomShifts.length} result${zoomShifts.length == 1 ? '' : 's'}',
+                          AppLocalizations.of(context)!.classesResultsCount(zoomShifts.length),
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -1039,12 +1049,12 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 
 class _HeaderCard extends StatelessWidget {
   const _HeaderCard();
-  
+
   @override
   Widget build(BuildContext context) {
-    final title = 'Your classes';
-    final subtitle =
-        'Join your classes directly in the app. The Join button becomes active 10 minutes before the class starts.';
+    final l10n = AppLocalizations.of(context)!;
+    final title = l10n.classesYourClasses;
+    final subtitle = l10n.classesJoinDescription;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1162,13 +1172,14 @@ class _ZoomShiftCard extends StatelessWidget {
         TimeOfDay.fromDateTime(shift.shiftStart).format(context);
     final endTimeText = TimeOfDay.fromDateTime(shift.shiftEnd).format(context);
 
+    final l10n = AppLocalizations.of(context)!;
     final buttonLabel = canJoin
-        ? 'Join'
+        ? l10n.classJoin
         : (!hasVideoCall && withinJoinWindow && !hasEnded)
-            ? 'Meeting not ready'
+            ? l10n.classMeetingNotReady
             : timeUntilJoinWindow != null
-                ? 'Join (${_formatTimeUntil(timeUntilJoinWindow)})'
-                : 'Ended';
+                ? l10n.classJoinIn(_formatTimeUntil(timeUntilJoinWindow))
+                : l10n.classEnded;
 
     return Container(
       padding: const EdgeInsets.all(12), // Reduced from 16 for more compact cards
@@ -1264,7 +1275,7 @@ class _ZoomShiftCard extends StatelessWidget {
                 const SizedBox(height: 3), // Reduced spacing
                 // FIX: Make date/time text smaller and wrap properly
                 Text(
-                  AppLocalizations.of(context)!.startdatetextStarttimetextEndtimetext,
+                  '$startDateText $startTimeText – $endTimeText',
                   style: GoogleFonts.inter(
                     fontSize: 10, // Even smaller for compact display
                     color: const Color(0xFF64748B),
@@ -1289,21 +1300,22 @@ class _ZoomShiftCard extends StatelessWidget {
                       String formatPresenceError(Object? error) {
                         final text = (error ?? '').toString();
                         final lower = text.toLowerCase();
+                        final l10n = AppLocalizations.of(context)!;
 
                         if (lower.contains('not-found')) {
-                          return 'Presence function not deployed yet';
+                          return l10n.livekitErrorNotDeployed;
                         }
                         if (lower.contains('permission-denied')) {
-                          return 'Permission denied';
+                          return l10n.livekitErrorPermissionDenied;
                         }
                         if (lower.contains('unauthenticated')) {
-                          return 'Please sign in again';
+                          return l10n.livekitErrorUnauthenticated;
                         }
                         if (lower.contains('unavailable')) {
-                          return 'Service unavailable';
+                          return l10n.livekitErrorServiceUnavailable;
                         }
                         return text.isEmpty
-                            ? AppLocalizations.of(context)!.commonUnknownError
+                            ? l10n.commonUnknownError
                             : text;
                       }
 
@@ -1347,12 +1359,13 @@ class _ZoomShiftCard extends StatelessWidget {
                           .where((n) => n.trim().isNotEmpty)
                           .toList();
 
+                      final presenceL10n = AppLocalizations.of(context)!;
                       String subtitle;
                       if (presence.inJoinWindow == false) {
-                        subtitle = 'Available when the class is joinable';
+                        subtitle = presenceL10n.classAvailableWhenJoinable;
                       } else
                       if (count == 0) {
-                        subtitle = 'No one has joined yet';
+                        subtitle = presenceL10n.classNoOneJoinedYet;
                       } else {
                         const previewLimit = 3;
                         final preview = names.take(previewLimit).toList();
@@ -1362,7 +1375,7 @@ class _ZoomShiftCard extends StatelessWidget {
                       }
 
                       return _LiveKitPresenceRow(
-                        label: AppLocalizations.of(context)!.zoomInclassnowcount,
+                        label: AppLocalizations.of(context)!.zoomInclassnowcount(count),
                         subtitle: subtitle,
                         onTap: count > 0
                             ? () => _showLiveKitParticipantsDialog(context, presence)
@@ -1581,9 +1594,10 @@ void _showLiveKitParticipantsDialog(
   showDialog<void>(
     context: context,
     builder: (context) {
+      final l10n = AppLocalizations.of(context)!;
       return AlertDialog(
         title: Text(
-          'Participants (${presence.participantCount})',
+          l10n.classesParticipantsCount(presence.participantCount),
           style: GoogleFonts.inter(fontWeight: FontWeight.w700),
         ),
         content: ConstrainedBox(
@@ -1594,7 +1608,7 @@ void _showLiveKitParticipantsDialog(
           ),
           child: participants.isEmpty
               ? Text(
-                  AppLocalizations.of(context)!.noOneIsInTheRoom,
+                  l10n.noOneIsInTheRoom,
                   style: GoogleFonts.inter(color: const Color(0xFF64748B)),
                 )
               : ListView.separated(
@@ -1612,11 +1626,11 @@ void _showLiveKitParticipantsDialog(
                     if (role == 'teacher') {
                       icon = Icons.school;
                       iconColor = const Color(0xFF0E72ED);
-                      roleLabel = 'Teacher';
+                      roleLabel = l10n.roleTeacher;
                     } else if (role == 'student') {
                       icon = Icons.person;
                       iconColor = const Color(0xFF10B981);
-                      roleLabel = 'Student';
+                      roleLabel = l10n.roleStudent;
                     } else if (role != null && role.isNotEmpty) {
                       icon = Icons.admin_panel_settings_outlined;
                       iconColor = const Color(0xFF8B5CF6);
@@ -1728,12 +1742,13 @@ class _NoClassResultsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final resolvedTitle =
-        title ?? (hasAnyClassesInWindow ? 'No classes match your filters' : 'No classes found');
+        title ?? (hasAnyClassesInWindow ? l10n.classesNoMatchFilters : l10n.classesNoClassesFound);
     final resolvedSubtitle = subtitle ??
         (hasAnyClassesInWindow
-        ? 'Try adjusting your filters or clearing them.'
-        : 'Try clearing filters or coming back later.');
+        ? l10n.classesTryAdjustingFilters
+        : l10n.classesTryClearingFilters);
 
     return Container(
       padding: const EdgeInsets.all(16),

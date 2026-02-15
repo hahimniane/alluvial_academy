@@ -1335,7 +1335,15 @@
   "formFields": "Form Fields",
   "formLinkedToShiftSuccessfullyPayment": "Form Linked To Shift Successfully Payment",
   "formListResponseCounts": "Form List Response Counts",
-  "formNotFoundIdFormidPlease": "Form Not Found Id Formid Please",
+  "formNotFoundIdFormidPlease": "Form not found (ID: {formId}). Please select another form.",
+  "@formNotFoundIdFormidPlease": {
+    "description": "Shown when a form cannot be found by ID.",
+    "placeholders": {
+      "formId": {
+        "type": "String"
+      }
+    }
+  },
   "formNotFoundPleaseContactAdmin": "Form Not Found Please Contact Admin",
   "formResponses2": "Form Responses2",
   "formSavedSuccessfully": "Form Saved Successfully",
@@ -1406,7 +1414,12 @@
   "iMemorizeLessThanJuzuAnma": "I Memorize Less Than Juzu Anma",
   "iconDescription": "Icon Description",
   "idCode": "Id Code",
-  "idDisplaystudentcode": "Id Displaystudentcode",
+  "idDisplaystudentcode": "ID: {studentCode}",
+  "@idDisplaystudentcode": {
+    "placeholders": {
+      "studentCode": {}
+    }
+  },
   "ifLeftBlankASecurePassword": "If Left Blank ASecure Password",
   "ifYouBelieveThereSAn": "If You Believe There SAn",
   "imageUploadFailed": "Image Upload Failed",
@@ -2138,17 +2151,46 @@
   "statsEditor": "Stats Editor",
   "status": "Status",
   "statusStatus": "Status Status",
-  "statusUpdatedToNewstatus": "Status Updated To Newstatus",
-  "statusUpdatedToStatus": "Status Updated To Status",
+  "statusUpdatedToNewstatus": "Status updated to {newStatus}",
+  "@statusUpdatedToNewstatus": {
+    "description": "Snackbar message after updating a status value.",
+    "placeholders": {
+      "newStatus": {
+        "type": "String"
+      }
+    }
+  },
+  "statusUpdatedToStatus": "Status updated to {status}",
+  "@statusUpdatedToStatus": {
+    "description": "Snackbar message after updating a status value.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
   "stayOnTrackWithReminders": "Stay On Track With Reminders",
   "stepnumberOfTotalsteps": "Stepnumber Of Totalsteps",
   "stillNoInternetConnectionPleaseTry": "Still No Internet Connection Please Try",
   "storageService": "Storage Service",
   "structuredLearningPaths": "Structured Learning Paths",
   "student1": "Student1",
-  "studentAccountCreatedIdStudentcode": "Student Account Created Id Studentcode",
+  "studentAccountCreatedIdStudentcode": "Student account created. ID: {studentCode}",
+  "@studentAccountCreatedIdStudentcode": {
+    "description": "Snackbar message after creating a student account.",
+    "placeholders": {
+      "studentCode": {
+        "type": "String"
+      }
+    }
+  },
   "studentApplicants": "Student Applicants",
-  "studentIdStudentcode": "Student Id Studentcode",
+  "studentIdStudentcode": "Student ID: {studentCode}",
+  "@studentIdStudentcode": {
+    "placeholders": {
+      "studentCode": {}
+    }
+  },
   "studentJoined": "Student Joined",
   "studentLoginCredentials": "Student Login Credentials",
   "studentProgressOverview": "Student Progress Overview",
@@ -2160,8 +2202,24 @@
   "studentsWillAppearHereAfterYou": "Students Will Appear Here After You",
   "subTasksOptional": "Sub Tasks Optional",
   "subject": "Subject",
-  "subjectDisplaynameAddedSuccessfully": "Subject Displayname Added Successfully",
-  "subjectDisplaynameUpdatedSuccessfully": "Subject Displayname Updated Successfully",
+  "subjectDisplaynameAddedSuccessfully": "Subject \"{displayName}\" added successfully",
+  "@subjectDisplaynameAddedSuccessfully": {
+    "description": "Snackbar message after adding a subject.",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "subjectDisplaynameUpdatedSuccessfully": "Subject \"{displayName}\" updated successfully",
+  "@subjectDisplaynameUpdatedSuccessfully": {
+    "description": "Snackbar message after updating a subject.",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
   "subjectHourlyRates": "Subject Hourly Rates",
   "subjectManagement": "Subject Management",
   "subjectName": "Subject Name",
@@ -2215,6 +2273,12 @@
   "taskName2": "Task Name2",
   "taskReminders": "Task Reminders",
   "taskTitle": "Task Title",
+  "taskSubtasksCount": "Subtasks: {count}",
+  "@taskSubtasksCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "taskUnarchived": "Task Unarchived",
   "teachForUs": "Teach For Us",
   "teacherApplicants": "Teacher Applicants",
@@ -2255,15 +2319,15 @@
   "testimonialsEditor": "Testimonials Editor",
   "testingConnection": "Testing Connection",
   "text": "Text",
-  "text10": "Text10",
+  "text10": "*",
   "text2": "Text2",
   "text3": "Text3",
-  "text4": "Text4",
-  "text5": "Text5",
-  "text6": "Text6",
+  "text4": "#",
+  "text5": "Not provided",
+  "text6": " • ",
   "text7": "Text7",
-  "text8": "Text8",
-  "text9": "Text9",
+  "text8": "to",
+  "text9": " • ",
   "thankYouForYourInterestIn": "Thank You For Your Interest In",
   "thankYouForYourInterestIn2": "Thank You For Your Interest In2",
   "thankYouForYourInterestIn3": "Thank You For Your Interest In3",
@@ -2317,7 +2381,15 @@
   "timesheetSubmittedForReview": "Timesheet Submitted For Review",
   "timesheetWasEdited": "Timesheet Was Edited",
   "timesheets": "Timesheets",
-  "timezoneUpdatedToSelectedtimezone": "Timezone Updated To Selectedtimezone",
+  "timezoneUpdatedToSelectedtimezone": "Timezone updated to {timezone}",
+  "@timezoneUpdatedToSelectedtimezone": {
+    "description": "Snackbar message after updating a user's timezone.",
+    "placeholders": {
+      "timezone": {
+        "type": "String"
+      }
+    }
+  },
   "tipIfYouJustCompletedPayment": "Tip If You Just Completed Payment",
   "title": "Title",
   "to": "To",
@@ -2449,7 +2521,15 @@
   "yearlyRecurrenceSettings": "Yearly Recurrence Settings",
   "yesAndAlways": "Yes And Always",
   "yesUpdateTemplate": "Yes Update Template",
-  "youAreAboutToRejectCount": "You Are About To Reject Count",
+  "youAreAboutToRejectCount": "{count, plural, =1{You are about to reject 1 timesheet.} other{You are about to reject {count} timesheets.}}",
+  "@youAreAboutToRejectCount": {
+    "description": "Confirmation dialog text before bulk rejecting timesheets.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "youAreNotAssignedToThis": "You Are Not Assigned To This",
   "youCanAddMultipleStudentsIn": "You Can Add Multiple Students In",
   "youCanOnlyDeleteTasksYou": "You Can Only Delete Tasks You",
@@ -3084,7 +3164,15 @@
   "performanceLogViewerFast": "FAST",
   "performanceLogViewerAvg": "Avg",
   "adminSettingsNotificationemail": "Notification Email",
-  "notificationPreferencesMinutesmin": "$minutes min",
+  "notificationPreferencesMinutesmin": "{minutes} min",
+  "@notificationPreferencesMinutesmin": {
+    "description": "Label for notification lead time options (e.g. '15 min').",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "quickTasksAssignedby": "Assigned By",
   "quickTasksLabels": "Labels",
   "quickTasksAssignedbyme": "Assigned by Me",
@@ -3118,7 +3206,15 @@
   "financialSummaryOutstanding": "Outstanding",
   "zoomCheckingwhosintheroom": "Checking who’s in the room…",
   "zoomUnabletoloadparticipants": "Unable to load participants",
-  "zoomInclassnowcount": "In class now: $count",
+  "zoomInclassnowcount": "In class now: {count}",
+  "@zoomInclassnowcount": {
+    "description": "Shows how many participants are currently in the class.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "studentFeatureTourLive": "LIVE",
   "studentFeatureTourJoinnow": "JOIN NOW",
   "studentFeatureTourStartingsoon": "Starting soon",
@@ -3647,6 +3743,11 @@
   "livekitPip": "Picture in picture",
   "livekitQuran": "Quran",
   "livekitLeave": "Leave",
+  "whiteboard": "Whiteboard",
+  "whiteboardClose": "Close Board",
+  "whiteboardTeacherView": "Teacher's Whiteboard",
+  "whiteboardViewOnly": "View only",
+  "whiteboardStudentsCanDraw": "Students can draw",
   "parentInvoiceDueDate": "Due {date}",
   "@parentInvoiceDueDate": {
     "placeholders": {
@@ -3666,5 +3767,80 @@
     "placeholders": {
       "role": {}
     }
-  }
+  },
+  "navTutor": "Tutor",
+  "tutorTitle": "AI Tutor",
+  "tutorSubtitle": "Your personal learning assistant",
+  "tutorConnecting": "Connecting to your tutor...",
+  "tutorConnectionError": "Connection Error",
+  "tutorConnectionFailed": "Failed to connect to the AI tutor. Please try again.",
+  "tutorMicPermissionRequired": "Microphone permission is required to talk to the AI tutor.",
+  "tutorNotAvailableForRole": "AI Tutor is only available for students.",
+  "tutorServiceUnavailable": "AI Tutor service is currently unavailable. Please try again later.",
+  "tutorListening": "Listening...",
+  "tutorWaitingForAgent": "Connecting to Alluwal",
+  "tutorSpeakNow": "Ask me anything about your studies!",
+  "tutorAgentConnecting": "Alluwal is joining...",
+  "tutorMicOn": "Mic On",
+  "tutorMicOff": "Mic Off",
+  "tutorEndSession": "End",
+  "tutorStartSession": "Start Session",
+  "tutorDescription": "Talk to Alluwal, your AI learning buddy. Ask questions about school subjects or explore stories from Islamic history.",
+
+  "classJoin": "Join",
+  "classMeetingNotReady": "Meeting not ready",
+  "classJoinIn": "Join ({time})",
+  "@classJoinIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "classEnded": "Ended",
+  "classFilterAll": "All",
+  "classFilterJoinable": "Joinable",
+  "classFilterActive": "Active",
+  "classFilterUpcoming": "Upcoming",
+  "classFilterPast": "Past",
+  "livekitErrorNotDeployed": "Presence function not deployed yet",
+  "livekitErrorPermissionDenied": "Permission denied",
+  "livekitErrorUnauthenticated": "Please sign in again",
+  "livekitErrorServiceUnavailable": "Service unavailable",
+  "classAvailableWhenJoinable": "Available when the class is joinable",
+  "classNoOneJoinedYet": "No one has joined yet",
+  "classesMyClasses": "My Classes",
+  "classesYourClasses": "Your classes",
+  "classesJoinDescription": "Join your classes directly in the app. The Join button becomes active 10 minutes before the class starts.",
+  "filtersCount": "Filters ({count})",
+  "@filtersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterAny": "Any",
+  "classesNoActiveClassesNow": "No active classes right now",
+  "classesSwitchTimeFilter": "Switch the Time filter to Upcoming or All to browse other classes.",
+  "classesResultsCount": "{count, plural, =1{1 result} other{{count} results}}",
+  "@classesResultsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classesParticipantsCount": "Participants ({count})",
+  "@classesParticipantsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "classesNoMatchFilters": "No classes match your filters",
+  "classesNoClassesFound": "No classes found",
+  "classesTryAdjustingFilters": "Try adjusting your filters or clearing them.",
+  "classesTryClearingFilters": "Try clearing filters or coming back later."
 }

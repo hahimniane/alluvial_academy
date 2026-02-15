@@ -561,13 +561,13 @@ class _FilledJobCardState extends State<_FilledJobCard> {
       final result = await callable.call(studentData);
       
       if (mounted) {
-        final studentCode = result.data['studentCode'];
+        final studentCode = result.data['studentCode']?.toString() ?? '';
         setState(() {
           _studentCreatedSuccessfully = true; // Disable button permanently
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.studentAccountCreatedIdStudentcode),
+            content: Text(AppLocalizations.of(context)!.studentAccountCreatedIdStudentcode(studentCode)),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 5),
           ),

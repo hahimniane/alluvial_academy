@@ -6916,11 +6916,11 @@ abstract class AppLocalizations {
   /// **'Form List Response Counts'**
   String get formListResponseCounts;
 
-  /// No description provided for @formNotFoundIdFormidPlease.
+  /// Shown when a form cannot be found by ID.
   ///
   /// In en, this message translates to:
-  /// **'Form Not Found Id Formid Please'**
-  String get formNotFoundIdFormidPlease;
+  /// **'Form not found (ID: {formId}). Please select another form.'**
+  String formNotFoundIdFormidPlease(String formId);
 
   /// No description provided for @formNotFoundPleaseContactAdmin.
   ///
@@ -7345,8 +7345,8 @@ abstract class AppLocalizations {
   /// No description provided for @idDisplaystudentcode.
   ///
   /// In en, this message translates to:
-  /// **'Id Displaystudentcode'**
-  String get idDisplaystudentcode;
+  /// **'ID: {studentCode}'**
+  String idDisplaystudentcode(Object studentCode);
 
   /// No description provided for @ifLeftBlankASecurePassword.
   ///
@@ -11734,17 +11734,17 @@ abstract class AppLocalizations {
   /// **'Status Status'**
   String get statusStatus;
 
-  /// No description provided for @statusUpdatedToNewstatus.
+  /// Snackbar message after updating a status value.
   ///
   /// In en, this message translates to:
-  /// **'Status Updated To Newstatus'**
-  String get statusUpdatedToNewstatus;
+  /// **'Status updated to {newStatus}'**
+  String statusUpdatedToNewstatus(String newStatus);
 
-  /// No description provided for @statusUpdatedToStatus.
+  /// Snackbar message after updating a status value.
   ///
   /// In en, this message translates to:
-  /// **'Status Updated To Status'**
-  String get statusUpdatedToStatus;
+  /// **'Status updated to {status}'**
+  String statusUpdatedToStatus(String status);
 
   /// No description provided for @stayOnTrackWithReminders.
   ///
@@ -11782,11 +11782,11 @@ abstract class AppLocalizations {
   /// **'Student1'**
   String get student1;
 
-  /// No description provided for @studentAccountCreatedIdStudentcode.
+  /// Snackbar message after creating a student account.
   ///
   /// In en, this message translates to:
-  /// **'Student Account Created Id Studentcode'**
-  String get studentAccountCreatedIdStudentcode;
+  /// **'Student account created. ID: {studentCode}'**
+  String studentAccountCreatedIdStudentcode(String studentCode);
 
   /// No description provided for @studentApplicants.
   ///
@@ -11797,8 +11797,8 @@ abstract class AppLocalizations {
   /// No description provided for @studentIdStudentcode.
   ///
   /// In en, this message translates to:
-  /// **'Student Id Studentcode'**
-  String get studentIdStudentcode;
+  /// **'Student ID: {studentCode}'**
+  String studentIdStudentcode(Object studentCode);
 
   /// No description provided for @studentJoined.
   ///
@@ -11866,17 +11866,17 @@ abstract class AppLocalizations {
   /// **'Subject'**
   String get subject;
 
-  /// No description provided for @subjectDisplaynameAddedSuccessfully.
+  /// Snackbar message after adding a subject.
   ///
   /// In en, this message translates to:
-  /// **'Subject Displayname Added Successfully'**
-  String get subjectDisplaynameAddedSuccessfully;
+  /// **'Subject \"{displayName}\" added successfully'**
+  String subjectDisplaynameAddedSuccessfully(String displayName);
 
-  /// No description provided for @subjectDisplaynameUpdatedSuccessfully.
+  /// Snackbar message after updating a subject.
   ///
   /// In en, this message translates to:
-  /// **'Subject Displayname Updated Successfully'**
-  String get subjectDisplaynameUpdatedSuccessfully;
+  /// **'Subject \"{displayName}\" updated successfully'**
+  String subjectDisplaynameUpdatedSuccessfully(String displayName);
 
   /// No description provided for @subjectHourlyRates.
   ///
@@ -12196,6 +12196,12 @@ abstract class AppLocalizations {
   /// **'Task Title'**
   String get taskTitle;
 
+  /// No description provided for @taskSubtasksCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtasks: {count}'**
+  String taskSubtasksCount(Object count);
+
   /// No description provided for @taskUnarchived.
   ///
   /// In en, this message translates to:
@@ -12439,7 +12445,7 @@ abstract class AppLocalizations {
   /// No description provided for @text10.
   ///
   /// In en, this message translates to:
-  /// **'Text10'**
+  /// **'*'**
   String get text10;
 
   /// No description provided for @text2.
@@ -12457,19 +12463,19 @@ abstract class AppLocalizations {
   /// No description provided for @text4.
   ///
   /// In en, this message translates to:
-  /// **'Text4'**
+  /// **'#'**
   String get text4;
 
   /// No description provided for @text5.
   ///
   /// In en, this message translates to:
-  /// **'Text5'**
+  /// **'Not provided'**
   String get text5;
 
   /// No description provided for @text6.
   ///
   /// In en, this message translates to:
-  /// **'Text6'**
+  /// **' • '**
   String get text6;
 
   /// No description provided for @text7.
@@ -12481,13 +12487,13 @@ abstract class AppLocalizations {
   /// No description provided for @text8.
   ///
   /// In en, this message translates to:
-  /// **'Text8'**
+  /// **'to'**
   String get text8;
 
   /// No description provided for @text9.
   ///
   /// In en, this message translates to:
-  /// **'Text9'**
+  /// **' • '**
   String get text9;
 
   /// No description provided for @thankYouForYourInterestIn.
@@ -12808,11 +12814,11 @@ abstract class AppLocalizations {
   /// **'Timesheets'**
   String get timesheets;
 
-  /// No description provided for @timezoneUpdatedToSelectedtimezone.
+  /// Snackbar message after updating a user's timezone.
   ///
   /// In en, this message translates to:
-  /// **'Timezone Updated To Selectedtimezone'**
-  String get timezoneUpdatedToSelectedtimezone;
+  /// **'Timezone updated to {timezone}'**
+  String timezoneUpdatedToSelectedtimezone(String timezone);
 
   /// No description provided for @tipIfYouJustCompletedPayment.
   ///
@@ -13600,11 +13606,11 @@ abstract class AppLocalizations {
   /// **'Yes Update Template'**
   String get yesUpdateTemplate;
 
-  /// No description provided for @youAreAboutToRejectCount.
+  /// Confirmation dialog text before bulk rejecting timesheets.
   ///
   /// In en, this message translates to:
-  /// **'You Are About To Reject Count'**
-  String get youAreAboutToRejectCount;
+  /// **'{count, plural, =1{You are about to reject 1 timesheet.} other{You are about to reject {count} timesheets.}}'**
+  String youAreAboutToRejectCount(int count);
 
   /// No description provided for @youAreNotAssignedToThis.
   ///
@@ -14490,11 +14496,11 @@ abstract class AppLocalizations {
   /// **'Notification Email'**
   String get adminSettingsNotificationemail;
 
-  /// No description provided for @notificationPreferencesMinutesmin.
+  /// Label for notification lead time options (e.g. '15 min').
   ///
   /// In en, this message translates to:
-  /// **'\$minutes min'**
-  String get notificationPreferencesMinutesmin;
+  /// **'{minutes} min'**
+  String notificationPreferencesMinutesmin(int minutes);
 
   /// No description provided for @quickTasksAssignedby.
   ///
@@ -14694,11 +14700,11 @@ abstract class AppLocalizations {
   /// **'Unable to load participants'**
   String get zoomUnabletoloadparticipants;
 
-  /// No description provided for @zoomInclassnowcount.
+  /// Shows how many participants are currently in the class.
   ///
   /// In en, this message translates to:
-  /// **'In class now: \$count'**
-  String get zoomInclassnowcount;
+  /// **'In class now: {count}'**
+  String zoomInclassnowcount(int count);
 
   /// No description provided for @studentFeatureTourLive.
   ///
@@ -16897,6 +16903,36 @@ abstract class AppLocalizations {
   /// **'Leave'**
   String get livekitLeave;
 
+  /// No description provided for @whiteboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Whiteboard'**
+  String get whiteboard;
+
+  /// No description provided for @whiteboardClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close Board'**
+  String get whiteboardClose;
+
+  /// No description provided for @whiteboardTeacherView.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher\'s Whiteboard'**
+  String get whiteboardTeacherView;
+
+  /// No description provided for @whiteboardViewOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'View only'**
+  String get whiteboardViewOnly;
+
+  /// No description provided for @whiteboardStudentsCanDraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Students can draw'**
+  String get whiteboardStudentsCanDraw;
+
   /// No description provided for @parentInvoiceDueDate.
   ///
   /// In en, this message translates to:
@@ -16956,6 +16992,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Role: {role}\nPlease contact an administrator.'**
   String roleUnknownMessage(Object role);
+
+  /// No description provided for @navTutor.
+  ///
+  /// In en, this message translates to:
+  /// **'Tutor'**
+  String get navTutor;
+
+  /// No description provided for @tutorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Tutor'**
+  String get tutorTitle;
+
+  /// No description provided for @tutorSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your personal learning assistant'**
+  String get tutorSubtitle;
+
+  /// No description provided for @tutorConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to your tutor...'**
+  String get tutorConnecting;
+
+  /// No description provided for @tutorConnectionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection Error'**
+  String get tutorConnectionError;
+
+  /// No description provided for @tutorConnectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to connect to the AI tutor. Please try again.'**
+  String get tutorConnectionFailed;
+
+  /// No description provided for @tutorMicPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone permission is required to talk to the AI tutor.'**
+  String get tutorMicPermissionRequired;
+
+  /// No description provided for @tutorNotAvailableForRole.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Tutor is only available for students.'**
+  String get tutorNotAvailableForRole;
+
+  /// No description provided for @tutorServiceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Tutor service is currently unavailable. Please try again later.'**
+  String get tutorServiceUnavailable;
+
+  /// No description provided for @tutorListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening...'**
+  String get tutorListening;
+
+  /// No description provided for @tutorWaitingForAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to Alluwal'**
+  String get tutorWaitingForAgent;
+
+  /// No description provided for @tutorSpeakNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask me anything about your studies!'**
+  String get tutorSpeakNow;
+
+  /// No description provided for @tutorAgentConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Alluwal is joining...'**
+  String get tutorAgentConnecting;
+
+  /// No description provided for @tutorMicOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Mic On'**
+  String get tutorMicOn;
+
+  /// No description provided for @tutorMicOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Mic Off'**
+  String get tutorMicOff;
+
+  /// No description provided for @tutorEndSession.
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get tutorEndSession;
+
+  /// No description provided for @tutorStartSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Session'**
+  String get tutorStartSession;
+
+  /// No description provided for @tutorDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Talk to Alluwal, your AI learning buddy. Ask questions about school subjects or explore stories from Islamic history.'**
+  String get tutorDescription;
+
+  /// No description provided for @classJoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get classJoin;
+
+  /// No description provided for @classMeetingNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting not ready'**
+  String get classMeetingNotReady;
+
+  /// No description provided for @classJoinIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Join ({time})'**
+  String classJoinIn(String time);
+
+  /// No description provided for @classEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get classEnded;
+
+  /// No description provided for @classFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get classFilterAll;
+
+  /// No description provided for @classFilterJoinable.
+  ///
+  /// In en, this message translates to:
+  /// **'Joinable'**
+  String get classFilterJoinable;
+
+  /// No description provided for @classFilterActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get classFilterActive;
+
+  /// No description provided for @classFilterUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get classFilterUpcoming;
+
+  /// No description provided for @classFilterPast.
+  ///
+  /// In en, this message translates to:
+  /// **'Past'**
+  String get classFilterPast;
+
+  /// No description provided for @livekitErrorNotDeployed.
+  ///
+  /// In en, this message translates to:
+  /// **'Presence function not deployed yet'**
+  String get livekitErrorNotDeployed;
+
+  /// No description provided for @livekitErrorPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission denied'**
+  String get livekitErrorPermissionDenied;
+
+  /// No description provided for @livekitErrorUnauthenticated.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in again'**
+  String get livekitErrorUnauthenticated;
+
+  /// No description provided for @livekitErrorServiceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Service unavailable'**
+  String get livekitErrorServiceUnavailable;
+
+  /// No description provided for @classAvailableWhenJoinable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available when the class is joinable'**
+  String get classAvailableWhenJoinable;
+
+  /// No description provided for @classNoOneJoinedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No one has joined yet'**
+  String get classNoOneJoinedYet;
+
+  /// No description provided for @classesMyClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'My Classes'**
+  String get classesMyClasses;
+
+  /// No description provided for @classesYourClasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Your classes'**
+  String get classesYourClasses;
+
+  /// No description provided for @classesJoinDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Join your classes directly in the app. The Join button becomes active 10 minutes before the class starts.'**
+  String get classesJoinDescription;
+
+  /// No description provided for @filtersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters ({count})'**
+  String filtersCount(int count);
+
+  /// No description provided for @filterAny.
+  ///
+  /// In en, this message translates to:
+  /// **'Any'**
+  String get filterAny;
+
+  /// No description provided for @classesNoActiveClassesNow.
+  ///
+  /// In en, this message translates to:
+  /// **'No active classes right now'**
+  String get classesNoActiveClassesNow;
+
+  /// No description provided for @classesSwitchTimeFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch the Time filter to Upcoming or All to browse other classes.'**
+  String get classesSwitchTimeFilter;
+
+  /// No description provided for @classesResultsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 result} other{{count} results}}'**
+  String classesResultsCount(int count);
+
+  /// No description provided for @classesParticipantsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants ({count})'**
+  String classesParticipantsCount(int count);
+
+  /// No description provided for @classesNoMatchFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'No classes match your filters'**
+  String get classesNoMatchFilters;
+
+  /// No description provided for @classesNoClassesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No classes found'**
+  String get classesNoClassesFound;
+
+  /// No description provided for @classesTryAdjustingFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Try adjusting your filters or clearing them.'**
+  String get classesTryAdjustingFilters;
+
+  /// No description provided for @classesTryClearingFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Try clearing filters or coming back later.'**
+  String get classesTryClearingFilters;
 }
 
 class _AppLocalizationsDelegate

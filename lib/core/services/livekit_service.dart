@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
@@ -14,6 +15,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 
 import '../../features/quran/widgets/quran_reader.dart';
+import '../../features/livekit/widgets/call_whiteboard.dart';
 import '../models/teaching_shift.dart';
 import 'livekit_session_service.dart';
 import '../utils/app_logger.dart';
@@ -859,6 +861,7 @@ class LiveKitCallScreen extends StatefulWidget {
 
 class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   static const String _hostControlTopic = 'alluwal_host_control';
+  static const String _whiteboardTopic = 'alluwal_whiteboard';
   static const Duration _pointerSendThrottle = Duration(milliseconds: 50);
   static const Duration _pointerHideDelay = Duration(milliseconds: 1200);
   static const int _maxReconnectAttempts = 2;
@@ -924,6 +927,18 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   Timer? _studentNoShowAutoSendTimer;
   bool _studentNoShowDialogShown = false;
   bool _studentNoShowReportSent = false;
+
+  // Audio playback state (for recovery after reconnection)
+  bool _audioPlaybackAllowed = true;
+
+  // Whiteboard state (web only)
+  bool _whiteboardEnabled = false;
+  bool _studentDrawingEnabled = false; // Controlled by teacher
+  final StreamController<Map<String, dynamic>> _whiteboardProjectController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Map<String, dynamic>? _lastWhiteboardProject;
+  List<Map<String, dynamic>>? _initialWhiteboardStrokes; // Loaded from Firestore
+  bool _whiteboardStateSaving = false; // Debounce flag for Firestore saves
 
   @override
   void initState() {
@@ -1376,6 +1391,72 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     }
   }
 
+  /// Ensure audio playback is working after reconnection or when audio status changes.
+  /// This is critical for mobile platforms where audio may stop after network changes.
+  Future<void> _ensureAudioPlayback() async {
+    if (_room == null) return;
+
+    try {
+      // Check if audio playback is allowed
+      if (!_room!.canPlaybackAudio) {
+        AppLogger.warning('LiveKit: Audio playback not allowed, attempting to start...');
+        await _room!.startAudio();
+        AppLogger.info('LiveKit: Audio playback started successfully');
+      }
+
+      // Verify all remote audio tracks are subscribed and playing
+      for (final participant in _room!.remoteParticipants.values) {
+        for (final pub in participant.audioTrackPublications) {
+          if (pub.subscribed && pub.track != null) {
+            final track = pub.track as RemoteAudioTrack;
+            // Ensure the track is not muted at the media level
+            if (!track.muted) {
+              AppLogger.debug(
+                'LiveKit: Audio track from ${participant.identity} is active',
+              );
+            }
+          } else if (!pub.subscribed && pub.subscriptionAllowed) {
+            // Re-subscribe to tracks that should be subscribed
+            AppLogger.warning(
+              'LiveKit: Re-subscribing to audio track from ${participant.identity}',
+            );
+            try {
+              await pub.subscribe();
+            } catch (e) {
+              AppLogger.error('LiveKit: Failed to re-subscribe to audio: $e');
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() => _audioPlaybackAllowed = _room!.canPlaybackAudio);
+      }
+    } catch (e) {
+      AppLogger.error('LiveKit: Error ensuring audio playback: $e');
+    }
+  }
+
+  /// Show a snackbar prompting user to tap to enable audio (required on some platforms)
+  void _showAudioPlaybackPrompt() {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Tap here to enable audio'),
+        backgroundColor: Colors.orange.shade700,
+        duration: const Duration(seconds: 10),
+        action: SnackBarAction(
+          label: 'Enable',
+          textColor: Colors.white,
+          onPressed: () async {
+            await _ensureAudioPlayback();
+          },
+        ),
+      ),
+    );
+  }
+
   void _queuePointerUpdate({
     Offset? position,
     required bool visible,
@@ -1515,8 +1596,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           ),
         ),
         defaultAudioPublishOptions: const AudioPublishOptions(
-          dtx: true,
-          audioBitrate: AudioPreset.speech,
+          dtx: true, // Discontinuous transmission - saves bandwidth during silence
         ),
         defaultScreenShareCaptureOptions:
             const _ScreenShareCaptureOptionsWithCursor(
@@ -1611,6 +1691,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       
       _syncLocalMediaState();
       AppLogger.info('LiveKit: Connected to room ${widget.roomName}');
+
+      // Load persisted whiteboard state so teacher/student see current board on rejoin
+      _loadWhiteboardStateFromFirestore();
+
+      // Students: ask the host for the latest whiteboard state (helps late joiners).
+      if (!widget.isTeacher) {
+        _requestWhiteboardProject();
+      }
     } catch (e) {
       AppLogger.error('LiveKit: Failed to connect: $e');
       setState(() {
@@ -1642,11 +1730,14 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
           setState(() => _reconnecting = true);
         }
       })
-      ..on<RoomReconnectedEvent>((event) {
+      ..on<RoomReconnectedEvent>((event) async {
         AppLogger.info('LiveKit: Reconnected to room');
         if (mounted) {
           setState(() => _reconnecting = false);
         }
+        // Ensure audio tracks are working after reconnection
+        // This is critical for fixing audio loss after network changes
+        await _ensureAudioPlayback();
       })
       ..on<RoomDisconnectedEvent>((event) async {
         AppLogger.info(
@@ -1756,6 +1847,27 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       ..on<LocalTrackUnpublishedEvent>((event) {
         _syncLocalMediaState();
         setState(() {});
+      })
+      ..on<AudioPlaybackStatusChanged>((event) {
+        // Handle audio playback status changes (e.g., after tab switch, device change)
+        AppLogger.info('LiveKit: Audio playback status changed - canPlayback: ${event.isPlaying}');
+        if (mounted) {
+          setState(() => _audioPlaybackAllowed = event.isPlaying);
+        }
+        if (!event.isPlaying) {
+          // Audio playback was blocked - prompt user to re-enable
+          _showAudioPlaybackPrompt();
+        }
+      })
+      ..on<TrackStreamStateUpdatedEvent>((event) {
+        // Handle track stream state changes (e.g., track paused/active)
+        AppLogger.debug(
+          'LiveKit: Track stream state updated - ${event.participant.identity}: ${event.publication.sid} -> ${event.streamState}',
+        );
+        // If a track becomes active again after being paused, ensure audio is working
+        if (event.streamState == StreamState.active) {
+          _ensureAudioPlayback();
+        }
       });
   }
 
@@ -1774,6 +1886,15 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
   }
 
   Future<void> _handleDataReceived(DataReceivedEvent event) async {
+    AppLogger.debug('LiveKit: Data received - topic: "${event.topic}", from: ${event.participant?.identity}');
+
+    // Handle whiteboard messages (for all participants)
+    if (event.topic == _whiteboardTopic) {
+      await _handleWhiteboardData(event);
+      return;
+    }
+
+    // Host control messages are only for students
     if (widget.isTeacher) return;
     if (event.topic != _hostControlTopic) return;
     if (!_isModeratorMessage(event.participant)) return;
@@ -1925,6 +2046,281 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
       _showSnack('Failed to update mic lock: $e', backgroundColor: Colors.red);
     }
   }
+
+  // --- Whiteboard methods ---
+
+  Future<void> _handleWhiteboardData(DataReceivedEvent event) async {
+    final senderIdentity = event.participant?.identity ?? 'unknown';
+    AppLogger.debug('LiveKit Whiteboard: Received data from $senderIdentity (I am ${widget.isTeacher ? "teacher" : "student"})');
+
+    final text = utf8.decode(event.data, allowMalformed: true);
+    final message = WhiteboardMessage.decode(text);
+    if (message == null) {
+      AppLogger.debug('LiveKit Whiteboard: Failed to decode message');
+      return;
+    }
+
+    AppLogger.debug('LiveKit Whiteboard: Message type: ${message.type}');
+
+    switch (message.type) {
+      case WhiteboardMessage.typeProject:
+        // Received project state - collaborative mode: everyone receives from everyone
+        if (message.payload != null) {
+          final strokeCount = (message.payload!['strokes'] as List?)?.length ?? 0;
+          AppLogger.debug('LiveKit Whiteboard: Received project with $strokeCount strokes, pushing to stream');
+          _lastWhiteboardProject = message.payload;
+          _whiteboardProjectController.add(message.payload!);
+          // Enable whiteboard view when receiving project data (for students joining late)
+          if (!widget.isTeacher && !_whiteboardEnabled && mounted) {
+            setState(() => _whiteboardEnabled = true);
+          }
+        }
+        break;
+
+      case WhiteboardMessage.typeRequestProject:
+        // Participant requesting current project state (typically late joiners)
+        if (widget.isTeacher && _whiteboardEnabled && _lastWhiteboardProject != null) {
+          final identity = event.participant?.identity;
+          if (identity != null) {
+            await _sendWhiteboardProject(
+              _lastWhiteboardProject!,
+              destinationIdentities: [identity],
+            );
+          }
+        }
+        break;
+
+      case WhiteboardMessage.typeClosed:
+        // Teacher closed whiteboard
+        if (!widget.isTeacher && mounted) {
+          setState(() => _whiteboardEnabled = false);
+        }
+        break;
+
+      case WhiteboardMessage.typeStudentDrawingPermission:
+        // Teacher changed student drawing permission
+        if (!widget.isTeacher && message.payload != null) {
+          final enabled = message.payload!['enabled'] == true;
+          AppLogger.debug('LiveKit Whiteboard: Student drawing permission changed to $enabled');
+          if (mounted) {
+            setState(() => _studentDrawingEnabled = enabled);
+          }
+        }
+        break;
+    }
+  }
+
+  void _toggleWhiteboard() {
+    if (!widget.isTeacher) return;
+
+    final enabling = !_whiteboardEnabled;
+    setState(() => _whiteboardEnabled = enabling);
+
+    if (!enabling) {
+      // Notify students that whiteboard is closed.
+      _sendWhiteboardClosed();
+      return;
+    }
+
+    // When opening, immediately broadcast the current project so students (and
+    // late joiners) can render the board without waiting for a new stroke.
+    final strokes = _lastWhiteboardProject?['strokes'] as List? ??
+        _initialWhiteboardStrokes ??
+        const [];
+    final project = <String, dynamic>{
+      'strokes': strokes,
+      'version': 2,
+    };
+    _lastWhiteboardProject = project;
+    _sendWhiteboardProject(project);
+
+    // Broadcast current student drawing permission so students match host state.
+    _sendStudentDrawingPermission(_studentDrawingEnabled);
+  }
+
+  Future<void> _sendWhiteboardProject(
+    Map<String, dynamic> projectData, {
+    List<String>? destinationIdentities,
+  }) async {
+    final room = _room;
+    final local = _localParticipant;
+
+    if (room == null) {
+      AppLogger.debug('LiveKit Whiteboard: Cannot send - no room');
+      return;
+    }
+
+    if (local == null) {
+      AppLogger.debug('LiveKit Whiteboard: Cannot send - no local participant');
+      return;
+    }
+
+    final remoteCount = room.remoteParticipants.length;
+    AppLogger.debug('LiveKit Whiteboard: Room has $remoteCount remote participants');
+
+    _lastWhiteboardProject = projectData;
+
+    final message = WhiteboardMessage(
+      type: WhiteboardMessage.typeProject,
+      payload: projectData,
+    );
+
+    final strokeCount = (projectData['strokes'] as List?)?.length ?? 0;
+    AppLogger.debug('LiveKit Whiteboard: Sending project with $strokeCount strokes to topic "$_whiteboardTopic" (isTeacher: ${widget.isTeacher})');
+
+    try {
+      await local.publishData(
+        utf8.encode(message.encode()),
+        reliable: true,
+        destinationIdentities: destinationIdentities,
+        topic: _whiteboardTopic,
+      );
+      AppLogger.debug('LiveKit Whiteboard: Project sent successfully');
+      // Persist so rejoin (teacher or student) sees current board for the duration of the class
+      _saveWhiteboardStateToFirestore();
+    } catch (e) {
+      AppLogger.error('LiveKit: Failed to send whiteboard project: $e');
+    }
+  }
+
+  Future<void> _sendWhiteboardClosed() async {
+    final local = _localParticipant;
+    if (local == null) return;
+
+    final message = WhiteboardMessage(type: WhiteboardMessage.typeClosed);
+
+    try {
+      await local.publishData(
+        utf8.encode(message.encode()),
+        reliable: true,
+        topic: _whiteboardTopic,
+      );
+    } catch (e) {
+      AppLogger.error('LiveKit: Failed to send whiteboard closed: $e');
+    }
+  }
+
+  Future<void> _requestWhiteboardProject() async {
+    final local = _localParticipant;
+    if (local == null) return;
+
+    final message = WhiteboardMessage(type: WhiteboardMessage.typeRequestProject);
+
+    try {
+      await local.publishData(
+        utf8.encode(message.encode()),
+        reliable: true,
+        topic: _whiteboardTopic,
+      );
+    } catch (e) {
+      AppLogger.error('LiveKit: Failed to request whiteboard project: $e');
+    }
+  }
+
+  void _toggleStudentDrawingPermission(bool enabled) {
+    if (!widget.isTeacher) return;
+
+    setState(() => _studentDrawingEnabled = enabled);
+    _sendStudentDrawingPermission(enabled);
+
+    // Also save to Firestore so late joiners get the correct permission
+    _saveWhiteboardStateToFirestore();
+  }
+
+  Future<void> _sendStudentDrawingPermission(bool enabled) async {
+    final local = _localParticipant;
+    if (local == null) return;
+
+    final message = WhiteboardMessage(
+      type: WhiteboardMessage.typeStudentDrawingPermission,
+      payload: {'enabled': enabled},
+    );
+
+    AppLogger.debug('LiveKit Whiteboard: Sending student drawing permission: $enabled');
+
+    try {
+      await local.publishData(
+        utf8.encode(message.encode()),
+        reliable: true,
+        topic: _whiteboardTopic,
+      );
+    } catch (e) {
+      AppLogger.error('LiveKit: Failed to send student drawing permission: $e');
+    }
+  }
+
+  // --- Firestore persistence for whiteboard ---
+
+  Future<void> _saveWhiteboardStateToFirestore() async {
+    if (_whiteboardStateSaving) return;
+    _whiteboardStateSaving = true;
+
+    try {
+      final shiftId = widget.shiftId;
+      if (shiftId.isEmpty) {
+        AppLogger.debug('LiveKit Whiteboard: No shift ID, skipping Firestore save');
+        return;
+      }
+
+      final strokes = (_lastWhiteboardProject?['strokes'] as List?) ?? [];
+
+      await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(shiftId)
+          .set({
+        'whiteboard': {
+          'strokes': strokes,
+          'studentDrawingEnabled': _studentDrawingEnabled,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      }, SetOptions(merge: true));
+
+      AppLogger.debug('LiveKit Whiteboard: Saved ${strokes.length} strokes to Firestore');
+    } catch (e) {
+      AppLogger.error('LiveKit Whiteboard: Failed to save to Firestore: $e');
+    } finally {
+      _whiteboardStateSaving = false;
+    }
+  }
+
+  Future<void> _loadWhiteboardStateFromFirestore() async {
+    try {
+      final shiftId = widget.shiftId;
+      if (shiftId.isEmpty) {
+        AppLogger.debug('LiveKit Whiteboard: No shift ID, skipping Firestore load');
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('teaching_shifts')
+          .doc(shiftId)
+          .get();
+
+      if (!doc.exists) return;
+
+      final data = doc.data();
+      final whiteboard = data?['whiteboard'] as Map<String, dynamic>?;
+
+      if (whiteboard != null) {
+        final strokes = whiteboard['strokes'] as List?;
+        final studentDrawingEnabled = whiteboard['studentDrawingEnabled'] as bool? ?? false;
+
+        if (strokes != null && strokes.isNotEmpty) {
+          _initialWhiteboardStrokes = strokes.cast<Map<String, dynamic>>();
+          _lastWhiteboardProject = {'strokes': strokes};
+          AppLogger.debug('LiveKit Whiteboard: Loaded ${strokes.length} strokes from Firestore');
+        }
+
+        if (mounted) {
+          setState(() => _studentDrawingEnabled = studentDrawingEnabled);
+        }
+      }
+    } catch (e) {
+      AppLogger.error('LiveKit Whiteboard: Failed to load from Firestore: $e');
+    }
+  }
+
+  // --- End whiteboard methods ---
 
   Future<void> _toggleMicrophone() async {
     final local = _localParticipant;
@@ -2112,6 +2508,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
     _pointerSendTimer?.cancel();
     _remotePointerHideTimer?.cancel();
     _cancelNoShowTimers();
+    _whiteboardProjectController.close();
     _disconnect();
     super.dispose();
   }
@@ -2174,7 +2571,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                 border: Border.all(color: Colors.white24),
                               ),
                               child: Text(
-                                AppLocalizations.of(context)!.participantcount,
+                                participantCount.toString(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -2801,7 +3198,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                           builder: (context) => AlertDialog(
                                             title: Text(AppLocalizations.of(context)!.unmuteParticipant),
                                             content: Text(
-                                              AppLocalizations.of(context)!.enableDisplaynameMicrophone,
+                                              'Enable $displayName\'s microphone?',
                                             ),
                                             actions: [
                                               TextButton(
@@ -2859,7 +3256,7 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                                             title: Text(
                                                 AppLocalizations.of(context)!.removeParticipant),
                                             content: Text(
-                                              AppLocalizations.of(context)!.removeDisplaynameFromTheMeeting,
+                                              'Remove $displayName from the meeting?',
                                             ),
                                             actions: [
                                               TextButton(
@@ -3116,6 +3513,19 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
 
     if (activeScreenShare != null) {
       return _buildScreenShareStage(activeScreenShare);
+    }
+
+    // Whiteboard view - teacher can set students as viewer or editor
+    if (_whiteboardEnabled) {
+      return CallWhiteboard(
+        isTeacher: widget.isTeacher,
+        onSendProject: _sendWhiteboardProject,
+        projectStream: _whiteboardProjectController.stream,
+        onClose: widget.isTeacher ? _toggleWhiteboard : null,
+        studentDrawingEnabled: _studentDrawingEnabled,
+        onStudentDrawingToggle: _toggleStudentDrawingPermission,
+        initialStrokes: _initialWhiteboardStrokes,
+      );
     }
 
     if (_activeScreenShareIdentity != null) {
@@ -3536,6 +3946,17 @@ class _LiveKitCallScreenState extends State<LiveKitCallScreen> {
                 isActive: _screenShareEnabled,
                 activeColor: Colors.blue,
                 onPressed: _toggleScreenShare,
+              ),
+            // Whiteboard button (teacher only)
+            if (widget.isTeacher)
+              _ControlButton(
+                icon: _whiteboardEnabled ? Icons.draw : Icons.draw_outlined,
+                label: _whiteboardEnabled
+                    ? AppLocalizations.of(context)!.whiteboardClose
+                    : AppLocalizations.of(context)!.whiteboard,
+                isActive: _whiteboardEnabled,
+                activeColor: Colors.purple,
+                onPressed: _toggleWhiteboard,
               ),
             _ControlButton(
               icon: Icons.people,

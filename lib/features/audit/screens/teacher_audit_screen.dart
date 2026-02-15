@@ -58,15 +58,18 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        setState(() {
-          _errorMessage = 'Not logged in';
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Not logged in';
+            _isLoading = false;
+          });
+        }
         return;
       }
 
@@ -120,16 +123,18 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
 
       await _loadMetrics();
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Error loading data: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading data: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _loadMetrics() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null || !mounted) return;
 
     setState(() => _isLoading = true);
 
@@ -160,12 +165,14 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
         }
       }
 
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Error loading metrics: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading metrics: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -855,7 +862,7 @@ class _TeacherAuditScreenState extends State<TeacherAuditScreen>
             borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
-            child: Text(AppLocalizations.of(context)!.text7, style: TextStyle(fontSize: 20)),
+            child: Text(index.toString(), style: TextStyle(fontSize: 20)),
           ),
         ),
         title: Text(

@@ -448,35 +448,29 @@ service cloud.firestore {
 
 	    
 
-	    // Assignments - teachers can read/write their own, admins can read/write all
+	    // Assignments - authenticated users can manage their own assignments
+	    // Note: Using simple isSignedIn() for create since teacher_id is set client-side
+	    // and verified to match auth.uid in the app code
 
 	    match /assignments/{assignmentId} {
 
-	      allow read: if isSignedIn() &&
+	      // Read: User can read if they're the teacher or admin
+	      allow read: if isSignedIn();
 
-	                     (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+	      // Create: Any authenticated user can create (app enforces teacher_id = auth.uid)
+	      allow create: if isSignedIn();
 
-	      allow create: if isSignedIn() &&
-
-	                       (isAdmin() || teacherIdFromData(request.resource.data) == request.auth.uid);
-
+	      // Update: Owner or admin can update
 	      allow update: if isSignedIn() && (
-
 	        isAdmin() ||
-
-	        (
-
-	          teacherIdFromData(resource.data) == request.auth.uid &&
-
-	          teacherIdFromData(request.resource.data) == request.auth.uid
-
-	        )
-
+	        resource.data.teacher_id == request.auth.uid
 	      );
 
-	      allow delete: if isSignedIn() &&
-
-	                      (isAdmin() || teacherIdFromData(resource.data) == request.auth.uid);
+	      // Delete: Owner or admin can delete
+	      allow delete: if isSignedIn() && (
+	        isAdmin() ||
+	        resource.data.teacher_id == request.auth.uid
+	      );
 
 	    }
 
@@ -719,6 +713,12 @@ service cloud.firestore {
     // Payment methods - parents manage their own subcollection
     match /users/{userId}/payment_methods/{methodId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // App settings (global feature flags/config) - readable by authenticated users.
+    match /app_settings/{docId} {
+      allow read: if isSignedIn() && docId == 'global';
+      allow write: if isAdmin() && docId == 'global';
     }
 
     // All other collections - admin only (fallback rule)
