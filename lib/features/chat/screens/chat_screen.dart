@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
+import 'package:geolocator/geolocator.dart';
 import '../services/chat_service.dart';
 import '../services/chat_permission_service.dart';
 import '../models/chat_user.dart';
@@ -297,6 +298,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 break;
               case 'group_info':
                 _showGroupInfoDialog();
+                break;
+              case 'edit_group':
+                _showEditGroupDialog();
+                break;
+              case 'manage_members':
+                _showManageMembersDialog();
+                break;
+              case 'leave_group':
+                _showLeaveGroupDialog();
                 break;
             }
           },
@@ -875,7 +885,7 @@ class _ChatScreenState extends State<ChatScreen> {
           await _pickFile();
           break;
         case 'location':
-          _showMessage('Location sharing coming soon', isError: false);
+          await _sendLocation();
           break;
       }
     } catch (e) {
@@ -934,6 +944,53 @@ class _ChatScreenState extends State<ChatScreen> {
       } finally {
         if (mounted) setState(() => _isUploading = false);
       }
+    }
+  }
+
+  Future<void> _sendLocation() async {
+    try {
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _showMessage('Location permission is required');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showMessage('Location permission permanently denied. Please enable in settings.');
+        return;
+      }
+
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showMessage('Please enable location services');
+        return;
+      }
+
+      _showMessage('Getting your location...', isError: false);
+
+      // Get current position
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Send location message
+      await _chatService.sendLocationMessage(
+        widget.chatUser.id,
+        position.latitude,
+        position.longitude,
+        'My Location',
+        isGroupChat: widget.chatUser.isGroup,
+      );
+
+      _showMessage('Location sent!', isError: false);
+    } catch (e) {
+      AppLogger.error('Error sending location: $e');
+      _showMessage('Failed to get location');
     }
   }
 
@@ -1312,6 +1369,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _deleteMessage(ChatMessage message) {
+    // Check if user is the sender
+    if (message.senderId != _chatService.currentUserId) {
+      _showMessage('You can only delete your own messages');
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1332,18 +1395,18 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // TODO: Implement delete message functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    AppLocalizations.of(context)!.messageDeletionNotYetImplemented,
-                    style: GoogleFonts.inter(),
-                  ),
-                  backgroundColor: const Color(0xffF59E0B),
-                ),
+              final success = await _chatService.deleteMessage(
+                widget.chatUser.id,
+                message.id,
+                isGroupChat: widget.chatUser.isGroup,
               );
+              if (success) {
+                _showMessage('Message deleted', isError: false);
+              } else {
+                _showMessage('Failed to delete message');
+              }
             },
             child: Text(
               AppLocalizations.of(context)!.commonDelete,
@@ -1356,30 +1419,32 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _forwardMessage(ChatMessage message) {
-    // TODO: Implement forward message functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppLocalizations.of(context)!.messageForwardingNotYetImplemented,
-          style: GoogleFonts.inter(),
-        ),
-        backgroundColor: const Color(0xffF59E0B),
+    showDialog(
+      context: context,
+      builder: (context) => _ForwardMessageDialog(
+        chatService: _chatService,
+        message: message,
+        currentChatId: widget.chatUser.id,
+        onMessageForwarded: () {
+          _showMessage('Message forwarded', isError: false);
+        },
       ),
     );
   }
 
-  void _addReaction(ChatMessage message, String reaction) {
-    // TODO: Implement reaction functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppLocalizations.of(context)!.reactionAddedReaction,
-          style: GoogleFonts.inter(),
-        ),
-        backgroundColor: const Color(0xff10B981),
-        duration: const Duration(seconds: 1),
-      ),
+  void _addReaction(ChatMessage message, String reaction) async {
+    final success = await _chatService.addReaction(
+      widget.chatUser.id,
+      message.id,
+      reaction,
+      isGroupChat: widget.chatUser.isGroup,
     );
+
+    if (success) {
+      _showMessage('$reaction added', isError: false);
+    } else {
+      _showMessage('Failed to add reaction');
+    }
   }
 
   void _showClearChatDialog() {
@@ -1403,9 +1468,17 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // TODO: Implement clear chat functionality
+              final success = await _chatService.clearChat(
+                widget.chatUser.id,
+                isGroupChat: widget.chatUser.isGroup,
+              );
+              if (success) {
+                _showMessage('Chat cleared', isError: false);
+              } else {
+                _showMessage('Failed to clear chat');
+              }
             },
             child: Text(
               AppLocalizations.of(context)!.commonClear,
@@ -1417,16 +1490,23 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showBlockUserDialog() {
+  void _showBlockUserDialog() async {
+    // First check if user is already blocked
+    final isBlocked = await _chatService.isUserBlocked(widget.chatUser.id);
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          AppLocalizations.of(context)!.chatBlockUser,
+          isBlocked ? 'Unblock User' : AppLocalizations.of(context)!.chatBlockUser,
           style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
         content: Text(
-          'Are you sure you want to block ${widget.chatUser.displayName}? They will no longer be able to send you messages.',
+          isBlocked
+              ? 'Are you sure you want to unblock ${widget.chatUser.displayName}? They will be able to send you messages again.'
+              : 'Are you sure you want to block ${widget.chatUser.displayName}? They will no longer be able to send you messages.',
           style: GoogleFonts.inter(),
         ),
         actions: [
@@ -1438,13 +1518,27 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // TODO: Implement block user functionality
+              bool success;
+              if (isBlocked) {
+                success = await _chatService.unblockUser(widget.chatUser.id);
+                if (success) {
+                  _showMessage('${widget.chatUser.displayName} unblocked', isError: false);
+                }
+              } else {
+                success = await _chatService.blockUser(widget.chatUser.id);
+                if (success) {
+                  _showMessage('${widget.chatUser.displayName} blocked', isError: false);
+                }
+              }
+              if (!success) {
+                _showMessage('Failed to ${isBlocked ? 'unblock' : 'block'} user');
+              }
             },
             child: Text(
-              AppLocalizations.of(context)!.block,
-              style: GoogleFonts.inter(color: Colors.red),
+              isBlocked ? 'Unblock' : AppLocalizations.of(context)!.block,
+              style: GoogleFonts.inter(color: isBlocked ? const Color(0xff059669) : Colors.red),
             ),
           ),
         ],
@@ -1487,6 +1581,23 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
 
+      // Edit group option (admin only - will check dynamically)
+      items.add(
+        PopupMenuItem(
+          value: 'edit_group',
+          child: Row(
+            children: [
+              const Icon(Icons.edit, color: Color(0xff0386FF)),
+              const SizedBox(width: 12),
+              Text(
+                'Edit Group',
+                style: GoogleFonts.inter(color: const Color(0xff374151)),
+              ),
+            ],
+          ),
+        ),
+      );
+
       // Add members option (will check admin status dynamically)
       items.add(
         PopupMenuItem(
@@ -1498,6 +1609,40 @@ class _ChatScreenState extends State<ChatScreen> {
               Text(
                 AppLocalizations.of(context)!.chatAddMembers,
                 style: GoogleFonts.inter(color: const Color(0xff374151)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Manage members option (admin only - view/remove members)
+      items.add(
+        PopupMenuItem(
+          value: 'manage_members',
+          child: Row(
+            children: [
+              const Icon(Icons.group, color: Color(0xff6366F1)),
+              const SizedBox(width: 12),
+              Text(
+                'Manage Members',
+                style: GoogleFonts.inter(color: const Color(0xff374151)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Leave group option
+      items.add(
+        PopupMenuItem(
+          value: 'leave_group',
+          child: Row(
+            children: [
+              const Icon(Icons.exit_to_app, color: Colors.red),
+              const SizedBox(width: 12),
+              Text(
+                'Leave Group',
+                style: GoogleFonts.inter(color: Colors.red),
               ),
             ],
           ),
@@ -1595,6 +1740,97 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Text(
               AppLocalizations.of(context)!.commonClose,
               style: GoogleFonts.inter(color: const Color(0xff0386FF)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditGroupDialog() async {
+    if (widget.chatUser.role != 'group') return;
+
+    final isAdmin = await _chatService.isGroupAdmin(widget.chatUser.id);
+    if (!isAdmin) {
+      _showMessage('Only group administrators can edit group info');
+      return;
+    }
+
+    final groupDetails = await _chatService.getGroupDetails(widget.chatUser.id);
+    if (groupDetails == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => _EditGroupDialog(
+        chatService: _chatService,
+        groupChatId: widget.chatUser.id,
+        currentName: groupDetails['group_name'] ?? '',
+        currentDescription: groupDetails['group_description'] ?? '',
+        onGroupUpdated: () {
+          _showMessage('Group updated successfully!', isError: false);
+        },
+      ),
+    );
+  }
+
+  void _showManageMembersDialog() async {
+    if (widget.chatUser.role != 'group') return;
+
+    final isAdmin = await _chatService.isGroupAdmin(widget.chatUser.id);
+
+    showDialog(
+      context: context,
+      builder: (context) => _ManageMembersDialog(
+        chatService: _chatService,
+        groupChatId: widget.chatUser.id,
+        isAdmin: isAdmin,
+        currentUserId: _chatService.currentUserId ?? '',
+        onMemberRemoved: () {
+          _showMessage('Member removed from group', isError: false);
+        },
+      ),
+    );
+  }
+
+  void _showLeaveGroupDialog() async {
+    if (widget.chatUser.role != 'group') return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Leave Group',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to leave "${widget.chatUser.displayName}"? You will no longer receive messages from this group.',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              AppLocalizations.of(context)!.commonCancel,
+              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              final success = await _chatService.leaveGroup(widget.chatUser.id);
+              if (success) {
+                _showMessage('You have left the group', isError: false);
+                // Navigate back to chat list
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              } else {
+                _showMessage('Failed to leave group');
+              }
+            },
+            child: Text(
+              'Leave',
+              style: GoogleFonts.inter(color: Colors.red),
             ),
           ),
         ],
@@ -1806,6 +2042,671 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
               : Text(
                   'Add ${_selectedUserIds.length} Member${_selectedUserIds.length == 1 ? '' : 's'}',
                   style: GoogleFonts.inter(color: const Color(0xff059669)),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// Dialog widget for editing group info
+class _EditGroupDialog extends StatefulWidget {
+  final ChatService chatService;
+  final String groupChatId;
+  final String currentName;
+  final String currentDescription;
+  final VoidCallback onGroupUpdated;
+
+  const _EditGroupDialog({
+    required this.chatService,
+    required this.groupChatId,
+    required this.currentName,
+    required this.currentDescription,
+    required this.onGroupUpdated,
+  });
+
+  @override
+  State<_EditGroupDialog> createState() => _EditGroupDialogState();
+}
+
+class _EditGroupDialogState extends State<_EditGroupDialog> {
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.currentName);
+    _descriptionController = TextEditingController(text: widget.currentDescription);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Edit Group',
+        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'Group Name',
+                labelStyle: GoogleFonts.inter(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                ),
+              ),
+              style: GoogleFonts.inter(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _descriptionController,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                labelStyle: GoogleFonts.inter(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xff0386FF), width: 2),
+                ),
+              ),
+              style: GoogleFonts.inter(),
+              maxLines: 3,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            AppLocalizations.of(context)!.commonCancel,
+            style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+          ),
+        ),
+        TextButton(
+          onPressed: _isLoading || _nameController.text.trim().isEmpty
+              ? null
+              : () async {
+                  setState(() => _isLoading = true);
+
+                  final success = await widget.chatService.updateGroupInfo(
+                    widget.groupChatId,
+                    name: _nameController.text.trim(),
+                    description: _descriptionController.text.trim(),
+                  );
+
+                  setState(() => _isLoading = false);
+
+                  if (success) {
+                    widget.onGroupUpdated();
+                    if (mounted) Navigator.of(context).pop();
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to update group'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                  ),
+                )
+              : Text(
+                  'Save',
+                  style: GoogleFonts.inter(color: const Color(0xff0386FF)),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// Dialog widget for managing group members
+class _ManageMembersDialog extends StatefulWidget {
+  final ChatService chatService;
+  final String groupChatId;
+  final bool isAdmin;
+  final String currentUserId;
+  final VoidCallback onMemberRemoved;
+
+  const _ManageMembersDialog({
+    required this.chatService,
+    required this.groupChatId,
+    required this.isAdmin,
+    required this.currentUserId,
+    required this.onMemberRemoved,
+  });
+
+  @override
+  State<_ManageMembersDialog> createState() => _ManageMembersDialogState();
+}
+
+class _ManageMembersDialogState extends State<_ManageMembersDialog> {
+  List<Map<String, dynamic>> _members = [];
+  bool _isLoading = true;
+  String? _removingMemberId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    final members = await widget.chatService.getGroupMembers(widget.groupChatId);
+    if (mounted) {
+      setState(() {
+        _members = members;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _removeMember(String memberId, String memberName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Remove Member',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to remove $memberName from this group?',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              AppLocalizations.of(context)!.commonCancel,
+              style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Remove',
+              style: GoogleFonts.inter(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _removingMemberId = memberId);
+
+    final success = await widget.chatService.removeMemberFromGroup(
+      widget.groupChatId,
+      memberId,
+    );
+
+    if (success) {
+      widget.onMemberRemoved();
+      await _loadMembers();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to remove member'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
+    setState(() => _removingMemberId = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Group Members',
+        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                ),
+              )
+            : _members.isEmpty
+                ? Center(
+                    child: Text(
+                      'No members found',
+                      style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _members.length,
+                    itemBuilder: (context, index) {
+                      final member = _members[index];
+                      final isCurrentUser = member['id'] == widget.currentUserId;
+                      final isAdmin = member['isAdmin'] == true;
+                      final isCreator = member['isCreator'] == true;
+                      final canRemove = widget.isAdmin && !isCurrentUser && !isAdmin;
+
+                      return ListTile(
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xff0386FF).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: member['profilePicture'] != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: Image.network(
+                                    member['profilePicture'],
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Center(
+                                      child: Text(
+                                        _getInitials(member['name'] ?? ''),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xff0386FF),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(
+                                    _getInitials(member['name'] ?? ''),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xff0386FF),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                member['name'] ?? 'Unknown',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isCurrentUser)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff6B7280).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'You',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xff6B7280),
+                                  ),
+                                ),
+                              ),
+                            if (isCreator)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff059669).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Creator',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xff059669),
+                                  ),
+                                ),
+                              )
+                            else if (isAdmin)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff0386FF).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Admin',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xff0386FF),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          member['role'] ?? '',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff6B7280),
+                          ),
+                        ),
+                        trailing: canRemove
+                            ? _removingMemberId == member['id']
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                    onPressed: () => _removeMember(
+                                      member['id'],
+                                      member['name'] ?? 'this member',
+                                    ),
+                                    tooltip: 'Remove from group',
+                                  )
+                            : null,
+                      );
+                    },
+                  ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            AppLocalizations.of(context)!.commonClose,
+            style: GoogleFonts.inter(color: const Color(0xff0386FF)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return '?';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
+}
+
+// Dialog widget for forwarding messages
+class _ForwardMessageDialog extends StatefulWidget {
+  final ChatService chatService;
+  final ChatMessage message;
+  final String currentChatId;
+  final VoidCallback onMessageForwarded;
+
+  const _ForwardMessageDialog({
+    required this.chatService,
+    required this.message,
+    required this.currentChatId,
+    required this.onMessageForwarded,
+  });
+
+  @override
+  State<_ForwardMessageDialog> createState() => _ForwardMessageDialogState();
+}
+
+class _ForwardMessageDialogState extends State<_ForwardMessageDialog> {
+  String? _selectedChatId;
+  bool _isForwarding = false;
+  bool _isGroupChat = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Forward Message',
+        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            // Message preview
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xffF3F4F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Message:',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.message.content,
+                    style: GoogleFonts.inter(fontSize: 14),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'Select a chat:',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Chat list
+            Expanded(
+              child: StreamBuilder<List<ChatUser>>(
+                stream: widget.chatService.getUserChats(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                      ),
+                    );
+                  }
+
+                  final chats = snapshot.data ?? [];
+                  // Filter out current chat
+                  final availableChats = chats.where((chat) => chat.id != widget.currentChatId).toList();
+
+                  if (availableChats.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No other chats available',
+                        style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: availableChats.length,
+                    itemBuilder: (context, index) {
+                      final chat = availableChats[index];
+                      final isSelected = _selectedChatId == chat.id;
+
+                      return ListTile(
+                        selected: isSelected,
+                        selectedTileColor: const Color(0xff0386FF).withValues(alpha: 0.1),
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: chat.isGroup
+                                ? const Color(0xff059669).withValues(alpha: 0.1)
+                                : const Color(0xff0386FF).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: chat.profilePicture != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: Image.network(
+                                    chat.profilePicture!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Center(
+                                      child: chat.isGroup
+                                          ? const Icon(Icons.group, size: 20, color: Color(0xff059669))
+                                          : Text(
+                                              chat.initials,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xff0386FF),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: chat.isGroup
+                                      ? const Icon(Icons.group, size: 20, color: Color(0xff059669))
+                                      : Text(
+                                          chat.initials,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xff0386FF),
+                                          ),
+                                        ),
+                                ),
+                        ),
+                        title: Text(
+                          chat.displayName,
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: chat.isGroup
+                            ? Text(
+                                'Group',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xff059669),
+                                ),
+                              )
+                            : Text(
+                                chat.role ?? '',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xff6B7280),
+                                ),
+                              ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle, color: Color(0xff0386FF))
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedChatId = chat.id;
+                            _isGroupChat = chat.isGroup;
+                          });
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            AppLocalizations.of(context)!.commonCancel,
+            style: GoogleFonts.inter(color: const Color(0xff6B7280)),
+          ),
+        ),
+        TextButton(
+          onPressed: _selectedChatId == null || _isForwarding
+              ? null
+              : () async {
+                  setState(() => _isForwarding = true);
+
+                  final success = await widget.chatService.forwardMessage(
+                    widget.message,
+                    _selectedChatId!,
+                    isTargetGroupChat: _isGroupChat,
+                  );
+
+                  setState(() => _isForwarding = false);
+
+                  if (success) {
+                    widget.onMessageForwarded();
+                    if (mounted) Navigator.of(context).pop();
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to forward message'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+          child: _isForwarding
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0386FF)),
+                  ),
+                )
+              : Text(
+                  'Forward',
+                  style: GoogleFonts.inter(color: const Color(0xff0386FF)),
                 ),
         ),
       ],

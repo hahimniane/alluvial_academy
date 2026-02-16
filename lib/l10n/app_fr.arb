@@ -3689,6 +3689,9 @@
   "tutorMicOn": "Micro activé",
   "tutorMicOff": "Micro désactivé",
   "tutorEndSession": "Terminer",
+  "tutorShowAI": "Montrer IA",
+  "tutorWhiteboardSent": "Tableau envoyé à l'IA",
+  "tutorWhiteboardFailed": "Échec de l'envoi du tableau",
   "tutorStartSession": "Commencer la session",
   "tutorDescription": "Parlez à Alluwal, votre compagnon d'apprentissage IA. Posez des questions sur les matières scolaires ou explorez les histoires de l'histoire islamique.",
 

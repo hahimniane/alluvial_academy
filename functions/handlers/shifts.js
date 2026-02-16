@@ -4,6 +4,7 @@ const {isDeepStrictEqual} = require('util');
 const {onCall, onRequest} = require('firebase-functions/v2/https');
 const {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
+const {DateTime} = require('luxon');
 const {
   ensureTasksConfig,
   queuePath,
@@ -24,7 +25,7 @@ const {
   formatDateInTimezone,
   getUserTimezone,
 } = require('../services/notifications/fcm');
-const {sendShiftNotificationEmails} = require('../services/email/shift_notifications');
+const {sendShiftNotificationEmails, sendShiftUpdateNotificationEmails} = require('../services/email/shift_notifications');
 
 const toDate = (timestamp) => (timestamp.toDate ? timestamp.toDate() : new Date(timestamp));
 
@@ -226,6 +227,8 @@ const scheduleShiftLifecycle = onCall(async (request) => {
     console.log(`[SUCCESS] scheduleShiftLifecycle completed for shiftId: ${shiftId}`);
     // Best-effort: send shift notification emails to teacher and student parents.
     // This is intentionally non-blocking and should not fail lifecycle scheduling.
+    // NOTE: sendShiftNotificationEmails internally checks for generated_from_template flag
+    // and will skip sending emails for template-generated shifts.
     try {
       await sendShiftNotificationEmails({shiftId, shiftData});
     } catch (emailError) {
@@ -644,6 +647,13 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
       return;
     }
 
+    // Skip notifications for template-generated shifts being updated by template regeneration
+    // Only send notifications for manually modified shifts
+    if (afterData.generated_from_template === true && !afterData.teacher_modified) {
+      console.log(`Template-generated shift ${shiftId} updated by template - skipping notifications`);
+      return;
+    }
+
     // Ignore whiteboard persistence updates. The whiteboard state is written
     // into the shift document for rejoin/late-join, but it should not trigger
     // "shift updated" notifications.
@@ -671,18 +681,33 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
     const shiftDateTime = formatShiftDateTime(afterData.shift_start);
 
     const changes = [];
+    let hasSignificantChange = false;
+
+    // Check for time changes
     if (beforeData.shift_start?.toDate().getTime() !== afterData.shift_start?.toDate().getTime()) {
       changes.push('time changed');
+      hasSignificantChange = true;
     }
+    if (beforeData.shift_end?.toDate().getTime() !== afterData.shift_end?.toDate().getTime() && changes.indexOf('time changed') === -1) {
+      changes.push('time changed');
+      hasSignificantChange = true;
+    }
+
+    // Check for student changes
     if (JSON.stringify(beforeData.student_ids) !== JSON.stringify(afterData.student_ids)) {
       changes.push('students changed');
+      hasSignificantChange = true;
     }
+
+    // Check for subject changes
     if (beforeData.subject !== afterData.subject) {
       changes.push('subject changed');
+      hasSignificantChange = true;
     }
 
     const changesText = changes.length > 0 ? changes.join(', ') : 'details updated';
 
+    // Send FCM notification
     const notification = {
       title: '📝 Shift Updated',
       body: `${displayName} on ${shiftDateTime} - ${changesText}`,
@@ -697,6 +722,16 @@ const onShiftUpdated = onDocumentUpdated('teaching_shifts/{shiftId}', async (eve
     };
 
     await sendFCMNotificationToTeacher(teacherId, notification, data);
+
+    // Send email notifications ONLY for significant changes (time, day, students, subject)
+    if (hasSignificantChange) {
+      try {
+        console.log(`[ShiftUpdate] Sending email notifications for shift ${shiftId} due to: ${changesText}`);
+        await sendShiftUpdateNotificationEmails({shiftId, shiftData: afterData, changes: changesText});
+      } catch (emailError) {
+        console.error(`[ShiftUpdate] Failed to send update emails for shift ${shiftId}:`, emailError);
+      }
+    }
 
     console.log('✅ Shift updated notification sent');
   } catch (error) {
@@ -1514,20 +1549,297 @@ const fixTimesheetsPayAndStatus = onSchedule('every 30 minutes', async () => {
   }
 });
 
+const _normalizeRescheduleTimezone = (timezone) => {
+  const tz = (timezone || '').toString().trim();
+  if (!tz) return 'UTC';
+  const dt = DateTime.now().setZone(tz);
+  if (!dt.isValid) return 'UTC';
+  return tz;
+};
+
+const _parseRescheduleDateTime = ({
+  value,
+  timezone,
+  label,
+}) => {
+  const raw = (value || '').toString().trim();
+  if (!raw) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `${label} is required`,
+    );
+  }
+
+  const hasExplicitOffset =
+    raw.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(raw);
+
+  let dt;
+  if (hasExplicitOffset) {
+    dt = DateTime.fromISO(raw, {setZone: true});
+    if (!dt.isValid) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Invalid ${label} datetime`,
+      );
+    }
+    return dt.setZone(timezone);
+  }
+
+  dt = DateTime.fromISO(raw, {zone: timezone});
+  if (!dt.isValid) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Invalid ${label} datetime`,
+    );
+  }
+
+  return dt;
+};
+
+const _resolveRescheduleWindow = ({
+  newStartTime,
+  newEndTime,
+  newStartLocal,
+  newEndLocal,
+  timezone,
+  fallbackTimezone,
+}) => {
+  const resolvedTimezone = _normalizeRescheduleTimezone(
+    timezone || fallbackTimezone || 'UTC',
+  );
+
+  const startInput = (newStartLocal || newStartTime || '').toString().trim();
+  const endInput = (newEndLocal || newEndTime || '').toString().trim();
+
+  if (!startInput || !endInput) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Missing required fields: provide new start and end times.',
+    );
+  }
+
+  const startDt = _parseRescheduleDateTime({
+    value: startInput,
+    timezone: resolvedTimezone,
+    label: 'new start time',
+  });
+  const endDt = _parseRescheduleDateTime({
+    value: endInput,
+    timezone: resolvedTimezone,
+    label: 'new end time',
+  });
+
+  if (endDt <= startDt) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'End time must be after start time',
+    );
+  }
+
+  return {
+    timezone: resolvedTimezone,
+    startDt,
+    endDt,
+    durationMinutes: Math.round(endDt.diff(startDt, 'minutes').minutes),
+    startHm: startDt.toFormat('HH:mm'),
+    endHm: endDt.toFormat('HH:mm'),
+  };
+};
+
+const _studentMatchStopwords = new Set([
+  'a',
+  'all',
+  'am',
+  'at',
+  'change',
+  'class',
+  'classes',
+  'for',
+  'future',
+  'in',
+  'my',
+  'of',
+  'on',
+  'only',
+  'pm',
+  'shift',
+  'student',
+  'teacher',
+  'the',
+  'this',
+  'time',
+  'to',
+  'today',
+  'tomorrow',
+  'with',
+]);
+
+const _normalizeStudentMatchText = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const _stringListFromFields = (shiftData, fields) => {
+  const values = [];
+  fields.forEach((field) => {
+    const raw = shiftData[field];
+    if (Array.isArray(raw)) {
+      raw.forEach((item) => {
+        const text = String(item || '').trim();
+        if (text) values.push(text);
+      });
+      return;
+    }
+    const text = String(raw || '').trim();
+    if (text) values.push(text);
+  });
+  return values;
+};
+
+const _studentNameMatches = (candidateNames, rawQuery) => {
+  const query = _normalizeStudentMatchText(rawQuery);
+  if (!query) return true;
+
+  const queryTokens = query
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) =>
+      token.length >= 3 && !_studentMatchStopwords.has(token),
+    );
+
+  return candidateNames.some((candidate) => {
+    const normalizedCandidate = _normalizeStudentMatchText(candidate);
+    if (!normalizedCandidate) return false;
+
+    if (
+      normalizedCandidate.includes(query) ||
+      query.includes(normalizedCandidate)
+    ) {
+      return true;
+    }
+
+    if (queryTokens.length === 0) return false;
+    return queryTokens.some((token) => normalizedCandidate.includes(token));
+  });
+};
+
+const _matchesStudentFilter = ({
+  shiftData,
+  studentId,
+  studentName,
+}) => {
+  const ids = _stringListFromFields(shiftData, [
+    'student_ids',
+    'studentIds',
+    'student_id',
+    'studentId',
+  ]);
+  const names = _stringListFromFields(shiftData, [
+    'student_names',
+    'studentNames',
+    'student_name',
+    'studentName',
+    'auto_generated_name',
+    'custom_name',
+  ]);
+
+  if (studentId) {
+    const normalizedStudentId = String(studentId).trim();
+    if (!ids.map((id) => String(id).trim()).includes(normalizedStudentId)) {
+      return false;
+    }
+  }
+
+  if (studentName) {
+    if (!_studentNameMatches(names, studentName)) return false;
+  }
+
+  return true;
+};
+
+const _rescheduleShiftLifecycleTasks = async ({
+  shiftId,
+  newStart,
+  newEnd,
+}) => {
+  await ensureTasksConfig();
+  const shiftStartTaskId = `shift-start-${shiftId}`;
+  const shiftEndTaskId = `shift-end-${shiftId}`;
+
+  // Delete old tasks
+  await deleteTaskIfExists(shiftStartTaskId);
+  await deleteTaskIfExists(shiftEndTaskId);
+
+  // Schedule new tasks if shift is in the future
+  if (newStart <= new Date()) {
+    return;
+  }
+
+  const serviceAccountEmail = await getTasksServiceAccount();
+
+  const startTask = {
+    httpRequest: {
+      httpMethod: 'POST',
+      url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftStartTask`,
+      headers: {'Content-Type': 'application/json'},
+      body: Buffer.from(JSON.stringify({
+        shiftId,
+        shiftStart: newStart.toISOString(),
+      })).toString('base64'),
+      oidcToken: {serviceAccountEmail},
+    },
+    scheduleTime: {seconds: Math.floor(newStart.getTime() / 1000)},
+  };
+
+  await tasksClient.createTask({
+    parent: queuePath(),
+    task: {...startTask, name: taskName(shiftStartTaskId)},
+  });
+
+  const endTask = {
+    httpRequest: {
+      httpMethod: 'POST',
+      url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftEndTask`,
+      headers: {'Content-Type': 'application/json'},
+      body: Buffer.from(JSON.stringify({
+        shiftId,
+        shiftEnd: newEnd.toISOString(),
+      })).toString('base64'),
+      oidcToken: {serviceAccountEmail},
+    },
+    scheduleTime: {seconds: Math.floor(newEnd.getTime() / 1000)},
+  };
+
+  await tasksClient.createTask({
+    parent: queuePath(),
+    task: {...endTask, name: taskName(shiftEndTaskId)},
+  });
+};
+
 /**
  * Teacher Reschedule Shift
  * Allows teachers to reschedule their own shifts with proper audit trail
  */
 const teacherRescheduleShift = onCall(async (request) => {
-  const {shiftId, newStartTime, newEndTime, timezone, reason} = request.data;
+  const {
+    shiftId,
+    newStartTime,
+    newEndTime,
+    newStartLocal,
+    newEndLocal,
+    timezone,
+    reason,
+  } = request.data || {};
   const uid = request.auth?.uid;
 
   if (!uid) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
   }
 
-  if (!shiftId || !newStartTime || !newEndTime) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
+  if (!shiftId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required field: shiftId');
   }
 
   const db = admin.firestore();
@@ -1558,13 +1870,16 @@ const teacherRescheduleShift = onCall(async (request) => {
 
   const originalStartTime = toDate(shiftData.shift_start);
   const originalEndTime = toDate(shiftData.shift_end);
-  const newStart = new Date(newStartTime);
-  const newEnd = new Date(newEndTime);
-
-  // Validate new times
-  if (newEnd <= newStart) {
-    throw new functions.https.HttpsError('invalid-argument', 'End time must be after start time');
-  }
+  const resolvedWindow = _resolveRescheduleWindow({
+    newStartTime,
+    newEndTime,
+    newStartLocal,
+    newEndLocal,
+    timezone,
+    fallbackTimezone: shiftData.teacher_timezone || shiftData.admin_timezone || 'UTC',
+  });
+  const newStart = resolvedWindow.startDt.toUTC().toJSDate();
+  const newEnd = resolvedWindow.endDt.toUTC().toJSDate();
 
   const batch = db.batch();
 
@@ -1572,7 +1887,7 @@ const teacherRescheduleShift = onCall(async (request) => {
   batch.update(shiftRef, {
     shift_start: admin.firestore.Timestamp.fromDate(newStart),
     shift_end: admin.firestore.Timestamp.fromDate(newEnd),
-    teacher_timezone: timezone || shiftData.teacher_timezone,
+    teacher_timezone: resolvedWindow.timezone,
     teacher_modified: true,
     teacher_modified_at: admin.firestore.FieldValue.serverTimestamp(),
     teacher_modified_by: uid,
@@ -1593,7 +1908,7 @@ const teacherRescheduleShift = onCall(async (request) => {
     original_end_time: admin.firestore.Timestamp.fromDate(originalEndTime),
     new_start_time: admin.firestore.Timestamp.fromDate(newStart),
     new_end_time: admin.firestore.Timestamp.fromDate(newEnd),
-    timezone_used: timezone || shiftData.teacher_timezone,
+    timezone_used: resolvedWindow.timezone,
     reason: reason || 'Schedule adjustment',
     modified_at: admin.firestore.FieldValue.serverTimestamp(),
     modified_by_type: 'teacher',
@@ -1603,60 +1918,8 @@ const teacherRescheduleShift = onCall(async (request) => {
 
   // Reschedule lifecycle tasks for the new times
   try {
-    await ensureTasksConfig();
-    const shiftStartTaskId = `shift-start-${shiftId}`;
-    const shiftEndTaskId = `shift-end-${shiftId}`;
-
-    // Delete old tasks
-    await deleteTaskIfExists(shiftStartTaskId);
-    await deleteTaskIfExists(shiftEndTaskId);
-
-    // Schedule new tasks if shift is in the future
-    if (newStart > new Date()) {
-      const serviceAccountEmail = await getTasksServiceAccount();
-      
-      // Schedule start task
-      const startTask = {
-        httpRequest: {
-          httpMethod: 'POST',
-          url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftStartTask`,
-          headers: {'Content-Type': 'application/json'},
-          body: Buffer.from(JSON.stringify({
-            shiftId,
-            shiftStart: newStart.toISOString(),
-          })).toString('base64'),
-          oidcToken: {serviceAccountEmail},
-        },
-        scheduleTime: {seconds: Math.floor(newStart.getTime() / 1000)},
-      };
-      
-      await tasksClient.createTask({
-        parent: queuePath,
-        task: {...startTask, name: taskName(shiftStartTaskId)},
-      });
-
-      // Schedule end task
-      const endTask = {
-        httpRequest: {
-          httpMethod: 'POST',
-          url: `https://${FUNCTION_REGION}-${PROJECT_ID}.cloudfunctions.net/handleShiftEndTask`,
-          headers: {'Content-Type': 'application/json'},
-          body: Buffer.from(JSON.stringify({
-            shiftId,
-            shiftEnd: newEnd.toISOString(),
-          })).toString('base64'),
-          oidcToken: {serviceAccountEmail},
-        },
-        scheduleTime: {seconds: Math.floor(newEnd.getTime() / 1000)},
-      };
-
-      await tasksClient.createTask({
-        parent: queuePath,
-        task: {...endTask, name: taskName(shiftEndTaskId)},
-      });
-
-      console.log(`Rescheduled lifecycle tasks for shift ${shiftId}`);
-    }
+    await _rescheduleShiftLifecycleTasks({shiftId, newStart, newEnd});
+    console.log(`Rescheduled lifecycle tasks for shift ${shiftId}`);
   } catch (taskError) {
     // Log but don't fail - the shift update was successful
     console.warn(`Warning: Failed to reschedule lifecycle tasks for shift ${shiftId}:`, taskError);
@@ -1667,6 +1930,302 @@ const teacherRescheduleShift = onCall(async (request) => {
     message: 'Shift rescheduled successfully',
     newStartTime: newStart.toISOString(),
     newEndTime: newEnd.toISOString(),
+    timezoneUsed: resolvedWindow.timezone,
+  };
+});
+
+/**
+ * Teacher Reschedule Future Shifts
+ * Updates upcoming shifts for the same class series and, when available, updates template time.
+ */
+const teacherRescheduleFutureShifts = onCall(async (request) => {
+  const {
+    shiftId,
+    studentId,
+    studentName,
+    newStartTime,
+    newEndTime,
+    newStartLocal,
+    newEndLocal,
+    timezone,
+    reason,
+    applyFromDate,
+    confirm,
+  } = request.data || {};
+  const uid = request.auth?.uid;
+
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
+  }
+
+  if (confirm !== undefined && confirm !== true) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Confirmation required before rescheduling future shifts.',
+    );
+  }
+
+  const studentIdFilter = (studentId || '').toString().trim();
+  const studentNameFilter = (studentName || '').toString().trim();
+
+  const db = admin.firestore();
+  let anchorShiftDoc = null;
+
+  if (shiftId) {
+    anchorShiftDoc = await db.collection('teaching_shifts').doc(String(shiftId).trim()).get();
+    if (!anchorShiftDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Shift not found');
+    }
+  } else {
+    const snapshot = await db.collection('teaching_shifts')
+      .where('teacher_id', '==', uid)
+      .limit(400)
+      .get();
+
+    const now = new Date();
+    const candidates = snapshot.docs
+      .filter((doc) => {
+        const data = doc.data() || {};
+        const status = (data.status || '').toString().trim().toLowerCase();
+        if (['completed', 'cancelled', 'missed'].includes(status)) return false;
+        const start = toDate(data.shift_start || data.start_time);
+        if (!start || Number.isNaN(start.getTime()) || start < now) return false;
+        return _matchesStudentFilter({
+          shiftData: data,
+          studentId: studentIdFilter,
+          studentName: studentNameFilter,
+        });
+      })
+      .sort((a, b) => {
+        const aStart = toDate((a.data() || {}).shift_start || (a.data() || {}).start_time);
+        const bStart = toDate((b.data() || {}).shift_start || (b.data() || {}).start_time);
+        return (aStart?.getTime() || 0) - (bStart?.getTime() || 0);
+      });
+
+    if (candidates.length === 0) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'No upcoming shift found for this teacher and student filter.',
+      );
+    }
+
+    anchorShiftDoc = candidates[0];
+  }
+
+  const anchorShiftData = anchorShiftDoc.data() || {};
+  if (anchorShiftData.teacher_id !== uid) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only the assigned teacher can reschedule these shifts',
+    );
+  }
+
+  const anchorStatus = (anchorShiftData.status || '').toString().trim().toLowerCase();
+  if (['completed', 'cancelled', 'missed'].includes(anchorStatus)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Cannot reschedule a ${anchorStatus} shift`,
+    );
+  }
+
+  const resolvedWindow = _resolveRescheduleWindow({
+    newStartTime,
+    newEndTime,
+    newStartLocal,
+    newEndLocal,
+    timezone,
+    fallbackTimezone: anchorShiftData.teacher_timezone || anchorShiftData.admin_timezone || 'UTC',
+  });
+
+  let applyFromUtc = DateTime.now().toUTC();
+  if ((applyFromDate || '').toString().trim()) {
+    const applyFromDt = _parseRescheduleDateTime({
+      value: applyFromDate,
+      timezone: resolvedWindow.timezone,
+      label: 'applyFromDate',
+    });
+    applyFromUtc = applyFromDt.startOf('day').toUTC();
+  }
+
+  const anchorTemplateId = (anchorShiftData.template_id || '').toString().trim();
+  const anchorStudentIds = Array.isArray(anchorShiftData.student_ids)
+    ? anchorShiftData.student_ids.map((id) => String(id))
+    : [];
+
+  const shiftsSnapshot = await db.collection('teaching_shifts')
+    .where('teacher_id', '==', uid)
+    .limit(600)
+    .get();
+
+  const candidateShifts = shiftsSnapshot.docs
+    .filter((doc) => {
+      const data = doc.data() || {};
+      const status = (data.status || '').toString().trim().toLowerCase();
+      if (['completed', 'cancelled', 'missed', 'active'].includes(status)) return false;
+
+      const start = toDate(data.shift_start || data.start_time);
+      if (!start || Number.isNaN(start.getTime())) return false;
+      if (start < applyFromUtc.toJSDate()) return false;
+
+      if (anchorTemplateId) {
+        if ((data.template_id || '').toString().trim() !== anchorTemplateId) return false;
+      }
+
+      if (!_matchesStudentFilter({
+        shiftData: data,
+        studentId: studentIdFilter,
+        studentName: studentNameFilter,
+      })) {
+        return false;
+      }
+
+      // Fallback guard: when no explicit student filter is supplied and no template_id
+      // is available, keep updates within the same anchor student set.
+      if (!anchorTemplateId && !studentIdFilter && !studentNameFilter && anchorStudentIds.length > 0) {
+        const shiftStudentIds = Array.isArray(data.student_ids)
+          ? data.student_ids.map((id) => String(id))
+          : [];
+        const overlaps = shiftStudentIds.some((id) => anchorStudentIds.includes(id));
+        if (!overlaps) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const aStart = toDate((a.data() || {}).shift_start || (a.data() || {}).start_time);
+      const bStart = toDate((b.data() || {}).shift_start || (b.data() || {}).start_time);
+      return (aStart?.getTime() || 0) - (bStart?.getTime() || 0);
+    });
+
+  if (candidateShifts.length === 0) {
+    throw new functions.https.HttpsError(
+      'not-found',
+      'No future shifts matched the requested scope.',
+    );
+  }
+
+  const startTemplateLocal = resolvedWindow.startDt.setZone(resolvedWindow.timezone);
+  const durationMinutes = resolvedWindow.durationMinutes;
+  const updatedShiftWindows = [];
+
+  let updatedCount = 0;
+  for (let i = 0; i < candidateShifts.length; i += 250) {
+    const chunk = candidateShifts.slice(i, i + 250);
+    const batch = db.batch();
+
+    for (const doc of chunk) {
+      const data = doc.data() || {};
+      const currentStart = toDate(data.shift_start || data.start_time);
+      const currentEnd = toDate(data.shift_end || data.end_time);
+      if (!currentStart || !currentEnd) continue;
+
+      const currentStartLocal = DateTime.fromJSDate(currentStart, {zone: resolvedWindow.timezone});
+      if (!currentStartLocal.isValid) continue;
+
+      const newShiftStartLocal = currentStartLocal.set({
+        hour: startTemplateLocal.hour,
+        minute: startTemplateLocal.minute,
+        second: 0,
+        millisecond: 0,
+      });
+      const newShiftEndLocal = newShiftStartLocal.plus({minutes: durationMinutes});
+
+      const newShiftStartUtc = newShiftStartLocal.toUTC().toJSDate();
+      const newShiftEndUtc = newShiftEndLocal.toUTC().toJSDate();
+
+      batch.update(doc.ref, {
+        shift_start: admin.firestore.Timestamp.fromDate(newShiftStartUtc),
+        shift_end: admin.firestore.Timestamp.fromDate(newShiftEndUtc),
+        teacher_timezone: resolvedWindow.timezone,
+        teacher_modified: true,
+        teacher_modified_at: admin.firestore.FieldValue.serverTimestamp(),
+        teacher_modified_by: uid,
+        teacher_modification_reason: reason || 'Future schedule adjustment requested by teacher',
+        original_start_time: admin.firestore.Timestamp.fromDate(currentStart),
+        original_end_time: admin.firestore.Timestamp.fromDate(currentEnd),
+        modification_count: admin.firestore.FieldValue.increment(1),
+        last_modified: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      const modificationRef = db.collection('shift_modifications').doc();
+      batch.set(modificationRef, {
+        shift_id: doc.id,
+        teacher_id: uid,
+        teacher_name: data.teacher_name || anchorShiftData.teacher_name || 'Unknown',
+        original_start_time: admin.firestore.Timestamp.fromDate(currentStart),
+        original_end_time: admin.firestore.Timestamp.fromDate(currentEnd),
+        new_start_time: admin.firestore.Timestamp.fromDate(newShiftStartUtc),
+        new_end_time: admin.firestore.Timestamp.fromDate(newShiftEndUtc),
+        timezone_used: resolvedWindow.timezone,
+        reason: reason || 'Future schedule adjustment',
+        modified_at: admin.firestore.FieldValue.serverTimestamp(),
+        modified_by_type: 'teacher',
+        template_id: data.template_id || null,
+      });
+
+      updatedShiftWindows.push({
+        shiftId: doc.id,
+        newStart: newShiftStartUtc,
+        newEnd: newShiftEndUtc,
+      });
+      updatedCount += 1;
+    }
+
+    await batch.commit();
+  }
+
+  let templateUpdated = false;
+  if (anchorTemplateId) {
+    const templateRef = db.collection('shift_templates').doc(anchorTemplateId);
+    const templateDoc = await templateRef.get();
+    if (templateDoc.exists) {
+      const templateData = templateDoc.data() || {};
+      if (templateData.teacher_id === uid) {
+        const allowTemplateUpdate = _matchesStudentFilter({
+          shiftData: templateData,
+          studentId: studentIdFilter,
+          studentName: studentNameFilter,
+        });
+
+        if (allowTemplateUpdate) {
+          await templateRef.set({
+            start_time: resolvedWindow.startHm,
+            end_time: resolvedWindow.endHm,
+            duration_minutes: durationMinutes,
+            teacher_timezone: resolvedWindow.timezone,
+            last_modified: admin.firestore.FieldValue.serverTimestamp(),
+          }, {merge: true});
+          templateUpdated = true;
+        }
+      }
+    }
+  }
+
+  let lifecycleRescheduled = 0;
+  for (const item of updatedShiftWindows) {
+    try {
+      await _rescheduleShiftLifecycleTasks({
+        shiftId: item.shiftId,
+        newStart: item.newStart,
+        newEnd: item.newEnd,
+      });
+      lifecycleRescheduled += 1;
+    } catch (taskError) {
+      console.warn(
+        `Warning: Failed to reschedule lifecycle tasks for shift ${item.shiftId}:`,
+        taskError,
+      );
+    }
+  }
+
+  return {
+    success: true,
+    message: `Rescheduled ${updatedCount} future shift(s).`,
+    updatedShiftCount: updatedCount,
+    lifecycleRescheduledCount: lifecycleRescheduled,
+    templateUpdated,
+    timezoneUsed: resolvedWindow.timezone,
+    templateId: anchorTemplateId || null,
   };
 });
 
@@ -1880,4 +2439,5 @@ module.exports = {
   fixActiveShiftsStatus,
   fixTimesheetsPayAndStatus,
   teacherRescheduleShift,
+  teacherRescheduleFutureShifts,
 };

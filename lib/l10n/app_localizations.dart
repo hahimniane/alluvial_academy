@@ -17089,6 +17089,24 @@ abstract class AppLocalizations {
   /// **'End'**
   String get tutorEndSession;
 
+  /// No description provided for @tutorShowAI.
+  ///
+  /// In en, this message translates to:
+  /// **'Show AI'**
+  String get tutorShowAI;
+
+  /// No description provided for @tutorWhiteboardSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Whiteboard sent to AI'**
+  String get tutorWhiteboardSent;
+
+  /// No description provided for @tutorWhiteboardFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send whiteboard'**
+  String get tutorWhiteboardFailed;
+
   /// No description provided for @tutorStartSession.
   ///
   /// In en, this message translates to:

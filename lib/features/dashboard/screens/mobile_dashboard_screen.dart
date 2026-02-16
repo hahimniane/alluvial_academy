@@ -39,7 +39,7 @@ class _NavItemData {
   final String label;
   final int index;
   final bool isChat;
-  
+
   _NavItemData(this.icon, this.label, this.index, {this.isChat = false});
 }
 
@@ -72,14 +72,14 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       final role = await UserRoleService.getCurrentUserRole();
       final data = await UserRoleService.getCurrentUserData();
       final profilePicUrl = await ProfilePictureService.getProfilePictureUrl();
-      
+
       // Check if student needs onboarding
       bool needsOnboarding = false;
       if (role?.toLowerCase() == 'student' && !_onboardingChecked) {
         needsOnboarding = !(await OnboardingService.hasCompletedOnboarding());
         _onboardingChecked = true;
       }
-      
+
       if (mounted) {
         setState(() {
           _userRole = role;
@@ -88,7 +88,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           _isLoading = false;
           _showOnboarding = needsOnboarding;
         });
-        
+
         // Start feature tour after a delay if student has completed onboarding
         // but hasn't done the feature tour yet
         if (role?.toLowerCase() == 'student' && !needsOnboarding) {
@@ -156,7 +156,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               // Profile Info Section
               Column(
                 children: [
@@ -168,8 +168,9 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                           ? Theme.of(context).primaryColor.withOpacity(0.1)
                           : Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(20),
-                      border: _profilePictureUrl != null 
-                          ? Border.all(color: Theme.of(context).dividerColor, width: 2)
+                      border: _profilePictureUrl != null
+                          ? Border.all(
+                              color: Theme.of(context).dividerColor, width: 2)
                           : null,
                     ),
                     child: ClipRRect(
@@ -237,7 +238,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              
+
               // Menu Options
               // View Profile option
               ListTile(
@@ -275,7 +276,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   );
                 },
               ),
-              
+
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -313,7 +314,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   _refreshProfilePicture();
                 },
               ),
-              
+
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -344,7 +345,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   // Navigate to help
                 },
               ),
-              
+
               // App Tour option for students
               if (_userRole?.toLowerCase() == 'student')
                 ListTile(
@@ -384,9 +385,9 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                     _startFeatureTour();
                   },
                 ),
-              
+
               const Divider(height: 1),
-              
+
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -417,7 +418,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
                   _handleSignOut();
                 },
               ),
-              
+
               const SizedBox(height: 20),
             ],
           ),
@@ -472,7 +473,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       const QuickTasksScreen(),
     ];
   }
-  
+
   // Get navigation items based on role
   List<_NavItemData> get _navItems {
     final l10n = AppLocalizations.of(context)!;
@@ -493,7 +494,8 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     if (role == 'admin') {
       return [
         _NavItemData(Icons.home_rounded, l10n.navHome, 0),
-        _NavItemData(Icons.school_rounded, l10n.navClasses, 1), // All classes view
+        _NavItemData(
+            Icons.school_rounded, l10n.navClasses, 1), // All classes view
         _NavItemData(Icons.description_rounded, l10n.navForms, 2),
         _NavItemData(Icons.notifications_rounded, l10n.navNotify, 3),
         _NavItemData(Icons.people_rounded, l10n.navUsers, 4),
@@ -653,128 +655,138 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       // Hide AppBar for Teachers (new home screen has its own header)
-      appBar: (_userRole?.toLowerCase() == 'teacher' && _selectedIndex == 0) ? null : AppBar(
-        elevation: 0,
-        backgroundColor: Theme.of(context).cardColor,
-        toolbarHeight: 70,
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xffF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  'assets/Alluwal_Education_Hub_Logo.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+      appBar: (_userRole?.toLowerCase() == 'teacher' && _selectedIndex == 0)
+          ? null
+          : AppBar(
+              elevation: 0,
+              backgroundColor: Theme.of(context).cardColor,
+              toolbarHeight: 70,
+              title: Row(
                 children: [
-                  Text(
-                    AppLocalizations.of(context)!.appTitle,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).textTheme.titleLarge?.color,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                  if (_userData?['name'] != null)
-                    Text(
-                      _userData!['name'],
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
-                        fontWeight: FontWeight.w500,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        'assets/Alluwal_Education_Hub_Logo.png',
+                        fit: BoxFit.contain,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.appTitle,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color:
+                                Theme.of(context).textTheme.titleLarge?.color,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                        if (_userData?['name'] != null)
+                          Text(
+                            _userData!['name'],
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color:
+                                  Theme.of(context).textTheme.bodyMedium?.color,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
-        ),
-        actions: [
-          // Profile Picture Button - Navigate directly to TeacherProfileScreen for consistency
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: GestureDetector(
-              key: _userRole?.toLowerCase() == 'student' 
-                  ? studentFeatureTour.profileButtonKey 
-                  : null,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TeacherProfileScreen(),
-                  ),
-                );
-              },
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _profilePictureUrl == null 
-                      ? Theme.of(context).primaryColor.withOpacity(0.1)
-                      : Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: _profilePictureUrl != null 
-                      ? Border.all(color: Theme.of(context).dividerColor, width: 1.5)
-                      : null,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: _profilePictureUrl != null
-                      ? Image.network(
-                          _profilePictureUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.person,
-                              color: Theme.of(context).primaryColor,
-                              size: 24,
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : Icon(
-                          Icons.person,
-                          color: Theme.of(context).primaryColor,
-                          size: 24,
+              actions: [
+                // Profile Picture Button - Navigate directly to TeacherProfileScreen for consistency
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: GestureDetector(
+                    key: _userRole?.toLowerCase() == 'student'
+                        ? studentFeatureTour.profileButtonKey
+                        : null,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TeacherProfileScreen(),
                         ),
+                      );
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _profilePictureUrl == null
+                            ? Theme.of(context).primaryColor.withOpacity(0.1)
+                            : Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: _profilePictureUrl != null
+                            ? Border.all(
+                                color: Theme.of(context).dividerColor,
+                                width: 1.5)
+                            : null,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: _profilePictureUrl != null
+                            ? Image.network(
+                                _profilePictureUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Icon(
+                                    Icons.person,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 24,
+                                  );
+                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Theme.of(context).primaryColor),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Icon(
+                                Icons.person,
+                                color: Theme.of(context).primaryColor,
+                                size: 24,
+                              ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
       body: _screens[_selectedIndex],
-      // AI Tutor FAB for students
-      floatingActionButton: _userRole?.toLowerCase() == 'student'
+      // AI Tutor FAB for students and teachers
+      floatingActionButton: (_userRole?.toLowerCase() == 'student' ||
+              _userRole?.toLowerCase().contains('teacher') == true)
           ? FloatingActionButton.extended(
               onPressed: () {
                 Navigator.push(
@@ -851,7 +863,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       color: iconColor,
       size: 26,
     );
-    
+
     return Expanded(
       key: key,
       child: GestureDetector(
@@ -869,10 +881,7 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isChat)
-                _buildChatBadgeIcon(baseIcon)
-              else
-                baseIcon,
+              if (isChat) _buildChatBadgeIcon(baseIcon) else baseIcon,
               const SizedBox(height: 4),
               Text(
                 label,
@@ -935,5 +944,4 @@ class _MobileDashboardScreenState extends State<MobileDashboardScreen> {
       },
     );
   }
-
 }

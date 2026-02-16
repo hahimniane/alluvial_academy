@@ -3784,6 +3784,9 @@
   "tutorMicOn": "Mic On",
   "tutorMicOff": "Mic Off",
   "tutorEndSession": "End",
+  "tutorShowAI": "Show AI",
+  "tutorWhiteboardSent": "Whiteboard sent to AI",
+  "tutorWhiteboardFailed": "Failed to send whiteboard",
   "tutorStartSession": "Start Session",
   "tutorDescription": "Talk to Alluwal, your AI learning buddy. Ask questions about school subjects or explore stories from Islamic history.",
 

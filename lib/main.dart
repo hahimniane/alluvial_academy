@@ -116,6 +116,10 @@ Future<void> main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Disable Google Fonts runtime fetching to avoid crashes when offline
+  // The app will fall back to system fonts if the font isn't cached
+  GoogleFonts.config.allowRuntimeFetching = false;
+
   if (kIsWeb) {
     JoinLinkService.initFromUri(Uri.base);
   }

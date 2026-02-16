@@ -535,6 +535,195 @@ class ChatService {
     }
   }
 
+  // Update group info (name and/or description) - admin only
+  Future<bool> updateGroupInfo(String groupChatId, {String? name, String? description}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      // Check if current user is admin of the group
+      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      if (!groupDoc.exists) return false;
+
+      final groupData = groupDoc.data()!;
+      final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
+
+      if (!adminIds.contains(currentUserId)) {
+        throw Exception('Only group administrators can edit group info');
+      }
+
+      final updates = <String, dynamic>{
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+
+      if (name != null && name.trim().isNotEmpty) {
+        updates['group_name'] = name.trim();
+      }
+      if (description != null) {
+        updates['group_description'] = description.trim();
+      }
+
+      await _firestore.collection('chats').doc(groupChatId).update(updates);
+      return true;
+    } catch (e) {
+      AppLogger.error('Error updating group info: $e');
+      return false;
+    }
+  }
+
+  // Remove a member from group - admin only
+  Future<bool> removeMemberFromGroup(String groupChatId, String memberId) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      if (!groupDoc.exists) return false;
+
+      final groupData = groupDoc.data()!;
+      final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
+      final participants = List<String>.from(groupData['participants'] ?? []);
+
+      // Check if current user is admin
+      if (!adminIds.contains(currentUserId)) {
+        throw Exception('Only group administrators can remove members');
+      }
+
+      // Cannot remove yourself as admin (use leaveGroup instead)
+      if (memberId == currentUserId) {
+        throw Exception('Admins cannot remove themselves. Use leave group instead.');
+      }
+
+      // Cannot remove another admin (they must leave voluntarily)
+      if (adminIds.contains(memberId)) {
+        throw Exception('Cannot remove another admin from the group');
+      }
+
+      // Remove member from participants
+      if (!participants.contains(memberId)) {
+        return true; // Already not in group
+      }
+
+      await _firestore.collection('chats').doc(groupChatId).update({
+        'participants': FieldValue.arrayRemove([memberId]),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error removing member from group: $e');
+      return false;
+    }
+  }
+
+  // Leave a group - any member can leave
+  Future<bool> leaveGroup(String groupChatId) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      if (!groupDoc.exists) return false;
+
+      final groupData = groupDoc.data()!;
+      final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
+      final participants = List<String>.from(groupData['participants'] ?? []);
+
+      // Check if user is in the group
+      if (!participants.contains(currentUserId)) {
+        return true; // Already not in group
+      }
+
+      // If user is the only admin and there are other members, transfer admin or prevent leaving
+      if (adminIds.contains(currentUserId) && adminIds.length == 1 && participants.length > 1) {
+        // Find another participant to make admin
+        final newAdmin = participants.firstWhere(
+          (id) => id != currentUserId,
+          orElse: () => '',
+        );
+
+        if (newAdmin.isNotEmpty) {
+          await _firestore.collection('chats').doc(groupChatId).update({
+            'admin_ids': FieldValue.arrayUnion([newAdmin]),
+          });
+        }
+      }
+
+      // Remove from participants and admin_ids
+      await _firestore.collection('chats').doc(groupChatId).update({
+        'participants': FieldValue.arrayRemove([currentUserId]),
+        'admin_ids': FieldValue.arrayRemove([currentUserId]),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      // If no participants left, delete the group
+      final updatedDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      if (updatedDoc.exists) {
+        final updatedParticipants = List<String>.from(updatedDoc.data()!['participants'] ?? []);
+        if (updatedParticipants.isEmpty) {
+          await _firestore.collection('chats').doc(groupChatId).delete();
+        }
+      }
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error leaving group: $e');
+      return false;
+    }
+  }
+
+  // Get group members with their details
+  Future<List<Map<String, dynamic>>> getGroupMembers(String groupChatId) async {
+    try {
+      final groupDoc = await _firestore.collection('chats').doc(groupChatId).get();
+      if (!groupDoc.exists) return [];
+
+      final groupData = groupDoc.data()!;
+      final participants = List<String>.from(groupData['participants'] ?? []);
+      final adminIds = List<String>.from(groupData['admin_ids'] ?? []);
+      final createdBy = groupData['created_by'] as String?;
+
+      if (participants.isEmpty) return [];
+
+      // Fetch user details in batches of 10 (Firestore whereIn limit)
+      final members = <Map<String, dynamic>>[];
+
+      for (var i = 0; i < participants.length; i += 10) {
+        final batch = participants.skip(i).take(10).toList();
+        final userDocs = await _firestore
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+
+        for (var doc in userDocs.docs) {
+          final data = doc.data();
+          final presence = PresenceUtils.resolvePresence(data);
+          members.add({
+            'id': doc.id,
+            'name': '${data['first_name'] ?? ''} ${data['last_name'] ?? ''}'.trim(),
+            'email': data['email'] ?? data['e-mail'] ?? '',
+            'profilePicture': data['profile_picture_url'] ?? data['profile_picture'],
+            'role': data['user_type'],
+            'isOnline': presence.isOnline,
+            'isAdmin': adminIds.contains(doc.id),
+            'isCreator': doc.id == createdBy,
+          });
+        }
+      }
+
+      // Sort: creator first, then admins, then others
+      members.sort((a, b) {
+        if (a['isCreator'] == true) return -1;
+        if (b['isCreator'] == true) return 1;
+        if (a['isAdmin'] == true && b['isAdmin'] != true) return -1;
+        if (b['isAdmin'] == true && a['isAdmin'] != true) return 1;
+        return (a['name'] as String).compareTo(b['name'] as String);
+      });
+
+      return members;
+    } catch (e) {
+      AppLogger.error('Error getting group members: $e');
+      return [];
+    }
+  }
+
   // Mark messages as read
   Future<void> markMessagesAsRead(String chatIdOrUserId,
       {bool isGroupChat = false}) async {
@@ -651,6 +840,289 @@ class ChatService {
     } catch (e) {
       AppLogger.error('Error fetching user names: $e');
       return {};
+    }
+  }
+
+  // ============ MESSAGE OPERATIONS ============
+
+  /// Delete a message (only sender can delete their own messages)
+  Future<bool> deleteMessage(String chatIdOrUserId, String messageId, {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+
+      final messageDoc = await messageRef.get();
+      if (!messageDoc.exists) return false;
+
+      final messageData = messageDoc.data()!;
+
+      // Only sender can delete their own message
+      if (messageData['sender_id'] != currentUserId) {
+        AppLogger.error('Cannot delete message: not the sender');
+        return false;
+      }
+
+      // Delete the message
+      await messageRef.delete();
+
+      // Update last_message if this was the last message
+      final latestMessage = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (latestMessage.docs.isNotEmpty) {
+        await _firestore.collection('chats').doc(chatId).update({
+          'last_message': latestMessage.docs.first.data(),
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+      } else {
+        await _firestore.collection('chats').doc(chatId).update({
+          'last_message': FieldValue.delete(),
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error deleting message: $e');
+      return false;
+    }
+  }
+
+  /// Forward a message to another chat
+  Future<bool> forwardMessage(ChatMessage message, String targetChatIdOrUserId, {bool isTargetGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      // Create forwarded message content
+      String content = message.content;
+      Map<String, dynamic>? metadata = message.metadata != null
+          ? Map<String, dynamic>.from(message.metadata!)
+          : null;
+
+      // Add forwarded flag to metadata
+      metadata ??= {};
+      metadata['forwarded'] = true;
+      metadata['original_sender'] = message.senderName;
+
+      await sendMessage(
+        targetChatIdOrUserId,
+        content,
+        messageType: message.messageType ?? 'text',
+        metadata: metadata,
+        isGroupChat: isTargetGroupChat,
+      );
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error forwarding message: $e');
+      return false;
+    }
+  }
+
+  /// Add a reaction to a message
+  Future<bool> addReaction(String chatIdOrUserId, String messageId, String reaction, {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+
+      // Add reaction (user can only have one reaction per message)
+      await messageRef.update({
+        'reactions.$currentUserId': reaction,
+      });
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error adding reaction: $e');
+      return false;
+    }
+  }
+
+  /// Remove a reaction from a message
+  Future<bool> removeReaction(String chatIdOrUserId, String messageId, {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+
+      await messageRef.update({
+        'reactions.$currentUserId': FieldValue.delete(),
+      });
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error removing reaction: $e');
+      return false;
+    }
+  }
+
+  /// Clear all messages in a chat (deletes all messages)
+  Future<bool> clearChat(String chatIdOrUserId, {bool isGroupChat = false}) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final chatId = isGroupChat || chatIdOrUserId.contains('_')
+          ? chatIdOrUserId
+          : _generateChatId(currentUserId!, chatIdOrUserId);
+
+      // Get all messages
+      final messagesQuery = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .get();
+
+      // Delete in batches of 500 (Firestore batch limit)
+      final batch = _firestore.batch();
+      int count = 0;
+
+      for (final doc in messagesQuery.docs) {
+        batch.delete(doc.reference);
+        count++;
+
+        if (count >= 500) {
+          await batch.commit();
+          count = 0;
+        }
+      }
+
+      if (count > 0) {
+        await batch.commit();
+      }
+
+      // Clear last_message from chat document
+      await _firestore.collection('chats').doc(chatId).update({
+        'last_message': FieldValue.delete(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      AppLogger.error('Error clearing chat: $e');
+      return false;
+    }
+  }
+
+  /// Send a location message
+  Future<void> sendLocationMessage(
+    String chatIdOrUserId,
+    double latitude,
+    double longitude,
+    String? locationName,
+    {bool isGroupChat = false}
+  ) async {
+    if (currentUserId == null) return;
+
+    try {
+      final displayName = locationName ?? 'Shared Location';
+
+      await sendMessage(
+        chatIdOrUserId,
+        '📍 $displayName',
+        messageType: 'location',
+        metadata: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'location_name': locationName,
+        },
+        isGroupChat: isGroupChat,
+      );
+    } catch (e) {
+      AppLogger.error('Error sending location message: $e');
+      rethrow;
+    }
+  }
+
+  // ============ BLOCK USER OPERATIONS ============
+
+  /// Block a user
+  Future<bool> blockUser(String userIdToBlock) async {
+    if (currentUserId == null) return false;
+
+    try {
+      await _firestore.collection('users').doc(currentUserId).update({
+        'blocked_users': FieldValue.arrayUnion([userIdToBlock]),
+      });
+      return true;
+    } catch (e) {
+      AppLogger.error('Error blocking user: $e');
+      return false;
+    }
+  }
+
+  /// Unblock a user
+  Future<bool> unblockUser(String userIdToUnblock) async {
+    if (currentUserId == null) return false;
+
+    try {
+      await _firestore.collection('users').doc(currentUserId).update({
+        'blocked_users': FieldValue.arrayRemove([userIdToUnblock]),
+      });
+      return true;
+    } catch (e) {
+      AppLogger.error('Error unblocking user: $e');
+      return false;
+    }
+  }
+
+  /// Check if a user is blocked
+  Future<bool> isUserBlocked(String userId) async {
+    if (currentUserId == null) return false;
+
+    try {
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return false;
+
+      final blockedUsers = List<String>.from(userDoc.data()!['blocked_users'] ?? []);
+      return blockedUsers.contains(userId);
+    } catch (e) {
+      AppLogger.error('Error checking blocked user: $e');
+      return false;
+    }
+  }
+
+  /// Get list of blocked users
+  Future<List<String>> getBlockedUsers() async {
+    if (currentUserId == null) return [];
+
+    try {
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return [];
+
+      return List<String>.from(userDoc.data()!['blocked_users'] ?? []);
+    } catch (e) {
+      AppLogger.error('Error getting blocked users: $e');
+      return [];
     }
   }
 }

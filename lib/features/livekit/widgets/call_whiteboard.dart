@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../../../l10n/app_localizations.dart';
 
@@ -21,7 +25,8 @@ class WhiteboardMessage {
   static const String typeProject = 'project';
   static const String typeRequestProject = 'request_project';
   static const String typeClosed = 'whiteboard_closed';
-  static const String typeStudentDrawingPermission = 'student_drawing_permission';
+  static const String typeStudentDrawingPermission =
+      'student_drawing_permission';
 
   final String type;
   final Map<String, dynamic>? payload;
@@ -61,6 +66,7 @@ class WhiteboardStroke {
   final List<Offset> points;
   final Color color;
   final double strokeWidth;
+
   /// If true, [points] are normalized to the canvas size (0..1 range).
   /// This makes drawings render consistently across different screen sizes.
   final bool normalized;
@@ -102,7 +108,52 @@ class WhiteboardStroke {
   }
 }
 
-/// The whiteboard canvas painter
+/// A text item (for equations/labels) drawn on the whiteboard
+class WhiteboardTextItem {
+  final String id;
+  final String text;
+  final Offset position;
+  final Color color;
+  final double fontSize;
+  final bool normalized;
+
+  WhiteboardTextItem({
+    required this.id,
+    required this.text,
+    required this.position,
+    required this.color,
+    required this.fontSize,
+    this.normalized = true,
+  });
+
+  factory WhiteboardTextItem.fromJson(Map<String, dynamic> json) {
+    return WhiteboardTextItem(
+      id: json['id']?.toString() ?? '',
+      text: json['text']?.toString() ?? '',
+      position: Offset(
+        (json['x'] as num?)?.toDouble() ?? 0,
+        (json['y'] as num?)?.toDouble() ?? 0,
+      ),
+      color: Color(json['color'] as int? ?? 0xFF111827),
+      fontSize: (json['fontSize'] as num?)?.toDouble() ?? 28.0,
+      normalized: json['normalized'] != false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'x': position.dx,
+      'y': position.dy,
+      'color': color.toARGB32(),
+      'fontSize': fontSize,
+      'normalized': normalized,
+    };
+  }
+}
+
+/// The whiteboard canvas painter (strokes only - text is rendered as widgets)
 class WhiteboardPainter extends CustomPainter {
   final List<WhiteboardStroke> strokes;
   final WhiteboardStroke? currentStroke;
@@ -123,6 +174,7 @@ class WhiteboardPainter extends CustomPainter {
     if (currentStroke != null) {
       _drawStroke(canvas, currentStroke!, size);
     }
+    // Note: Text items are rendered as overlay widgets for proper LaTeX support
   }
 
   void _drawStroke(Canvas canvas, WhiteboardStroke stroke, Size size) {
@@ -145,8 +197,8 @@ class WhiteboardPainter extends CustomPainter {
 
     if (stroke.points.length == 1) {
       // Draw a dot for single point
-      canvas.drawCircle(toCanvasPoint(stroke.points.first),
-          stroke.strokeWidth / 2, paint);
+      canvas.drawCircle(
+          toCanvasPoint(stroke.points.first), stroke.strokeWidth / 2, paint);
       return;
     }
 
@@ -162,6 +214,9 @@ class WhiteboardPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
+  // Note: Text/math rendering is handled by widget overlays in CallWhiteboardState._buildTextOverlays()
+  // using flutter_math_fork for proper LaTeX support (fractions, integrals, etc.)
+
   @override
   bool shouldRepaint(covariant WhiteboardPainter oldDelegate) {
     return oldDelegate.strokes != strokes ||
@@ -175,12 +230,18 @@ class CallWhiteboard extends StatefulWidget {
   final void Function(Map<String, dynamic> projectData)? onSendProject;
   final Stream<Map<String, dynamic>>? projectStream;
   final VoidCallback? onClose;
+
   /// If true, students can also draw on the whiteboard (controlled by teacher)
   final bool studentDrawingEnabled;
+
   /// Callback when teacher toggles student drawing permission
   final void Function(bool enabled)? onStudentDrawingToggle;
+
   /// Initial strokes to load (from Firestore persistence)
   final List<Map<String, dynamic>>? initialStrokes;
+
+  /// GlobalKey to access the whiteboard state for capturing
+  final GlobalKey<CallWhiteboardState>? whiteboardKey;
 
   const CallWhiteboard({
     super.key,
@@ -188,27 +249,59 @@ class CallWhiteboard extends StatefulWidget {
     this.onSendProject,
     this.projectStream,
     this.onClose,
-    this.studentDrawingEnabled = false, // Disabled by default, teacher must enable
+    this.studentDrawingEnabled =
+        false, // Disabled by default, teacher must enable
     this.onStudentDrawingToggle,
     this.initialStrokes,
+    this.whiteboardKey,
   });
 
   @override
-  State<CallWhiteboard> createState() => _CallWhiteboardState();
+  State<CallWhiteboard> createState() => CallWhiteboardState();
 }
 
-class _CallWhiteboardState extends State<CallWhiteboard> {
+class CallWhiteboardState extends State<CallWhiteboard> {
   final List<WhiteboardStroke> _strokes = [];
+  final List<WhiteboardTextItem> _texts = [];
   final List<WhiteboardStroke> _redoStack = [];
   WhiteboardStroke? _currentStroke;
   StreamSubscription<Map<String, dynamic>>? _projectSubscription;
   Timer? _debounceTimer;
+
+  // Key for capturing whiteboard as image
+  final GlobalKey _repaintBoundaryKey = GlobalKey();
 
   // Drawing settings
   Color _selectedColor = Colors.black;
   double _strokeWidth = 3.0;
   int _strokeIdCounter = 0;
   WhiteboardTool _tool = WhiteboardTool.pen;
+
+  /// Capture the whiteboard canvas as a PNG image bytes
+  Future<Uint8List?> captureWhiteboard({double pixelRatio = 2.0}) async {
+    try {
+      final boundary = _repaintBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        debugPrint('CallWhiteboard: Cannot capture - boundary is null');
+        return null;
+      }
+
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        debugPrint('CallWhiteboard: Cannot capture - byteData is null');
+        return null;
+      }
+
+      debugPrint(
+          'CallWhiteboard: Captured whiteboard image (${byteData.lengthInBytes} bytes, pixelRatio: $pixelRatio)');
+      return byteData.buffer.asUint8List();
+    } catch (e) {
+      debugPrint('CallWhiteboard: Error capturing whiteboard: $e');
+      return null;
+    }
+  }
 
   // Available colors
   static const List<Color> _colors = [
@@ -242,7 +335,8 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
             .map((s) => WhiteboardStroke.fromJson(s))
             .toList();
         _strokes.addAll(strokesList);
-        debugPrint('CallWhiteboard: Loaded ${strokesList.length} initial strokes from persistence');
+        debugPrint(
+            'CallWhiteboard: Loaded ${strokesList.length} initial strokes from persistence');
       } catch (e) {
         debugPrint('CallWhiteboard: Error loading initial strokes: $e');
       }
@@ -259,7 +353,8 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
   }
 
   void _subscribeToProjectStream() {
-    debugPrint('CallWhiteboard: Subscribing to project stream (isTeacher: ${widget.isTeacher}, hasStream: ${widget.projectStream != null})');
+    debugPrint(
+        'CallWhiteboard: Subscribing to project stream (isTeacher: ${widget.isTeacher}, hasStream: ${widget.projectStream != null})');
     _projectSubscription = widget.projectStream?.listen(
       _onProjectReceived,
       onError: (e) => debugPrint('CallWhiteboard: Stream error: $e'),
@@ -270,25 +365,36 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
   void _onProjectReceived(Map<String, dynamic> projectData) {
     if (!mounted) return;
 
-    debugPrint('CallWhiteboard: Received project data (isTeacher: ${widget.isTeacher})');
+    debugPrint(
+        'CallWhiteboard: Received project data (isTeacher: ${widget.isTeacher})');
 
     try {
       final strokesList = (projectData['strokes'] as List?)
               ?.map((s) => WhiteboardStroke.fromJson(s as Map<String, dynamic>))
               .toList() ??
           [];
+      final textsList = (projectData['texts'] as List?)
+              ?.map(
+                (t) => WhiteboardTextItem.fromJson(t as Map<String, dynamic>),
+              )
+              .toList() ??
+          [];
 
-      debugPrint('CallWhiteboard: Received ${strokesList.length} strokes, local has ${_strokes.length}');
+      debugPrint(
+          'CallWhiteboard: Received ${strokesList.length} strokes and ${textsList.length} text items, local has ${_strokes.length} strokes and ${_texts.length} text items');
 
       // Replace local strokes with received strokes (source of truth from sender)
       // This ensures undo/delete/clear operations sync properly
       setState(() {
         _strokes.clear();
         _strokes.addAll(strokesList);
+        _texts.clear();
+        _texts.addAll(textsList);
         _redoStack.clear();
       });
 
-      debugPrint('CallWhiteboard: Updated to ${_strokes.length} strokes');
+      debugPrint(
+          'CallWhiteboard: Updated to ${_strokes.length} strokes and ${_texts.length} text items');
     } catch (e) {
       debugPrint('CallWhiteboard: Error loading project: $e');
     }
@@ -297,6 +403,7 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
   Map<String, dynamic> _getProjectData() {
     return {
       'strokes': _strokes.map((s) => s.toJson()).toList(),
+      'texts': _texts.map((t) => t.toJson()).toList(),
       'version': 2,
     };
   }
@@ -307,7 +414,8 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
       return;
     }
     final data = _getProjectData();
-    debugPrint('CallWhiteboard: Sending project with ${_strokes.length} strokes (isTeacher: ${widget.isTeacher})');
+    debugPrint(
+        'CallWhiteboard: Sending project with ${_strokes.length} strokes (isTeacher: ${widget.isTeacher})');
     widget.onSendProject?.call(data);
   }
 
@@ -363,7 +471,9 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
   }
 
   Offset _normalizePoint(Offset p, Size canvasSize) {
-    if (canvasSize.width <= 0 || canvasSize.height <= 0) return const Offset(0, 0);
+    if (canvasSize.width <= 0 || canvasSize.height <= 0) {
+      return const Offset(0, 0);
+    }
     final nx = (p.dx / canvasSize.width).clamp(0.0, 1.0).toDouble();
     final ny = (p.dy / canvasSize.height).clamp(0.0, 1.0).toDouble();
     return Offset(nx, ny);
@@ -405,8 +515,10 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
         final leftDir = rotate(dir, sinA, cosA);
         final rightDir = rotate(dir, -sinA, cosA);
 
-        final left = Offset(base.dx - leftDir.dx * headLen, base.dy - leftDir.dy * headLen);
-        final right = Offset(base.dx - rightDir.dx * headLen, base.dy - rightDir.dy * headLen);
+        final left = Offset(
+            base.dx - leftDir.dx * headLen, base.dy - leftDir.dy * headLen);
+        final right = Offset(
+            base.dx - rightDir.dx * headLen, base.dy - rightDir.dy * headLen);
 
         // Path: start -> end, then draw the two arrowhead legs.
         return [start, end, left, end, right];
@@ -498,6 +610,7 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
 
     setState(() {
       _strokes.clear();
+      _texts.clear();
       _redoStack.clear();
     });
     _scheduleSendProject();
@@ -518,6 +631,168 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
       _strokes.add(_redoStack.removeLast());
     });
     _scheduleSendProject();
+  }
+
+  /// Check if text contains LaTeX math notation
+  bool _containsLatex(String text) {
+    return text.contains('\\frac') ||
+        text.contains('\\sqrt') ||
+        text.contains('\\sum') ||
+        text.contains('\\int') ||
+        text.contains('\\prod') ||
+        text.contains('^{') ||
+        text.contains('_{') ||
+        text.contains('\\') ||
+        RegExp(r'\^[0-9a-zA-Z]').hasMatch(text) ||
+        RegExp(r'_[0-9a-zA-Z]').hasMatch(text);
+  }
+
+  /// Build text overlay widgets for proper math/LaTeX rendering
+  /// Uses automatic layout to prevent overlapping text items
+  List<Widget> _buildTextOverlays(Size canvasSize) {
+    const edgePadding = 16.0;
+    const itemSpacing = 12.0;
+    const estimatedLineHeight = 40.0; // Approximate height per text item
+
+    if (_texts.isEmpty) return [];
+
+    final widgets = <Widget>[];
+
+    // Track used vertical regions to prevent overlap
+    // Each region is (startY, endY)
+    final usedRegions = <Rect>[];
+
+    for (int i = 0; i < _texts.length; i++) {
+      final textItem = _texts[i];
+      if (textItem.text.trim().isEmpty) continue;
+
+      final fontSize = textItem.fontSize.clamp(16.0, 36.0);
+
+      // Calculate initial position from the text item
+      double x = textItem.normalized
+          ? textItem.position.dx * canvasSize.width
+          : textItem.position.dx;
+      double y = textItem.normalized
+          ? textItem.position.dy * canvasSize.height
+          : textItem.position.dy;
+
+      // Ensure x is within bounds and left-aligned for better readability
+      x = x.clamp(edgePadding, canvasSize.width * 0.15);
+
+      // Estimate the height of this text item
+      final estimatedHeight = _containsLatex(textItem.text)
+          ? estimatedLineHeight * 1.5  // Math tends to be taller
+          : estimatedLineHeight;
+      final estimatedWidth = canvasSize.width - x - edgePadding;
+
+      // Check for overlap with existing regions and shift down if needed
+      var adjustedY = y;
+      bool hasOverlap = true;
+      int iterations = 0;
+      const maxIterations = 20;
+
+      while (hasOverlap && iterations < maxIterations) {
+        hasOverlap = false;
+        final proposedRect = Rect.fromLTWH(x, adjustedY, estimatedWidth, estimatedHeight);
+
+        for (final region in usedRegions) {
+          if (proposedRect.overlaps(region)) {
+            // Move below the overlapping region
+            adjustedY = region.bottom + itemSpacing;
+            hasOverlap = true;
+            break;
+          }
+        }
+        iterations++;
+      }
+
+      // Ensure y is within canvas bounds
+      adjustedY = adjustedY.clamp(edgePadding, canvasSize.height - estimatedHeight - edgePadding);
+
+      // Record this region as used
+      usedRegions.add(Rect.fromLTWH(x, adjustedY, estimatedWidth, estimatedHeight));
+
+      final maxWidth = canvasSize.width - x - edgePadding;
+
+      // Check if text contains LaTeX and render appropriately
+      if (_containsLatex(textItem.text)) {
+        widgets.add(
+          Positioned(
+            left: x,
+            top: adjustedY,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: maxWidth.clamp(100.0, canvasSize.width - edgePadding * 2),
+                maxHeight: canvasSize.height - adjustedY - edgePadding,
+              ),
+              child: _buildMathWidget(textItem.text, textItem.color, fontSize),
+            ),
+          ),
+        );
+      } else {
+        // Plain text rendering
+        widgets.add(
+          Positioned(
+            left: x,
+            top: adjustedY,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: maxWidth.clamp(100.0, canvasSize.width - edgePadding * 2),
+              ),
+              child: Text(
+                textItem.text,
+                style: TextStyle(
+                  color: textItem.color,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
+  }
+
+  /// Build a math widget that renders LaTeX properly
+  Widget _buildMathWidget(String text, Color color, double fontSize) {
+    try {
+      // flutter_math_fork handles LaTeX rendering
+      return Math.tex(
+        text,
+        textStyle: TextStyle(
+          color: color,
+          fontSize: fontSize,
+        ),
+        mathStyle: MathStyle.display,
+        onErrorFallback: (error) {
+          // If LaTeX parsing fails, show plain text
+          return Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w600,
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      // Fallback to plain text on any error
+      return Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
   }
 
   @override
@@ -556,8 +831,8 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
                               onPressed: widget.onClose,
                               icon: const Icon(Icons.close,
                                   color: Colors.white70),
-                              tooltip: AppLocalizations.of(context)!
-                                  .whiteboardClose,
+                              tooltip:
+                                  AppLocalizations.of(context)!.whiteboardClose,
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -614,8 +889,7 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
                       if (widget.isTeacher && widget.onClose != null) ...[
                         IconButton(
                           onPressed: widget.onClose,
-                          icon:
-                              const Icon(Icons.close, color: Colors.white70),
+                          icon: const Icon(Icons.close, color: Colors.white70),
                           tooltip:
                               AppLocalizations.of(context)!.whiteboardClose,
                         ),
@@ -623,8 +897,7 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
                       ],
 
                       // Title
-                      const Icon(Icons.draw,
-                          color: Colors.white70, size: 20),
+                      const Icon(Icons.draw, color: Colors.white70, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         AppLocalizations.of(context)!.whiteboard,
@@ -695,28 +968,40 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
                         builder: (context, constraints) {
                           final canvasSize =
                               Size(constraints.maxWidth, constraints.maxHeight);
-                          return _canDraw
-                              ? GestureDetector(
-                                  onPanStart: (d) =>
-                                      _onPanStart(d, canvasSize),
-                                  onPanUpdate: (d) =>
-                                      _onPanUpdate(d, canvasSize),
-                                  onPanEnd: _onPanEnd,
-                                  child: CustomPaint(
-                                    painter: WhiteboardPainter(
-                                      strokes: _strokes,
-                                      currentStroke: _currentStroke,
-                                    ),
-                                    size: canvasSize,
-                                  ),
-                                )
-                              : CustomPaint(
-                                  painter: WhiteboardPainter(
-                                    strokes: _strokes,
-                                    currentStroke: null,
-                                  ),
-                                  size: canvasSize,
-                                );
+                          return RepaintBoundary(
+                            key: _repaintBoundaryKey,
+                            child: Stack(
+                              children: [
+                                // Strokes layer (painted)
+                                Positioned.fill(
+                                  child: _canDraw
+                                      ? GestureDetector(
+                                          onPanStart: (d) =>
+                                              _onPanStart(d, canvasSize),
+                                          onPanUpdate: (d) =>
+                                              _onPanUpdate(d, canvasSize),
+                                          onPanEnd: _onPanEnd,
+                                          child: CustomPaint(
+                                            painter: WhiteboardPainter(
+                                              strokes: _strokes,
+                                              currentStroke: _currentStroke,
+                                            ),
+                                            size: canvasSize,
+                                          ),
+                                        )
+                                      : CustomPaint(
+                                          painter: WhiteboardPainter(
+                                            strokes: _strokes,
+                                            currentStroke: null,
+                                          ),
+                                          size: canvasSize,
+                                        ),
+                                ),
+                                // Text/Math overlay layer (widgets)
+                                ..._buildTextOverlays(canvasSize),
+                              ],
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -775,8 +1060,7 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
         children: [
           Icon(
             widget.studentDrawingEnabled ? Icons.edit : Icons.visibility,
-            color:
-                widget.studentDrawingEnabled ? Colors.green : Colors.white70,
+            color: widget.studentDrawingEnabled ? Colors.green : Colors.white70,
             size: 16,
           ),
           const SizedBox(width: 6),
@@ -785,7 +1069,8 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
                 ? AppLocalizations.of(context)!.whiteboardStudentsCanDraw
                 : AppLocalizations.of(context)!.whiteboardViewOnly,
             style: TextStyle(
-              color: widget.studentDrawingEnabled ? Colors.green : Colors.white70,
+              color:
+                  widget.studentDrawingEnabled ? Colors.green : Colors.white70,
               fontSize: 12,
             ),
           ),
@@ -872,8 +1157,7 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down,
-                color: Colors.white70, size: 18),
+            const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
           ],
         ),
       ),
@@ -929,7 +1213,9 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: selected ? Colors.white.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.06),
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.18)
+                  : Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: selected ? Colors.white54 : Colors.white12,
@@ -937,7 +1223,8 @@ class _CallWhiteboardState extends State<CallWhiteboard> {
             ),
             child: Tooltip(
               message: tooltip,
-              child: Icon(icon, size: 18, color: selected ? Colors.white : Colors.white70),
+              child: Icon(icon,
+                  size: 18, color: selected ? Colors.white : Colors.white70),
             ),
           ),
         ),

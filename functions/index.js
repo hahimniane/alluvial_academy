@@ -64,6 +64,7 @@ exports.sendScheduledShiftReminders = shiftHandlers.sendScheduledShiftReminders;
 exports.scheduleUpcomingShiftLifecycleTasks =
   shiftHandlers.scheduleUpcomingShiftLifecycleTasks;
 exports.teacherRescheduleShift = shiftHandlers.teacherRescheduleShift;
+exports.teacherRescheduleFutureShifts = shiftHandlers.teacherRescheduleFutureShifts;
 exports.handleShiftNotificationTask = shiftHandlers.handleShiftNotificationTask;
 
 // Dev-only template-based shift generation (rolling window)

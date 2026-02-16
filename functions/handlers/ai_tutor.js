@@ -7,11 +7,23 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { RoomServiceClient, AgentDispatchClient } = require('livekit-server-sdk');
+const { DateTime } = require('luxon');
 const { getLiveKitConfig, isLiveKitConfigured } = require('../services/livekit/config');
 const { generateAccessToken } = require('../services/livekit/token');
 
 // AI Tutor agent name (as registered in LiveKit Cloud)
 const AI_TUTOR_AGENT_NAME = 'Alluwal';
+
+const normalizeTimezone = (timezone) => {
+  const tz = typeof timezone === 'string' ? timezone.trim() : '';
+  if (!tz) return 'UTC';
+  try {
+    const test = DateTime.now().setZone(tz);
+    return test.isValid ? tz : 'UTC';
+  } catch (_) {
+    return 'UTC';
+  }
+};
 
 /**
  * Helper: Get user display name from Firestore
@@ -32,18 +44,33 @@ const getUserDisplayName = async (uid) => {
 };
 
 /**
- * Helper: Check if user is a student
+ * Helper: Get normalized user role
  */
-const isUserStudent = async (uid) => {
-  if (!uid) return false;
+const getUserRole = async (uid) => {
+  if (!uid) return '';
   try {
     const userDoc = await admin.firestore().collection('users').doc(uid).get();
-    if (!userDoc.exists) return false;
+    if (!userDoc.exists) return '';
     const data = userDoc.data();
     const role = data.role || data.user_type || data.userType || '';
-    return role.toLowerCase() === 'student';
+    return role.toString().trim().toLowerCase();
   } catch (_) {
-    return false;
+    return '';
+  }
+};
+
+/**
+ * Helper: Get user's timezone
+ */
+const getUserTimezone = async (uid) => {
+  if (!uid) return 'UTC';
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists) return 'UTC';
+    const data = userDoc.data() || {};
+    return normalizeTimezone(data.timezone);
+  } catch (_) {
+    return 'UTC';
   }
 };
 
@@ -51,70 +78,470 @@ const isUserStudent = async (uid) => {
  * Helper: Get student's upcoming classes
  * Returns a formatted string of upcoming classes for the AI tutor
  */
-const getStudentClasses = async (uid) => {
+const getStudentClasses = async (uid, studentTimezone = 'UTC') => {
   if (!uid) return '';
 
   try {
     const db = admin.firestore();
     const now = new Date();
-
-    // Query shifts where student is enrolled (check both field names)
-    // Get shifts from today onwards
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    // Query by student_ids array (contains uid)
-    const shiftsSnapshot = await db.collection('teaching_shifts')
-      .where('student_ids', 'array-contains', uid)
-      .where('start_time', '>=', admin.firestore.Timestamp.fromDate(todayStart))
-      .orderBy('start_time', 'asc')
-      .limit(10)
-      .get();
-
-    if (shiftsSnapshot.empty) {
-      return 'No upcoming classes scheduled.';
-    }
+    const nowTs = admin.firestore.Timestamp.fromDate(now);
+    const resolvedStudentTimezone = normalizeTimezone(studentTimezone);
 
     const classes = [];
     const teacherCache = {};
+    const isMissingIndexError = (err) => {
+      if (!err) return false;
+      const code = err.code;
+      const msg = (err.message || err.toString() || '').toLowerCase();
+      return (
+        code === 9 ||
+        msg.includes('failed_precondition') ||
+        msg.includes('requires an index')
+      );
+    };
 
-    for (const doc of shiftsSnapshot.docs) {
-      const shift = doc.data();
-      const startTime = shift.start_time?.toDate?.() || new Date(shift.start_time);
-      const endTime = shift.end_time?.toDate?.() || new Date(shift.end_time);
+    const toDate = (value) => {
+      if (!value) return null;
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+      if (typeof value.toDate === 'function') {
+        const dt = value.toDate();
+        return dt instanceof Date && !Number.isNaN(dt.getTime()) ? dt : null;
+      }
+      if (typeof value === 'string' || typeof value === 'number') {
+        const dt = new Date(value);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+      return null;
+    };
 
-      // Get teacher name (with caching)
-      let teacherName = 'Unknown Teacher';
-      if (shift.teacher_id) {
-        if (teacherCache[shift.teacher_id]) {
-          teacherName = teacherCache[shift.teacher_id];
+    const normalizeSubject = (raw) => {
+      const subject = (raw || 'Class').toString().trim();
+      if (!subject) return 'Class';
+      return subject
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    const formatHHmm = (value, sourceTimezone = resolvedStudentTimezone) => {
+      const raw = (value || '').toString().trim();
+      const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return raw;
+      const hours = Number(match[1]);
+      const minutes = Number(match[2]);
+      if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return raw;
+      const sourceTz = normalizeTimezone(sourceTimezone);
+      const sourceDt = DateTime.now().setZone(sourceTz).set({
+        hour: hours,
+        minute: minutes,
+        second: 0,
+        millisecond: 0,
+      });
+      if (!sourceDt.isValid) return raw;
+      return sourceDt.setZone(resolvedStudentTimezone).toFormat('h:mm a');
+    };
+
+    const getTeacherName = async (teacherId, fallbackName = 'Teacher') => {
+      if (!teacherId) return fallbackName;
+      if (teacherCache[teacherId]) return teacherCache[teacherId];
+      try {
+        const teacherDoc = await db.collection('users').doc(teacherId).get();
+        if (teacherDoc.exists) {
+          const teacherData = teacherDoc.data() || {};
+          const fullName = [teacherData.first_name, teacherData.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          const teacherName = fullName || fallbackName;
+          teacherCache[teacherId] = teacherName;
+          return teacherName;
+        }
+      } catch (_) {}
+      teacherCache[teacherId] = fallbackName;
+      return fallbackName;
+    };
+
+    const formatShiftLine = async (shift) => {
+      const startTime = toDate(shift.shift_start || shift.start_time);
+      const endTime = toDate(shift.shift_end || shift.end_time);
+      if (!startTime || startTime < now) return null;
+
+      const startDt = DateTime.fromJSDate(startTime, { zone: 'utc' })
+        .setZone(resolvedStudentTimezone);
+      if (!startDt.isValid) return null;
+      const endDt = endTime
+        ? DateTime.fromJSDate(endTime, { zone: 'utc' }).setZone(resolvedStudentTimezone)
+        : null;
+
+      const teacherName = await getTeacherName(
+        shift.teacher_id,
+        shift.teacher_name || 'Teacher',
+      );
+      const dayName = startDt.toFormat('cccc');
+      const dateStr = startDt.toFormat('LLL d');
+      const timeStr = startDt.toFormat('h:mm a');
+      const endTimeStr = endDt
+        ? endDt.toFormat('h:mm a')
+        : 'end time not set';
+      const subject = normalizeSubject(
+        shift.subject_display_name ||
+          shift.subject_name ||
+          shift.custom_name ||
+          shift.auto_generated_name ||
+          shift.subject,
+      );
+
+      return `${subject} with ${teacherName} on ${dayName} ${dateStr} from ${timeStr} to ${endTimeStr}`;
+    };
+
+    let shiftDocs = [];
+
+    // Primary lookup: current teaching_shifts schema uses shift_start/shift_end timestamps.
+    try {
+      const shiftsSnapshot = await db.collection('teaching_shifts')
+        .where('student_ids', 'array-contains', uid)
+        .where('shift_start', '>=', nowTs)
+        .orderBy('shift_start', 'asc')
+        .limit(10)
+        .get();
+      shiftDocs = shiftsSnapshot.docs;
+    } catch (err) {
+      if (isMissingIndexError(err)) {
+        console.warn('[AI Tutor] Missing index for shift_start query; continuing with fallbacks.');
+      } else {
+        throw err;
+      }
+    }
+
+    // Legacy fallback for older docs that used start_time/end_time as timestamps.
+    if (shiftDocs.length === 0) {
+      try {
+        const legacySnapshot = await db.collection('teaching_shifts')
+          .where('student_ids', 'array-contains', uid)
+          .where('start_time', '>=', nowTs)
+          .orderBy('start_time', 'asc')
+          .limit(10)
+          .get();
+        shiftDocs = legacySnapshot.docs;
+      } catch (err) {
+        if (isMissingIndexError(err)) {
+          console.warn('[AI Tutor] Missing index for legacy start_time query; skipping legacy query.');
         } else {
-          try {
-            const teacherDoc = await db.collection('users').doc(shift.teacher_id).get();
-            if (teacherDoc.exists) {
-              const teacherData = teacherDoc.data();
-              teacherName = [teacherData.first_name, teacherData.last_name].filter(Boolean).join(' ') || 'Teacher';
-              teacherCache[shift.teacher_id] = teacherName;
-            }
-          } catch (_) {}
+          throw err;
         }
       }
+    }
 
-      // Format the class info
-      const dayName = startTime.toLocaleDateString('en-US', { weekday: 'long' });
-      const dateStr = startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const timeStr = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-      const endTimeStr = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    // Final fallback if legacy query cannot run: in-memory filter over student shifts.
+    if (shiftDocs.length === 0) {
+      try {
+        const broadSnapshot = await db.collection('teaching_shifts')
+          .where('student_ids', 'array-contains', uid)
+          .limit(200)
+          .get();
+        const filtered = broadSnapshot.docs
+          .filter((doc) => {
+            const data = doc.data() || {};
+            const start = toDate(data.start_time);
+            return !!start && start >= now;
+          })
+          .sort((a, b) => {
+            const aStart = toDate((a.data() || {}).start_time);
+            const bStart = toDate((b.data() || {}).start_time);
+            return (aStart?.getTime() || 0) - (bStart?.getTime() || 0);
+          })
+          .slice(0, 10);
+        shiftDocs = filtered;
+      } catch (err) {
+        if (!isMissingIndexError(err)) {
+          throw err;
+        }
+      }
+    }
 
-      const subject = shift.subject || shift.subject_name || 'Class';
+    for (const doc of shiftDocs) {
+      const shift = doc.data() || {};
+      const line = await formatShiftLine(shift);
+      if (line) classes.push(line);
+    }
 
-      classes.push(`${subject} with ${teacherName} on ${dayName} ${dateStr} from ${timeStr} to ${endTimeStr}`);
+    if (classes.length > 0) {
+      return `Upcoming classes (all times in your timezone: ${resolvedStudentTimezone}): ${classes.join('. ')}.`;
+    }
+
+    // Fallback: if future shift instances are not generated yet, use active templates.
+    const templatesSnapshot = await db.collection('shift_templates')
+      .where('student_ids', 'array-contains', uid)
+      .limit(10)
+      .get();
+
+    const weekdayNames = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+
+    for (const doc of templatesSnapshot.docs) {
+      const template = doc.data() || {};
+      if (template.is_active === false) continue;
+
+      const teacherName = await getTeacherName(
+        template.teacher_id,
+        template.teacher_name || 'Teacher',
+      );
+      const subject = normalizeSubject(
+        template.subject_display_name ||
+          template.subject_name ||
+          template.custom_name ||
+          template.auto_generated_name ||
+          template.subject,
+      );
+
+      const recurrence = template.enhanced_recurrence || {};
+      const templateTimezone = normalizeTimezone(
+        template.teacher_timezone || template.admin_timezone || resolvedStudentTimezone,
+      );
+      const recurrenceType = (recurrence.type || '').toString().toLowerCase();
+      const selectedWeekdays = Array.isArray(recurrence.selectedWeekdays)
+        ? recurrence.selectedWeekdays
+        : [];
+      const weekdayText = [...new Set(selectedWeekdays
+        .map((day) => {
+          const sourceDay = Number(day);
+          if (!Number.isInteger(sourceDay) || sourceDay < 1 || sourceDay > 7) {
+            return null;
+          }
+          const weekStart = DateTime.now().setZone(templateTimezone).startOf('week');
+          let sourceDate = weekStart;
+          for (let i = 0; i < 7; i++) {
+            if (sourceDate.weekday === sourceDay) break;
+            sourceDate = sourceDate.plus({ days: 1 });
+          }
+          const shifted = sourceDate
+            .set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
+            .setZone(resolvedStudentTimezone);
+          return weekdayNames[shifted.weekday] || null;
+        })
+        .filter(Boolean))]
+        .join(', ');
+
+      const startTime = formatHHmm(template.start_time, templateTimezone);
+      const endTime = formatHHmm(template.end_time, templateTimezone);
+      const timeRange = startTime && endTime
+        ? `${startTime} to ${endTime}`
+        : (startTime || endTime || 'time not set');
+
+      let pattern = 'schedule pattern not set';
+      if (recurrenceType === 'weekly' && weekdayText) {
+        pattern = `every ${weekdayText}`;
+      } else if (recurrenceType === 'daily') {
+        pattern = 'every day';
+      } else if (recurrenceType) {
+        pattern = `${recurrenceType} schedule`;
+      }
+
+      classes.push(`${subject} with ${teacherName} ${pattern} at ${timeRange}`);
     }
 
     return classes.length > 0
-      ? `Upcoming classes: ${classes.join('. ')}.`
-      : 'No upcoming classes scheduled.';
+      ? `Class schedule (all times in your timezone: ${resolvedStudentTimezone}): ${classes.join('. ')}.`
+      : `No upcoming classes scheduled in your timezone (${resolvedStudentTimezone}).`;
   } catch (err) {
     console.warn('[AI Tutor] Failed to fetch student classes:', err.message);
+    return 'Unable to load class schedule.';
+  }
+};
+
+/**
+ * Helper: Get teacher upcoming classes
+ * Returns a formatted string of upcoming classes for the AI assistant
+ */
+const getTeacherClasses = async (uid, teacherTimezone = 'UTC') => {
+  if (!uid) return '';
+
+  try {
+    const db = admin.firestore();
+    const now = new Date();
+    const nowTs = admin.firestore.Timestamp.fromDate(now);
+    const resolvedTimezone = normalizeTimezone(teacherTimezone);
+
+    const classes = [];
+    const isMissingIndexError = (err) => {
+      if (!err) return false;
+      const code = err.code;
+      const msg = (err.message || err.toString() || '').toLowerCase();
+      return (
+        code === 9 ||
+        msg.includes('failed_precondition') ||
+        msg.includes('requires an index')
+      );
+    };
+
+    const toDate = (value) => {
+      if (!value) return null;
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+      if (typeof value.toDate === 'function') {
+        const dt = value.toDate();
+        return dt instanceof Date && !Number.isNaN(dt.getTime()) ? dt : null;
+      }
+      if (typeof value === 'string' || typeof value === 'number') {
+        const dt = new Date(value);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+      return null;
+    };
+
+    const normalizeSubject = (raw) => {
+      const subject = (raw || 'Class').toString().trim();
+      if (!subject) return 'Class';
+      return subject
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    const formatShiftLine = (shift) => {
+      const startTime = toDate(shift.shift_start || shift.start_time);
+      const endTime = toDate(shift.shift_end || shift.end_time);
+      if (!startTime || startTime < now) return null;
+
+      const startDt = DateTime.fromJSDate(startTime, { zone: 'utc' })
+        .setZone(resolvedTimezone);
+      if (!startDt.isValid) return null;
+      const endDt = endTime
+        ? DateTime.fromJSDate(endTime, { zone: 'utc' }).setZone(resolvedTimezone)
+        : null;
+
+      const subject = normalizeSubject(
+        shift.subject_display_name ||
+          shift.subject_name ||
+          shift.custom_name ||
+          shift.auto_generated_name ||
+          shift.subject,
+      );
+
+      const studentNames = Array.isArray(shift.student_names)
+        ? shift.student_names.filter(Boolean)
+        : [];
+      const studentLabel = studentNames.length === 0
+        ? 'students not listed'
+        : (studentNames.length <= 2
+            ? studentNames.join(' and ')
+            : `${studentNames.slice(0, 2).join(', ')} and ${studentNames.length - 2} more`);
+
+      return `${subject} with ${studentLabel} on ${startDt.toFormat('cccc LLL d')} from ${startDt.toFormat('h:mm a')} to ${endDt ? endDt.toFormat('h:mm a') : 'end time not set'}`;
+    };
+
+    let shiftDocs = [];
+    try {
+      const shiftsSnapshot = await db.collection('teaching_shifts')
+        .where('teacher_id', '==', uid)
+        .where('shift_start', '>=', nowTs)
+        .orderBy('shift_start', 'asc')
+        .limit(10)
+        .get();
+      shiftDocs = shiftsSnapshot.docs;
+    } catch (err) {
+      if (isMissingIndexError(err)) {
+        console.warn('[AI Tutor] Missing index for teacher shift_start query; continuing with fallback.');
+      } else {
+        throw err;
+      }
+    }
+
+    // In-memory fallback (avoids index requirement)
+    if (shiftDocs.length === 0) {
+      const broadSnapshot = await db.collection('teaching_shifts')
+        .where('teacher_id', '==', uid)
+        .limit(200)
+        .get();
+      shiftDocs = broadSnapshot.docs
+        .filter((doc) => {
+          const data = doc.data() || {};
+          const start = toDate(data.shift_start || data.start_time);
+          return !!start && start >= now;
+        })
+        .sort((a, b) => {
+          const aStart = toDate((a.data() || {}).shift_start || (a.data() || {}).start_time);
+          const bStart = toDate((b.data() || {}).shift_start || (b.data() || {}).start_time);
+          return (aStart?.getTime() || 0) - (bStart?.getTime() || 0);
+        })
+        .slice(0, 10);
+    }
+
+    for (const doc of shiftDocs) {
+      const line = formatShiftLine(doc.data() || {});
+      if (line) classes.push(line);
+    }
+
+    if (classes.length > 0) {
+      return `Your teaching schedule (all times in your timezone: ${resolvedTimezone}): ${classes.join('. ')}.`;
+    }
+
+    // Template fallback for teachers
+    const templatesSnapshot = await db.collection('shift_templates')
+      .where('teacher_id', '==', uid)
+      .where('is_active', '==', true)
+      .limit(10)
+      .get();
+
+    const weekdayNames = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+
+    for (const doc of templatesSnapshot.docs) {
+      const template = doc.data() || {};
+      const subject = normalizeSubject(
+        template.subject_display_name ||
+          template.subject_name ||
+          template.custom_name ||
+          template.auto_generated_name ||
+          template.subject,
+      );
+
+      const recurrence = template.enhanced_recurrence || {};
+      const recurrenceType = (recurrence.type || '').toString().toLowerCase();
+      const selectedWeekdays = Array.isArray(recurrence.selectedWeekdays)
+        ? recurrence.selectedWeekdays
+        : [];
+      const weekdayText = selectedWeekdays
+        .map((day) => weekdayNames[Number(day)])
+        .filter(Boolean)
+        .join(', ');
+
+      const startTime = (template.start_time || '').toString().trim();
+      const endTime = (template.end_time || '').toString().trim();
+      const timeRange = startTime && endTime
+        ? `${startTime} to ${endTime}`
+        : (startTime || endTime || 'time not set');
+
+      let pattern = 'schedule pattern not set';
+      if (recurrenceType === 'weekly' && weekdayText) {
+        pattern = `every ${weekdayText}`;
+      } else if (recurrenceType === 'daily') {
+        pattern = 'every day';
+      } else if (recurrenceType) {
+        pattern = `${recurrenceType} schedule`;
+      }
+
+      classes.push(`${subject} ${pattern} at ${timeRange}`);
+    }
+
+    return classes.length > 0
+      ? `Your teaching schedule (all times in your timezone: ${resolvedTimezone}): ${classes.join('. ')}.`
+      : `No upcoming classes scheduled in your timezone (${resolvedTimezone}).`;
+  } catch (err) {
+    console.warn('[AI Tutor] Failed to fetch teacher classes:', err.message);
     return 'Unable to load class schedule.';
   }
 };
@@ -145,18 +572,29 @@ const getAITutorToken = onCall({
     throw new HttpsError('unavailable', 'AI Tutor is not available at this time');
   }
 
-  // Verify user is a student
-  const isStudent = await isUserStudent(uid);
-  if (!isStudent) {
-    console.log('[AI Tutor] Non-student access attempt. uid:', uid);
-    throw new HttpsError('permission-denied', 'AI Tutor is only available for students');
+  // Verify role: AI tutor currently supports students and teachers.
+  const userRoleRaw = await getUserRole(uid);
+  const isTeacher = userRoleRaw.includes('teacher');
+  const isStudent = userRoleRaw === 'student';
+  const sessionRole = isTeacher ? 'teacher' : (isStudent ? 'student' : '');
+  if (!sessionRole) {
+    console.log('[AI Tutor] Unsupported role access attempt. uid:', uid, 'role:', userRoleRaw);
+    throw new HttpsError('permission-denied', 'AI Tutor is only available for students and teachers');
   }
 
-  // Get user details and class schedule
+  // Get user details and role-specific class schedule
   const displayName = await getUserDisplayName(uid);
-  const classSchedule = await getStudentClasses(uid);
+  const userTimezone = await getUserTimezone(uid);
+  const classSchedule = isTeacher
+    ? await getTeacherClasses(uid, userTimezone)
+    : await getStudentClasses(uid, userTimezone);
+  const classScheduleStatus =
+    typeof classSchedule === 'string' &&
+    classSchedule.startsWith('Unable to load class schedule.')
+      ? 'unavailable'
+      : 'available';
 
-  console.log('[AI Tutor] Fetched class schedule for user:', uid);
+  console.log('[AI Tutor] Fetched class schedule for user:', uid, 'role:', sessionRole, 'timezone:', userTimezone, 'status:', classScheduleStatus, 'summary:', classSchedule.slice(0, 220));
 
   // Create a unique room name for this AI tutor session
   // The room name pattern should be recognized by the LiveKit agent dispatcher
@@ -185,6 +623,9 @@ const getAITutorToken = onCall({
   const roomMetadata = JSON.stringify({
     user_name: displayName,
     session_type: 'ai_tutor',
+    user_role: sessionRole,
+    user_timezone: userTimezone,
+    class_schedule_status: classScheduleStatus,
     class_schedule: classSchedule,
   });
 
@@ -220,8 +661,11 @@ const getAITutorToken = onCall({
     name: displayName,
     metadata: {
       user_name: displayName,
-      role: 'student',
+      role: sessionRole,
+      user_role: sessionRole,
       session_type: 'ai_tutor',
+      user_timezone: userTimezone,
+      class_schedule_status: classScheduleStatus,
       class_schedule: classSchedule,
     },
     ttlSeconds,
@@ -239,6 +683,7 @@ const getAITutorToken = onCall({
     await admin.firestore().collection('ai_tutor_sessions').add({
       userId: uid,
       userName: displayName,
+      userRole: sessionRole,
       roomName: roomName,
       startedAt: admin.firestore.FieldValue.serverTimestamp(),
       status: 'started',
@@ -256,6 +701,7 @@ const getAITutorToken = onCall({
     displayName: displayName,
     expiresInSeconds: ttlSeconds,
     agentName: AI_TUTOR_AGENT_NAME,
+    userRole: sessionRole,
   };
 });
 

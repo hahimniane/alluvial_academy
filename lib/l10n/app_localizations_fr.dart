@@ -9472,6 +9472,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tutorEndSession => 'Terminer';
 
   @override
+  String get tutorShowAI => 'Montrer IA';
+
+  @override
+  String get tutorWhiteboardSent => 'Tableau envoyé à l\'IA';
+
+  @override
+  String get tutorWhiteboardFailed => 'Échec de l\'envoi du tableau';
+
+  @override
   String get tutorStartSession => 'Commencer la session';
 
   @override

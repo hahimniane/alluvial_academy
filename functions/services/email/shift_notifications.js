@@ -274,6 +274,13 @@ const sendShiftNotificationEmails = async ({ shiftId, shiftData }) => {
       return { skipped: true, reason: 'non_teaching_shift' };
     }
 
+    // CRITICAL: Skip emails for template-generated shifts
+    // Only send emails when shifts are manually created or modified
+    if (shiftData.generated_from_template === true) {
+      console.log(`[ShiftNotification] Skipping email for template-generated shift ${shiftId}`);
+      return { skipped: true, reason: 'template_generated_shift' };
+    }
+
     // Skip if new notification emails already sent
     // Note: We don't check for zoom_invite_sent_at because we want to replace those with new emails
     if (shiftData.shift_notification_sent_at) {
@@ -360,7 +367,248 @@ const sendShiftNotificationEmails = async ({ shiftId, shiftData }) => {
   }
 };
 
+/**
+ * Send shift update notification emails to teacher and student parents
+ * Called when an existing shift is modified (time, day, students, subject)
+ */
+const sendShiftUpdateNotificationEmails = async ({ shiftId, shiftData, changes }) => {
+  try {
+    // Skip if shift is cancelled or non-teaching
+    if (shiftData.status === 'cancelled') {
+      return { skipped: true, reason: 'cancelled' };
+    }
+
+    if (shiftData.shift_category && shiftData.shift_category !== 'teaching') {
+      return { skipped: true, reason: 'non_teaching_shift' };
+    }
+
+    // CRITICAL: Skip emails for template-generated shifts (unless manually modified)
+    if (shiftData.generated_from_template === true && !shiftData.teacher_modified) {
+      console.log(`[ShiftUpdateNotification] Skipping email for template-generated shift ${shiftId}`);
+      return { skipped: true, reason: 'template_generated_shift' };
+    }
+
+    const teacherId = shiftData.teacher_id;
+    if (!teacherId) {
+      return { skipped: true, reason: 'missing_teacher_id' };
+    }
+
+    // Get teacher info
+    const teacherDoc = await admin.firestore().collection('users').doc(teacherId).get();
+    const teacherData = teacherDoc.exists ? teacherDoc.data() : null;
+    const teacherEmail = getTeacherEmailFromUserDoc(teacherData);
+    const teacherName = shiftData.teacher_name ||
+      [teacherData?.first_name, teacherData?.last_name].filter(Boolean).join(' ') || 'Teacher';
+
+    if (!teacherEmail) {
+      return { skipped: true, reason: 'missing_teacher_email' };
+    }
+
+    // Send update email to teacher
+    await sendTeacherShiftUpdateNotification(shiftId, shiftData, teacherEmail, teacherName, changes);
+
+    // Collect and send emails to student parents
+    const studentIds = Array.isArray(shiftData.student_ids) ? shiftData.student_ids : [];
+    if (studentIds.length > 0) {
+      const parentEmails = await collectStudentAndGuardianEmails(shiftData);
+
+      if (parentEmails.length > 0) {
+        const studentNames = Array.isArray(shiftData.student_names) ? shiftData.student_names : [];
+
+        const parentEmailMap = new Map();
+        for (const parentEmail of parentEmails) {
+          if (!parentEmailMap.has(parentEmail)) {
+            let parentName = 'Parent';
+            try {
+              const parentDocs = await admin.firestore()
+                .collection('users')
+                .where('e-mail', '==', parentEmail.toLowerCase())
+                .limit(1)
+                .get();
+              if (!parentDocs.empty) {
+                const parentData = parentDocs.docs[0].data();
+                parentName = [parentData.first_name, parentData.last_name].filter(Boolean).join(' ') || 'Parent';
+              }
+            } catch (_) {
+              // best-effort
+            }
+            parentEmailMap.set(parentEmail, parentName);
+          }
+        }
+
+        await Promise.all(
+          Array.from(parentEmailMap.entries()).map(([email, name]) =>
+            sendParentShiftUpdateNotification(shiftId, shiftData, email, name, studentNames, changes)
+          )
+        );
+
+        console.log(`[ShiftUpdateNotification] Parent update emails sent for shift ${shiftId} to ${parentEmails.length} recipient(s)`);
+      }
+    }
+
+    console.log(`[ShiftUpdateNotification] Update emails sent for shift ${shiftId}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[ShiftUpdateNotification] Error sending update emails for shift ${shiftId}:`, error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Send shift update notification email to teacher
+ */
+const sendTeacherShiftUpdateNotification = async (shiftId, shiftData, teacherEmail, teacherName, changes) => {
+  const transporter = createTransporter();
+
+  const shiftStart = shiftData.shift_start?.toDate ? shiftData.shift_start.toDate() : new Date(shiftData.shift_start);
+  const shiftEnd = shiftData.shift_end?.toDate ? shiftData.shift_end.toDate() : new Date(shiftData.shift_end);
+  const teacherTimezone = shiftData.teacher_timezone || 'UTC';
+
+  const studentNames = Array.isArray(shiftData.student_names) ? shiftData.student_names : [];
+  const subject = shiftData.subject_display_name || shiftData.subject || 'Class';
+  const startDisplay = formatInZone(shiftStart, teacherTimezone);
+  const endDisplay = formatInZone(shiftEnd, teacherTimezone);
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Class Schedule Updated</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+    .container { max-width: 640px; margin: 0 auto; background-color: white; }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 28px 20px; text-align: center; }
+    .content { padding: 24px 20px; color: #111827; }
+    .box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .changes { background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .footer { background-color: #f8fafc; padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="margin: 0; font-size: 22px;">📝 Class Schedule Updated</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.95;">Alluwal Education Hub</p>
+    </div>
+    <div class="content">
+      <p>Dear ${teacherName},</p>
+      <p>A class in your schedule has been updated.</p>
+
+      <div class="changes">
+        <p style="margin: 0 0 8px 0;"><strong>Changes Made:</strong></p>
+        <p style="margin: 0; color: #1e40af;">${changes || 'Schedule details updated'}</p>
+      </div>
+
+      <div class="box">
+        <p style="margin: 0 0 8px 0;"><strong>Subject:</strong> ${subject}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Students:</strong> ${studentNames.length > 0 ? studentNames.join(', ') : 'No students assigned'}</p>
+        <p style="margin: 0 0 8px 0;"><strong>New Date & Time:</strong> ${startDisplay} → ${endDisplay}</p>
+      </div>
+
+      <p class="muted" style="margin-top: 24px;">
+        Please log in to Alluwal Education Hub to view the updated class details.
+        You can join the class from your dashboard when it's time.
+      </p>
+    </div>
+    <div class="footer">
+      © ${new Date().getFullYear()} Alluwal Education Hub — please do not reply to this email.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: teacherEmail,
+    subject: `📝 Class schedule updated: ${subject}`,
+    html: emailHtml,
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log(`[ShiftUpdateNotification] Teacher update email sent for shift ${shiftId} to ${teacherEmail}`);
+};
+
+/**
+ * Send shift update notification email to student parents/guardians
+ */
+const sendParentShiftUpdateNotification = async (shiftId, shiftData, parentEmail, parentName, studentNames, changes) => {
+  const transporter = createTransporter();
+
+  const shiftStart = shiftData.shift_start?.toDate ? shiftData.shift_start.toDate() : new Date(shiftData.shift_start);
+  const shiftEnd = shiftData.shift_end?.toDate ? shiftData.shift_end.toDate() : new Date(shiftData.shift_end);
+
+  const subject = shiftData.subject_display_name || shiftData.subject || 'Class';
+  const teacherName = shiftData.teacher_name || 'Teacher';
+  const startDisplay = formatInZone(shiftStart, 'UTC');
+  const endDisplay = formatInZone(shiftEnd, 'UTC');
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Class Schedule Updated</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; }
+    .container { max-width: 640px; margin: 0 auto; background-color: white; }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 28px 20px; text-align: center; }
+    .content { padding: 24px 20px; color: #111827; }
+    .box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .changes { background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .footer { background-color: #f8fafc; padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="margin: 0; font-size: 22px;">📝 Class Schedule Updated</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.95;">Alluwal Education Hub</p>
+    </div>
+    <div class="content">
+      <p>Dear ${parentName},</p>
+      <p>A class for ${studentNames.length > 1 ? 'your children' : 'your child'} has been updated.</p>
+
+      <div class="changes">
+        <p style="margin: 0 0 8px 0;"><strong>Changes Made:</strong></p>
+        <p style="margin: 0; color: #1e40af;">${changes || 'Schedule details updated'}</p>
+      </div>
+
+      <div class="box">
+        <p style="margin: 0 0 8px 0;"><strong>Subject:</strong> ${subject}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Teacher:</strong> ${teacherName}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Students:</strong> ${studentNames.join(', ')}</p>
+        <p style="margin: 0 0 8px 0;"><strong>New Date & Time:</strong> ${startDisplay} → ${endDisplay}</p>
+      </div>
+
+      <p class="muted" style="margin-top: 24px;">
+        Your child will be notified of this change. They can join the class from their dashboard when it's time.
+      </p>
+    </div>
+    <div class="footer">
+      © ${new Date().getFullYear()} Alluwal Education Hub — please do not reply to this email.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  const mailOptions = {
+    from: 'Alluwal Education Hub <support@alluwaleducationhub.org>',
+    to: parentEmail,
+    subject: `📝 Class schedule updated for ${studentNames.join(', ')}: ${subject}`,
+    html: emailHtml,
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log(`[ShiftUpdateNotification] Parent update email sent for shift ${shiftId} to ${parentEmail}`);
+};
+
 module.exports = {
   sendShiftNotificationEmails,
+  sendShiftUpdateNotificationEmails,
 };
 

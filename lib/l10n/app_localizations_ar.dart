@@ -9238,6 +9238,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tutorEndSession => 'إنهاء';
 
   @override
+  String get tutorShowAI => 'أظهر للذكاء';
+
+  @override
+  String get tutorWhiteboardSent => 'تم إرسال السبورة للذكاء الاصطناعي';
+
+  @override
+  String get tutorWhiteboardFailed => 'فشل إرسال السبورة';
+
+  @override
   String get tutorStartSession => 'بدء الجلسة';
 
   @override

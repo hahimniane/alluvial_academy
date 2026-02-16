@@ -9255,6 +9255,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tutorEndSession => 'End';
 
   @override
+  String get tutorShowAI => 'Show AI';
+
+  @override
+  String get tutorWhiteboardSent => 'Whiteboard sent to AI';
+
+  @override
+  String get tutorWhiteboardFailed => 'Failed to send whiteboard';
+
+  @override
   String get tutorStartSession => 'Start Session';
 
   @override

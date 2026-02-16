@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 
 
-version: 1.0.3+1
+version: 1.0.3+2
 
 environment:
   sdk: ^3.4.3
@@ -81,6 +81,9 @@ dependencies:
   record: ^6.1.2
   audioplayers: ^6.5.1
   path_provider: ^2.1.5
+
+  # LaTeX math rendering for whiteboard
+  flutter_math_fork: ^0.7.2
 
 dev_dependencies:
   flutter_test:
