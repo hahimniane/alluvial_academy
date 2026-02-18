@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../widgets/modern_header.dart';
 import '../shared/widgets/fade_in_slide.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
+import 'team_page.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -13,6 +13,26 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
+  List<StaffMember> _leadership = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLeadership();
+  }
+
+  Future<void> _loadLeadership() async {
+    try {
+      final staff = await loadStaffData();
+      if (mounted) {
+        setState(() {
+          _leadership =
+              staff.where((s) => s.category == 'leadership').toList();
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -321,104 +341,499 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   Widget _buildTeamSection() {
+    final founder =
+        _leadership.isNotEmpty ? _leadership.first : null;
+    final others =
+        _leadership.length > 1 ? _leadership.sublist(1) : <StaffMember>[];
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       decoration: const BoxDecoration(color: Color(0xffF8FAFC)),
       child: Column(
         children: [
+          // Section label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFC9A84C).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+              border: Border.all(
+                  color: const Color(0xFFC9A84C).withOpacity(0.3)),
+            ),
+            child: Text(
+              'OUR LEADERSHIP',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFC9A84C),
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
             AppLocalizations.of(context)!.ourLeadership,
             style: GoogleFonts.inter(
-              fontSize: 36,
+              fontSize: 40,
               fontWeight: FontWeight.w800,
               color: const Color(0xff111827),
             ),
           ),
-          const SizedBox(height: 48),
-          Wrap(
-            spacing: 32,
-            runSpacing: 32,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildTeamCard(
-                'Dr. Abdullah Rahman',
-                'Founder & CEO',
-                Icons.person,
-                const Color(0xff3B82F6),
-                'PhD in Islamic Studies from Al-Azhar University. 20+ years in Islamic education.',
+          const SizedBox(height: 14),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Text(
+              'Dedicated professionals driving our mission to make quality education accessible worldwide.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                color: const Color(0xff6B7280),
+                height: 1.65,
               ),
-              _buildTeamCard(
-                'Sister Maryam Ali',
-                'Head of Education',
-                Icons.person_2,
-                const Color(0xff10B981),
-                'Masters in Education. Expert in curriculum development for Islamic studies.',
+            ),
+          ),
+          const SizedBox(height: 56),
+          if (_leadership.isEmpty)
+            const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()))
+          else ...[
+            if (founder != null)
+              FadeInSlide(
+                delay: 0.1,
+                child: Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 960),
+                    child: _buildFounderSpotlightCard(founder),
+                  ),
+                ),
               ),
-              _buildTeamCard(
-                'Ustadh Omar Hassan',
-                'Lead Islamic Scholar',
-                Icons.school,
-                const Color(0xffF59E0B),
-                'Hafiz with Ijazah in multiple Qira\'at. 15+ years teaching experience.',
+            if (others.isNotEmpty) ...[
+              const SizedBox(height: 40),
+              Wrap(
+                spacing: 24,
+                runSpacing: 24,
+                alignment: WrapAlignment.center,
+                children: others
+                    .map((member) => FadeInSlide(
+                          child: _buildLeadershipCard(member),
+                        ))
+                    .toList(),
               ),
             ],
+          ],
+          const SizedBox(height: 48),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TeamPage()),
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 32, vertical: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xff001E4E),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xff001E4E).withOpacity(0.3),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Meet Our Full Team',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_rounded,
+                        size: 18, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTeamCard(String name, String role, IconData placeholderIcon, Color roleColor, String description) {
+  // Premium spotlight card for the founder (about page)
+  Widget _buildFounderSpotlightCard(StaffMember founder) {
     return Container(
-      width: 280,
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xff001024),
+            Color(0xff001E4E),
+            Color(0xff0D2D6B),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff001E4E).withOpacity(0.40),
+            blurRadius: 48,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFC9A84C).withOpacity(0.06),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -60,
+            right: 100,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF0D9488).withOpacity(0.07),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 3,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                    colors: [Color(0xFFC9A84C), Color(0xFF0D9488)]),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(36, 44, 36, 44),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 540;
+                if (isWide) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFC9A84C),
+                                  Color(0xFFE8C66A),
+                                  Color(0xFF0D9488),
+                                ],
+                              ),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xff001E4E)),
+                              child: StaffAvatar(staff: founder, size: 120),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFC9A84C).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(
+                                  color: const Color(0xFFC9A84C).withOpacity(0.5)),
+                            ),
+                            child: Text(
+                              '✦  FOUNDER',
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFFC9A84C),
+                                  letterSpacing: 2.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 40),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              founder.name,
+                              style: GoogleFonts.inter(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  height: 1.1,
+                                  letterSpacing: -0.5),
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              founder.role.toUpperCase(),
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFFC9A84C),
+                                  letterSpacing: 2.5),
+                            ),
+                            const SizedBox(height: 20),
+                            Container(
+                              width: 52,
+                              height: 2,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                    colors: [
+                                  Color(0xFFC9A84C),
+                                  Color(0xFF0D9488),
+                                ]),
+                                borderRadius: BorderRadius.circular(1),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              '"${founder.bio.length > 200 ? '${founder.bio.substring(0, 200)}…' : founder.bio}"',
+                              style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  color: Colors.white.withOpacity(0.78),
+                                  height: 1.75,
+                                  fontStyle: FontStyle.italic),
+                            ),
+                            const SizedBox(height: 22),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                _founderChip(
+                                    Icons.location_on_outlined, founder.city),
+                                _founderChip(
+                                    Icons.school_outlined,
+                                    founder.education.length > 30
+                                        ? '${founder.education.substring(0, 30)}…'
+                                        : founder.education),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFC9A84C),
+                              Color(0xFFE8C66A),
+                              Color(0xFF0D9488),
+                            ],
+                          ),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xff001E4E)),
+                          child: StaffAvatar(staff: founder, size: 100),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFC9A84C).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(
+                              color: const Color(0xFFC9A84C).withOpacity(0.5)),
+                        ),
+                        child: Text(
+                          '✦  FOUNDER',
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFFC9A84C),
+                              letterSpacing: 2.5),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        founder.name,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        founder.role.toUpperCase(),
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFC9A84C),
+                            letterSpacing: 2),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        '"${founder.bio.length > 140 ? '${founder.bio.substring(0, 140)}…' : founder.bio}"',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.78),
+                            height: 1.7,
+                            fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  );
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _founderChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: Colors.white.withOpacity(0.65)),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.inter(
+                fontSize: 13, color: Colors.white.withOpacity(0.8)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Horizontal card for non-founder leadership members
+  Widget _buildLeadershipCard(StaffMember member) {
+    return Container(
+      width: 340,
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xffE5E7EB)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
+            blurRadius: 24,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: roleColor.withOpacity(0.1),
-            child: Icon(placeholderIcon, size: 50, color: roleColor),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xff111827),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            role,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: roleColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: const Color(0xff6B7280),
-              height: 1.5,
+          StaffAvatar(staff: member, size: 70),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  member.name,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff111827),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  member.role.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFC9A84C),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 12, color: Color(0xff9CA3AF)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        member.city,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xff6B7280)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    const Icon(Icons.school_outlined,
+                        size: 12, color: Color(0xff9CA3AF)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        member.education,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: const Color(0xff9CA3AF),
+                            height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

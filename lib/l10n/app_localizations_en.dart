@@ -9926,4 +9926,97 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get classesTryClearingFilters =>
       'Try clearing filters or coming back later.';
+
+  @override
+  String get teamOurGlobalTeam => 'OUR GLOBAL TEAM';
+
+  @override
+  String get teamMeetThePeopleBehindAlluwal => 'Meet the People Behind Alluwal';
+
+  @override
+  String get teamHeroSubtitle =>
+      'Educators, leaders, and innovators united by a shared mission — to make quality Islamic and academic education accessible to every learner, everywhere.';
+
+  @override
+  String get teamAllTeam => 'All Team';
+
+  @override
+  String get teamAllTeamTagline => 'The full Alluwal family';
+
+  @override
+  String get teamAllTeamDescription =>
+      'Visionaries and educators united by one mission.';
+
+  @override
+  String get teamLeadership => 'Leadership';
+
+  @override
+  String get teamLeadershipTagline => 'Vision & Direction';
+
+  @override
+  String get teamLeadershipDescription =>
+      'The architects and coordinators of Alluwal — shaping policy, strategy, operations and culture.';
+
+  @override
+  String get teamTeachers => 'Teachers';
+
+  @override
+  String get teamTeachersTagline => 'Global Knowledge Carriers';
+
+  @override
+  String get teamTeachersDescription =>
+      'Scholars and educators spanning 10+ countries — bringing Islamic and academic excellence to every learner, everywhere.';
+
+  @override
+  String get teamFounderBadge => '✦  FOUNDER';
+
+  @override
+  String get teamViewFullProfile => 'View Full Profile';
+
+  @override
+  String get teamWantToJoinOurTeam => 'Want to Join Our Team?';
+
+  @override
+  String get teamJoinSubtitle =>
+      'We are always looking for passionate educators and professionals who share our vision. Join us in making a difference.';
+
+  @override
+  String get teamViewProfile => 'View Profile';
+
+  @override
+  String teamAboutName(String name) {
+    return 'About $name';
+  }
+
+  @override
+  String get teamWhyAlluwal => 'Why Alluwal';
+
+  @override
+  String get teamLanguages => 'Languages';
+
+  @override
+  String teamContactName(String name) {
+    return 'Contact $name';
+  }
+
+  @override
+  String teamMessageForName(String name) {
+    return 'Message for $name';
+  }
+
+  @override
+  String get teamStaffFallbackSnippet =>
+      'Spreading knowledge and light through Alluwal Education Hub.';
+
+  @override
+  String get teamStaffFallbackBio =>
+      'A dedicated member of the Alluwal team, committed to delivering quality Islamic and academic education to learners across the globe.';
+
+  @override
+  String get teamStaffFallbackWhyAlluwal =>
+      'I believe in Alluwal\'s mission to make education accessible, empowering every student to grow spiritually and academically — wherever they are.';
+
+  @override
+  String get teamPartOfTeamBuildsPlatform =>
+      'Part of the team that builds our platform · Math & science';
 }

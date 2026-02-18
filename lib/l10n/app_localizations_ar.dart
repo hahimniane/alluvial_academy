@@ -9910,4 +9910,97 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get classesTryClearingFilters =>
       'Try clearing filters or coming back later.';
+
+  @override
+  String get teamOurGlobalTeam => 'فريقنا العالمي';
+
+  @override
+  String get teamMeetThePeopleBehindAlluwal => 'تعرف على الأشخاص وراء ألوال';
+
+  @override
+  String get teamHeroSubtitle =>
+      'مربّون وقادة ومبتكرون يجمعهم هدف واحد: جعل التعليم الإسلامي والأكاديمي الجيد متاحًا لكل متعلم، أينما كان.';
+
+  @override
+  String get teamAllTeam => 'الفريق كاملاً';
+
+  @override
+  String get teamAllTeamTagline => 'عائلة ألوال الكبيرة';
+
+  @override
+  String get teamAllTeamDescription =>
+      'أصحاب رؤية ومربّون متحدون برسالة واحدة.';
+
+  @override
+  String get teamLeadership => 'القيادة';
+
+  @override
+  String get teamLeadershipTagline => 'الرؤية والتوجيه';
+
+  @override
+  String get teamLeadershipDescription =>
+      'فريق القيادة والتنسيق في ألوال — يضعون السياسة والاستراتيجية والعمليات والثقافة.';
+
+  @override
+  String get teamTeachers => 'المعلمون';
+
+  @override
+  String get teamTeachersTagline => 'حاملو المعرفة العالميون';
+
+  @override
+  String get teamTeachersDescription =>
+      'علماء ومربّون في أكثر من 10 بلدان — ينقلون التميز الإسلامي والأكاديمي إلى كل متعلم، أينما كان.';
+
+  @override
+  String get teamFounderBadge => '✦  المؤسس';
+
+  @override
+  String get teamViewFullProfile => 'عرض الملف الشخصي الكامل';
+
+  @override
+  String get teamWantToJoinOurTeam => 'هل تريد الانضمام إلى فريقنا؟';
+
+  @override
+  String get teamJoinSubtitle =>
+      'نبحث دائمًا عن مربّين ومحترفين متحمسين يشاركوننا رؤيتنا. انضم إلينا لإحداث الفرق.';
+
+  @override
+  String get teamViewProfile => 'عرض الملف';
+
+  @override
+  String teamAboutName(String name) {
+    return 'نبذة عن $name';
+  }
+
+  @override
+  String get teamWhyAlluwal => 'لماذا ألوال';
+
+  @override
+  String get teamLanguages => 'اللغات';
+
+  @override
+  String teamContactName(String name) {
+    return 'اتصل بـ $name';
+  }
+
+  @override
+  String teamMessageForName(String name) {
+    return 'رسالة إلى $name';
+  }
+
+  @override
+  String get teamStaffFallbackSnippet =>
+      'نشر المعرفة والنور عبر Alluwal Education Hub.';
+
+  @override
+  String get teamStaffFallbackBio =>
+      'عضو ملتزم في فريق ألوال، يعمل على تقديم تعليم إسلامي وأكاديمي ذي جودة للمتعلمين حول العالم.';
+
+  @override
+  String get teamStaffFallbackWhyAlluwal =>
+      'أؤمن برسالة ألوال في جعل التعليم متاحًا وتمكين كل طالب من النمو روحيًا وأكاديميًا، أينما كان.';
+
+  @override
+  String get teamPartOfTeamBuildsPlatform =>
+      'عضو في الفريق الذي يبني منصتنا · رياضيات وعلوم';
 }

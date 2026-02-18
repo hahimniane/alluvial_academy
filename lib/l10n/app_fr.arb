@@ -3951,5 +3951,52 @@
   "classesNoMatchFilters": "Aucun cours ne correspond à vos filtres",
   "classesNoClassesFound": "Aucun cours trouvé",
   "classesTryAdjustingFilters": "Essayez d'ajuster vos filtres ou de les effacer.",
-  "classesTryClearingFilters": "Essayez d'effacer les filtres ou revenez plus tard."
+  "classesTryClearingFilters": "Essayez d'effacer les filtres ou revenez plus tard.",
+  "teamOurGlobalTeam": "NOTRE ÉQUIPE MONDIALE",
+  "teamMeetThePeopleBehindAlluwal": "Découvrez les personnes derrière Alluwal",
+  "teamHeroSubtitle": "Éducateurs, responsables et innovateurs unis par une même mission : rendre une éducation islamique et scolaire de qualité accessible à tous, partout dans le monde.",
+  "teamAllTeam": "Toute l'équipe",
+  "teamAllTeamTagline": "La grande famille Alluwal",
+  "teamAllTeamDescription": "Visionnaires et éducateurs unis par une seule mission.",
+  "teamLeadership": "Équipe dirigeante",
+  "teamLeadershipTagline": "Vision et cap",
+  "teamLeadershipDescription": "Ceux qui conçoivent et coordonnent Alluwal — politique, stratégie, opérations et culture.",
+  "teamTeachers": "Enseignants",
+  "teamTeachersTagline": "Passeurs de savoir mondiaux",
+  "teamTeachersDescription": "Savants et éducateurs dans plus de 10 pays — ils apportent l'excellence islamique et scolaire à chaque apprenant, partout dans le monde.",
+  "teamFounderBadge": "✦  FONDATEUR",
+  "teamViewFullProfile": "Voir le profil complet",
+  "teamWantToJoinOurTeam": "Vous voulez rejoindre notre équipe ?",
+  "teamJoinSubtitle": "Nous sommes toujours à la recherche d'éducateurs et de professionnels passionnés qui partagent notre vision. Rejoignez-nous pour faire la différence.",
+  "teamViewProfile": "Voir le profil",
+  "teamAboutName": "À propos de {name}",
+  "@teamAboutName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamWhyAlluwal": "Pourquoi Alluwal",
+  "teamLanguages": "Langues",
+  "teamContactName": "Contacter {name}",
+  "@teamContactName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamMessageForName": "Message pour {name}",
+  "@teamMessageForName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamStaffFallbackSnippet": "Diffuser le savoir et la lumière à travers Alluwal Education Hub.",
+  "teamStaffFallbackBio": "Un membre dévoué de l'équipe Alluwal, engagé à offrir une éducation islamique et académique de qualité aux apprenants du monde entier.",
+  "teamStaffFallbackWhyAlluwal": "Je crois en la mission d'Alluwal : rendre l'éducation accessible et permettre à chaque élève de s'épanouir spirituellement et scolairement, où qu'il soit.",
+  "teamPartOfTeamBuildsPlatform": "Membre de l'équipe qui construit notre plateforme · Maths et sciences"
 }

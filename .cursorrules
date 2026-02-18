@@ -56,6 +56,15 @@ This project uses URL versioning to prevent cache issues:
 - Static assets use long-term caching with immutable headers
 - HTML files are never cached
 
+## Translations (l10n)
+- All user-facing strings use **AppLocalizations** (generated from `lib/l10n/*.arb`).
+- **After adding or editing any key in `app_en.arb`, `app_fr.arb`, or `app_ar.arb`**, run:
+  ```bash
+  flutter gen-l10n
+  ```
+  so that `lib/l10n/app_localizations.dart` (and locale files) are regenerated. Otherwise new or changed keys will not resolve and the app may fail to build.
+- The app is wired for translations: `main.dart` uses `AppLocalizations.delegate` and `LanguageService.supportedLocales` (en, fr). Switching language loads the correct ARB strings.
+
 ## Important Reminders
 - ⚠️ NEVER run `flutter build web --release` without incrementing version
 - ✅ ALWAYS use: `./increment_version.sh && flutter build web --release`

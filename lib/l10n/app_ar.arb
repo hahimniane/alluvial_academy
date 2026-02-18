@@ -4003,5 +4003,52 @@
   "classesNoMatchFilters": "No classes match your filters",
   "classesNoClassesFound": "No classes found",
   "classesTryAdjustingFilters": "Try adjusting your filters or clearing them.",
-  "classesTryClearingFilters": "Try clearing filters or coming back later."
+  "classesTryClearingFilters": "Try clearing filters or coming back later.",
+  "teamOurGlobalTeam": "فريقنا العالمي",
+  "teamMeetThePeopleBehindAlluwal": "تعرف على الأشخاص وراء ألوال",
+  "teamHeroSubtitle": "مربّون وقادة ومبتكرون يجمعهم هدف واحد: جعل التعليم الإسلامي والأكاديمي الجيد متاحًا لكل متعلم، أينما كان.",
+  "teamAllTeam": "الفريق كاملاً",
+  "teamAllTeamTagline": "عائلة ألوال الكبيرة",
+  "teamAllTeamDescription": "أصحاب رؤية ومربّون متحدون برسالة واحدة.",
+  "teamLeadership": "القيادة",
+  "teamLeadershipTagline": "الرؤية والتوجيه",
+  "teamLeadershipDescription": "فريق القيادة والتنسيق في ألوال — يضعون السياسة والاستراتيجية والعمليات والثقافة.",
+  "teamTeachers": "المعلمون",
+  "teamTeachersTagline": "حاملو المعرفة العالميون",
+  "teamTeachersDescription": "علماء ومربّون في أكثر من 10 بلدان — ينقلون التميز الإسلامي والأكاديمي إلى كل متعلم، أينما كان.",
+  "teamFounderBadge": "✦  المؤسس",
+  "teamViewFullProfile": "عرض الملف الشخصي الكامل",
+  "teamWantToJoinOurTeam": "هل تريد الانضمام إلى فريقنا؟",
+  "teamJoinSubtitle": "نبحث دائمًا عن مربّين ومحترفين متحمسين يشاركوننا رؤيتنا. انضم إلينا لإحداث الفرق.",
+  "teamViewProfile": "عرض الملف",
+  "teamAboutName": "نبذة عن {name}",
+  "@teamAboutName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamWhyAlluwal": "لماذا ألوال",
+  "teamLanguages": "اللغات",
+  "teamContactName": "اتصل بـ {name}",
+  "@teamContactName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamMessageForName": "رسالة إلى {name}",
+  "@teamMessageForName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamStaffFallbackSnippet": "نشر المعرفة والنور عبر Alluwal Education Hub.",
+  "teamStaffFallbackBio": "عضو ملتزم في فريق ألوال، يعمل على تقديم تعليم إسلامي وأكاديمي ذي جودة للمتعلمين حول العالم.",
+  "teamStaffFallbackWhyAlluwal": "أؤمن برسالة ألوال في جعل التعليم متاحًا وتمكين كل طالب من النمو روحيًا وأكاديميًا، أينما كان.",
+  "teamPartOfTeamBuildsPlatform": "عضو في الفريق الذي يبني منصتنا · رياضيات وعلوم"
 }

@@ -4062,5 +4062,52 @@
   "classesNoMatchFilters": "No classes match your filters",
   "classesNoClassesFound": "No classes found",
   "classesTryAdjustingFilters": "Try adjusting your filters or clearing them.",
-  "classesTryClearingFilters": "Try clearing filters or coming back later."
+  "classesTryClearingFilters": "Try clearing filters or coming back later.",
+  "teamOurGlobalTeam": "OUR GLOBAL TEAM",
+  "teamMeetThePeopleBehindAlluwal": "Meet the People Behind Alluwal",
+  "teamHeroSubtitle": "Educators, leaders, and innovators united by a shared mission — to make quality Islamic and academic education accessible to every learner, everywhere.",
+  "teamAllTeam": "All Team",
+  "teamAllTeamTagline": "The full Alluwal family",
+  "teamAllTeamDescription": "Visionaries and educators united by one mission.",
+  "teamLeadership": "Leadership",
+  "teamLeadershipTagline": "Vision & Direction",
+  "teamLeadershipDescription": "The architects and coordinators of Alluwal — shaping policy, strategy, operations and culture.",
+  "teamTeachers": "Teachers",
+  "teamTeachersTagline": "Global Knowledge Carriers",
+  "teamTeachersDescription": "Scholars and educators spanning 10+ countries — bringing Islamic and academic excellence to every learner, everywhere.",
+  "teamFounderBadge": "✦  FOUNDER",
+  "teamViewFullProfile": "View Full Profile",
+  "teamWantToJoinOurTeam": "Want to Join Our Team?",
+  "teamJoinSubtitle": "We are always looking for passionate educators and professionals who share our vision. Join us in making a difference.",
+  "teamViewProfile": "View Profile",
+  "teamAboutName": "About {name}",
+  "@teamAboutName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamWhyAlluwal": "Why Alluwal",
+  "teamLanguages": "Languages",
+  "teamContactName": "Contact {name}",
+  "@teamContactName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamMessageForName": "Message for {name}",
+  "@teamMessageForName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "teamStaffFallbackSnippet": "Spreading knowledge and light through Alluwal Education Hub.",
+  "teamStaffFallbackBio": "A dedicated member of the Alluwal team, committed to delivering quality Islamic and academic education to learners across the globe.",
+  "teamStaffFallbackWhyAlluwal": "I believe in Alluwal's mission to make education accessible, empowering every student to grow spiritually and academically — wherever they are.",
+  "teamPartOfTeamBuildsPlatform": "Part of the team that builds our platform · Math & science"
 }

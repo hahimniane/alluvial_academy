@@ -10147,4 +10147,98 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get classesTryClearingFilters =>
       'Essayez d\'effacer les filtres ou revenez plus tard.';
+
+  @override
+  String get teamOurGlobalTeam => 'NOTRE ÉQUIPE MONDIALE';
+
+  @override
+  String get teamMeetThePeopleBehindAlluwal =>
+      'Découvrez les personnes derrière Alluwal';
+
+  @override
+  String get teamHeroSubtitle =>
+      'Éducateurs, responsables et innovateurs unis par une même mission : rendre une éducation islamique et scolaire de qualité accessible à tous, partout dans le monde.';
+
+  @override
+  String get teamAllTeam => 'Toute l\'équipe';
+
+  @override
+  String get teamAllTeamTagline => 'La grande famille Alluwal';
+
+  @override
+  String get teamAllTeamDescription =>
+      'Visionnaires et éducateurs unis par une seule mission.';
+
+  @override
+  String get teamLeadership => 'Équipe dirigeante';
+
+  @override
+  String get teamLeadershipTagline => 'Vision et cap';
+
+  @override
+  String get teamLeadershipDescription =>
+      'Ceux qui conçoivent et coordonnent Alluwal — politique, stratégie, opérations et culture.';
+
+  @override
+  String get teamTeachers => 'Enseignants';
+
+  @override
+  String get teamTeachersTagline => 'Passeurs de savoir mondiaux';
+
+  @override
+  String get teamTeachersDescription =>
+      'Savants et éducateurs dans plus de 10 pays — ils apportent l\'excellence islamique et scolaire à chaque apprenant, partout dans le monde.';
+
+  @override
+  String get teamFounderBadge => '✦  FONDATEUR';
+
+  @override
+  String get teamViewFullProfile => 'Voir le profil complet';
+
+  @override
+  String get teamWantToJoinOurTeam => 'Vous voulez rejoindre notre équipe ?';
+
+  @override
+  String get teamJoinSubtitle =>
+      'Nous sommes toujours à la recherche d\'éducateurs et de professionnels passionnés qui partagent notre vision. Rejoignez-nous pour faire la différence.';
+
+  @override
+  String get teamViewProfile => 'Voir le profil';
+
+  @override
+  String teamAboutName(String name) {
+    return 'À propos de $name';
+  }
+
+  @override
+  String get teamWhyAlluwal => 'Pourquoi Alluwal';
+
+  @override
+  String get teamLanguages => 'Langues';
+
+  @override
+  String teamContactName(String name) {
+    return 'Contacter $name';
+  }
+
+  @override
+  String teamMessageForName(String name) {
+    return 'Message pour $name';
+  }
+
+  @override
+  String get teamStaffFallbackSnippet =>
+      'Diffuser le savoir et la lumière à travers Alluwal Education Hub.';
+
+  @override
+  String get teamStaffFallbackBio =>
+      'Un membre dévoué de l\'équipe Alluwal, engagé à offrir une éducation islamique et académique de qualité aux apprenants du monde entier.';
+
+  @override
+  String get teamStaffFallbackWhyAlluwal =>
+      'Je crois en la mission d\'Alluwal : rendre l\'éducation accessible et permettre à chaque élève de s\'épanouir spirituellement et scolairement, où qu\'il soit.';
+
+  @override
+  String get teamPartOfTeamBuildsPlatform =>
+      'Membre de l\'équipe qui construit notre plateforme · Maths et sciences';
 }

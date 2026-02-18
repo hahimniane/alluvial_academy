@@ -154,18 +154,19 @@ const checkIncompleteReadinessForms = onSchedule({
           body = `You have ${formCount} incomplete Readiness Forms from recent shifts`;
         }
 
-        // Send FCM notification
+        // Send FCM notification. Use type 'form_required' so the app opens the same
+        // daily-report form (from config/template), not a hardcoded form ID.
         const notificationData = {
-          type: 'pending_forms',
+          type: 'form_required',
           formCount: formCount.toString(),
           teacherId,
         };
 
-        // If only one form, include direct navigation data
+        // If only one form, include shiftId and timesheetId so the app can open
+        // the correct form (readiness/daily report from config or template).
         if (formCount === 1) {
           notificationData.timesheetId = pendingForms[0].timesheetId;
           notificationData.shiftId = pendingForms[0].shiftId;
-          notificationData.formId = '1754405935804'; // Readiness Form ID
         }
 
         await sendFCMNotificationToTeacher(teacherId, {

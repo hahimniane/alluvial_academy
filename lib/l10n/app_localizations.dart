@@ -18324,6 +18324,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try clearing filters or coming back later.'**
   String get classesTryClearingFilters;
+
+  /// No description provided for @teamOurGlobalTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'OUR GLOBAL TEAM'**
+  String get teamOurGlobalTeam;
+
+  /// No description provided for @teamMeetThePeopleBehindAlluwal.
+  ///
+  /// In en, this message translates to:
+  /// **'Meet the People Behind Alluwal'**
+  String get teamMeetThePeopleBehindAlluwal;
+
+  /// No description provided for @teamHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Educators, leaders, and innovators united by a shared mission — to make quality Islamic and academic education accessible to every learner, everywhere.'**
+  String get teamHeroSubtitle;
+
+  /// No description provided for @teamAllTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'All Team'**
+  String get teamAllTeam;
+
+  /// No description provided for @teamAllTeamTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'The full Alluwal family'**
+  String get teamAllTeamTagline;
+
+  /// No description provided for @teamAllTeamDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Visionaries and educators united by one mission.'**
+  String get teamAllTeamDescription;
+
+  /// No description provided for @teamLeadership.
+  ///
+  /// In en, this message translates to:
+  /// **'Leadership'**
+  String get teamLeadership;
+
+  /// No description provided for @teamLeadershipTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Vision & Direction'**
+  String get teamLeadershipTagline;
+
+  /// No description provided for @teamLeadershipDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The architects and coordinators of Alluwal — shaping policy, strategy, operations and culture.'**
+  String get teamLeadershipDescription;
+
+  /// No description provided for @teamTeachers.
+  ///
+  /// In en, this message translates to:
+  /// **'Teachers'**
+  String get teamTeachers;
+
+  /// No description provided for @teamTeachersTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Global Knowledge Carriers'**
+  String get teamTeachersTagline;
+
+  /// No description provided for @teamTeachersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Scholars and educators spanning 10+ countries — bringing Islamic and academic excellence to every learner, everywhere.'**
+  String get teamTeachersDescription;
+
+  /// No description provided for @teamFounderBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'✦  FOUNDER'**
+  String get teamFounderBadge;
+
+  /// No description provided for @teamViewFullProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View Full Profile'**
+  String get teamViewFullProfile;
+
+  /// No description provided for @teamWantToJoinOurTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Want to Join Our Team?'**
+  String get teamWantToJoinOurTeam;
+
+  /// No description provided for @teamJoinSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We are always looking for passionate educators and professionals who share our vision. Join us in making a difference.'**
+  String get teamJoinSubtitle;
+
+  /// No description provided for @teamViewProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View Profile'**
+  String get teamViewProfile;
+
+  /// No description provided for @teamAboutName.
+  ///
+  /// In en, this message translates to:
+  /// **'About {name}'**
+  String teamAboutName(String name);
+
+  /// No description provided for @teamWhyAlluwal.
+  ///
+  /// In en, this message translates to:
+  /// **'Why Alluwal'**
+  String get teamWhyAlluwal;
+
+  /// No description provided for @teamLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get teamLanguages;
+
+  /// No description provided for @teamContactName.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact {name}'**
+  String teamContactName(String name);
+
+  /// No description provided for @teamMessageForName.
+  ///
+  /// In en, this message translates to:
+  /// **'Message for {name}'**
+  String teamMessageForName(String name);
+
+  /// No description provided for @teamStaffFallbackSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'Spreading knowledge and light through Alluwal Education Hub.'**
+  String get teamStaffFallbackSnippet;
+
+  /// No description provided for @teamStaffFallbackBio.
+  ///
+  /// In en, this message translates to:
+  /// **'A dedicated member of the Alluwal team, committed to delivering quality Islamic and academic education to learners across the globe.'**
+  String get teamStaffFallbackBio;
+
+  /// No description provided for @teamStaffFallbackWhyAlluwal.
+  ///
+  /// In en, this message translates to:
+  /// **'I believe in Alluwal\'s mission to make education accessible, empowering every student to grow spiritually and academically — wherever they are.'**
+  String get teamStaffFallbackWhyAlluwal;
+
+  /// No description provided for @teamPartOfTeamBuildsPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Part of the team that builds our platform · Math & science'**
+  String get teamPartOfTeamBuildsPlatform;
 }
 
 class _AppLocalizationsDelegate
