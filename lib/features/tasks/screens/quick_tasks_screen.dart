@@ -2776,8 +2776,11 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                                     ? Colors.grey 
                                     : const Color(0xFF1E293B),
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis, // Stops it from pushing right side out
                             ),
                           ),
+                          const SizedBox(width: 8),
                           if (task.priority == TaskPriority.high)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -2799,13 +2802,16 @@ class _QuickTasksScreenState extends State<QuickTasksScreen>
                           if (task.dueDate != null) ...[
                             Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade500),
                             const SizedBox(width: 4),
-                            Text(
-                              DateFormat('MMM d, h:mm a').format(task.dueDate!),
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: task.dueDate!.isBefore(DateTime.now()) && task.status != TaskStatus.done
-                                    ? Colors.red 
-                                    : Colors.grey.shade600,
+                            Flexible(
+                              child: Text(
+                                DateFormat('MMM d, h:mm a').format(task.dueDate!),
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: task.dueDate!.isBefore(DateTime.now()) && task.status != TaskStatus.done
+                                      ? Colors.red 
+                                      : Colors.grey.shade600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             const SizedBox(width: 12),

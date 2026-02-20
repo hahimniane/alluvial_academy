@@ -301,8 +301,25 @@ const _generateShiftsForTemplate = async ({templateId, template}) => {
       continue;
     }
 
-    const shiftStart = day.set({hour: startHour, minute: startMinute, second: 0, millisecond: 0});
-    const shiftEnd = shiftStart.plus({minutes: durationMinutes});
+    // Per-day time slots: use slot for this weekday if present
+    let dayStartHour = startHour;
+    let dayStartMinute = startMinute;
+    let dayDurationMinutes = durationMinutes;
+    const weekdaySlots = recurrence.weekdayTimeSlots;
+    if (Array.isArray(weekdaySlots) && weekdaySlots.length > 0) {
+      const slot = weekdaySlots.find((s) => s && Number(s.weekday) === day.weekday);
+      if (slot) {
+        dayStartHour = Number(slot.start_hour);
+        dayStartMinute = Number(slot.start_minute);
+        const endH = Number(slot.end_hour);
+        const endM = Number(slot.end_minute);
+        dayDurationMinutes = (endH * 60 + endM) - (dayStartHour * 60 + dayStartMinute);
+        if (dayDurationMinutes <= 0) dayDurationMinutes += 24 * 60; // cross-midnight
+      }
+    }
+
+    const shiftStart = day.set({hour: dayStartHour, minute: dayStartMinute, second: 0, millisecond: 0});
+    const shiftEnd = shiftStart.plus({minutes: dayDurationMinutes});
     const shiftStartUtc = shiftStart.toUTC();
     const shiftEndUtc = shiftEnd.toUTC();
 
@@ -701,8 +718,8 @@ const updateShiftTemplate = onCall(async (request) => {
     updates.duration_minutes = duration;
   }
 
-  if (data.admin_timezone) updates.admin_timezone = _normalizeTimezone(data.admin_timezone);
-  if (data.teacher_timezone) updates.teacher_timezone = _normalizeTimezone(data.teacher_timezone);
+  // Preserve existing timezones: do not overwrite from request so the template keeps
+  // its original admin_timezone and teacher_timezone regardless of who modifies it.
   if (data.teacher_id) updates.teacher_id = String(data.teacher_id).trim();
   if (data.teacher_name) updates.teacher_name = String(data.teacher_name).trim();
   if (Array.isArray(data.student_ids)) updates.student_ids = data.student_ids;
@@ -729,11 +746,88 @@ const updateShiftTemplate = onCall(async (request) => {
   if (data.base_shift_start) updates.base_shift_start = _toTimestamp(data.base_shift_start);
   if (data.base_shift_end) updates.base_shift_end = _toTimestamp(data.base_shift_end);
 
+  // Merge enhanced_recurrence so "Modify Days" can update selectedWeekdays and per-day times
+  const inputRecurrence = data.enhanced_recurrence || null;
+  if (inputRecurrence && typeof inputRecurrence === 'object') {
+    const current = templateSnap.data() || {};
+    const currentRecurrence = current.enhanced_recurrence || { type: 'weekly' };
+    const merged = { ...currentRecurrence };
+    if (Array.isArray(inputRecurrence.selectedWeekdays)) {
+      merged.selectedWeekdays = inputRecurrence.selectedWeekdays.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 7);
+    }
+    if (inputRecurrence.weekdayTimeSlots && Array.isArray(inputRecurrence.weekdayTimeSlots)) {
+      merged.weekdayTimeSlots = inputRecurrence.weekdayTimeSlots.map((slot) => {
+        if (!slot || typeof slot !== 'object') return null;
+        const w = Number(slot.weekday);
+        const sh = Number(slot.start_hour);
+        const sm = Number(slot.start_minute);
+        const eh = Number(slot.end_hour);
+        const em = Number(slot.end_minute);
+        if (!Number.isInteger(w) || w < 1 || w > 7) return null;
+        return { weekday: w, start_hour: sh, start_minute: sm, end_hour: eh, end_minute: em };
+      }).filter(Boolean);
+    }
+    if (typeof inputRecurrence.useDifferentTimesPerDay === 'boolean') {
+      merged.useDifferentTimesPerDay = inputRecurrence.useDifferentTimesPerDay;
+    }
+    if (merged.selectedWeekdays && merged.selectedWeekdays.length > 0) {
+      merged.type = 'weekly';
+    }
+    updates.enhanced_recurrence = merged;
+  }
+
   updates.last_modified = admin.firestore.FieldValue.serverTimestamp();
 
   await templateRef.set(updates, {merge: true});
 
-  return {templateId, updated: true};
+  // When recurrence or times change: remove future generated shifts and regenerate from updated template.
+  // When template is deactivated: only remove future generated shifts (no regenerate).
+  const recurrenceOrTimeChanged =
+    updates.enhanced_recurrence != null ||
+    updates.start_time != null ||
+    updates.end_time != null;
+  const deactivated = updates.is_active === false;
+
+  if (recurrenceOrTimeChanged || deactivated) {
+    let cleanupResult = { deleted: 0 };
+    try {
+      cleanupResult = await _cleanupGeneratedShifts({ templateId });
+    } catch (err) {
+      console.warn(`[shift_templates] Failed to cleanup generated shifts for template ${templateId}:`, err);
+    }
+
+    if (recurrenceOrTimeChanged && !deactivated) {
+      const updatedSnap = await templateRef.get();
+      const mergedTemplate = updatedSnap.exists ? updatedSnap.data() : null;
+      if (mergedTemplate) {
+        try {
+          const genResult = await _generateShiftsForTemplate({ templateId, template: mergedTemplate });
+          return {
+            templateId,
+            updated: true,
+            cleanup_deleted: cleanupResult.deleted,
+            generated: genResult,
+          };
+        } catch (err) {
+          console.warn(`[shift_templates] Failed to regenerate shifts for template ${templateId}:`, err);
+          return {
+            templateId,
+            updated: true,
+            cleanup_deleted: cleanupResult.deleted,
+            regenerate_error: String(err && err.message),
+          };
+        }
+      }
+    }
+
+    return {
+      templateId,
+      updated: true,
+      cleanup_deleted: cleanupResult.deleted,
+    };
+  }
+
+  return { templateId, updated: true };
 });
 
 const excludeShiftTemplateDate = onCall(async (request) => {

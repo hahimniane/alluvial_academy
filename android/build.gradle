@@ -1,3 +1,14 @@
+// Register before any project is evaluated so afterEvaluate is valid for all subprojects
+gradle.beforeProject { proj ->
+    proj.afterEvaluate {
+        if (proj.hasProperty('android') && proj.name != 'app') {
+            proj.android {
+                compileSdkVersion 34
+            }
+        }
+    }
+}
+
 allprojects {
     repositories {
         google()

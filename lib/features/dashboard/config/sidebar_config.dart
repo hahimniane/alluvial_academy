@@ -89,13 +89,6 @@ class SidebarConfig {
             screenIndex: 19,
             colorValue: 0xffDC2626,
           ),
-          const SidebarItem(
-            id: 'subject_rates',
-            label: 'Subject Rates',
-            icon: Icons.attach_money,
-            screenIndex: 20,
-            colorValue: 0xff059669,
-          ),
         ],
       ),
       SidebarSection(
@@ -142,6 +135,13 @@ class SidebarConfig {
             icon: Icons.list_alt,
             screenIndex: 9,
             colorValue: 0xff6366F1,
+          ),
+          const SidebarItem(
+            id: 'all_submissions',
+            label: 'All Submissions',
+            icon: Icons.assignment_ind,
+            screenIndex: 24,
+            colorValue: 0xff0EA5E9,
           ),
           const SidebarItem(
             id: 'submit_form',
@@ -240,6 +240,13 @@ class SidebarConfig {
             screenIndex: 11,
             colorValue: 0xff14B8A6,
           ),
+          const SidebarItem(
+            id: 'job_board',
+            label: 'Job Board',
+            icon: Icons.work_outline,
+            screenIndex: 23,
+            colorValue: 0xff3B82F6,
+          ),
         ],
       ),
       SidebarSection(
@@ -270,7 +277,7 @@ class SidebarConfig {
             id: 'submit_form',
             label: 'Submit Form',
             icon: Icons.description,
-            screenIndex: 23, // Changed to TeacherFormsScreen (new template system)
+            screenIndex: 22, // Changed to TeacherFormsScreen (new template system)
             colorValue: 0xffEC4899,
           ),
         ],
@@ -283,7 +290,7 @@ class SidebarConfig {
             id: 'my_audit',
             label: 'My Report',
             icon: Icons.assessment,
-            screenIndex: 21,
+            screenIndex: 20,
             colorValue: 0xffDC2626,
           ),
         ],

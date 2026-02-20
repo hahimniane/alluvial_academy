@@ -394,9 +394,9 @@ class NotificationService {
     
     final type = data['type'] as String?;
     
-    if (type == 'form_required') {
-      // Store the navigation data for the app to handle
-      // This will be picked up by the main app when it's ready
+    if (type == 'form_required' || type == 'pending_forms') {
+      // Store the navigation data so the app can open the correct daily-report form
+      // (same form as in Daily reports, from config/template).
       _pendingNavigation = data;
       debugPrint('📋 Stored pending form navigation: ${data['shiftId']}');
     } else if (type == 'chat_message') {
@@ -475,9 +475,11 @@ class NotificationService {
           };
           break;
         case 'form_required':
+        case 'pending_forms':
           _pendingNavigation = {
-            'type': 'form_required',
+            'type': type == 'pending_forms' ? 'pending_forms' : 'form_required',
             'shiftId': data['shiftId'],
+            'timesheetId': data['timesheetId'],
           };
           break;
         default:

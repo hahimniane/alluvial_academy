@@ -247,14 +247,14 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.score2,
+                  '${AppLocalizations.of(context)!.overallScore}: ',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: Win11Colors.textSecondary,
                   ),
                 ),
                 Text(
-                  AppLocalizations.of(context)!.totalscoreMaxscore,
+                  '$totalScore / $maxScore',
                   style: GoogleFonts.inter(
                     color: _getScoreColor(percentageScore),
                     fontWeight: FontWeight.bold,
@@ -444,7 +444,7 @@ class _CoachEvaluationScreenState extends State<CoachEvaluationScreen> {
             ),
             child: Center(
               child: Text(
-                AppLocalizations.of(context)!.score3,
+                '$score',
                 style: GoogleFonts.inter(
                   color: isSelected ? Colors.white : Win11Colors.textMain,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,

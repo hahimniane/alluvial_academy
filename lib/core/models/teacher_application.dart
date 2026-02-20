@@ -104,8 +104,18 @@ class TeacherApplication {
     this.reviewedAt,
   });
 
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
   factory TeacherApplication.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    final submittedAtRaw = data['submitted_at'] ?? data['submittedAt'];
+    final reviewedAtRaw = data['reviewed_at'] ?? data['reviewedAt'];
     
     // Handle both new and legacy formats
     return TeacherApplication(
@@ -145,11 +155,11 @@ class TeacherApplication {
       countryOfOrigin: data['country_of_origin'] ?? '',
       countryOfResidence: data['country_of_residence'] ?? '',
       additionalInfo: data['additional_info'] ?? data['additionalInfo'],
-      submittedAt: (data['submitted_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      submittedAt: _parseDateTime(submittedAtRaw) ?? DateTime.now(),
       status: data['status'] ?? 'pending',
       reviewNotes: data['review_notes'] ?? data['reviewNotes'],
       reviewedBy: data['reviewed_by'] ?? data['reviewedBy'],
-      reviewedAt: (data['reviewed_at'] as Timestamp?)?.toDate(),
+      reviewedAt: _parseDateTime(reviewedAtRaw),
     );
   }
 

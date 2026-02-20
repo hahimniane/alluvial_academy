@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'enhanced_recurrence.dart';
 import '../enums/shift_enums.dart';
 
@@ -91,6 +92,12 @@ class TeachingShift {
   final String? livekitRoomName; // e.g., "shift_<shiftId>"
   final DateTime? livekitLastTokenIssuedAt;
 
+  // PERFORMANCE OPTIMIZATION: Pre-calculated UI fields (calculated once during parsing)
+  // These avoid recalculating on every build() call (60fps)
+  late final String uiStudentNames; // Formatted student names for display
+  late final String uiStudentNamesAbbreviated; // First name + last initial (for monthly view)
+  late final Color uiStatusColor; // Status color for calendar cards
+
   TeachingShift({
     required this.id,
     required this.teacherId,
@@ -150,7 +157,64 @@ class TeachingShift {
     this.videoProvider = VideoProvider.livekit,
     this.livekitRoomName,
     this.livekitLastTokenIssuedAt,
-  });
+  }) {
+    // PERFORMANCE OPTIMIZATION: Pre-calculate UI strings once during construction
+    // This avoids recalculating on every build() call (60fps)
+    uiStudentNames = _generateStudentNamesString(studentNames);
+    uiStudentNamesAbbreviated = _generateAbbreviatedNamesString(studentNames);
+    uiStatusColor = _generateStatusColor(status, clockInTime, shiftStart, shiftEnd);
+  }
+  
+  /// Generate formatted student names string (calculated once)
+  String _generateStudentNamesString(List<String> names) {
+    if (names.isEmpty) return 'No students';
+    if (names.length == 1) return names[0];
+    if (names.length <= 3) return names.join(', ');
+    return '${names.take(2).join(', ')} +${names.length - 2}';
+  }
+  
+  /// Generate abbreviated names (first name + last initial) for monthly view
+  String _generateAbbreviatedNamesString(List<String> names) {
+    if (names.isEmpty) return 'No students';
+    
+    final abbreviated = names.map((fullName) {
+      final parts = fullName.trim().split(' ');
+      if (parts.isEmpty) return fullName;
+      if (parts.length == 1) return parts[0]; // Only one name, return as is
+      // First name + last initial
+      final firstName = parts[0];
+      final lastInitial = parts.last[0].toUpperCase();
+      return '$firstName $lastInitial.';
+    }).toList();
+    
+    if (abbreviated.length == 1) return abbreviated[0];
+    if (abbreviated.length <= 3) return abbreviated.join(', ');
+    return '${abbreviated.take(2).join(', ')} +${abbreviated.length - 2}';
+  }
+  
+  /// Generate status color (calculated once)
+  /// Note: This is calculated at construction time, so it's static based on initial state
+  /// For real-time updates (e.g., clock-in during shift), the UI should check isClockedIn property
+  Color _generateStatusColor(ShiftStatus status, DateTime? clockInTime, DateTime shiftStart, DateTime shiftEnd) {
+    // Standard status colors (calculated once at construction)
+    // Real-time status (like active clock-in) should be checked via isClockedIn property
+    switch (status) {
+      case ShiftStatus.scheduled:
+        return const Color(0xffF59E0B); // amber
+      case ShiftStatus.active:
+        return const Color(0xff10B981); // green
+      case ShiftStatus.partiallyCompleted:
+        return const Color(0xffF97316); // orange
+      case ShiftStatus.fullyCompleted:
+        return const Color(0xff6366F1); // indigo
+      case ShiftStatus.completed:
+        return const Color(0xff6366F1); // indigo
+      case ShiftStatus.missed:
+        return const Color(0xffEF4444); // red
+      case ShiftStatus.cancelled:
+        return const Color(0xff9CA3AF); // gray
+    }
+  }
 
   // Legacy - Zoom support removed. Kept for backward compatibility.
   @Deprecated('Zoom support has been removed. All shifts use LiveKit.')
@@ -622,7 +686,13 @@ class TeachingShift {
       livekitLastTokenIssuedAt: data['livekit_last_token_issued_at'] != null
           ? (data['livekit_last_token_issued_at'] as Timestamp).toDate()
           : null,
-    );
+    ).._initializeUICache(); // Initialize pre-calculated UI fields
+  }
+  
+  /// Initialize pre-calculated UI cache after construction
+  void _initializeUICache() {
+    // These are already set in constructor, but ensure they're initialized
+    // This method is called after fromFirestore to ensure cache is set
   }
 
   // Create a copy with updated fields

@@ -168,14 +168,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
       
       // Allow teachers to update enrollments when accepting a job (setting matched status)
+      // OR when withdrawing from a job (resetting to broadcasted)
       allow update: if isAdmin() || (
         isSignedIn() &&
         // Only allow updating metadata fields related to job matching
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['metadata']) &&
-        // Ensure metadata.status is being set to 'matched'
-        request.resource.data.metadata.status == 'matched' &&
-        // Ensure metadata.matchedTeacherId is set to the current user
-        request.resource.data.metadata.matchedTeacherId == request.auth.uid
+        (
+          // Case 1: Accepting a job (setting status to 'matched')
+          (
+            request.resource.data.metadata.status == 'matched' &&
+            request.resource.data.metadata.matchedTeacherId == request.auth.uid
+          ) ||
+          // Case 2: Withdrawing from a job (resetting status to 'broadcasted')
+          (
+            request.resource.data.metadata.status == 'broadcasted' &&
+            resource.data.metadata.matchedTeacherId == request.auth.uid &&
+            request.resource.data.metadata.matchedTeacherId == null
+          )
+        )
       );
     }
     
@@ -596,7 +606,7 @@ service cloud.firestore {
     }
 
     
-    // Job Board - authenticated users can read jobs, teachers can accept them
+    // Job Board - authenticated users can read jobs, teachers can accept/withdraw from them
 
     match /job_board/{jobId} {
 
@@ -608,7 +618,7 @@ service cloud.firestore {
 
       allow create, delete: if isAdmin();
 
-      // Allow teachers to accept jobs (update status to 'accepted' with their teacherId)
+      // Allow teachers to accept jobs (open -> accepted) OR withdraw from jobs (accepted -> open)
 
       allow update: if isSignedIn() && (
 
@@ -616,21 +626,21 @@ service cloud.firestore {
 
         (
 
-          // Job must be currently open
-
-          resource.data.status == 'open' &&
-
-          // Status must be changed to 'accepted'
-
-          request.resource.data.status == 'accepted' &&
-
-          // Teacher ID must be set to the current user
-
-          request.resource.data.acceptedByTeacherId == request.auth.uid &&
-
-          // Enrollment ID must remain unchanged
-
-          request.resource.data.enrollmentId == resource.data.enrollmentId
+          // Case 1: Accepting a job (open -> accepted)
+          (
+            resource.data.status == 'open' &&
+            request.resource.data.status == 'accepted' &&
+            request.resource.data.acceptedByTeacherId == request.auth.uid &&
+            request.resource.data.enrollmentId == resource.data.enrollmentId
+          ) ||
+          // Case 2: Withdrawing from a job (accepted -> open)
+          (
+            resource.data.status == 'accepted' &&
+            resource.data.acceptedByTeacherId == request.auth.uid &&
+            request.resource.data.status == 'open' &&
+            request.resource.data.acceptedByTeacherId == null &&
+            request.resource.data.enrollmentId == resource.data.enrollmentId
+          )
 
         )
 

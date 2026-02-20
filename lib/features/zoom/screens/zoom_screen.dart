@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/models/employee_model.dart';
 import '../../../core/models/teaching_shift.dart';
@@ -619,6 +620,146 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
     subjectController.dispose();
   }
 
+  // FIX: Group classes by date for better organization
+  List<Widget> _buildGroupedClasses(
+    List<TeachingShift> shifts, {
+    required bool isStudent,
+    required bool isAdmin,
+  }) {
+    if (shifts.isEmpty) return [];
+
+    final now = DateTime.now();
+    final nowUtc = now.toUtc();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final nextWeek = today.add(const Duration(days: 7));
+
+    // FIX: Filter out classes that have already passed (ended)
+    final futureShifts = shifts.where((shift) {
+      // Only include shifts that haven't ended yet (with 10 minute grace period for join window)
+      return shift.shiftEnd.toUtc().add(const Duration(minutes: 10)).isAfter(nowUtc);
+    }).toList();
+
+    if (futureShifts.isEmpty) return [];
+
+    // Group shifts by date
+    final todayShifts = <TeachingShift>[];
+    final tomorrowShifts = <TeachingShift>[];
+    final thisWeekShifts = <TeachingShift>[];
+    final laterShifts = <TeachingShift>[];
+
+    for (final shift in futureShifts) {
+      final shiftDate = DateTime(
+        shift.shiftStart.year,
+        shift.shiftStart.month,
+        shift.shiftStart.day,
+      );
+
+      if (shiftDate == today) {
+        todayShifts.add(shift);
+      } else if (shiftDate == tomorrow) {
+        tomorrowShifts.add(shift);
+      } else if (shiftDate.isBefore(nextWeek)) {
+        thisWeekShifts.add(shift);
+      } else {
+        laterShifts.add(shift);
+      }
+    }
+
+    final widgets = <Widget>[];
+
+    // Today's classes
+    if (todayShifts.isNotEmpty) {
+      widgets.add(
+        _buildDateSection(
+          'Today',
+          todayShifts,
+          isStudent: isStudent,
+          isAdmin: isAdmin,
+        ),
+      );
+    }
+
+    // Tomorrow's classes
+    if (tomorrowShifts.isNotEmpty) {
+      widgets.add(
+        _buildDateSection(
+          'Tomorrow',
+          tomorrowShifts,
+          isStudent: isStudent,
+          isAdmin: isAdmin,
+        ),
+      );
+    }
+
+    // This week's classes
+    if (thisWeekShifts.isNotEmpty) {
+      widgets.add(
+        _buildDateSection(
+          'This Week',
+          thisWeekShifts,
+          isStudent: isStudent,
+          isAdmin: isAdmin,
+        ),
+      );
+    }
+
+    // Later classes
+    if (laterShifts.isNotEmpty) {
+      widgets.add(
+        _buildDateSection(
+          'Upcoming',
+          laterShifts,
+          isStudent: isStudent,
+          isAdmin: isAdmin,
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  Widget _buildDateSection(
+    String title,
+    List<TeachingShift> shifts, {
+    required bool isStudent,
+    required bool isAdmin,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 4),
+          child: Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ),
+        ...shifts.map(
+          (shift) => Padding(
+            padding: const EdgeInsets.only(bottom: 8), // Reduced from 12
+            child: _ZoomShiftCard(
+              shift: shift,
+              isTeacher: !isStudent,
+              liveKitPresenceFuture: isAdmin &&
+                      shift.usesLiveKit &&
+                      VideoCallService.canJoinClass(shift)
+                  ? _getLiveKitPresence(shift.id)
+                  : null,
+              onRefreshLiveKitPresence: isAdmin
+                  ? () => _refreshLiveKitPresence(shift.id)
+                  : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -659,13 +800,12 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
 
                 final allShifts = snapshot.data ?? const <TeachingShift>[];
                 final nowUtc = DateTime.now().toUtc();
-                final fromUtc = nowUtc.subtract(_historyLookback);
                 final toUtc = nowUtc.add(_futureLookahead);
 
-                // Only filter by time window. We still show Zoom shifts even if a meeting
-                // hasn't been created yet, so teachers can see their schedule.
+                // FIX: Only show future classes - hide classes that have already passed
+                // We still show Zoom shifts even if a meeting hasn't been created yet, so teachers can see their schedule.
                 final windowShifts = allShifts
-                    .where((s) => s.shiftEnd.toUtc().isAfter(fromUtc))
+                    .where((s) => s.shiftEnd.toUtc().isAfter(nowUtc)) // Only show if class hasn't ended yet
                     .where((s) => s.shiftStart.toUtc().isBefore(toUtc))
                     .toList();
 
@@ -892,22 +1032,11 @@ class _ZoomScreenState extends State<ZoomScreen> with WidgetsBindingObserver {
                     ],
                     const _HeaderCard(),
                     const SizedBox(height: 12),
-                    ...zoomShifts.map(
-                      (shift) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _ZoomShiftCard(
-                          shift: shift, 
-                          isTeacher: !isStudent,
-                          liveKitPresenceFuture: isAdmin &&
-                                  shift.usesLiveKit &&
-                                  VideoCallService.canJoinClass(shift)
-                              ? _getLiveKitPresence(shift.id)
-                              : null,
-                          onRefreshLiveKitPresence: isAdmin
-                              ? () => _refreshLiveKitPresence(shift.id)
-                              : null,
-                        ),
-                      ),
+                    // FIX: Group classes by date for better organization
+                    ..._buildGroupedClasses(
+                      zoomShifts,
+                      isStudent: isStudent,
+                      isAdmin: isAdmin,
                     ),
                     SizedBox(height: MediaQuery.of(context).padding.bottom),
                   ],
@@ -1019,7 +1148,26 @@ class _ZoomShiftCard extends StatelessWidget {
     final canJoin = hasVideoCall && withinJoinWindow;
 
     final localizations = MaterialLocalizations.of(context);
-    final startDateText = localizations.formatShortDate(shift.shiftStart);
+    // FIX: Use shorter date format to prevent overflow
+    final now = DateTime.now();
+    final shiftStart = shift.shiftStart;
+    final isToday = shiftStart.day == now.day &&
+        shiftStart.month == now.month &&
+        shiftStart.year == now.year;
+    final isTomorrow = shiftStart.day == now.day + 1 &&
+        shiftStart.month == now.month &&
+        shiftStart.year == now.year;
+    
+    String startDateText;
+    if (isToday) {
+      startDateText = 'Today';
+    } else if (isTomorrow) {
+      startDateText = 'Tomorrow';
+    } else {
+      // Use shorter format: "Jan 27" instead of "Jan 27, 2026"
+      startDateText = DateFormat('MMM d').format(shiftStart);
+    }
+    
     final startTimeText =
         TimeOfDay.fromDateTime(shift.shiftStart).format(context);
     final endTimeText = TimeOfDay.fromDateTime(shift.shiftEnd).format(context);
@@ -1034,15 +1182,15 @@ class _ZoomShiftCard extends StatelessWidget {
                 : l10n.classEnded;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // Reduced from 16 for more compact cards
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12), // Slightly smaller radius
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8, // Reduced blur
+            offset: const Offset(0, 2), // Reduced offset
           ),
         ],
         border: Border.all(color: const Color(0xFFE2E8F0)),
@@ -1051,8 +1199,8 @@ class _ZoomShiftCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36, // Reduced from 40
+            height: 36, // Reduced from 40
             decoration: BoxDecoration(
               color: (canJoin
                       ? const Color(0xFF10B981)
@@ -1060,7 +1208,7 @@ class _ZoomShiftCard extends StatelessWidget {
                           ? const Color(0xFFF59E0B)
                           : const Color(0xFF94A3B8))
                   .withAlpha(31),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10), // Slightly smaller
             ),
             child: Icon(
               canJoin
@@ -1073,10 +1221,10 @@ class _ZoomShiftCard extends StatelessWidget {
                   : (!hasVideoCall && !hasEnded)
                       ? const Color(0xFFB45309)
                       : const Color(0xFF64748B),
-              size: 22,
+              size: 20, // Reduced from 22
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10), // Reduced from 12
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1085,21 +1233,26 @@ class _ZoomShiftCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        shift.displayName,
+                        // FIX: Show only student names (as user requested)
+                        shift.studentNames.isEmpty
+                            ? 'No students'
+                            : shift.studentNames.length == 1
+                                ? shift.studentNames[0]
+                                : shift.studentNames.length <= 3
+                                    ? shift.studentNames.join(', ')
+                                    : '${shift.studentNames.take(2).join(', ')} +${shift.studentNames.length - 2}',
                         style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 13, // Smaller font for compact display
+                          fontWeight: FontWeight.w600, // Reduced from w700
                           color: const Color(0xFF1E293B),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     // Show LiveKit badge if using beta provider
                     if (shift.usesLiveKit) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6), // Reduced spacing
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), // Smaller padding
                         decoration: BoxDecoration(
                           color: const Color(0xFF8B5CF6).withAlpha(26),
                           borderRadius: BorderRadius.circular(4),
@@ -1110,7 +1263,7 @@ class _ZoomShiftCard extends StatelessWidget {
                         child: Text(
                           AppLocalizations.of(context)!.beta,
                           style: GoogleFonts.inter(
-                            fontSize: 10,
+                            fontSize: 9, // Smaller font
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF7C3AED),
                           ),
@@ -1119,11 +1272,12 @@ class _ZoomShiftCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3), // Reduced spacing
+                // FIX: Make date/time text smaller and wrap properly
                 Text(
                   '$startDateText $startTimeText – $endTimeText',
                   style: GoogleFonts.inter(
-                    fontSize: 13,
+                    fontSize: 10, // Even smaller for compact display
                     color: const Color(0xFF64748B),
                   ),
                 ),
@@ -1263,62 +1417,75 @@ class _ZoomShiftCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: AppLocalizations.of(context)!.copyClassLink,
-                onPressed: () => VideoCallService.copyJoinLink(context, shift),
-                icon: const Icon(Icons.link),
-                color: const Color(0xFF0E72ED),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  onPressed: canJoin
-                      ? () => VideoCallService.joinClass(
-                            context,
-                            shift,
-                            isTeacher: isTeacher,
-                          )
-                      : (!hasVideoCall && withinJoinWindow && !hasEnded)
-                          ? () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    AppLocalizations.of(context)!.thisClassDoesNotHaveA,
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
+          const SizedBox(width: 8), // Reduced spacing
+          // FIX: Make button row flexible and smaller on mobile
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: AppLocalizations.of(context)?.copyClassLink ?? 'Copy class link',
+                  onPressed: () => VideoCallService.copyJoinLink(context, shift),
+                  icon: const Icon(Icons.link, size: 18), // Smaller icon
+                  color: const Color(0xFF0E72ED),
+                  padding: EdgeInsets.zero, // Remove padding
+                  constraints: const BoxConstraints(), // Remove constraints
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: SizedBox(
+                    height: 36, // Smaller button height
+                    child: ElevatedButton.icon(
+                      onPressed: canJoin
+                          ? () => VideoCallService.joinClass(
+                                context,
+                                shift,
+                                isTeacher: isTeacher,
+                              )
+                          : (!hasVideoCall && withinJoinWindow && !hasEnded)
+                              ? () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        AppLocalizations.of(context)?.thisClassDoesNotHaveA ?? 'This class does not have a meeting configured yet.',
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
                                     ),
-                                  ),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          : null,
-                  icon: Icon(
-                    VideoCallService.getProviderIcon(shift.videoProvider),
-                    size: 18,
-                  ),
-                  label: Text(
-                    buttonLabel,
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: canJoin
-                        ? const Color(0xFF0E72ED)
-                        : const Color(0xFF94A3B8),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                                  );
+                                }
+                              : null,
+                      icon: Icon(
+                        VideoCallService.getProviderIcon(shift.videoProvider),
+                        size: 16, // Smaller icon
+                      ),
+                      label: Text(
+                        buttonLabel,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12, // Smaller font
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canJoin
+                            ? const Color(0xFF0E72ED)
+                            : const Color(0xFF94A3B8),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // Smaller padding
+                        minimumSize: Size.zero, // Allow button to shrink
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

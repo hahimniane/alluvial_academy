@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -6,6 +7,80 @@ import 'package:timezone/timezone.dart' as tz;
 import '../enums/shift_enums.dart';
 import '../utils/timezone_utils.dart';
 import '../utils/weekday_localization.dart';
+
+/// Time slot for a specific weekday (allows different times per day)
+class WeekdayTimeSlot {
+  final WeekDay weekday;
+  final int startHour;
+  final int startMinute;
+  final int endHour;
+  final int endMinute;
+
+  const WeekdayTimeSlot({
+    required this.weekday,
+    required this.startHour,
+    required this.startMinute,
+    required this.endHour,
+    required this.endMinute,
+  });
+
+  TimeOfDay get startTime => TimeOfDay(hour: startHour, minute: startMinute);
+  TimeOfDay get endTime => TimeOfDay(hour: endHour, minute: endMinute);
+
+  Map<String, dynamic> toFirestore() => {
+    'weekday': weekday.value,
+    'start_hour': startHour,
+    'start_minute': startMinute,
+    'end_hour': endHour,
+    'end_minute': endMinute,
+  };
+
+  factory WeekdayTimeSlot.fromFirestore(Map<String, dynamic> data) {
+    return WeekdayTimeSlot(
+      weekday: WeekDay.values.firstWhere((d) => d.value == data['weekday']),
+      startHour: data['start_hour'] as int,
+      startMinute: data['start_minute'] as int,
+      endHour: data['end_hour'] as int,
+      endMinute: data['end_minute'] as int,
+    );
+  }
+
+  WeekdayTimeSlot copyWith({
+    WeekDay? weekday,
+    int? startHour,
+    int? startMinute,
+    int? endHour,
+    int? endMinute,
+  }) {
+    return WeekdayTimeSlot(
+      weekday: weekday ?? this.weekday,
+      startHour: startHour ?? this.startHour,
+      startMinute: startMinute ?? this.startMinute,
+      endHour: endHour ?? this.endHour,
+      endMinute: endMinute ?? this.endMinute,
+    );
+  }
+
+  String formatTimeRange() {
+    final start = '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+    final end = '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}';
+    return '$start - $end';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is WeekdayTimeSlot &&
+        other.weekday == weekday &&
+        other.startHour == startHour &&
+        other.startMinute == startMinute &&
+        other.endHour == endHour &&
+        other.endMinute == endMinute;
+  }
+
+  @override
+  int get hashCode => Object.hash(weekday, startHour, startMinute, endHour, endMinute);
+}
 
 /// Enhanced recurrence configuration
 class EnhancedRecurrence {
@@ -20,6 +95,10 @@ class EnhancedRecurrence {
   // Weekly recurrence settings
   final List<WeekDay> selectedWeekdays; // Which days of the week to repeat
 
+  // Per-day time slots (allows different times per day in weekly recurrence)
+  final List<WeekdayTimeSlot> weekdayTimeSlots;
+  final bool useDifferentTimesPerDay; // Flag to enable per-day time slots
+
   // Monthly recurrence settings
   final List<int> selectedMonthDays; // Which days of the month (1-31)
 
@@ -32,6 +111,8 @@ class EnhancedRecurrence {
     this.excludedDates = const [],
     this.excludedWeekdays = const [],
     this.selectedWeekdays = const [],
+    this.weekdayTimeSlots = const [],
+    this.useDifferentTimesPerDay = false,
     this.selectedMonthDays = const [],
     this.selectedMonths = const [],
   });
@@ -171,6 +252,16 @@ class EnhancedRecurrence {
     return DateFormat.MMM(l10n.localeName).format(date);
   }
 
+  /// Get the time slot for a specific weekday (if per-day times are enabled)
+  WeekdayTimeSlot? getTimeSlotForDay(WeekDay day) {
+    if (!useDifferentTimesPerDay || weekdayTimeSlots.isEmpty) return null;
+    try {
+      return weekdayTimeSlots.firstWhere((slot) => slot.weekday == day);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Convert to Firestore document
   Map<String, dynamic> toFirestore() {
     return {
@@ -180,6 +271,8 @@ class EnhancedRecurrence {
           excludedDates.map((date) => Timestamp.fromDate(date)).toList(),
       'excludedWeekdays': excludedWeekdays.map((day) => day.value).toList(),
       'selectedWeekdays': selectedWeekdays.map((day) => day.value).toList(),
+      'weekdayTimeSlots': weekdayTimeSlots.map((slot) => slot.toFirestore()).toList(),
+      'useDifferentTimesPerDay': useDifferentTimesPerDay,
       'selectedMonthDays': selectedMonthDays,
       'selectedMonths': selectedMonths,
     };
@@ -209,6 +302,10 @@ class EnhancedRecurrence {
           .map(
               (value) => WeekDay.values.firstWhere((day) => day.value == value))
           .toList(),
+      weekdayTimeSlots: (data['weekdayTimeSlots'] as List<dynamic>? ?? [])
+          .map((slot) => WeekdayTimeSlot.fromFirestore(Map<String, dynamic>.from(slot)))
+          .toList(),
+      useDifferentTimesPerDay: data['useDifferentTimesPerDay'] as bool? ?? false,
       selectedMonthDays:
           (data['selectedMonthDays'] as List<dynamic>? ?? []).cast<int>(),
       selectedMonths:
@@ -223,6 +320,8 @@ class EnhancedRecurrence {
     List<DateTime>? excludedDates,
     List<WeekDay>? excludedWeekdays,
     List<WeekDay>? selectedWeekdays,
+    List<WeekdayTimeSlot>? weekdayTimeSlots,
+    bool? useDifferentTimesPerDay,
     List<int>? selectedMonthDays,
     List<int>? selectedMonths,
   }) {
@@ -232,6 +331,8 @@ class EnhancedRecurrence {
       excludedDates: excludedDates ?? this.excludedDates,
       excludedWeekdays: excludedWeekdays ?? this.excludedWeekdays,
       selectedWeekdays: selectedWeekdays ?? this.selectedWeekdays,
+      weekdayTimeSlots: weekdayTimeSlots ?? this.weekdayTimeSlots,
+      useDifferentTimesPerDay: useDifferentTimesPerDay ?? this.useDifferentTimesPerDay,
       selectedMonthDays: selectedMonthDays ?? this.selectedMonthDays,
       selectedMonths: selectedMonths ?? this.selectedMonths,
     );
@@ -366,6 +467,8 @@ class EnhancedRecurrence {
         _listEquals(other.excludedDates, excludedDates) &&
         _listEquals(other.excludedWeekdays, excludedWeekdays) &&
         _listEquals(other.selectedWeekdays, selectedWeekdays) &&
+        _listEquals(other.weekdayTimeSlots, weekdayTimeSlots) &&
+        other.useDifferentTimesPerDay == useDifferentTimesPerDay &&
         _listEquals(other.selectedMonthDays, selectedMonthDays) &&
         _listEquals(other.selectedMonths, selectedMonths);
   }
@@ -386,6 +489,8 @@ class EnhancedRecurrence {
       Object.hashAll(excludedDates),
       Object.hashAll(excludedWeekdays),
       Object.hashAll(selectedWeekdays),
+      Object.hashAll(weekdayTimeSlots),
+      useDifferentTimesPerDay,
       Object.hashAll(selectedMonthDays),
       Object.hashAll(selectedMonths),
     );

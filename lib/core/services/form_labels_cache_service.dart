@@ -138,22 +138,16 @@ class FormLabelsCacheService {
           .get();
       
       if (templateDoc.exists) {
-        final templateData = templateDoc.data() as Map<String, dynamic>?;
-        final labels = <String, String>{};
-        
-        if (templateData != null) {
-          final fieldsList = templateData['fields'] as List<dynamic>? ?? [];
-          
-          for (var field in fieldsList) {
-            if (field is Map) {
-              final id = field['id']?.toString() ?? '';
-              final label = field['label']?.toString() ?? '';
-              if (id.isNotEmpty && label.isNotEmpty) {
-                labels[id] = label;
-              }
-            }
+        final raw = templateDoc.data();
+        if (raw is! Map<String, dynamic>) {
+          if (raw != null) {
+            debugPrint('❌ Template $templateId: data is ${raw.runtimeType}, expected Map');
           }
-          
+        } else {
+          final templateData = raw;
+          final labels = <String, String>{};
+          final fields = templateData['fields'];
+          _extractLabelsFromFields(fields, labels);
           if (labels.isNotEmpty) {
             _labelsCache[cacheKey] = labels;
             debugPrint('✅ Cached ${labels.length} labels for template $templateId');
@@ -161,8 +155,9 @@ class FormLabelsCacheService {
           }
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('❌ Error fetching template $templateId: $e');
+      debugPrint('$stack');
     } finally {
       _loadingTemplateIds.remove(templateId);
     }
@@ -172,6 +167,7 @@ class FormLabelsCacheService {
 
   /// Extract labels from fields (supports both Map and List formats)
   void _extractLabelsFromFields(dynamic fields, Map<String, String> labels) {
+    if (fields == null) return;
     if (fields is Map) {
       // Fields is a Map: { "fieldId": { "label": "...", "type": "..." } }
       fields.forEach((fieldId, fieldData) {

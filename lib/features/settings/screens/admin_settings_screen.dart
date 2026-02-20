@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/build_info.dart';
 import '../../../core/services/mobile_classes_access_service.dart';
@@ -36,13 +37,52 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _checkAccessAndLoad() async {
+  Future<void> _checkAccessAndLoad({int retryCount = 0}) async {
+    const maxRetries = 15;
+    const retryDelay = Duration(milliseconds: 600);
+    const initialDelay = Duration(milliseconds: 400);
+
     try {
+      // Give dashboard/listener time to prime role cache on first run.
+      if (retryCount == 0) {
+        await Future.delayed(initialDelay);
+        if (!mounted) return;
+      }
+
       final role = await UserRoleService.getCurrentUserRole();
+      final availableRoles = await UserRoleService.getAvailableRoles();
       final lower = role?.toLowerCase();
-      final isAdmin = lower == 'admin' || lower == 'super_admin';
+      final isAdminByRole = lower == 'admin' || lower == 'super_admin';
+      final hasAdminAvailable = availableRoles
+          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final isAdmin = isAdminByRole || hasAdminAvailable;
 
       if (!mounted) return;
+
+      // Role/data may not be loaded yet (e.g. just after login or dual admin+teacher). Retry before showing Access Restricted.
+      if (role == null &&
+          availableRoles.isEmpty &&
+          FirebaseAuth.instance.currentUser != null &&
+          retryCount < maxRetries) {
+        await Future.delayed(retryDelay);
+        if (mounted) _checkAccessAndLoad(retryCount: retryCount + 1);
+        return;
+      }
+
+      // Before showing Access Restricted, force one fresh read (bypass cache) in case cache was stale.
+      if (!isAdmin && role == null && availableRoles.isEmpty) {
+        UserRoleService.clearCache();
+        final freshRole = await UserRoleService.getCurrentUserRole();
+        final freshRoles = await UserRoleService.getAvailableRoles();
+        final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
+            freshRole?.toLowerCase() == 'super_admin' ||
+            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+        if (freshAdmin && mounted) {
+          setState(() => _hasAccess = true);
+          await _loadSettings();
+          return;
+        }
+      }
 
       if (!isAdmin) {
         setState(() {

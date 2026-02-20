@@ -1164,7 +1164,7 @@ class _MultipleTaskCreationDialogState extends State<MultipleTaskCreationDialog>
                       ),
                       if (isRequired)
                         Text(
-                          AppLocalizations.of(context)!.text,
+                          AppLocalizations.of(context)!.commonRequired,
                           style: TextStyle(
                             color: Colors.red,
                             fontSize: 12,

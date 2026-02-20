@@ -114,7 +114,39 @@ exports.endDirectCall = directCallHandlers.endDirectCall;
 exports.onEnrollmentCreated = enrollmentHandlers.onEnrollmentCreated;
 // Callable version - note: may have IAM issues on some projects
 exports.publishEnrollmentToJobBoard = onCall({ cors: true }, enrollmentHandlers.publishEnrollmentToJobBoard);
-exports.acceptJob = onCall({ cors: true }, jobHandlers.acceptJob);
+// Use v1 callables. When context.auth is null (e.g. App Check placeholder), we use idToken from the request body.
+exports.acceptJob = functions.https.onCall(async (data, context) => {
+  let auth = context.auth;
+  if (!auth && data && data.idToken) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(data.idToken);
+      auth = { uid: decoded.uid };
+    } catch (_) {}
+  }
+  return jobHandlers.acceptJob({ data: data || {}, auth });
+});
+exports.withdrawFromJob = functions.https.onCall(async (data, context) => {
+  let auth = context.auth;
+  const hasIdToken = !!(data && data.idToken);
+  console.log('[index] withdrawFromJob: context.auth=', !!auth, 'data.idToken present=', hasIdToken);
+  if (!auth && data && data.idToken) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(data.idToken);
+      auth = { uid: decoded.uid };
+      console.log('[index] withdrawFromJob: auth from idToken fallback, uid=', decoded.uid);
+    } catch (e) {
+      console.warn('[index] withdrawFromJob: idToken verify failed', e.code || e.message, e.message);
+    }
+  } else if (!auth) {
+    console.warn('[index] withdrawFromJob: no context.auth and no data.idToken - cannot authenticate');
+  }
+  return jobHandlers.withdrawFromJob({ data: data || {}, auth });
+});
+
+// Application management functions (Leader & Teacher)
+const applicationHandlers = require('./handlers/applications');
+exports.onLeadershipApplicationCreated = applicationHandlers.onLeadershipApplicationCreated;
+exports.onTeacherApplicationCreated = applicationHandlers.onTeacherApplicationCreated;
 
 exports.getLandingPageContent = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

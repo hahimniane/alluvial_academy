@@ -136,7 +136,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
 
             // Teacher info (read-only)
             _buildInfoRow(
-              'Teacher',
+              AppLocalizations.of(context)!.roleTeacher,
               widget.shift.teacherName ?? AppLocalizations.of(context)!.commonUnknown,
               Icons.person,
             ),
@@ -145,8 +145,8 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             // Subject/Category info (read-only)
             _buildInfoRow(
               widget.shift.category == ShiftCategory.teaching
-                  ? 'Subject'
-                  : 'Role',
+                  ? AppLocalizations.of(context)!.shiftSubject
+                  : AppLocalizations.of(context)!.userRole,
               widget.shift.subjectDisplayName ??
                   widget.shift.leaderRole ??
                   'N/A',
@@ -168,12 +168,12 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             Row(
               children: [
                 Expanded(
-                    child: _buildTimeSelector('Start', _startTime, (time) {
+                    child: _buildTimeSelector(AppLocalizations.of(context)!.shiftStartTime, _startTime, (time) {
                   setState(() => _startTime = time);
                 })),
                 const SizedBox(width: 12),
                 Expanded(
-                    child: _buildTimeSelector('End', _endTime, (time) {
+                    child: _buildTimeSelector(AppLocalizations.of(context)!.shiftEndTime, _endTime, (time) {
                   setState(() => _endTime = time);
                 })),
               ],
@@ -270,7 +270,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
         Icon(icon, size: 16, color: const Color(0xff9CA3AF)),
         const SizedBox(width: 8),
         Text(
-          AppLocalizations.of(context)!.label,
+          '$label: ',
           style: GoogleFonts.inter(
             fontSize: 12,
             color: const Color(0xff6B7280),
@@ -434,7 +434,7 @@ class _QuickEditShiftPopupState extends State<QuickEditShiftPopup> {
             Row(
               children: [
                 Text(
-                  AppLocalizations.of(context)!.label,
+                  '$label: ',
                   style: GoogleFonts.inter(
                       fontSize: 12, color: const Color(0xff6B7280)),
                 ),

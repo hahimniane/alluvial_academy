@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'user_selection_dialog.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
+/// Compact horizontal filter bar — replaces the old wide vertical sidebar.
+/// Drops into any Column as a single row with 30px-tall chips.
 class FilterPanel extends StatefulWidget {
   final TextEditingController searchController;
   final String selectedFormId;
@@ -41,353 +43,349 @@ class FilterPanel extends StatefulWidget {
 }
 
 class _FilterPanelState extends State<FilterPanel> {
-  bool _showFormFilter = true;
-  bool _showStatusFilter = true;
-  bool _showCreatorFilter = true;
-  bool _showDateFilter = true;
-  bool _showUserFilter = true;
-
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search
-          TextField(
-            controller: widget.searchController,
-            decoration: InputDecoration(
-              hintText: AppLocalizations.of(context)!.searchByNameOrEmail,
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
+    final l10n = AppLocalizations.of(context)!;
+    final hasDate = widget.startDate != null && widget.endDate != null;
+    final hasUsers = widget.selectedUserIds.isNotEmpty;
+    final hasForm = widget.selectedFormId.isNotEmpty;
 
-          // Form filter
-          _buildFilterSection(
-            title: AppLocalizations.of(context)!.form,
-            isExpanded: _showFormFilter,
-            onToggle: () => setState(() => _showFormFilter = !_showFormFilter),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xffE2E8F0)),
-              ),
-              child: DropdownButton<String>(
-                value: widget.selectedFormId.isEmpty
-                    ? null
-                    : widget.selectedFormId,
-                hint: Text(AppLocalizations.of(context)!.allForms),
-                isExpanded: true,
-                underline: const SizedBox(),
-                items: [
-                  DropdownMenuItem(
-                    value: '',
-                    child: Text(AppLocalizations.of(context)!.allForms),
-                  ),
-                  ...widget.formTemplates.entries.map(
-                    (entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(
-                        entry.value['title'] ?? 'Untitled Form',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ],
-                onChanged: (value) => widget.onFormSelected(value ?? ''),
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
+    final templateData = widget.formTemplates[widget.selectedFormId]?.data() as Map<String, dynamic>?;
+    final selectedFormTitle = templateData?['title']?.toString() ?? l10n.allForms;
 
-          // Status filter
-          _buildFilterSection(
-            title: AppLocalizations.of(context)!.userStatus,
-            isExpanded: _showStatusFilter,
-            onToggle: () =>
-                setState(() => _showStatusFilter = !_showStatusFilter),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xffE2E8F0)),
-              ),
-              child: DropdownButton<String>(
-                value: widget.selectedStatus,
-                isExpanded: true,
-                underline: const SizedBox(),
-                items: [
-                  DropdownMenuItem(value: 'All', child: Text(AppLocalizations.of(context)!.allStatus)),
-                  DropdownMenuItem(
-                      value: 'Completed', child: Text(AppLocalizations.of(context)!.formCompleted)),
-                  DropdownMenuItem(value: 'Draft', child: Text(AppLocalizations.of(context)!.timesheetDraft)),
-                  DropdownMenuItem(value: 'Pending', child: Text(AppLocalizations.of(context)!.timesheetPending)),
-                ],
-                onChanged: (value) => widget.onStatusSelected(value ?? 'All'),
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
+    // Active filter count badge
+    int activeFilters = 0;
+    if (widget.selectedFormId.isNotEmpty) activeFilters++;
+    if (widget.selectedStatus != 'All') activeFilters++;
+    if (widget.selectedCreator != 'All') activeFilters++;
+    if (hasDate) activeFilters++;
+    if (hasUsers) activeFilters++;
 
-          // Creator filter
-          _buildFilterSection(
-            title: AppLocalizations.of(context)!.createdBy,
-            isExpanded: _showCreatorFilter,
-            onToggle: () =>
-                setState(() => _showCreatorFilter = !_showCreatorFilter),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xffE2E8F0)),
-              ),
-              child: DropdownButton<String>(
-                value: widget.selectedCreator,
-                isExpanded: true,
-                underline: const SizedBox(),
-                items: [
-                  DropdownMenuItem(value: 'All', child: Text(AppLocalizations.of(context)!.allForms)),
-                  DropdownMenuItem(
-                      value: 'Admin', child: Text(AppLocalizations.of(context)!.adminCreated)),
-                  DropdownMenuItem(value: 'Self', child: Text(AppLocalizations.of(context)!.createdByMe)),
-                ],
-                onChanged: (value) => widget.onCreatorSelected(value ?? 'All'),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Date range
-          _buildFilterSection(
-            title: AppLocalizations.of(context)!.dateRange,
-            isExpanded: _showDateFilter,
-            onToggle: () => setState(() => _showDateFilter = !_showDateFilter),
-            child: Material(
-              elevation: 0,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: widget.startDate != null && widget.endDate != null
-                        ? const Color(0xff0386FF)
-                        : const Color(0xffE2E8F0),
-                    width: widget.startDate != null && widget.endDate != null
-                        ? 2
-                        : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: widget.startDate != null && widget.endDate != null
-                      ? const Color(0xff0386FF).withOpacity(0.05)
-                      : Colors.white,
-                ),
-                child: InkWell(
-                  onTap: () async {
-                    final now = DateTime.now();
-                    final currentMonthStart = DateTime(now.year, now.month, 1);
-                    final currentMonthEnd =
-                        DateTime(now.year, now.month + 1, 0);
-
-                    final result = await showDateRangePicker(
-                      context: context,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(now.year + 5),
-                      initialDateRange:
-                          widget.startDate != null && widget.endDate != null
-                              ? DateTimeRange(
-                                  start: widget.startDate!,
-                                  end: widget.endDate!)
-                              : DateTimeRange(
-                                  start: currentMonthStart,
-                                  end: currentMonthEnd,
-                                ),
-                      currentDate: now,
-                      helpText: AppLocalizations.of(context)!.selectDateRangeForFormResponses,
-                      cancelText: 'Cancel',
-                      confirmText: 'Apply Filter',
-                      saveText: 'Apply',
-                      builder: (context, child) {
-                        return Center(
-                          child: SingleChildScrollView(
-                            child: Container(
-                              constraints: const BoxConstraints(
-                                maxWidth: 400,
-                                maxHeight: 800,
-                              ),
-                              child: Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme:
-                                      Theme.of(context).colorScheme.copyWith(
-                                            primary: const Color(0xff0386FF),
-                                          ),
-                                ),
-                                child: child!,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xffF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xffE2E8F0))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // ── Form dropdown ─────────────────────────────────────────────
+            _CompactDropdown<String>(
+              icon: Icons.description_outlined,
+              label: hasForm ? selectedFormTitle : l10n.allForms,
+              isActive: hasForm,
+              items: [
+                DropdownMenuItem(value: '', child: Text(l10n.allForms)),
+                ...widget.formTemplates.entries.map(
+                  (e) {
+                    final data = e.value.data() as Map<String, dynamic>?;
+                    final title = data?['title']?.toString() ?? 'Untitled';
+                    return DropdownMenuItem(
+                      value: e.key,
+                      child: Text(title, overflow: TextOverflow.ellipsis),
                     );
-
-                    if (result != null) {
-                      widget.onDateRangeSelected(result.start, result.end);
-                    }
                   },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xff0386FF).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Color(0xff0386FF),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            widget.startDate != null && widget.endDate != null
-                                ? '${widget.startDate!.toLocal().toString().split(' ')[0]} - ${widget.endDate!.toLocal().toString().split(' ')[0]}'
-                                : AppLocalizations.of(context)!.selectDateRange,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: const Color(0xff374151),
-                            ),
-                          ),
-                        ),
-                        if (widget.startDate != null && widget.endDate != null)
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 16),
-                            onPressed: () =>
-                                widget.onDateRangeSelected(null, null),
-                            tooltip: AppLocalizations.of(context)!.clearDateRange,
-                            color: Colors.grey,
-                          ),
-                      ],
-                    ),
-                  ),
                 ),
-              ),
+              ],
+              value: widget.selectedFormId.isEmpty ? null : widget.selectedFormId,
+              onChanged: (v) => widget.onFormSelected(v ?? ''),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(width: 6),
 
-          // User selection
-          _buildFilterSection(
-            title: AppLocalizations.of(context)!.navUsers,
-            isExpanded: _showUserFilter,
-            onToggle: () => setState(() => _showUserFilter = !_showUserFilter),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: widget.selectedUserIds.isEmpty
-                      ? const Color(0xffE2E8F0)
-                      : const Color(0xff0386FF),
-                  width: widget.selectedUserIds.isEmpty ? 1 : 2,
+            // ── Status dropdown ────────────────────────────────────────────
+            _CompactDropdown<String>(
+              icon: Icons.circle_outlined,
+              label: widget.selectedStatus == 'All' ? l10n.allStatus : widget.selectedStatus,
+              isActive: widget.selectedStatus != 'All',
+              items: [
+                DropdownMenuItem(value: 'All', child: Text(l10n.allStatus)),
+                DropdownMenuItem(value: 'Completed', child: Text(l10n.formCompleted)),
+                DropdownMenuItem(value: 'Draft', child: Text(l10n.timesheetDraft)),
+                DropdownMenuItem(value: 'Pending', child: Text(l10n.timesheetPending)),
+              ],
+              value: widget.selectedStatus,
+              onChanged: (v) => widget.onStatusSelected(v ?? 'All'),
+            ),
+            const SizedBox(width: 6),
+
+            // ── Creator dropdown ───────────────────────────────────────────
+            _CompactDropdown<String>(
+              icon: Icons.person_outline,
+              label: widget.selectedCreator == 'All' ? l10n.createdBy : widget.selectedCreator,
+              isActive: widget.selectedCreator != 'All',
+              items: [
+                DropdownMenuItem(value: 'All', child: Text(l10n.allForms)),
+                DropdownMenuItem(value: 'Admin', child: Text(l10n.adminCreated)),
+                DropdownMenuItem(value: 'Self', child: Text(l10n.createdByMe)),
+              ],
+              value: widget.selectedCreator,
+              onChanged: (v) => widget.onCreatorSelected(v ?? 'All'),
+            ),
+            const SizedBox(width: 6),
+
+            // ── Date range button ──────────────────────────────────────────
+            _FilterChip(
+              icon: Icons.calendar_today_outlined,
+              label: hasDate
+                  ? '${_fmt(widget.startDate!)} – ${_fmt(widget.endDate!)}'
+                  : l10n.dateRange,
+              isActive: hasDate,
+              onTap: () => _pickDateRange(context),
+              onClear: hasDate ? () => widget.onDateRangeSelected(null, null) : null,
+            ),
+            const SizedBox(width: 6),
+
+            // ── Users button ───────────────────────────────────────────────
+            _FilterChip(
+              icon: Icons.group_outlined,
+              label: hasUsers ? '${widget.selectedUserIds.length} users' : l10n.navUsers,
+              isActive: hasUsers,
+              onTap: () => showDialog(
+                context: context,
+                builder: (_) => UserSelectionDialog(
+                  selectedUserIds: widget.selectedUserIds,
+                  onUsersSelected: widget.onUsersSelected,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => UserSelectionDialog(
-                          selectedUserIds: widget.selectedUserIds,
-                          onUsersSelected: widget.onUsersSelected,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.person_add),
-                    label: Text(AppLocalizations.of(context)!.selectUsers2),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xff0386FF),
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                    ),
-                  ),
-                  if (widget.selectedUserIds.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '${widget.selectedUserIds.length} users selected',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xff6B7280),
+              onClear: hasUsers ? () => widget.onUsersSelected([]) : null,
+            ),
+
+            // ── Active filters indicator / clear all ───────────────────────
+            if (activeFilters > 0) ...[
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () {
+                  widget.onFormSelected('');
+                  widget.onStatusSelected('All');
+                  widget.onCreatorSelected('All');
+                  widget.onDateRangeSelected(null, null);
+                  widget.onUsersSelected([]);
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: const BoxDecoration(
+                        color: Color(0xff0386FF),
+                        shape: BoxShape.circle,
                       ),
+                      child: Center(
+                        child: Text(
+                          '$activeFilters',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      l10n.adminSubmissionsClearFilters,
+                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff0386FF)),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFilterSection({
-    required String title,
-    required bool isExpanded,
-    required VoidCallback onToggle,
-    required Widget child,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: onToggle,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff374151),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  isExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 16,
-                  color: const Color(0xff6B7280),
-                ),
-              ],
+  Future<void> _pickDateRange(BuildContext context) async {
+    final now = DateTime.now();
+    final result = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 5),
+      initialDateRange: widget.startDate != null && widget.endDate != null
+          ? DateTimeRange(start: widget.startDate!, end: widget.endDate!)
+          : DateTimeRange(
+              start: DateTime(now.year, now.month, 1),
+              end: now,
             ),
+      currentDate: now,
+      helpText: AppLocalizations.of(context)!.selectDateRangeForFormResponses,
+      cancelText: 'Cancel',
+      confirmText: 'Apply',
+      builder: (context, child) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 700),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: Theme.of(context).colorScheme.copyWith(
+                    primary: const Color(0xff0386FF),
+                  ),
+            ),
+            child: child!,
           ),
         ),
-        if (isExpanded) ...[
-          const SizedBox(height: 8),
-          child,
-        ],
-      ],
+      ),
+    );
+    if (result != null) widget.onDateRangeSelected(result.start, result.end);
+  }
+
+  String _fmt(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}/${d.year}';
+}
+
+// ── Shared compact chip ────────────────────────────────────────────────────────
+class _FilterChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  const _FilterChip({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+    this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xff0386FF).withOpacity(0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive ? const Color(0xff0386FF) : const Color(0xffD1D5DB),
+            width: isActive ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isActive ? const Color(0xff0386FF) : const Color(0xff6B7280),
+            ),
+            const SizedBox(width: 5),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  color: isActive ? const Color(0xff0386FF) : const Color(0xff374151),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isActive && onClear != null) ...[
+              const SizedBox(width: 5),
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(Icons.close, size: 12, color: Color(0xff0386FF)),
+              ),
+            ] else ...[
+              const SizedBox(width: 3),
+              const Icon(Icons.expand_more, size: 13, color: Color(0xff9CA3AF)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Compact dropdown chip ──────────────────────────────────────────────────────
+class _CompactDropdown<T> extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final List<DropdownMenuItem<T>> items;
+  final T? value;
+  final ValueChanged<T?> onChanged;
+
+  const _CompactDropdown({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xff0386FF).withOpacity(0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isActive ? const Color(0xff0386FF) : const Color(0xffD1D5DB),
+          width: isActive ? 1.5 : 1,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          hint: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: const Color(0xff6B7280)),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151)),
+              ),
+            ],
+          ),
+          icon: const Icon(Icons.expand_more, size: 13, color: Color(0xff9CA3AF)),
+          isDense: true,
+          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff374151)),
+          borderRadius: BorderRadius.circular(8),
+          elevation: 2,
+          selectedItemBuilder: (_) => items.map((item) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 13,
+                      color: isActive ? const Color(0xff0386FF) : const Color(0xff6B7280),
+                    ),
+                    const SizedBox(width: 5),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: Text(
+                        label,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                          color: isActive ? const Color(0xff0386FF) : const Color(0xff374151),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+        ),
+      ),
     );
   }
 }

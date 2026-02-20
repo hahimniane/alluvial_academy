@@ -1089,7 +1089,7 @@ class _QuestionCardState extends State<_QuestionCard> {
         ),
       ),
             if (widget.question.required)
-              Text(AppLocalizations.of(context)!.text, style: TextStyle(color: Colors.red, fontSize: 16)),
+              Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(color: Colors.red, fontSize: 16)),
           ],
         ),
         const SizedBox(height: 16),

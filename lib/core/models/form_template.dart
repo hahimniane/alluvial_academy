@@ -325,10 +325,18 @@ class FormTemplate {
     
     fields.sort((a, b) => a.order.compareTo(b.order));
 
-    // Parse auto-fill rules
-    final rulesData = data['autoFillRules'] as List<dynamic>? ?? [];
-    final autoFillRules =
-        rulesData.map((r) => AutoFillRule.fromMap(r as Map<String, dynamic>)).toList();
+    // Parse auto-fill rules (support List or Map-for compatibility)
+    List<dynamic> rulesList = const [];
+    final rawRules = data['autoFillRules'];
+    if (rawRules is List) {
+      rulesList = rawRules;
+    } else if (rawRules is Map) {
+      rulesList = rawRules.values.toList();
+    }
+    final autoFillRules = rulesList
+        .whereType<Map>()
+        .map((r) => AutoFillRule.fromMap(Map<String, dynamic>.from(r)))
+        .toList();
 
     return FormTemplate(
       id: doc.id,
@@ -350,9 +358,16 @@ class FormTemplate {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdBy: data['createdBy'] as String?,
       subjectId: data['subjectId'] as String?,
-      allowedRoles: (data['allowedRoles'] as List<dynamic>?)?.cast<String>(),
+      allowedRoles: _toStringList(data['allowedRoles']),
       themeColor: data['themeColor'] as String?,
     );
+  }
+
+  static List<String>? _toStringList(dynamic v) {
+    if (v == null) return null;
+    if (v is List) return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    if (v is Map) return v.values.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    return null;
   }
 
   FormTemplate copyWith({

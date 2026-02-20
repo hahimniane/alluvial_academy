@@ -13,6 +13,7 @@ import '../../../core/services/timezone_service.dart';
 import '../../../core/utils/timezone_utils.dart';
 import '../../../core/widgets/timezone_selector_field.dart';
 import '../../../core/enums/shift_enums.dart';
+import '../../../core/utils/weekday_localization.dart';
 import 'subject_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
@@ -35,6 +36,11 @@ class CreateShiftDialog extends StatefulWidget {
   final TimeOfDay? initialTime; // Pre-fill time when creating from grid cell
   final ShiftCategory?
       initialCategory; // Pre-select category (teaching/leadership)
+  
+  // Pre-loaded data for optimization (avoids loading all users when we already know them)
+  final Employee? preloadedTeacher; // Pre-loaded teacher to avoid fetching all
+  final Employee? preloadedStudent; // Pre-loaded student to avoid fetching all
+  final String? sessionDuration;    // Session duration from enrollment (e.g., "60 minutes")
 
   const CreateShiftDialog({
     super.key,
@@ -49,6 +55,9 @@ class CreateShiftDialog extends StatefulWidget {
     this.initialDate,
     this.initialTime,
     this.initialCategory,
+    this.preloadedTeacher,
+    this.preloadedStudent,
+    this.sessionDuration,
   });
 
   @override
@@ -88,6 +97,10 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   RecurrencePattern _recurrence = RecurrencePattern.none;
   EnhancedRecurrence _enhancedRecurrence = const EnhancedRecurrence();
   DateTime? _recurrenceEndDate;
+
+  // Per-day time slot support
+  bool _useDifferentTimesPerDay = false;
+  Map<WeekDay, WeekdayTimeSlot> _perDayTimeSlots = {};
 
   // Hourly rate field
   final TextEditingController _hourlyRateController = TextEditingController();
@@ -219,12 +232,49 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
   Future<void> _loadAvailableUsers() async {
     try {
       AppLogger.debug('CreateShiftDialog: Loading available users...');
-
-      // Try the ShiftService first
-      var teachers = await ShiftService.getAvailableTeachers();
-      var leaders =
-          await ShiftService.getAvailableLeaders(); // NEW: Load leaders
-      var students = await ShiftService.getAvailableStudents();
+      
+      // Check if we have preloaded data (optimization for job-based shift creation)
+      final hasPreloadedTeacher = widget.preloadedTeacher != null;
+      final hasPreloadedStudent = widget.preloadedStudent != null;
+      
+      List<Employee> teachers = [];
+      List<Employee> students = [];
+      List<Employee> leaders = [];
+      
+      // If preloaded data is available, use it first (faster initial load)
+      if (hasPreloadedTeacher) {
+        teachers = [widget.preloadedTeacher!];
+        _selectedTeacherId = widget.preloadedTeacher!.email;
+        AppLogger.debug('CreateShiftDialog: Using preloaded teacher: ${widget.preloadedTeacher!.email}');
+      }
+      
+      if (hasPreloadedStudent) {
+        students = [widget.preloadedStudent!];
+        _selectedStudentIds = {widget.preloadedStudent!.documentId!};
+        AppLogger.debug('CreateShiftDialog: Using preloaded student: ${widget.preloadedStudent!.documentId}');
+      }
+      
+      // Set preloaded data immediately for faster UI
+      if (hasPreloadedTeacher || hasPreloadedStudent) {
+        if (mounted) {
+          setState(() {
+            if (hasPreloadedTeacher) _availableTeachers = teachers;
+            if (hasPreloadedStudent) _availableStudents = students;
+          });
+        }
+      }
+      
+      // Load full lists in background (for dropdown selections)
+      // Use parallel loading for better performance
+      final futures = await Future.wait([
+        ShiftService.getAvailableTeachers(),
+        ShiftService.getAvailableLeaders(),
+        ShiftService.getAvailableStudents(),
+      ]);
+      
+      teachers = futures[0];
+      leaders = futures[1];
+      students = futures[2];
 
       AppLogger.debug(
           'CreateShiftDialog: ShiftService returned ${teachers.length} teachers and ${students.length} students');
@@ -2201,7 +2251,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(context)!.schedule2,
+          AppLocalizations.of(context)!.schedule,
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2624,7 +2674,7 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text(AppLocalizations.of(context)!.text8),
+              child: Text(AppLocalizations.of(context)!.to),
             ),
             Expanded(
               child: InkWell(
@@ -2720,11 +2770,197 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
               } else if (newRecurrence.type == EnhancedRecurrenceType.monthly) {
                 _recurrence = RecurrencePattern.monthly;
               }
+              // Initialize per-day time slots for newly selected weekdays
+              if (newRecurrence.type == EnhancedRecurrenceType.weekly && _useDifferentTimesPerDay) {
+                _syncPerDayTimeSlots(newRecurrence.selectedWeekdays);
+              }
             });
           },
           showEndDate: true,
         ),
+        // Per-day time slot toggle (only for weekly recurrence)
+        if (_enhancedRecurrence.type == EnhancedRecurrenceType.weekly &&
+            _enhancedRecurrence.selectedWeekdays.isNotEmpty)
+          _buildPerDayTimeSlotSection(),
       ],
+    );
+  }
+
+  void _syncPerDayTimeSlots(List<WeekDay> selectedDays) {
+    final newSlots = <WeekDay, WeekdayTimeSlot>{};
+    for (final day in selectedDays) {
+      newSlots[day] = _perDayTimeSlots[day] ?? WeekdayTimeSlot(
+        weekday: day,
+        startHour: _startTime.hour,
+        startMinute: _startTime.minute,
+        endHour: _endTime.hour,
+        endMinute: _endTime.minute,
+      );
+    }
+    _perDayTimeSlots = newSlots;
+  }
+
+  Widget _buildPerDayTimeSlotSection() {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F9FF),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF0386FF).withOpacity(0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.schedule, size: 18, color: Color(0xFF0386FF)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.shiftPerDayTime,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0386FF),
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _useDifferentTimesPerDay,
+                    onChanged: (value) {
+                      setState(() {
+                        _useDifferentTimesPerDay = value;
+                        if (value) {
+                          _syncPerDayTimeSlots(_enhancedRecurrence.selectedWeekdays);
+                        }
+                      });
+                    },
+                    activeColor: const Color(0xFF0386FF),
+                  ),
+                ],
+              ),
+              Text(
+                _useDifferentTimesPerDay
+                    ? l10n.shiftDifferentTimePerDay
+                    : l10n.shiftSameTimeAllDays,
+                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF6B7280)),
+              ),
+              if (_useDifferentTimesPerDay) ...[
+                const SizedBox(height: 12),
+                ..._enhancedRecurrence.selectedWeekdays.map((day) {
+                  final slot = _perDayTimeSlots[day];
+                  return _buildDayTimeRow(day, slot);
+                }),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayTimeRow(WeekDay day, WeekdayTimeSlot? slot) {
+    final l10n = AppLocalizations.of(context)!;
+    final startTime = slot?.startTime ?? _startTime;
+    final endTime = slot?.endTime ?? _endTime;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              day.localizedShortName(l10n),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF374151),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Start time
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: startTime,
+                );
+                if (picked != null) {
+                  setState(() {
+                    _perDayTimeSlots[day] = (slot ?? WeekdayTimeSlot(
+                      weekday: day,
+                      startHour: _startTime.hour,
+                      startMinute: _startTime.minute,
+                      endHour: _endTime.hour,
+                      endMinute: _endTime.minute,
+                    )).copyWith(startHour: picked.hour, startMinute: picked.minute);
+                  });
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  startTime.format(context),
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF374151)),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('→', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF9CA3AF))),
+          ),
+          // End time
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: endTime,
+                );
+                if (picked != null) {
+                  setState(() {
+                    _perDayTimeSlots[day] = (slot ?? WeekdayTimeSlot(
+                      weekday: day,
+                      startHour: _startTime.hour,
+                      startMinute: _startTime.minute,
+                      endHour: _endTime.hour,
+                      endMinute: _endTime.minute,
+                    )).copyWith(endHour: picked.hour, endMinute: picked.minute);
+                  });
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  endTime.format(context),
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF374151)),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3167,7 +3403,12 @@ class _CreateShiftDialogState extends State<CreateShiftDialog> {
           recurrence: _recurrence,
           enhancedRecurrence:
               _enhancedRecurrence.type != EnhancedRecurrenceType.none
-                  ? _enhancedRecurrence
+                  ? _enhancedRecurrence.copyWith(
+                      weekdayTimeSlots: _useDifferentTimesPerDay
+                          ? _perDayTimeSlots.values.toList()
+                          : [],
+                      useDifferentTimesPerDay: _useDifferentTimesPerDay,
+                    )
                   : null,
           recurrenceEndDate: _recurrenceEndDate,
           originalLocalStart: naiveStart,

@@ -68,7 +68,18 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return FlutterLogin(
       theme: LoginTheme(
-          pageColorDark: Colors.tealAccent, pageColorLight: Colors.yellow),
+        pageColorDark: Colors.tealAccent,
+        pageColorLight: Colors.yellow,
+        logoWidth: 0.5,
+        titleStyle: const TextStyle(fontSize: 20),
+        bodyStyle: const TextStyle(fontSize: 14),
+        beforeHeroFontSize: 18,
+        afterHeroFontSize: 14,
+        inputTheme: const InputDecorationTheme(
+          filled: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+      ),
       title: 'Alluwal Academy',
       logo: const AssetImage('assets/LOGO.png'),
       onLogin: _authUser,

@@ -97,6 +97,24 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
                 <span class="info-label">Grade Level:</span>
                 <span class="info-value">${enrollmentData.gradeLevel || 'Not specified'}</span>
               </div>
+              ${program.classType ? `
+              <div class="info-row">
+                <span class="info-label">Class Type:</span>
+                <span class="info-value">${program.classType}</span>
+              </div>
+              ` : ''}
+              ${program.sessionDuration ? `
+              <div class="info-row">
+                <span class="info-label">Session Duration:</span>
+                <span class="info-value">${program.sessionDuration}</span>
+              </div>
+              ` : ''}
+              ${enrollmentData.specificLanguage ? `
+              <div class="info-row">
+                <span class="info-label">Specific Language:</span>
+                <span class="info-value">${enrollmentData.specificLanguage}</span>
+              </div>
+              ` : ''}
               ${preferences.days && preferences.days.length > 0 ? `
               <div class="info-row">
                 <span class="info-label">Preferred Days:</span>
@@ -107,6 +125,12 @@ const sendEnrollmentConfirmationEmail = async (enrollmentData) => {
               <div class="info-row">
                 <span class="info-label">Preferred Times:</span>
                 <span class="info-value">${preferences.timeSlots.join(', ')}</span>
+              </div>
+              ` : ''}
+              ${preferences.timeZone ? `
+              <div class="info-row">
+                <span class="info-label">Timezone:</span>
+                <span class="info-value">${preferences.timeZone}</span>
               </div>
               ` : ''}
             </div>
@@ -444,6 +468,18 @@ const sendAdminEnrollmentNotification = async (enrollmentData, enrollmentId) => 
               <div class="info-row">
                 <span class="info-label">Session Duration:</span>
                 <span class="info-value">${program.sessionDuration}</span>
+              </div>
+              ` : ''}
+              ${preferences.preferredLanguage ? `
+              <div class="info-row">
+                <span class="info-label">Preferred Language:</span>
+                <span class="info-value">${preferences.preferredLanguage}</span>
+              </div>
+              ` : ''}
+              ${student.knowsZoom !== undefined ? `
+              <div class="info-row">
+                <span class="info-label">Knows Zoom:</span>
+                <span class="info-value">${student.knowsZoom ? 'Yes' : 'No'}</span>
               </div>
               ` : ''}
             </div>

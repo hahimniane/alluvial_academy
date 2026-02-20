@@ -910,7 +910,7 @@ class _TeacherApplicationScreenState extends State<TeacherApplicationScreen> {
             if (required)
               Padding(
                 padding: EdgeInsets.only(left: 4, top: 2),
-                child: Text(AppLocalizations.of(context)!.text, style: TextStyle(color: Colors.red, fontSize: 15)),
+                child: Text(AppLocalizations.of(context)!.commonRequired, style: TextStyle(color: Colors.red, fontSize: 15)),
               ),
           ],
         ),

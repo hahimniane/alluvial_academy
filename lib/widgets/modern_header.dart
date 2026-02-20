@@ -11,6 +11,7 @@ import '../screens/contact_page.dart';
 import '../screens/math_page.dart';
 import '../screens/programming_page.dart';
 import '../screens/teachers_page.dart';
+import '../screens/team_page.dart';
 import '../main.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -63,6 +64,8 @@ class _ModernHeaderState extends State<ModernHeader> {
               _buildProgramsButton(),
               const SizedBox(width: 24),
               _buildNavLink('About', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
+              const SizedBox(width: 24),
+              _buildNavLink('Our Team', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamPage()))),
               const SizedBox(width: 24),
               _buildNavLink('Contact', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactPage()))),
             ],
@@ -535,6 +538,10 @@ class _ModernHeaderState extends State<ModernHeader> {
                   _buildMobileNavItem('About Us', () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutPage()));
+                  }),
+                  _buildMobileNavItem('Our Team', () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const TeamPage()));
                   }),
                   _buildMobileNavItem('Contact Us', () {
                     Navigator.pop(context);

@@ -40,8 +40,10 @@ class _StudentInput {
   String? timeOfDayPreference;
   List<String> selectedDays;
   List<String> selectedTimeSlots;
-  
-  _StudentInput() 
+  List<String> customTimeSlots;
+  bool useCustomSchedule;
+
+  _StudentInput()
     : nameController = TextEditingController(),
       ageController = TextEditingController(),
       gender = null,
@@ -52,7 +54,9 @@ class _StudentInput {
       sessionDuration = null,
       timeOfDayPreference = null,
       selectedDays = [],
-      selectedTimeSlots = [];
+      selectedTimeSlots = [],
+      customTimeSlots = [],
+      useCustomSchedule = false;
   
   void dispose() {
     nameController.dispose();
@@ -79,7 +83,6 @@ class ProgramSelectionPage extends StatefulWidget {
 class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final PageController _pageController = PageController();
   late AnimationController _progressController;
   late AnimationController _cardController;
   int _currentStep = 0;
@@ -121,7 +124,8 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   
   // Multi-student support
   final List<_StudentInput> _students = [];
-  
+  bool _applyProgramToAll = false;
+
   // Available options
   final List<String> _subjects = [
     'Islamic Program (Arabic, Quran, etc...)',
@@ -186,19 +190,25 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   };
   
   final List<String> _selectedTimeSlots = [];
-  
-  List<String> get _filteredTimeSlots {
-    if (_timeOfDayPreference == null ||
-        _timeOfDayPreference == 'Flexible' ||
-        _sessionDuration == null) {
-      if (_timeOfDayPreference == null || _timeOfDayPreference == 'Flexible') {
-        return ['8 AM - 12 PM', '12 PM - 4 PM', '4 PM - 8 PM', '8 PM - 12 AM'];
-      }
-      return [];
+  final List<String> _customTimeSlots = [];
+
+  List<String> get _allTimeSlots => [..._filteredTimeSlots, ..._customTimeSlots];
+
+  List<String> get _filteredTimeSlots =>
+      _getFilteredTimeSlotsFor(_sessionDuration, _timeOfDayPreference);
+
+  /// Returns time slots for a given duration and time-of-day (used for default and per-student).
+  /// When [timeOfDay] is null, returns [] so only custom times are used (time of day is implicit).
+  /// When [timeOfDay] is 'Flexible', returns broad ranges. Otherwise uses the chosen window.
+  List<String> _getFilteredTimeSlotsFor(String? duration, String? timeOfDay) {
+    if (duration == null) return [];
+    if (timeOfDay == null) return []; // optional when using custom times
+    if (timeOfDay == 'Flexible') {
+      return ['8 AM - 12 PM', '12 PM - 4 PM', '4 PM - 8 PM', '8 PM - 12 AM'];
     }
-    final timeRange = _timeRanges[_timeOfDayPreference];
+    final timeRange = _timeRanges[timeOfDay];
     if (timeRange == null) return [];
-    final durationMinutes = _parseDurationToMinutes(_sessionDuration!);
+    final durationMinutes = _parseDurationToMinutes(duration);
     if (durationMinutes == null) return [];
     return _generateTimeSlots(
       startHour: timeRange.startHour,
@@ -249,7 +259,70 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     final minuteStr = minutes.toString().padLeft(2, '0');
     return '$hour12:$minuteStr $period';
   }
-  
+
+  String _formatTimeOfDaySlot(TimeOfDay start, int durationMinutes) {
+    final startM = start.hour * 60 + start.minute;
+    final endM = startM + durationMinutes;
+    return '${_formatTimeFromMinutes(startM)} - ${_formatTimeFromMinutes(endM)}';
+  }
+
+  Future<void> _addCustomTimeSlot() async {
+    if (_sessionDuration == null) return;
+    final durationMinutes = _parseDurationToMinutes(_sessionDuration!);
+    if (durationMinutes == null) return;
+    final now = DateTime.now();
+    final initial = TimeOfDay(hour: now.hour, minute: (now.minute ~/ 15) * 15);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xff3B82F6),
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final slot = _formatTimeOfDaySlot(picked, durationMinutes);
+    if (_customTimeSlots.contains(slot)) return;
+    setState(() {
+      _customTimeSlots.add(slot);
+      _selectedTimeSlots.add(slot);
+    });
+  }
+
+  Future<void> _addCustomTimeSlotForStudent(_StudentInput s) async {
+    final duration = s.sessionDuration ?? _sessionDuration;
+    if (duration == null) return;
+    final durationMinutes = _parseDurationToMinutes(duration);
+    if (durationMinutes == null) return;
+    final now = DateTime.now();
+    final initial = TimeOfDay(hour: now.hour, minute: (now.minute ~/ 15) * 15);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xff3B82F6),
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final slot = _formatTimeOfDaySlot(picked, durationMinutes);
+    if (s.customTimeSlots.contains(slot)) return;
+    setState(() {
+      s.customTimeSlots.add(slot);
+      s.selectedTimeSlots.add(slot);
+    });
+  }
+
   final List<String> _roles = ['Student', 'Parent', 'Guardian'];
   final List<String> _languages = ['English', 'French', 'Arabic', 'Other'];
   final List<String> _genders = ['Male', 'Female']; // Removed "Prefer not to say"
@@ -400,7 +473,6 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   @override
   void dispose() {
-    _pageController.dispose();
     _progressController.dispose();
     _cardController.dispose();
     _emailController.dispose();
@@ -431,11 +503,6 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
     if (_currentStep < 3) {
       _cardController.reverse().then((_) {
-        _pageController.animateToPage(
-          _currentStep + 1,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-        );
         setState(() => _currentStep++);
         _cardController.forward();
       });
@@ -483,6 +550,25 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   }
 
   bool _validateProgramStep() {
+    // When "Apply to All" is on, only validate the master program selection
+    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+    if (isParentOrGuardian && _students.isNotEmpty && _applyProgramToAll) {
+      if (_selectedSubject == null || _selectedSubject!.isEmpty) {
+        _showSnackBar('Please select a program for all children', isError: true);
+        return false;
+      }
+      if (_selectedSubject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)' &&
+          (_selectedAfricanLanguage == null || _selectedAfricanLanguage!.isEmpty)) {
+        _showSnackBar('Please select a specific language', isError: true);
+        return false;
+      }
+      if (_selectedLevel == null || _selectedLevel!.isEmpty) {
+        _showSnackBar('Please select a level for all children', isError: true);
+        return false;
+      }
+      return true;
+    }
+
     // Validate first student's program
     if (_selectedSubject == null || _selectedSubject!.isEmpty) {
       _showSnackBar('Please select a program for Student 1', isError: true);
@@ -497,14 +583,12 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
       _showSnackBar('Please select a level for Student 1', isError: true);
       return false;
     }
-    
-    // Validate additional students' programs (for Parent/Guardian with multiple students)
-    final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
+
+    // Validate additional students' programs (when not using Apply to All)
     if (isParentOrGuardian && _students.isNotEmpty) {
       for (int i = 0; i < _students.length; i++) {
         final student = _students[i];
         final studentNum = i + 2;
-        
         if (student.subject == null || student.subject!.isEmpty) {
           _showSnackBar('Please select a program for Student $studentNum', isError: true);
           return false;
@@ -520,7 +604,6 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
         }
       }
     }
-    
     return true;
   }
 
@@ -533,6 +616,26 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     if (_selectedTimeSlots.isEmpty) {
       _showSnackBar('Please select at least one preferred time slot', isError: true);
       return false;
+    }
+
+    for (var i = 0; i < _students.length; i++) {
+      final s = _students[i];
+      if (s.useCustomSchedule) {
+        if (s.selectedDays.isEmpty) {
+          _showSnackBar(
+            'Student ${i + 2}: please select at least one preferred day',
+            isError: true,
+          );
+          return false;
+        }
+        if (s.selectedTimeSlots.isEmpty) {
+          _showSnackBar(
+            'Student ${i + 2}: please select at least one preferred time slot',
+            isError: true,
+          );
+          return false;
+        }
+      }
     }
 
     return true;
@@ -569,11 +672,6 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   void _previousStep() {
     if (_currentStep > 0) {
       _cardController.reverse().then((_) {
-        _pageController.animateToPage(
-          _currentStep - 1,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-        );
         setState(() => _currentStep--);
         _cardController.forward();
       });
@@ -873,26 +971,27 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
   Widget _buildRightSection(bool isMobile) {
     return Container(
       padding: EdgeInsets.all(isMobile ? 20 : 48),
-          child: Form(
-            key: _formKey,
-            child: Column(
+      child: Form(
+        key: _formKey,
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-              children: [
-            // Only show parent lookup on Contact step (Step 0)
-            if (_currentStep == 0) _buildParentLookup(),
+          children: [
             Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildStep0Contact(),
-                  _buildStep1StudentInfo(),
-                  _buildStep2Program(),
-                  _buildStep3Schedule(),
-                ],
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(bottom: isMobile ? 16 : 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_currentStep == 0) _buildParentLookup(),
+                    _buildCurrentStepContent(scrollable: false),
+                    const SizedBox(height: 24),
+                    _buildNavigationButtons(isMobile),
+                  ],
+                ),
               ),
             ),
-            _buildNavigationButtons(isMobile),
           ],
         ),
       ),
@@ -1125,7 +1224,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   Widget _buildNavigationButtons(bool isMobile) {
     return Padding(
-      padding: const EdgeInsets.only(top: 32),
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
       child: Row(
         children: [
           if (_currentStep > 0)
@@ -1223,72 +1322,109 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
 
   // --- Steps Content ---
 
-  Widget _buildStepCard({required String title, required List<Widget> children}) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: FadeTransition(
-        opacity: _cardController,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.05, 0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: _cardController,
-            curve: Curves.easeOutCubic,
-          )),
-          child: Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff0F172A).withOpacity(0.04),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+  Widget _buildStepCard({
+    required String title,
+    String? subtitle,
+    required List<Widget> children,
+    bool scrollable = true,
+  }) {
+    final content = FadeTransition(
+      opacity: _cardController,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.05, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: _cardController,
+          curve: Curves.easeOutCubic,
+        )),
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xff0F172A).withOpacity(0.04),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff0F172A),
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff0F172A),
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff64748B),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xff3B82F6), Color(0xff60A5FA)],
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                ...children,
               ],
-            ),
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xff3B82F6), Color(0xff60A5FA)],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 28),
+              ...children,
+              const SizedBox(height: 12),
+            ],
           ),
         ),
       ),
     );
+    if (scrollable) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: content,
+      );
+    }
+    return content;
   }
 
-  Widget _buildStep1StudentInfo() {
+  Widget _buildCurrentStepContent({bool scrollable = true}) {
+    switch (_currentStep) {
+      case 0:
+        return _buildStep0Contact(scrollable: scrollable);
+      case 1:
+        return _buildStep1StudentInfo(scrollable: scrollable);
+      case 2:
+        return _buildStep2Program(scrollable: scrollable);
+      case 3:
+        return _buildStep3Schedule(scrollable: scrollable);
+      default:
+        return _buildStep0Contact(scrollable: scrollable);
+    }
+  }
+
+  Widget _buildStep1StudentInfo({bool scrollable = true}) {
     final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
     
     // For adult students (role == 'Student'), use single student fields
     if (!isParentOrGuardian) {
       return _buildStepCard(
-        title: AppLocalizations.of(context)!.yourInformation,
+        title: AppLocalizations.of(context)?.yourInformation ?? 'Your Information',
+        scrollable: scrollable,
         children: [
           _buildModernTextField(
             'Full Name',
@@ -1629,14 +1765,15 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     );
   }
 
-  Widget _buildStep2Program() {
+  Widget _buildStep2Program({bool scrollable = true}) {
     final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
     final totalStudents = isParentOrGuardian ? 1 + _students.length : 1;
     
     // For single student (adult) or first student
     if (!isParentOrGuardian || totalStudents == 1) {
       return _buildStepCard(
-        title: AppLocalizations.of(context)!.programDetails,
+        title: AppLocalizations.of(context)?.programDetails ?? 'Program Details',
+        scrollable: scrollable,
         children: [
           _buildProgramFields(
             subject: _selectedSubject,
@@ -1658,34 +1795,131 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
       );
     }
     
-    // For Parent/Guardian with multiple students - show program for each
+    // For Parent/Guardian with multiple students - show program for each or "Apply to All"
     return _buildStepCard(
-      title: AppLocalizations.of(context)!.programDetailsForEachStudent,
+      title: AppLocalizations.of(context)?.programDetailsForEachStudent ?? 'Program Details for Each Student',
+      scrollable: scrollable,
       children: [
-        // Info banner
+        // "Apply to All" option
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xff10B981).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
+            color: const Color(0xffF8FAFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xffE2E8F0)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.school_outlined, color: Color(0xff10B981), size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  AppLocalizations.of(context)!.selectAProgramForEachStudent,
-                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff10B981), fontWeight: FontWeight.w500),
+              SwitchListTile(
+                title: Text(
+                  AppLocalizations.of(context)?.selectAProgramForEachStudent ?? 'Enroll all children in the same program?',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff0F172A),
+                  ),
                 ),
+                subtitle: _applyProgramToAll
+                    ? Text(
+                        'This program will apply to all ${1 + _students.length} students.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: const Color(0xff64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : null,
+                value: _applyProgramToAll,
+                onChanged: (bool value) {
+                  setState(() {
+                    _applyProgramToAll = value;
+                    if (value) {
+                      for (final s in _students) {
+                        s.subject = _selectedSubject;
+                        s.specificLanguage = _selectedAfricanLanguage;
+                        s.level = _selectedLevel;
+                        s.classType = _classType;
+                      }
+                    }
+                  });
+                },
+                activeColor: const Color(0xff3B82F6),
+                contentPadding: EdgeInsets.zero,
               ),
+              if (_applyProgramToAll) ...[
+                const SizedBox(height: 16),
+                _buildProgramFields(
+                  subject: _selectedSubject,
+                  onSubjectChanged: (v) {
+                    setState(() {
+                      _selectedSubject = v;
+                      if (v != 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)') _selectedAfricanLanguage = null;
+                      _selectedLevel = null;
+                      for (final s in _students) {
+                        s.subject = v;
+                        s.specificLanguage = null;
+                        s.level = null;
+                      }
+                    });
+                  },
+                  specificLanguage: _selectedAfricanLanguage,
+                  onSpecificLanguageChanged: (v) {
+                    setState(() {
+                      _selectedAfricanLanguage = v;
+                      for (final s in _students) {
+                        s.specificLanguage = v;
+                      }
+                    });
+                  },
+                  level: _selectedLevel,
+                  onLevelChanged: (v) {
+                    setState(() {
+                      _selectedLevel = v;
+                      for (final s in _students) {
+                        s.level = v;
+                      }
+                    });
+                  },
+                  classType: _classType,
+                  onClassTypeChanged: (v) {
+                    setState(() {
+                      _classType = v;
+                      for (final s in _students) {
+                        s.classType = v;
+                      }
+                    });
+                  },
+                ),
+              ],
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        
-        // First student program
-        _buildStudentProgramCard(
+        if (!_applyProgramToAll) ...[
+          const SizedBox(height: 20),
+          // Info banner
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xff10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.school_outlined, color: Color(0xff10B981), size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Select a program for each student. Each will be enrolled separately.',
+                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xff10B981), fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          // First student program
+          _buildStudentProgramCard(
           studentIndex: 0,
           studentName: _studentNameController.text.isNotEmpty ? _studentNameController.text : AppLocalizations.of(context)!.student1,
           subject: _selectedSubject,
@@ -1734,6 +1968,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
             ],
           );
         }),
+        ],
         const SizedBox(height: 20),
         Row(
           children: [
@@ -1752,9 +1987,14 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     );
   }
 
-  Widget _buildStep3Schedule() {
+  Widget _buildStep3Schedule({bool scrollable = true}) {
+    final isParentWithStudents = (_role == 'Parent' || _role == 'Guardian') && _students.isNotEmpty;
     return _buildStepCard(
-      title: AppLocalizations.of(context)!.schedulePreferences,
+      title: AppLocalizations.of(context)?.schedulePreferences ?? 'Schedule Preferences',
+      scrollable: scrollable,
+      subtitle: isParentWithStudents
+          ? 'Default schedule (applies to all students unless overridden)'
+          : null,
       children: [
         // Timezone indicator
         Container(
@@ -1805,8 +2045,13 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                 _sessionDuration,
                 (v) => setState(() {
                   _sessionDuration = v;
+                  _customTimeSlots.clear();
                   _selectedTimeSlots
                       .removeWhere((slot) => !_filteredTimeSlots.contains(slot));
+                  for (final s in _students) {
+                    s.selectedTimeSlots
+                        .removeWhere((slot) => !_allTimeSlots.contains(slot));
+                  }
                 }),
                 Icons.timer_outlined,
               ),
@@ -1814,15 +2059,24 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
             const SizedBox(width: 16),
             Expanded(
               child: _buildModernDropdown(
-                'Time of Day',
+                _sessionDuration != null
+                    ? 'Time of Day (optional if using custom times)'
+                    : 'Time of Day',
                 _timeOfDayOptions,
                 _timeOfDayPreference,
                 (v) => setState(() {
                   _timeOfDayPreference = v;
+                  _customTimeSlots.clear();
                   _selectedTimeSlots
                       .removeWhere((slot) => !_filteredTimeSlots.contains(slot));
+                  for (final s in _students) {
+                    s.selectedTimeSlots
+                        .removeWhere((slot) => !_allTimeSlots.contains(slot));
+                  }
                 }),
                 Icons.wb_sunny_outlined,
+                isRequired: false,
+                hintText: 'Select time of day',
               ),
             ),
           ],
@@ -1875,17 +2129,17 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
         const SizedBox(height: 24),
         _buildModernLabel('Preferred Time Slots'),
         const SizedBox(height: 10),
-        if (_filteredTimeSlots.isNotEmpty)
+        if (_allTimeSlots.isNotEmpty)
           Wrap(
             spacing: 10,
             runSpacing: 10,
-                          children: _filteredTimeSlots.map((slot) {
-                      final isSelected = _selectedTimeSlots.contains(slot);
+            children: _allTimeSlots.map((slot) {
+              final isSelected = _selectedTimeSlots.contains(slot);
               return InkWell(
                 onTap: () => setState(() => isSelected
                     ? _selectedTimeSlots.remove(slot)
                     : _selectedTimeSlots.add(slot)),
-                          borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding:
@@ -1915,13 +2169,31 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                       fontSize: 13,
                       color: isSelected ? Colors.white : const Color(0xff64748B),
                     ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-          )
-        else
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        if (_sessionDuration != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: OutlinedButton.icon(
+              onPressed: _addCustomTimeSlot,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add custom time'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xff3B82F6),
+                side: const BorderSide(color: Color(0xff3B82F6)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        if (_filteredTimeSlots.isEmpty && _customTimeSlots.isEmpty)
           Container(
+            margin: const EdgeInsets.only(top: 12),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: const Color(0xffFEF3C7),
@@ -1934,7 +2206,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    AppLocalizations.of(context)!.selectDurationAndTimeOfDay,
+                    AppLocalizations.of(context)?.selectDurationAndTimeOfDay ?? 'Select duration, then add a custom time below — or choose time of day for preset slots.',
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: const Color(0xff92400E),
@@ -1944,16 +2216,311 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
               ],
             ),
           ),
+        if (isParentWithStudents) ...[
+          ..._students.asMap().entries.map((entry) {
+            final i = entry.key;
+            final s = entry.value;
+            final label = s.nameController.text.trim().isNotEmpty
+                ? s.nameController.text.trim()
+                : 'Student ${i + 2}';
+            return Padding(
+              padding: const EdgeInsets.only(top: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 32),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xffE2E8F0)),
+                    ),
+                    child: SwitchListTile(
+                      title: Text(
+                        'Use same schedule as above?',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff0F172A),
+                        ),
+                      ),
+                      subtitle: !s.useCustomSchedule
+                          ? Text(
+                              'Same days and time slots as the default schedule.',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: const Color(0xff64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            )
+                          : null,
+                      value: !s.useCustomSchedule,
+                      onChanged: (bool value) {
+                        setState(() {
+                          s.useCustomSchedule = !value;
+                          if (value) {
+                            s.selectedDays = [];
+                            s.selectedTimeSlots = [];
+                            s.customTimeSlots = [];
+                          } else {
+                            if (s.selectedDays.isEmpty) s.selectedDays = List.from(_selectedDays);
+                            if (s.selectedTimeSlots.isEmpty) {
+                              s.selectedTimeSlots = List.from(_selectedTimeSlots);
+                            }
+                          }
+                        });
+                      },
+                      activeColor: const Color(0xff3B82F6),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    ),
+                  ),
+                  if (s.useCustomSchedule) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildModernDropdown(
+                            'Duration',
+                            _sessionDurations,
+                            s.sessionDuration ?? _sessionDuration,
+                            (v) => setState(() {
+                              s.sessionDuration = v;
+                              s.customTimeSlots.clear();
+                              final slots = _getFilteredTimeSlotsFor(v, s.timeOfDayPreference ?? _timeOfDayPreference);
+                              s.selectedTimeSlots.removeWhere((slot) => !slots.contains(slot));
+                            }),
+                            Icons.timer_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildModernDropdown(
+                            (s.sessionDuration ?? _sessionDuration) != null
+                                ? 'Time of Day (optional if using custom times)'
+                                : 'Time of Day',
+                            _timeOfDayOptions,
+                            s.timeOfDayPreference ?? _timeOfDayPreference,
+                            (v) => setState(() {
+                              s.timeOfDayPreference = v;
+                              s.customTimeSlots.clear();
+                              final slots = _getFilteredTimeSlotsFor(s.sessionDuration ?? _sessionDuration, v);
+                              s.selectedTimeSlots.removeWhere((slot) => !slots.contains(slot));
+                            }),
+                            Icons.wb_sunny_outlined,
+                            isRequired: false,
+                            hintText: 'Select time of day',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildModernLabel('Preferred Days'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _days.map((day) {
+                        final isSelected = s.selectedDays.contains(day);
+                        return InkWell(
+                          onTap: () => setState(() {
+                            if (isSelected) {
+                              s.selectedDays.remove(day);
+                            } else {
+                              s.selectedDays.add(day);
+                            }
+                          }),
+                          borderRadius: BorderRadius.circular(12),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient: isSelected
+                                  ? const LinearGradient(
+                                      colors: [Color(0xff3B82F6), Color(0xff2563EB)],
+                                    )
+                                  : null,
+                              color: isSelected ? null : const Color(0xffF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0xff3B82F6).withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              day,
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: isSelected ? Colors.white : const Color(0xff64748B),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildModernLabel('Preferred Time Slots'),
+                    const SizedBox(height: 10),
+                    Builder(
+                      builder: (context) {
+                        final baseSlots = _getFilteredTimeSlotsFor(
+                          s.sessionDuration ?? _sessionDuration,
+                          s.timeOfDayPreference ?? _timeOfDayPreference,
+                        );
+                        final studentSlots = [...baseSlots, ...s.customTimeSlots];
+                        final hasDuration = (s.sessionDuration ?? _sessionDuration) != null;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (studentSlots.isNotEmpty)
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: studentSlots.map((slot) {
+                                  final isSelected = s.selectedTimeSlots.contains(slot);
+                                  return InkWell(
+                                    onTap: () => setState(() {
+                                      if (isSelected) {
+                                        s.selectedTimeSlots.remove(slot);
+                                      } else {
+                                        s.selectedTimeSlots.add(slot);
+                                      }
+                                    }),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        gradient: isSelected
+                                            ? const LinearGradient(
+                                                colors: [Color(0xff10B981), Color(0xff059669)],
+                                              )
+                                            : null,
+                                        color: isSelected ? null : const Color(0xffF1F5F9),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: const Color(0xff10B981).withOpacity(0.3),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Text(
+                                        slot,
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                          color: isSelected ? Colors.white : const Color(0xff64748B),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            if (hasDuration)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _addCustomTimeSlotForStudent(s),
+                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  label: const Text('Add custom time'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xff3B82F6),
+                                    side: const BorderSide(color: Color(0xff3B82F6)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (studentSlots.isEmpty)
+                              Container(
+                                margin: const EdgeInsets.only(top: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffF1F5F9),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  hasDuration
+                                      ? 'Pick a preset above or add a custom time — time of day is optional.'
+                                      : 'Select duration for this student, then add a custom time or choose time of day.',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xff64748B),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+        ],
       ],
     );
   }
 
-  Widget _buildStep0Contact() {
+  Widget _buildScheduleToggleChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xff3B82F6) : const Color(0xffF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? const Color(0xff3B82F6) : const Color(0xffE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xff64748B),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep0Contact({bool scrollable = true}) {
     // Determine if we should show parent fields based on role
     final isParentOrGuardian = _role == 'Parent' || _role == 'Guardian';
     
     return _buildStepCard(
-      title: AppLocalizations.of(context)!.contactInformation,
+      title: AppLocalizations.of(context)?.contactInformation ?? 'Contact Information',
+      scrollable: scrollable,
       children: [
         // Role selection first
         _buildModernDropdown(
@@ -1981,7 +2548,34 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           hint: 'your@email.com',
           isEnabled: _linkedParentData == null,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 32),
+        // Visual separator to indicate more fields below
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xffF0F9FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xffBFDBFE), width: 1),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 18, color: const Color(0xff3B82F6)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Additional contact information below',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xff1E40AF),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: const Color(0xff3B82F6)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
         _buildModernLabel('WhatsApp Number (Optional)'),
         const SizedBox(height: 8),
         IntlPhoneField(
@@ -2200,7 +2794,9 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
     Function(String?) onChanged,
     IconData icon, {
     bool isRequired = true,
+    String? hintText,
   }) {
+    final effectiveHint = hintText ?? 'Select $label';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2228,7 +2824,7 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
           icon: const Icon(Icons.keyboard_arrow_down_rounded,
               color: Color(0xff94A3B8)),
           decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.selectLabel,
+            hintText: AppLocalizations.of(context)?.selectLabel ?? effectiveHint,
             hintStyle: GoogleFonts.inter(
               color: const Color(0xff94A3B8),
               fontWeight: FontWeight.w400,
@@ -2290,12 +2886,12 @@ class _ProgramSelectionPageState extends State<ProgramSelectionPage>
               name: s.nameController.text.trim(),
               age: s.ageController.text.trim(),
               gender: s.gender,
-              subject: s.subject ?? _selectedSubject,
-              specificLanguage: s.subject == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)'
-                  ? s.specificLanguage
+              subject: _applyProgramToAll ? _selectedSubject : (s.subject ?? _selectedSubject),
+              specificLanguage: (_applyProgramToAll ? _selectedSubject : s.subject) == 'AfroLanguages (Pular, Mandingo, Swahili, Wolof, etc...)'
+                  ? (_applyProgramToAll ? _selectedAfricanLanguage : s.specificLanguage)
                   : null,
-              level: s.level ?? _selectedLevel,
-              classType: s.classType ?? _classType,
+              level: _applyProgramToAll ? _selectedLevel : (s.level ?? _selectedLevel),
+              classType: _applyProgramToAll ? _classType : (s.classType ?? _classType),
               sessionDuration: s.sessionDuration ?? _sessionDuration,
               timeOfDayPreference: s.timeOfDayPreference ?? _timeOfDayPreference,
               preferredDays: s.selectedDays.isNotEmpty ? s.selectedDays : _selectedDays,

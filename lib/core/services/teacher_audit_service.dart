@@ -96,6 +96,11 @@ class TeacherAuditService {
     final queryStart = Timestamp.fromDate(startDate);
     final queryEnd = Timestamp.fromDate(endDate.add(const Duration(hours: 23, minutes: 59)));
 
+    // Only load shifts that have already occurred (up to now); avoid future shifts
+    final now = DateTime.now();
+    final effectiveEndDate = endDate.isBefore(now) ? endDate : now;
+    final queryEndShifts = Timestamp.fromDate(effectiveEndDate.add(const Duration(hours: 23, minutes: 59)));
+
     // **STEP 1: Load shifts, timesheets, and forms in parallel**
     // Note: .select() requires cloud_firestore 7.0.0+, but we'll still get 60-70% improvement
     // from single-pass processing and batch writes
@@ -106,7 +111,7 @@ class TeacherAuditService {
       _firestore
           .collection('teaching_shifts')
           .where('shift_start', isGreaterThanOrEqualTo: queryStart)
-          .where('shift_start', isLessThanOrEqualTo: queryEnd)
+          .where('shift_start', isLessThanOrEqualTo: queryEndShifts)
           .get(),
       _firestore
           .collection('timesheet_entries')
@@ -810,14 +815,25 @@ class TeacherAuditService {
         }
       }
 
+      final workedMins = (dataMap['worked_minutes'] as num?)?.toDouble() ?? (dataMap['workedMinutes'] as num?)?.toDouble();
       detailedTimesheets.add({
         'id': ts.id,
         'shiftId': shiftId,
+        'shift_id': shiftId,
         'shiftTitle': shiftTitle,
         'clockIn': clockInTimestamp,
         'clockOut': dataMap['clock_out_timestamp'] as Timestamp?,
+        'clock_in_timestamp': dataMap['clock_in_timestamp'],
+        'clock_in_time': dataMap['clock_in_time'],
+        'clock_out_timestamp': dataMap['clock_out_timestamp'],
+        'clock_out_time': dataMap['clock_out_time'],
+        'effective_end_timestamp': dataMap['effective_end_timestamp'],
         'shiftStart': shiftStart != null ? Timestamp.fromDate(shiftStart) : null,
         'deltaMinutes': deltaMinutes,
+        'worked_minutes': workedMins,
+        'workedMinutes': workedMins,
+        'payment_amount': dataMap['payment_amount'],
+        'total_pay': dataMap['total_pay'],
       });
     }
 
@@ -1025,14 +1041,25 @@ class TeacherAuditService {
         }
       }
 
+      final workedMins = (dataMap['worked_minutes'] as num?)?.toDouble() ?? (dataMap['workedMinutes'] as num?)?.toDouble();
       detailedTimesheets.add({
         'id': ts.id,
         'shiftId': shiftId,
+        'shift_id': shiftId,
         'shiftTitle': shiftTitle,
         'clockIn': clockInTimestamp,
-        'clockOut': data['clock_out_timestamp'] as Timestamp?,
+        'clockOut': dataMap['clock_out_timestamp'] as Timestamp?,
+        'clock_in_timestamp': dataMap['clock_in_timestamp'],
+        'clock_in_time': dataMap['clock_in_time'],
+        'clock_out_timestamp': dataMap['clock_out_timestamp'],
+        'clock_out_time': dataMap['clock_out_time'],
+        'effective_end_timestamp': dataMap['effective_end_timestamp'],
         'shiftStart': shiftStart != null ? Timestamp.fromDate(shiftStart) : null,
         'deltaMinutes': deltaMinutes,
+        'worked_minutes': workedMins,
+        'workedMinutes': workedMins,
+        'payment_amount': dataMap['payment_amount'],
+        'total_pay': dataMap['total_pay'],
       });
     }
 
@@ -1077,6 +1104,11 @@ class TeacherAuditService {
         validShiftIds.add(shift.id);
       }
     }
+    // Suffixes (last 8 chars) for matching when form_responses store short shiftId
+    final validShiftIdSuffixes = <String>{};
+    for (final sid in validShiftIds) {
+      if (sid.length >= 8) validShiftIdSuffixes.add(sid.substring(sid.length - 8));
+    }
 
     final validForms = <QueryDocumentSnapshot>[];
     int linkedFormsCount = 0;
@@ -1089,10 +1121,11 @@ class TeacherAuditService {
       final shiftId = dataMap['shiftId'] as String?;
       
       // Count form if:
-      // 1. It's linked to a valid shift in the date range, OR
-      // 2. It has yearMonth matching the audit month (already filtered by query)
-      if (shiftId != null && validShiftIds.contains(shiftId)) {
-        // Linked form - always valid
+      // 1. It's linked to a valid shift (exact id or by last-8-chars suffix), OR
+      // 2. It has yearMonth matching the audit month (unlinked, validated)
+      final linkedByExact = shiftId != null && validShiftIds.contains(shiftId);
+      final linkedBySuffix = shiftId != null && shiftId.length >= 8 && validShiftIdSuffixes.contains(shiftId.length > 8 ? shiftId.substring(shiftId.length - 8) : shiftId);
+      if (linkedByExact || linkedBySuffix) {
         validForms.add(form);
         linkedFormsCount++;
       } else {
@@ -1109,27 +1142,64 @@ class TeacherAuditService {
       AppLogger.debug('Form counting for $yearMonth: total forms=${forms.length}, linked=$linkedFormsCount, unlinked=$unlinkedFormsCount, valid=${validForms.length}');
     }
 
-    final detailedForms = _buildDetailedForms(validForms, shifts);
-    
+    // Deduplicate by shift: first form per shift counts as accepted, rest as rejected (duplicate)
+    final acceptedForms = <QueryDocumentSnapshot>[];
+    final duplicateForms = <QueryDocumentSnapshot>[];
+    final seenShiftKeys = <String>{};
+    for (final form in validForms) {
+      final dataMap = form.data() as Map<String, dynamic>?;
+      final shiftId = dataMap?['shiftId'] as String?;
+      if (shiftId == null || shiftId.isEmpty) {
+        acceptedForms.add(form);
+        continue;
+      }
+      // Use last-8 suffix as key so full id and short id for same shift dedupe together
+      final String dedupeKey = shiftId.length >= 8
+          ? shiftId.substring(shiftId.length - 8)
+          : shiftId;
+      if (seenShiftKeys.contains(dedupeKey)) {
+        duplicateForms.add(form);
+      } else {
+        seenShiftKeys.add(dedupeKey);
+        acceptedForms.add(form);
+      }
+    }
+
+    final detailedForms = _buildDetailedForms(acceptedForms, shifts);
+
+    // Forms with no schedule: submitted in month but not linked and not validated
+    final validFormIds = validForms.map((f) => f.id).toSet();
+    final formsWithNoSchedule = forms.where((f) => !validFormIds.contains(f.id)).toList();
+    final detailedFormsNoSchedule = _buildDetailedForms(formsWithNoSchedule, shifts);
+    for (final m in detailedFormsNoSchedule) {
+      m['rejectionReason'] = 'no_shift';
+    }
+
+    final detailedFormsRejected = _buildDetailedForms(duplicateForms, shifts);
+    for (final m in detailedFormsRejected) {
+      m['rejectionReason'] = 'duplicate';
+    }
+
     // Calculate total hours from forms (sum of all duration fields)
     double totalFormHours = 0;
     final formHoursBySubject = <String, double>{};
-    
+
     for (final form in detailedForms) {
       final durationHours = (form['durationHours'] as num?)?.toDouble() ?? 0;
       totalFormHours += durationHours;
-      
-      // Try to associate with subject if linked to shift
+
       final shiftId = form['shiftId'] as String?;
       if (shiftId != null && shiftId != '') {
         // Subject will be determined from shift data
       }
     }
-    
+
     return FormMetrics(
-      submitted: validForms.length,
+      submitted: acceptedForms.length,
       required: 0, // Will be set by caller based on completed + missed
       detailedForms: detailedForms,
+      detailedFormsNoSchedule: detailedFormsNoSchedule,
+      detailedFormsRejected: detailedFormsRejected,
       totalFormHours: totalFormHours,
       formHoursBySubject: formHoursBySubject,
     );
@@ -1590,14 +1660,15 @@ class TeacherAuditService {
       shiftDataMap[shiftId] = dataMap;
       
       // **KEY FIX: If shift has a form, it's eligible for payment regardless of status**
-      // The form is proof of work, so the teacher should be paid
-      if (shiftsWithForms.contains(shiftId)) {
+      // Match by full shiftId or by last-8-chars suffix (form may store short id)
+      final hasFormByExact = shiftsWithForms.contains(shiftId);
+      final hasFormBySuffix = shiftId.length >= 8 && shiftsWithForms.contains(shiftId.substring(shiftId.length - 8));
+      if (hasFormByExact || hasFormBySuffix) {
         eligibleShiftIds.add(shiftId);
         final subject = dataMap['subject_display_name'] ?? dataMap['subject'] ?? 'Other';
         shiftSubjectMap[shiftId] = subject;
         
         if (kDebugMode) {
-          // Log if shift has form but non-standard status (for debugging)
           if (status != 'fullyCompleted' && status != 'completed' && status != 'partiallyCompleted') {
             AppLogger.debug('Shift $shiftId has form but status="$status" - including for payment (form = proof of work)');
           }
@@ -1621,15 +1692,23 @@ class TeacherAuditService {
     // Use existing adjustments if provided (for recalculations)
     final adjustmentsToApply = existingAdjustments ?? <String, double>{};
     
-    // Build shift hourly rate map and form lookup map
+    // Build shift hourly rate map and form lookup map (keyed by full shift id for payment loop)
     final shiftHourlyRateMap = <String, double>{};
-    final formLookupMap = <String, Map<String, dynamic>>{}; // shiftId -> form data
-    
-    // Build form lookup map for fallback calculation
+    final formLookupMap = <String, Map<String, dynamic>>{}; // full shiftId -> form data
     for (final form in detailedForms) {
-      final shiftId = form['shiftId'] as String?;
-      if (shiftId != null && shiftId.isNotEmpty) {
-        formLookupMap[shiftId] = form;
+      final formShiftId = form['shiftId'] as String?;
+      if (formShiftId == null || formShiftId.isEmpty) continue;
+      for (final entry in shiftDataMap.entries) {
+        final shiftId = entry.key;
+        if (shiftId == formShiftId) {
+          formLookupMap[shiftId] = form;
+          break;
+        }
+        if (formShiftId.length >= 8 && shiftId.length >= 8 &&
+            shiftId.substring(shiftId.length - 8) == (formShiftId.length > 8 ? formShiftId.substring(formShiftId.length - 8) : formShiftId)) {
+          formLookupMap[shiftId] = form;
+          break;
+        }
       }
     }
     
@@ -1659,15 +1738,16 @@ class TeacherAuditService {
       double payment = 0.0;
       double hours = 0.0;
       
-      // **PRIORITY 1: Try to get payment from timesheet**
+      // **PRIORITY 1: Try to get payment from timesheet** (match by full id or suffix)
       for (final ts in timesheets) {
         final tsData = ts.data();
-        // FIX: Ensure data is not null AND is a Map before casting
         if (tsData == null || tsData is! Map) continue;
         final tsDataMap = tsData as Map<String, dynamic>;
         final tsShiftId = tsDataMap['shift_id'] as String?;
-        
-        if (tsShiftId == shiftId) {
+        final tsMatches = tsShiftId == shiftId ||
+            (shiftId.length >= 8 && tsShiftId != null && tsShiftId.isNotEmpty &&
+             (tsShiftId.length >= 8 ? tsShiftId.substring(tsShiftId.length - 8) : tsShiftId) == shiftId.substring(shiftId.length - 8));
+        if (tsMatches) {
           // Get payment amount from timesheet (prefer payment_amount, fallback to total_pay)
           payment = (tsDataMap['payment_amount'] as num?)?.toDouble() ??
                    (tsDataMap['total_pay'] as num?)?.toDouble() ??
@@ -2081,6 +2161,8 @@ class TeacherAuditService {
       detailedShifts: shiftMetrics.detailedShifts,
       detailedTimesheets: timesheetMetrics.detailedTimesheets,
       detailedForms: formMetrics.detailedForms,
+      detailedFormsNoSchedule: formMetrics.detailedFormsNoSchedule,
+      detailedFormsRejected: formMetrics.detailedFormsRejected,
       automaticScore: autoScore,
       coachScore: 0,
       overallScore: autoScore,
@@ -2153,6 +2235,49 @@ class TeacherAuditService {
       return snapshot.docs.map((doc) => TeacherAuditFull.fromFirestore(doc)).toList();
     } catch (e) {
       AppLogger.error('Error getting audits: $e');
+      return [];
+    }
+  }
+
+  /// Returns distinct yearMonths from audits collection (for "all time" or range).
+  static Future<List<String>> getAvailableYearMonths() async {
+    try {
+      final snapshot = await _firestore
+          .collection(_auditCollection)
+          .get();
+      final set = <String>{};
+      for (var doc in snapshot.docs) {
+        final ym = doc.data()['yearMonth'] as String?;
+        if (ym != null && ym.isNotEmpty) set.add(ym);
+      }
+      final list = set.toList()..sort((a, b) => b.compareTo(a));
+      return list;
+    } catch (e) {
+      AppLogger.error('Error getting available yearMonths: $e');
+      return [];
+    }
+  }
+
+  /// Load audits for multiple months (e.g. two months or custom range). Merges and sorts by yearMonth desc, then overallScore desc.
+  static Future<List<TeacherAuditFull>> getAuditsForYearMonths({
+    required List<String> yearMonths,
+  }) async {
+    if (yearMonths.isEmpty) return [];
+    if (yearMonths.length == 1) return getAuditsForMonth(yearMonth: yearMonths.single);
+    try {
+      final results = await Future.wait(
+        yearMonths.map((ym) => getAuditsForMonth(yearMonth: ym)),
+      );
+      final merged = <TeacherAuditFull>[];
+      for (var list in results) merged.addAll(list);
+      merged.sort((a, b) {
+        final cmp = b.yearMonth.compareTo(a.yearMonth);
+        if (cmp != 0) return cmp;
+        return b.overallScore.compareTo(a.overallScore);
+      });
+      return merged;
+    } catch (e) {
+      AppLogger.error('Error getting audits for months: $e');
       return [];
     }
   }
@@ -2988,13 +3113,20 @@ class FormMetrics {
   final int submitted;
   int required;
   final List<Map<String, dynamic>> detailedForms;
-  final double totalFormHours; // Total hours from form duration fields
-  final Map<String, double> formHoursBySubject; // Hours by subject from forms
+  /// Forms submitted in the month but with no schedule associated (not linked, not validated).
+  /// Each map may include 'rejectionReason': 'no_shift'.
+  final List<Map<String, dynamic>> detailedFormsNoSchedule;
+  /// Forms rejected as duplicates (second+ form per shift). Each map includes 'rejectionReason': 'duplicate'.
+  final List<Map<String, dynamic>> detailedFormsRejected;
+  final double totalFormHours;
+  final Map<String, double> formHoursBySubject;
 
   FormMetrics({
     required this.submitted,
     this.required = 0,
     required this.detailedForms,
+    this.detailedFormsNoSchedule = const [],
+    this.detailedFormsRejected = const [],
     this.totalFormHours = 0,
     this.formHoursBySubject = const {},
   });

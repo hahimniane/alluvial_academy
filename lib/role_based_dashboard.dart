@@ -36,6 +36,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   Timer? _presenceTimer;
   DateTime? _lastPresenceUpdate;
   String? _presenceUserId;
+  StreamSubscription<DocumentSnapshot>? _userDocSubscription;
+  Timer? _userDocTimeout;
+  bool _userRoleResolved = false;
 
   // Retry mechanism for loading user role
   int _roleLoadRetryCount = 0;
@@ -44,17 +47,20 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
 
   static const Duration _presenceInterval = Duration(minutes: 1);
   static const Duration _presenceMinInterval = Duration(seconds: 20);
+  static const Duration _userDocWaitTimeout = Duration(seconds: 30);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startPresenceTracking();
-    _loadUserRole();
+    _subscribeToUserDocument();
   }
 
   @override
   void dispose() {
+    _userDocSubscription?.cancel();
+    _userDocTimeout?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _stopPresenceTracking(setOffline: true);
     super.dispose();
@@ -115,6 +121,78 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
     }
   }
 
+  /// Real-time listener on users/{uid}. Resolves the auth-vs-database race: as soon as the
+  /// Cloud Function (or any backend) writes the user doc, we get the role and show the dashboard.
+  void _subscribeToUserDocument() {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) setState(() { userRole = null; userData = null; isLoading = false; });
+      return;
+    }
+
+    final String uid = currentUser.uid;
+    UserRoleService.clearCache();
+
+    AppLogger.debug('=== RoleBasedDashboard: subscribing to users/$uid (real-time) ===');
+
+    _userDocSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen(
+      (DocumentSnapshot snapshot) {
+        if (_userRoleResolved || !mounted) return;
+        if (!snapshot.exists) return;
+
+        final data = snapshot.data() as Map<String, dynamic>?;
+        if (data == null) return;
+
+        final userType = (data['user_type'] as String?)?.trim().toLowerCase() ??
+            (data['userType'] as String?)?.trim().toLowerCase();
+        if (userType == null || userType.isEmpty) return;
+
+        _userRoleResolved = true;
+        UserRoleService.setCachedUserDataForUid(uid, data);
+
+        UserRoleService.getCurrentUserRole().then((String? activeRole) {
+          if (!mounted || !_userRoleResolved) return;
+          _userDocTimeout?.cancel();
+          _userDocSubscription?.cancel();
+          setState(() {
+            userRole = activeRole ?? userType;
+            userData = data;
+            isLoading = false;
+          });
+          AppLogger.debug('Role loaded via listener: $userRole');
+        });
+      },
+      onError: (Object e) {
+        AppLogger.error('User document listener error: $e');
+        if (!mounted || _userRoleResolved) return;
+        _userDocTimeout?.cancel();
+        _userDocSubscription?.cancel();
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      },
+    );
+
+    _userDocTimeout = Timer(_userDocWaitTimeout, () {
+      if (!mounted || _userRoleResolved) return;
+      _userRoleResolved = true;
+      _userDocSubscription?.cancel();
+      _userDocSubscription = null;
+      AppLogger.debug('RoleBasedDashboard: user doc not ready after ${_userDocWaitTimeout.inSeconds}s');
+      setState(() {
+        userRole = null;
+        userData = null;
+        isLoading = false;
+      });
+    });
+  }
+
+  /// One-shot load (used by role switcher). Not used for initial load; initial load uses listener.
   Future<void> _loadUserRole({bool isRetry = false}) async {
     try {
       AppLogger.debug('=== Loading User Role ${isRetry ? "(retry $_roleLoadRetryCount)" : ""} ===');
@@ -147,8 +225,6 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
           isLoading = false;
         });
       }
-
-      AppLogger.debug('Role loaded successfully: $role');
     } catch (e) {
       AppLogger.error('Error loading user role: $e');
 
@@ -210,8 +286,9 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
         AppLogger.debug('=== Returning AdminDashboard ===');
         return const DashboardPage(); // Full admin dashboard
       case 'teacher':
-        AppLogger.debug('=== Returning TeacherDashboard ===');
-        return const TeacherDashboard();
+        AppLogger.debug('=== Returning DashboardPage for teacher (with navigation) ===');
+        // Use DashboardPage so teachers get navigation/tabs, not just TeacherHomeScreen
+        return const DashboardPage();
       case 'student':
         // Get the user ID from cached data or Firebase Auth
         final userId = UserRoleService.getCurrentUserId();
@@ -455,12 +532,15 @@ class _RoleBasedDashboardState extends State<RoleBasedDashboard>
   }
 }
 
-// Placeholder dashboards for different roles
+// ⚠️ DEPRECATED - Teachers now use DashboardPage directly (with navigation)
+// This class can be DELETED after verification
+// Teachers get navigation/tabs through DashboardPage, which uses TeacherHomeScreen internally
 class TeacherDashboard extends StatelessWidget {
   const TeacherDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Use DashboardPage so teachers get full navigation
     return const DashboardPage();
   }
 }

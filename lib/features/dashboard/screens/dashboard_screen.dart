@@ -2,7 +2,6 @@ import '../../user_management/screens/user_list_screen.dart';
 import '../../time_clock/screens/simple_clock_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
-import '../widgets/navigation_menu.dart';
 import '../../chat/screens/chat_page.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
 
@@ -24,19 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
-        children: [
-          NavigationMenu(
-            selectedIndex: _selectedIndex,
-            onItemSelected: (index) {
-              setState(() => _selectedIndex = index);
-            },
-          ),
-          Expanded(
-            child: _buildScreen(),
-          ),
-        ],
-      ),
+      body: _buildScreen(),
     );
   }
 

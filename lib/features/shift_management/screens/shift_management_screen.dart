@@ -29,6 +29,7 @@ import '../widgets/shift_filter_panel.dart';
 import '../../settings/pay_settings_dialog.dart';
 import '../widgets/shift_details_dialog.dart';
 import '../widgets/subject_management_dialog.dart';
+import '../widgets/template_management_dialog.dart';
 
 import 'package:alluwalacademyadmin/core/utils/app_logger.dart';
 import 'package:alluwalacademyadmin/l10n/app_localizations.dart';
@@ -115,20 +116,67 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     _initializeUserRole();
   }
 
-  Future<void> _initializeUserRole() async {
+  Future<void> _initializeUserRole({int retryCount = 0}) async {
+    const maxRetries = 15;
+    const retryDelay = Duration(milliseconds: 600);
+    const initialDelay = Duration(milliseconds: 400);
+
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
         throw Exception('No authenticated user');
       }
 
+      // Give dashboard/listener time to prime role cache on first run (e.g. when built with IndexedStack).
+      if (retryCount == 0) {
+        await Future.delayed(initialDelay);
+        if (!mounted) return;
+      }
+
       final role = await UserRoleService.getCurrentUserRole();
-      final activeRole = await UserRoleService.getActiveRole();
-      final isAdmin = role?.toLowerCase() == 'admin' ||
+      final availableRoles = await UserRoleService.getAvailableRoles();
+      // Grant admin access if current role is admin OR if user has admin among available roles (dual admin+teacher)
+      final isAdminByRole = role?.toLowerCase() == 'admin' ||
           role?.toLowerCase() == 'super_admin';
+      final hasAdminAvailable = availableRoles
+          .any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+      final isAdmin = isAdminByRole || hasAdminAvailable;
 
       AppLogger.debug(
-          'ShiftManagement: User ${currentUser.uid} - role=$role, isAdmin=$isAdmin, activeRole=$activeRole');
+          'ShiftManagement: User ${currentUser.uid} - role=$role, availableRoles=$availableRoles, isAdmin=$isAdmin');
+
+      // Role/data may not be loaded yet (e.g. just after login). Retry before showing Access Restricted.
+      if (availableRoles.isEmpty && role == null && retryCount < maxRetries) {
+        await Future.delayed(retryDelay);
+        if (mounted) _initializeUserRole(retryCount: retryCount + 1);
+        return;
+      }
+
+      // Before showing Access Restricted, force one fresh read (bypass cache) in case cache was stale.
+      if (!isAdmin && availableRoles.isEmpty && role == null) {
+        UserRoleService.clearCache();
+        final freshRole = await UserRoleService.getCurrentUserRole();
+        final freshRoles = await UserRoleService.getAvailableRoles();
+        final freshAdmin = freshRole?.toLowerCase() == 'admin' ||
+            freshRole?.toLowerCase() == 'super_admin' ||
+            freshRoles.any((r) => r.toLowerCase() == 'admin' || r.toLowerCase() == 'super_admin');
+        if (freshAdmin && mounted) {
+          setState(() {
+            _currentUserId = currentUser.uid;
+            _isAdmin = true;
+          });
+          final futures = <Future>[
+            _loadShiftData(),
+            _loadSubjects(),
+            _loadTeachers(),
+            _loadLeaders(),
+            _loadStudents(),
+          ];
+          await Future.wait(futures);
+          await _loadShiftStatistics();
+          return;
+        }
+      }
 
       if (mounted) {
         setState(() {
@@ -580,6 +628,25 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
     });
   }
 
+  String _getSelectedTeacherName() {
+    if (_selectedTeacherFilter == null) return '';
+    try {
+      final teacher = _availableTeachers.firstWhere(
+        (t) => t.documentId == _selectedTeacherFilter,
+      );
+      return '${teacher.firstName} ${teacher.lastName}';
+    } catch (_) {
+      try {
+        final leader = _availableLeaders.firstWhere(
+          (l) => l.documentId == _selectedTeacherFilter,
+        );
+        return '${leader.firstName} ${leader.lastName}';
+      } catch (_) {
+        return _selectedTeacherFilter!;
+      }
+    }
+  }
+
   int _activeFilterCount() {
     int count = 0;
     if (_selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty) {
@@ -801,10 +868,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       fontWeight: FontWeight.w500,
                     ),
                     tabs: [
-                      Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
-                      Tab(text: 'Today (${_filteredTodayShifts.length})'),
-                      Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
-                      Tab(text: 'Active (${_filteredActiveShifts.length})'),
+                      Tab(text: AppLocalizations.of(context)!.shiftTabAllCount(_filteredAllShifts.length)),
+                      Tab(text: AppLocalizations.of(context)!.shiftTabTodayCount(_filteredTodayShifts.length)),
+                      Tab(text: AppLocalizations.of(context)!.shiftTabUpcomingCount(_filteredUpcomingShifts.length)),
+                      Tab(text: AppLocalizations.of(context)!.shiftTabActiveCount(_filteredActiveShifts.length)),
                     ],
                   ),
                 ),
@@ -880,6 +947,28 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                       },
                     ),
                   ),
+                  // Active teacher filter chip - shows when teacher is selected
+                  if (_selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Chip(
+                      label: Text(
+                        _getSelectedTeacherName(),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF0386FF)),
+                      ),
+                      avatar: const Icon(Icons.person, size: 16, color: Color(0xFF0386FF)),
+                      backgroundColor: const Color(0xFF0386FF).withOpacity(0.1),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      deleteIconColor: const Color(0xFF0386FF),
+                      onDeleted: () {
+                        setState(() {
+                          _selectedTeacherFilter = null;
+                          _filterShifts();
+                        });
+                      },
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                   if (_searchQuery.isNotEmpty || _activeFilterCount() > 0) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -904,7 +993,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                     children: [
                       IconButton(
                         tooltip:
-                            _filtersExpanded ? 'Hide filters' : 'Show filters',
+                            _filtersExpanded
+                                ? AppLocalizations.of(context)!.hideFilters
+                                : AppLocalizations.of(context)!.showFilters,
                         onPressed: () {
                           setState(() {
                             _filtersExpanded = !_filtersExpanded;
@@ -981,6 +1072,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                 });
               },
             ),
+          // Week navigation bar (Grid view) - always visible so users can go to any week
+          if (_viewMode == 'grid')
+            _buildWeekNavigationBar(),
           // Tab contents - fixed, scrollable region
           SizedBox(
             height: tabViewHeight,
@@ -994,6 +1088,106 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Week navigation bar shown in Grid view so users can move to any week
+  Widget _buildWeekNavigationBar() {
+    final l10n = AppLocalizations.of(context)!;
+    final weekEnd = _currentWeekStart.add(const Duration(days: 6));
+    final rangeStart = DateFormat('EEE M/d').format(_currentWeekStart);
+    final rangeEnd = DateFormat('EEE M/d').format(weekEnd);
+    final now = DateTime.now();
+    final todayWeekStart = now.subtract(Duration(days: now.weekday - 1));
+    final isCurrentWeek = _currentWeekStart.year == todayWeekStart.year &&
+        _currentWeekStart.month == todayWeekStart.month &&
+        _currentWeekStart.day == todayWeekStart.day;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xffF8FAFC),
+        border: Border(
+          bottom: BorderSide(color: Color(0xffE2E8F0), width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_view_week, size: 18, color: const Color(0xff0386FF)),
+          const SizedBox(width: 8),
+          Text(
+            l10n.previousWeek,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff0386FF),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 22),
+            color: const Color(0xff0386FF),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: l10n.previousWeek,
+            onPressed: () {
+              setState(() {
+                _currentWeekStart = _currentWeekStart.subtract(const Duration(days: 7));
+              });
+            },
+          ),
+          Expanded(
+            child: Text(
+              '$rangeStart → $rangeEnd',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff374151),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 22),
+            color: const Color(0xff0386FF),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: l10n.nextWeek,
+            onPressed: () {
+              setState(() {
+                _currentWeekStart = _currentWeekStart.add(const Duration(days: 7));
+              });
+            },
+          ),
+          Text(
+            l10n.nextWeek,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xff0386FF),
+            ),
+          ),
+          if (!isCurrentWeek) ...[
+            const SizedBox(width: 12),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _currentWeekStart = DateTime(now.year, now.month, now.day)
+                      .subtract(Duration(days: now.weekday - 1));
+                });
+              },
+              icon: const Icon(Icons.today, size: 16, color: Color(0xff0386FF)),
+              label: Text(
+                AppLocalizations.of(context)!.shiftThisWeek,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff0386FF),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1015,15 +1209,6 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
             onTap: () => setState(() {
               _viewMode = 'grid';
               _isCalendarView = false;
-            }),
-          ),
-          _buildToggleButton(
-            icon: Icons.calendar_view_week,
-            label: AppLocalizations.of(context)!.dashboardWeek,
-            selected: _viewMode == 'week',
-            onTap: () => setState(() {
-              _viewMode = 'week';
-              _isCalendarView = true;
             }),
           ),
           _buildToggleButton(
@@ -1178,7 +1363,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _isAdmin ? 'Shift Management' : 'My Shifts',
+                            _isAdmin ? AppLocalizations.of(context)!.shiftManagementTitle : AppLocalizations.of(context)!.sidebarMyshifts,
                             style: GoogleFonts.inter(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -1216,6 +1401,16 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                 builder: (context) =>
                                     const SubjectManagementDialog(),
                               ).then((_) => _loadShiftData());
+                            } else if (value == 'manage_templates') {
+                              showDialog(
+                                context: context,
+                                builder: (context) => TemplateManagementDialog(
+                                  onTemplateUpdated: () {
+                                    _loadShiftData();
+                                    _loadShiftStatistics();
+                                  },
+                                ),
+                              );
                             } else if (value == 'pay_settings') {
                               showDialog(
                                 context: context,
@@ -1234,6 +1429,17 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                                       size: 20, color: Color(0xff0386FF)),
                                   SizedBox(width: 8),
                                   Text(AppLocalizations.of(context)!.manageSubjects),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'manage_templates',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.event_repeat,
+                                      size: 20, color: Color(0xff8B5CF6)),
+                                  SizedBox(width: 8),
+                                  Text(AppLocalizations.of(context)!.shiftTemplateManagement),
                                 ],
                               ),
                             ),
@@ -1283,7 +1489,9 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                             size: 20,
                           ),
                           label: Text(
-                            _isSelectionMode ? 'Cancel' : 'Select',
+                            _isSelectionMode
+                                ? AppLocalizations.of(context)!.commonCancel
+                                : AppLocalizations.of(context)!.select,
                             style:
                                 GoogleFonts.inter(fontWeight: FontWeight.w600),
                           ),
@@ -1456,28 +1664,28 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
       child: Row(
         children: [
           _buildCompactStatChip(
-            'Total',
+            AppLocalizations.of(context)!.total,
             '${_shiftStats['total_shifts'] ?? 0}',
             Icons.event,
             const Color(0xff0386FF),
           ),
           const SizedBox(width: 8),
           _buildCompactStatChip(
-            'Active',
+            AppLocalizations.of(context)!.shiftActive,
             '${_shiftStats['active_shifts'] ?? 0}',
             Icons.play_circle_fill,
             const Color(0xff10B981),
           ),
           const SizedBox(width: 8),
           _buildCompactStatChip(
-            'Today',
+            AppLocalizations.of(context)!.dashboardToday,
             '${_shiftStats['today_shifts'] ?? 0}',
             Icons.today,
             const Color(0xffF59E0B),
           ),
           const SizedBox(width: 8),
           _buildCompactStatChip(
-            'Upcoming',
+            AppLocalizations.of(context)!.shiftUpcoming,
             '${_shiftStats['upcoming_shifts'] ?? 0}',
             Icons.upcoming,
             const Color(0xff8B5CF6),
@@ -1502,12 +1710,13 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 6),
           Text(
-            AppLocalizations.of(context)!.title,
+            title,
             style: GoogleFonts.inter(
               fontSize: 12,
               color: color,
             ),
           ),
+          const SizedBox(width: 4),
           Text(
             value,
             style: GoogleFonts.inter(
@@ -1552,7 +1761,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  AppLocalizations.of(context)!.live2,
+                  AppLocalizations.of(context)!.live,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1624,10 +1833,10 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
                   fontWeight: FontWeight.w500,
                 ),
                 tabs: [
-                  Tab(text: 'All Shifts (${_filteredAllShifts.length})'),
-                  Tab(text: 'Today (${_filteredTodayShifts.length})'),
-                  Tab(text: 'Upcoming (${_filteredUpcomingShifts.length})'),
-                  Tab(text: 'Active (${_filteredActiveShifts.length})'),
+                  Tab(text: AppLocalizations.of(context)!.shiftTabAllCount(_filteredAllShifts.length)),
+                  Tab(text: AppLocalizations.of(context)!.shiftTabTodayCount(_filteredTodayShifts.length)),
+                  Tab(text: AppLocalizations.of(context)!.shiftTabUpcomingCount(_filteredUpcomingShifts.length)),
+                  Tab(text: AppLocalizations.of(context)!.shiftTabActiveCount(_filteredActiveShifts.length)),
                 ],
               ),
             ),
@@ -1695,11 +1904,19 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           shiftDate.isBefore(weekEnd.add(const Duration(days: 1)));
     }).toList();
 
-    return WeeklyScheduleGrid(
+    // When a teacher is selected in the filter, show only that person in the grid
+    final teachersToShow = _selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty
+        ? _availableTeachers.where((t) => t.documentId == _selectedTeacherFilter).toList()
+        : _availableTeachers;
+    final leadersToShow = _selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty
+        ? _availableLeaders.where((l) => l.documentId == _selectedTeacherFilter).toList()
+        : _availableLeaders;
+
+    final grid = WeeklyScheduleGrid(
       weekStart: _currentWeekStart,
       shifts: weekShifts,
-      teachers: _availableTeachers,
-      leaders: _availableLeaders,
+      teachers: teachersToShow,
+      leaders: leadersToShow,
       scheduleTypeFilter: _scheduleTypeFilter,
       searchQuery: _searchQuery,
       onSearchChanged: (query) {
@@ -1722,9 +1939,17 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         );
       },
       onUserTap: (email) {
-        // Filter shifts by user
+        // Filter shifts by teacher - find teacher ID from email for proper filtering
+        final teacherId = _teacherEmailToIdMap[email];
         setState(() {
-          _searchQuery = email;
+          if (teacherId != null && teacherId.isNotEmpty) {
+            _selectedTeacherFilter = teacherId;
+          } else {
+            // Fallback to search by email if ID not found
+            _searchQuery = email;
+          }
+          _searchController.text = '';
+          _searchQuery = '';
           _filterShifts();
         });
       },
@@ -1740,6 +1965,36 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
           : null,
       isSelectionMode: _isAdmin && _isSelectionMode,
     );
+
+    // When filtering by teacher, show only that person and add a navigation hint
+    if (_selectedTeacherFilter != null && _selectedTeacherFilter!.isNotEmpty) {
+      final name = _getSelectedTeacherName();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: const Color(0xff0386FF)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context)!.shiftFilterHint(name, shifts.length),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xff6B7280),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: grid),
+        ],
+      );
+    }
+    return grid;
   }
 
   void _showCreateShiftDialogWithPrefill({
@@ -2638,7 +2893,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen>
         countryCode: '',
         mobilePhone: '',
         userType: 'teacher',
-        title: l10n.commonNotAvailable,
+        title: AppLocalizations.of(context)!.roleTeacher,
         employmentStartDate: '',
         kioskCode: '',
         dateAdded: '',
